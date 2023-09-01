@@ -24,7 +24,8 @@ Class {
 OTAgentInstaller class >> askPermission [
 	"command line and GUI"
 
-	self flag: #todo
+	self flag: #todo.
+	^ true
 ]
 
 { #category : #'class initialization' }
