@@ -1,5 +1,6 @@
 # OpenTelemetry-Pharo
-OpenTelemetry SDK and instrumentations for Pharo.
+[OpenTelemetry](https://opentelemetry.io/) SDK and instrumentations for [Pharo](https://pharo.org/).  
+Use it to instrument, generate, collect, and export telemetry data (metrics, logs, and traces) to help you analyze your software’s performance and behavior.
 
 ## Installation
 
