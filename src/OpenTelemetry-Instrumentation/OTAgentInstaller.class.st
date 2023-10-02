@@ -92,6 +92,15 @@ OTAgentInstaller class >> installModule: anInstrumentationModule [
 ]
 
 { #category : #actions }
+OTAgentInstaller class >> reinstall [
+
+	<script>
+	OTSpan reset.
+	self uninstall.
+	self install
+]
+
+{ #category : #actions }
 OTAgentInstaller class >> uninstall [
 	"Uninstall all the instrumentation modules present in this image."
 

@@ -93,6 +93,12 @@ OTSpan class >> producer [
 	^ #producer
 ]
 
+{ #category : #'class initialization' }
+OTSpan class >> reset [
+
+	Current := nil
+]
+
 { #category : #'instance creation' }
 OTSpan class >> rootIn: aContext [
 
