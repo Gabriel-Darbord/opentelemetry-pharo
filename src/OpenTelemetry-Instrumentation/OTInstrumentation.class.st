@@ -28,7 +28,7 @@ OTInstrumentation class >> configureMethodEnter: configuration [
 { #category : #configuring }
 OTInstrumentation class >> configureMethodExit: configuration [
 	"Redefine this method to configure the method exit instrumentation.
-	Use the API of OTInstrumentationConfiguration."
+	Use the instance-side API of OTAgentInstaller."
 ]
 
 { #category : #configuring }
@@ -92,7 +92,7 @@ OTInstrumentation class >> methodMatcher [
 { #category : #instrumenting }
 OTInstrumentation class >> onMethodEnter: arguments [
 	"This method will be executed BEFORE the instrumented method.
-	The arguments contain the data that was requested in #configureMethodEnter."
+	The arguments contain the data that was requested in #configureMethodEnter:"
 
 	self shouldBeImplemented
 ]
@@ -100,7 +100,7 @@ OTInstrumentation class >> onMethodEnter: arguments [
 { #category : #instrumenting }
 OTInstrumentation class >> onMethodExit: arguments [
 	"This method will be executed AFTER the instrumented method.
-	The arguments contain the data that was requested in #configureMethodExit."
+	The arguments contain the data that was requested in #configureMethodExit:"
 
 	self shouldBeImplemented
 ]

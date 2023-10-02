@@ -73,12 +73,35 @@ OTInstrumenter >> contextProducer: anObject [
 ]
 
 { #category : #instrumenting }
+OTInstrumenter >> end [
+	"Mark the end of the current span."
+
+	^ self end: OTSpan current error: nil
+]
+
+{ #category : #instrumenting }
+OTInstrumenter >> end: span [
+	"Mark the end of a span execution."
+
+	^ self end: span error: nil
+]
+
+{ #category : #instrumenting }
+OTInstrumenter >> end: span error: error [
+	"Mark the end of a span execution."
+
+	error ifNotNil: [ span recordException: error ].
+	span end.
+	^ OTSpanProcessor instance process: span
+]
+
+{ #category : #instrumenting }
 OTInstrumenter >> end: span request: request response: response error: error [
 	"Mark the end of a span execution."
 
 	error ifNotNil: [ span recordException: error ].
 	span end.
-	OTSpanProcessor instance process: span
+	^ OTSpanProcessor instance process: span
 ]
 
 { #category : #accessing }
@@ -147,8 +170,15 @@ OTInstrumenter >> spanSuppressionStrategy: aBlock [
 ]
 
 { #category : #instrumenting }
+OTInstrumenter >> startRequest: request [
+	"Start a new operation to be instrumented."
+
+	^ self startUnder: OTSpan current request: request
+]
+
+{ #category : #instrumenting }
 OTInstrumenter >> startUnder: parentSpan request: request [
-	"Starts a new operation to be instrumented.
+	"Start a new operation to be instrumented.
 	The parentSpan is the parent of the resulting instrumented operation."
 
 	^ (parentSpan
