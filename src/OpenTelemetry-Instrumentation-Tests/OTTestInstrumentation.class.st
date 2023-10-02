@@ -14,16 +14,10 @@ OTTestInstrumentation class >> classMatcher [
 ]
 
 { #category : #configuring }
-OTTestInstrumentation class >> configureMethodEnter: configuration [
+OTTestInstrumentation class >> configure: configuration [
 
 	configuration beOneShot.
 	hasRun := false
-]
-
-{ #category : #testing }
-OTTestInstrumentation class >> hasMethodEnter [
-
-	^ true
 ]
 
 { #category : #accessing }

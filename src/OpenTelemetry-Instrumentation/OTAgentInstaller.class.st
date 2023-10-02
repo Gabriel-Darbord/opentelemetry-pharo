@@ -69,18 +69,14 @@ OTAgentInstaller class >> install [
 { #category : #actions }
 OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 
-	| enter exit |
-	anInstrumentation defineInstrumenter.
-	enter := anInstrumentation hasMethodEnter ifTrue: [
-		         self new configureEnterWith: anInstrumentation ].
-	exit := anInstrumentation hasMethodExit ifTrue: [
-		        self new configureExitWith: anInstrumentation ].
-	enter isNil & exit isNil ifTrue: [ ^ self ].
-	anInstrumentation matchingMethodsDo: [ :method |
-		(method ast links noneSatisfy: [ :link |
-			 link metaObject == anInstrumentation ]) ifTrue: [
-			enter ifNotNil: [ enter instrument: method ].
-			exit ifNotNil: [ exit instrument: method ] ] ]
+	| configuration |
+	configuration := self new configureWith: anInstrumentation.
+	anInstrumentation
+		defineInstrumenter;
+		matchingMethodsDo: [ :method |
+			(method ast links noneSatisfy: [ :link |
+					 link metaObject == anInstrumentation ]) ifTrue: [
+					configuration instrument: method ] ]
 ]
 
 { #category : #actions }
@@ -133,34 +129,15 @@ OTAgentInstaller >> beOneShot [
 ]
 
 { #category : #private }
-OTAgentInstaller >> configureEnterWith: anInstrumentation [
+OTAgentInstaller >> configureWith: anInstrumentation [
 	"This is a private method, do not use this!
-	Configure the MetaLink to make it run the method enter instrumentation defined in an OTInstrumentation subclass."
+	Configure the MetaLink to make it run the method instrumentation defined in an OTInstrumentation subclass."
 
-	anInstrumentation configureMethodEnter: self.
-	metalink control: #before.
-	metalink selector: #onMethodEnter:.
+	anInstrumentation configure: self.
+	metalink control: #instead.
+	metalink selector: #run:.
 	metalink arguments: arguments keys.
 	metalink metaObject: anInstrumentation
-]
-
-{ #category : #private }
-OTAgentInstaller >> configureExitWith: anInstrumentation [
-	"This is a private method, do not use this!
-	Configure the MetaLink to make it run the method exit instrumentation defined in an OTInstrumentation subclass."
-
-	anInstrumentation configureMethodExit: self.
-	metalink control: #after.
-	metalink selector: #onMethodExit:.
-	metalink arguments: arguments keys.
-	metalink metaObject: anInstrumentation
-]
-
-{ #category : #'API - configuration' }
-OTAgentInstaller >> ensureExit [
-	"Ensure the method exit instrumentation is executed."
-
-	metalink options remove: #optionWeakAfter ifAbsent: nil
 ]
 
 { #category : #initialization }
@@ -170,7 +147,9 @@ OTAgentInstaller >> initialize [
 	"number of args depends on the configuration, so dump all in array as single arg"
 	metalink optionArgsAsArray: true.
 	"the configurable arguments that will be given to the instrumentation"
-	arguments := OrderedDictionary new
+	arguments := OrderedDictionary new.
+	"always with RFMethodOperation containing method, arguments and receiver."
+	arguments add: #operation -> nil
 ]
 
 { #category : #private }
@@ -179,13 +158,6 @@ OTAgentInstaller >> instrument: aMethod [
 	Install the metalink on the instrumented method."
 
 	aMethod ast link: metalink
-]
-
-{ #category : #'API - configuration' }
-OTAgentInstaller >> withArguments [
-	"Arguments of the instrumented method."
-
-	arguments add: #arguments -> nil
 ]
 
 { #category : #'API - configuration' }
@@ -203,31 +175,10 @@ OTAgentInstaller >> withContext [
 ]
 
 { #category : #'API - configuration' }
-OTAgentInstaller >> withMethod [
-	"Method the instrumentation is installed on."
-
-	arguments add: #originalmethod -> nil
-]
-
-{ #category : #'API - configuration' }
 OTAgentInstaller >> withObject [
 	"Object executing the instrumented method."
 
 	arguments add: #object -> nil
-]
-
-{ #category : #'API - configuration' }
-OTAgentInstaller >> withOperation [
-	"RFMethodOperation containing method, arguments and receiver."
-
-	arguments add: #operation -> nil
-]
-
-{ #category : #'API - configuration' }
-OTAgentInstaller >> withReceiver [
-	"Receiver of the instrumented method."
-
-	arguments add: #receiver -> nil
 ]
 
 { #category : #'API - configuration' }

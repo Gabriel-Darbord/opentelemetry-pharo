@@ -20,14 +20,8 @@ OTInstrumentation class >> classMatcher [
 ]
 
 { #category : #configuring }
-OTInstrumentation class >> configureMethodEnter: configuration [
+OTInstrumentation class >> configure: configuration [
 	"Redefine this method to configure the method enter instrumentation.
-	Use the instance-side API of OTAgentInstaller."
-]
-
-{ #category : #configuring }
-OTInstrumentation class >> configureMethodExit: configuration [
-	"Redefine this method to configure the method exit instrumentation.
 	Use the instance-side API of OTAgentInstaller."
 ]
 
@@ -43,20 +37,6 @@ OTInstrumentation class >> defineInstrumenter [
 		spanKindExtractor: [ :request | ... ];
 		spanSuppressionStrategy: [ :span :kind | ... ];
 		contextProducer: [ ... ]"
-]
-
-{ #category : #testing }
-OTInstrumentation class >> hasMethodEnter [
-	"Redefine this method to control whether the method enter instrumentation should be executed."
-
-	^ false
-]
-
-{ #category : #testing }
-OTInstrumentation class >> hasMethodExit [
-	"Redefine this method to control whether the method exit instrumentation should be executed."
-
-	^ false
 ]
 
 { #category : #actions }
@@ -91,18 +71,15 @@ OTInstrumentation class >> methodMatcher [
 
 { #category : #instrumenting }
 OTInstrumentation class >> onMethodEnter: arguments [
-	"This method will be executed BEFORE the instrumented method.
-	The arguments contain the data that was requested in #configureMethodEnter:"
-
-	self shouldBeImplemented
+	"This method is executed BEFORE the instrumented method.
+	The arguments contain the RFMethodOperation plus the data requested in #configure:"
 ]
 
 { #category : #instrumenting }
-OTInstrumentation class >> onMethodExit: arguments [
-	"This method will be executed AFTER the instrumented method.
-	The arguments contain the data that was requested in #configureMethodExit:"
-
-	self shouldBeImplemented
+OTInstrumentation class >> onMethodExit: arguments withValue: returnValue [
+	"This method is executed AFTER the instrumented method.
+	The first argument contains the RFMethodOperation plus the data requested in #configure:
+	The second contains the return value of the method."
 ]
 
 { #category : #matching }
@@ -111,6 +88,15 @@ OTInstrumentation class >> packageMatcher [
 	Subclasses should redefine this method to focus the search on interesting packages."
 
 	^ OTMatcher any
+]
+
+{ #category : #private }
+OTInstrumentation class >> run: arguments [
+
+	| returnValue |
+	self onMethodEnter: arguments.
+	[ returnValue := arguments first value ] ensure: [
+		self onMethodExit: arguments withValue: returnValue ]
 ]
 
 { #category : #actions }

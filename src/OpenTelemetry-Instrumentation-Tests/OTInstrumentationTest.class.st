@@ -14,16 +14,9 @@ OTInstrumentationTest >> setUp [
 	OTTestInstrumentation install
 ]
 
-{ #category : #running }
-OTInstrumentationTest >> tearDown [
-
-	OTTestInstrumentation uninstall.
-	super tearDown
-]
-
 { #category : #tests }
-OTInstrumentationTest >> testInstrumentWithOnEnter [
-	"trigger the instrumentation"
+OTInstrumentationTest >> testHasRun [
+	"Simple test to see if the instrumentation runs."
 
 	self deny: OTTestInstrumentation hasRun.
 	OTTestTarget new answer.
