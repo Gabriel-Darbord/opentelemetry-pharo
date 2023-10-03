@@ -161,13 +161,6 @@ OTAgentInstaller >> instrument: aMethod [
 ]
 
 { #category : #'API - configuration' }
-OTAgentInstaller >> withClass [
-	"Class executing the instrumented method."
-
-	arguments add: #class -> nil
-]
-
-{ #category : #'API - configuration' }
 OTAgentInstaller >> withContext [
 	"The executing context, note that it is slow to reify."
 
@@ -182,22 +175,8 @@ OTAgentInstaller >> withObject [
 ]
 
 { #category : #'API - configuration' }
-OTAgentInstaller >> withSelector [
-	"Selector of the instrumented method."
-
-	arguments add: #selector -> nil
-]
-
-{ #category : #'API - configuration' }
 OTAgentInstaller >> withSender [
 	"Sender of the instrumented method."
 
 	arguments add: #sender -> nil
-]
-
-{ #category : #'API - configuration' }
-OTAgentInstaller >> withValue [
-	"Result of the instrumented method, only availabe on exit."
-
-	arguments add: #value -> nil
 ]
