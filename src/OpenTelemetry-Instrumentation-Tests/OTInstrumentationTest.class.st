@@ -4,6 +4,9 @@ An OTInstrumentationConfigurationTest is a test class for testing the behavior o
 Class {
 	#name : #OTInstrumentationTest,
 	#superclass : #TestCase,
+	#instVars : [
+		'target'
+	],
 	#category : #'OpenTelemetry-Instrumentation-Tests'
 }
 
@@ -11,14 +14,50 @@ Class {
 OTInstrumentationTest >> setUp [
 
 	super setUp.
-	OTTestInstrumentation install
+	OTTestSimpleInstrumentation install.
+	target := OTTestTarget new
+]
+
+{ #category : #running }
+OTInstrumentationTest >> tearDown [
+
+	OTTestSimpleInstrumentation reset.
+	super tearDown
 ]
 
 { #category : #tests }
-OTInstrumentationTest >> testHasRun [
-	"Simple test to see if the instrumentation runs."
+OTInstrumentationTest >> testEnsureHasRunOnExit [
 
-	self deny: OTTestInstrumentation hasRun.
-	OTTestTarget new answer.
-	self assert: OTTestInstrumentation hasRun
+	self deny: OTTestSimpleInstrumentation hasRunOnExit.
+	[
+	target fail.
+	self fail "should not reach" ]
+		on: Error
+		do: [ nil ].
+	self assert: OTTestSimpleInstrumentation hasRunOnExit
+]
+
+{ #category : #tests }
+OTInstrumentationTest >> testHasRunOnEnter [
+
+	self deny: OTTestSimpleInstrumentation hasRunOnEnter.
+	target answer.
+	self assert: OTTestSimpleInstrumentation hasRunOnEnter
+]
+
+{ #category : #tests }
+OTInstrumentationTest >> testHasRunOnExit [
+
+	self deny: OTTestSimpleInstrumentation hasRunOnExit.
+	target answer.
+	self assert: OTTestSimpleInstrumentation hasRunOnExit
+]
+
+{ #category : #tests }
+OTInstrumentationTest >> testIsInstalled [
+
+	self
+		shouldnt: ((OTTestTarget >> #answer) ast links detect: [ :link |
+				 link metaObject == OTTestSimpleInstrumentation ])
+		raise: NotFound
 ]

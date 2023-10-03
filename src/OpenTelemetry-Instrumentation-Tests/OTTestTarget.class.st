@@ -9,3 +9,9 @@ OTTestTarget >> answer [
 
 	^ 42
 ]
+
+{ #category : #asserting }
+OTTestTarget >> fail [
+
+	Error signal
+]
