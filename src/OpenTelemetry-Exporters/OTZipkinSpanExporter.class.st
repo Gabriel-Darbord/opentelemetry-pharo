@@ -42,7 +42,7 @@ OTZipkinSpanExporter >> transform: spans [
 
 	^ spans collect: [ :span |
 		  | data |
-		  data := Dictionary new: span data size.
+		  data := Dictionary new.
 		  data
 			  at: 'traceId' put: span traceId printBits;
 			  at: 'id' put: span spanId printMostSignificantBits;
