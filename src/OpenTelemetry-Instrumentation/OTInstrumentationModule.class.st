@@ -32,6 +32,14 @@ OTInstrumentationModule class >> isActive [
 	^ true
 ]
 
+{ #category : #actions }
+OTInstrumentationModule class >> reinstall [
+
+	<script>
+	self uninstall.
+	self install
+]
+
 { #category : #accessing }
 OTInstrumentationModule class >> typeInstrumentations [
 	"My subclasses must return the list of TypeInstrumentations contained in the module."
