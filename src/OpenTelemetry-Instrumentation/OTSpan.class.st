@@ -12,7 +12,18 @@ Class {
 	#name : #OTSpan,
 	#superclass : #Object,
 	#instVars : [
-		'data'
+		'spanId',
+		'traceId',
+		'parent',
+		'name',
+		'context',
+		'kind',
+		'startTime',
+		'endTime',
+		'status',
+		'instrumentationName',
+		'attributes',
+		'events'
 	],
 	#classVars : [
 		'Current'
@@ -126,38 +137,33 @@ OTSpan class >> under: parentSpan [
 { #category : #accessing }
 OTSpan >> attributeAt: key put: value [
 
-	data at: 'attributes' at: key put: value
+	(attributes ifNil: [ attributes := Dictionary new ])
+		at: key
+		put: value
 ]
 
 { #category : #accessing }
 OTSpan >> attributes [
 
-	^ data at: 'attributes' ifAbsent: nil
+	^ attributes
 ]
 
 { #category : #accessing }
 OTSpan >> attributes: aDictionary [
 
-	data at: 'attributes' put: aDictionary
+	attributes := aDictionary
 ]
 
 { #category : #accessing }
 OTSpan >> context [
 
-	^ data at: 'context' ifAbsent: nil
+	^ context
 ]
 
 { #category : #accessing }
 OTSpan >> context: aContext [
 
-	data at: 'context' put: aContext
-]
-
-{ #category : #accessing }
-OTSpan >> data [
-	"The dictionary containing the span data"
-
-	^ data
+	context := aContext
 ]
 
 { #category : #control }
@@ -170,80 +176,79 @@ OTSpan >> end [
 { #category : #accessing }
 OTSpan >> endTime [
 
-	^ data at: 'endTime' ifAbsent: nil
+	^ endTime
 ]
 
 { #category : #accessing }
 OTSpan >> endTime: aDateAndTime [
 
-	data at: 'endTime' put: aDateAndTime
+	endTime := aDateAndTime
 ]
 
 { #category : #accessing }
 OTSpan >> events [
 
-	^ data at: 'events' ifAbsent: nil
+	^ events
 ]
 
 { #category : #accessing }
-OTSpan >> events: anObject [
+OTSpan >> events: aDictionary [
 
-	data at: 'events' put: anObject
+	events := aDictionary
 ]
 
 { #category : #initialization }
 OTSpan >> initialize [
 
-	data := Dictionary new.
-	data at: 'spanId' put: UUIDGenerator next
+	spanId := UUIDGenerator next
 ]
 
 { #category : #accessing }
 OTSpan >> instrumentationName [
 
-	^ data at: 'instrumentationName' ifAbsent: nil
+	^ instrumentationName
 ]
 
 { #category : #accessing }
 OTSpan >> instrumentationName: aString [
 
-	data at: 'instrumentationName' put: aString
+	instrumentationName := aString
 ]
 
 { #category : #accessing }
 OTSpan >> kind [
 
-	^ data at: 'kind' ifAbsent: nil
+	^ kind
 ]
 
 { #category : #accessing }
 OTSpan >> kind: aSpanKind [
 
-	data at: 'kind' put: aSpanKind
+	kind := aSpanKind
 ]
 
 { #category : #accessing }
 OTSpan >> name [
 
-	^ data at: 'name' ifAbsent: nil
+	^ name
 ]
 
 { #category : #accessing }
 OTSpan >> name: aString [
 
-	data at: 'name' put: aString
+	name := aString
 ]
 
 { #category : #accessing }
 OTSpan >> parent [
 
-	^ data at: 'parent' ifAbsent: nil
+	^ parent
 ]
 
 { #category : #accessing }
 OTSpan >> parent: anObject [
 
-	data at: 'parent' put: anObject
+	parent := anObject
 ]
 
 { #category : #recording }
@@ -256,7 +261,7 @@ OTSpan >> recordException: anException [
 { #category : #accessing }
 OTSpan >> spanId [
 
-	^ data at: 'spanId'
+	^ spanId
 ]
 
 { #category : #control }
@@ -269,35 +274,55 @@ OTSpan >> start [
 { #category : #accessing }
 OTSpan >> startTime [
 
-	^ data at: 'startTime'
+	^ startTime
 ]
 
 { #category : #accessing }
 OTSpan >> startTime: aDateAndTime [
 
-	data at: 'startTime' put: aDateAndTime
+	startTime := aDateAndTime
 ]
 
 { #category : #accessing }
 OTSpan >> status [
 
-	^ data at: 'status' ifAbsent: nil
+	^ status
 ]
 
 { #category : #accessing }
 OTSpan >> status: aString [
 
-	data at: 'status' put: aString
+	status := aString
+]
+
+{ #category : #'ston persistence' }
+OTSpan >> stonOn: stonWriter [
+
+	stonWriter writeObject: self streamMap: [ :map |
+		map
+			at: #spanId put: spanId;
+			at: #traceId put: traceId;
+			at: #name put: name;
+			at: #context put: context;
+			at: #kind put: kind;
+			at: #startTime put: startTime;
+			at: #endTime put: endTime;
+			at: #status put: status;
+			at: #instrumentationName put: instrumentationName.
+		parent ifNotNil: [ map at: #parentId put: parent spanId ].
+		attributes isEmptyOrNil ifFalse: [
+			map at: #attributes put: attributes ].
+		events isEmptyOrNil ifFalse: [ map at: #events put: events ] ]
 ]
 
 { #category : #accessing }
 OTSpan >> traceId [
 
-	^ data at: 'traceId' ifAbsent: nil
+	^ traceId
 ]
 
 { #category : #accessing }
 OTSpan >> traceId: id [
 
-	data at: 'traceId' put: id
+	traceId := id
 ]
