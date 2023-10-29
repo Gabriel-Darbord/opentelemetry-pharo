@@ -5,21 +5,20 @@ Developers can implement custom subclasses to integrate OpenTelemetry with speci
 Class {
 	#name : #OTSpanExporter,
 	#superclass : #Object,
-	#classInstVars : [
-		'instance'
+	#classVars : [
+		'Instance'
 	],
 	#category : #'OpenTelemetry-Exporters'
 }
 
 { #category : #accessing }
-OTSpanExporter class >> instance [
-instance := nil.
-	^ instance ifNil: [ instance := self readConfiguration ]
+OTSpanExporter class >> defaultFileExporter [
+
+	^ OTFileExporter new
 ]
 
 { #category : #accessing }
-OTSpanExporter class >> readConfiguration [
-	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
+OTSpanExporter class >> defaultZipkinExporter [
 
 	| exporter |
 	exporter := OTZipkinSpanExporter new.
@@ -29,8 +28,27 @@ OTSpanExporter class >> readConfiguration [
 	^ exporter
 ]
 
+{ #category : #accessing }
+OTSpanExporter class >> instance [
+
+	^ Instance ifNil: [ Instance := self readConfiguration ]
+]
+
+{ #category : #accessing }
+OTSpanExporter class >> instance: aSpanExporter [
+
+	Instance := aSpanExporter
+]
+
+{ #category : #accessing }
+OTSpanExporter class >> readConfiguration [
+	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
+
+	^ self defaultFileExporter
+]
+
 { #category : #exporting }
-OTSpanExporter >> export: span [
+OTSpanExporter >> export: spans [
 
 	self subclassResponsibility
 ]
