@@ -91,16 +91,18 @@ OTAgentInstaller class >> installModule: anInstrumentationModule [
 OTAgentInstaller class >> reinstall [
 
 	<script>
-	OTSpan reset.
 	self uninstall.
 	self install
 ]
 
 { #category : #actions }
 OTAgentInstaller class >> uninstall [
-	"Uninstall all the instrumentation modules present in this image."
+	"Uninstall all of the instrumentation present in this image."
 
 	<script>
+	OTSpan reset.
+	OTSpanProcessor instance: nil.
+	OTSpanExporter instance: nil.
 	OTInstrumentationModule subclasses do: [ :module |
 		self uninstallModule: module ]
 ]
