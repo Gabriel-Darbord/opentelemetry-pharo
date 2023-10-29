@@ -95,8 +95,8 @@ OTInstrumentation class >> run: arguments [
 
 	| returnValue |
 	self onMethodEnter: arguments.
-	[ returnValue := arguments first value ] ensure: [
-		self onMethodExit: arguments withValue: returnValue ]
+	^ [ returnValue := arguments first value ] ensure: [
+		  self onMethodExit: arguments withValue: returnValue ]
 ]
 
 { #category : #actions }
