@@ -52,5 +52,5 @@ OTInstrumentationModule class >> uninstall [
 	"Uninstall a specific subclass of InstrumentationModule."
 
 	<script>
-	OTAgentInstaller uninstallModule: self
+	OTAgentInstaller resetEnvironment uninstallModule: self
 ]
