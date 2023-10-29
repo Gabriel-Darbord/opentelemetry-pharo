@@ -13,5 +13,5 @@ OTSUnitInstrumentationModule class >> instrumentationName [
 { #category : #accessing }
 OTSUnitInstrumentationModule class >> typeInstrumentations [
 
-	^ { OTSUnitTestInstrumentation }
+	^ { OTSUnitInstrumentation }
 ]
