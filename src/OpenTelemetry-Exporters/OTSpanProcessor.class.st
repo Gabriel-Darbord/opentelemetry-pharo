@@ -9,8 +9,8 @@ By implementing custom SpanProcessor classes, developers can tailor span process
 Class {
 	#name : #OTSpanProcessor,
 	#superclass : #Object,
-	#classInstVars : [
-		'instance'
+	#classVars : [
+		'Instance'
 	],
 	#category : #'OpenTelemetry-Exporters'
 }
@@ -18,17 +18,25 @@ Class {
 { #category : #accessing }
 OTSpanProcessor class >> instance [
 
-	^ instance ifNil: [ instance := self readConfiguration ]
+	^ Instance ifNil: [ Instance := self readConfiguration ]
+]
+
+{ #category : #accessing }
+OTSpanProcessor class >> instance: aSpanProcessor [
+
+	Instance := aSpanProcessor
 ]
 
 { #category : #accessing }
 OTSpanProcessor class >> readConfiguration [
+	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
 
-	^ OTSimpleSpanProcessor new
+	^ OTBatchSpanProcessor new
 ]
 
 { #category : #processing }
 OTSpanProcessor >> process: span [
+	"Export the span and return true if it was accepted"
 
 	self subclassResponsibility
 ]
