@@ -38,6 +38,18 @@ OTInstrumentationTest >> testEnsureHasRunOnExit [
 ]
 
 { #category : #tests }
+OTInstrumentationTest >> testHasConfiguredArguments [
+
+	| arguments |
+	target answer. "run instrumented method"
+	arguments := OTTestSimpleInstrumentation capturedArguments.
+	self assert: arguments size equals: 4.
+	self assert: arguments second isContext.
+	self assert: arguments third class equals: OTTestTarget.
+	self assert: arguments fourth class equals: ReflectiveMethod
+]
+
+{ #category : #tests }
 OTInstrumentationTest >> testHasRunOnEnter [
 
 	self deny: OTTestSimpleInstrumentation hasRunOnEnter.
