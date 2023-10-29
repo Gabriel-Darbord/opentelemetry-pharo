@@ -22,13 +22,6 @@ OTSUnitInstrumentation class >> classMatcher [
 ]
 
 { #category : #configuring }
-OTSUnitInstrumentation class >> configureMethodEnter: configuration [
-
-	configuration withReceiver.
-	counter := 0
-]
-
-{ #category : #configuring }
 OTSUnitInstrumentation class >> defineInstrumenter [
 
 	instrumenter := OTInstrumenter forInstrumentationNamed: 'sunit'
@@ -50,9 +43,9 @@ OTSUnitInstrumentation class >> onMethodEnter: arguments [
 ]
 
 { #category : #instrumenting }
-OTSUnitInstrumentation class >> onMethodExit: arguments [
+OTSUnitInstrumentation class >> onMethodExit: arguments withValue: value [
 
-	instrumenter end: OTSpan current
+	instrumenter end
 ]
 
 { #category : #matching }
