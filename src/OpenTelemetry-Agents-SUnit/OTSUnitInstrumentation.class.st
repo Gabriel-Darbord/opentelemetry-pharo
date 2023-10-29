@@ -45,8 +45,8 @@ OTSUnitInstrumentation class >> onMethodEnter: arguments [
 
 	instrumenter startRequest:
 		(arguments first receiver class == TestSuite
-			 ifTrue: [ arguments first name ]
-			 ifFalse: [ arguments first ])
+			 ifTrue: [ arguments first receiver name ]
+			 ifFalse: [ arguments first receiver printString ])
 ]
 
 { #category : #instrumenting }
