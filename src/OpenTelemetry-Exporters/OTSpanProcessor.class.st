@@ -34,6 +34,13 @@ OTSpanProcessor class >> readConfiguration [
 	^ OTBatchSpanProcessor new
 ]
 
+{ #category : #initialization }
+OTSpanProcessor class >> reset [
+
+	Instance ifNotNil: [ Instance flush ].
+	Instance := nil
+]
+
 { #category : #processing }
 OTSpanProcessor >> flush [
 	"Redefined by subclasses to terminate current span processing and forward to exporter."

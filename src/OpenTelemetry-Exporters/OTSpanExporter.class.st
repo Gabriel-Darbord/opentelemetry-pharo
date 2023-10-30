@@ -47,6 +47,12 @@ OTSpanExporter class >> readConfiguration [
 	^ self defaultFileExporter
 ]
 
+{ #category : #initialization }
+OTSpanExporter class >> reset [
+
+	Instance := nil
+]
+
 { #category : #exporting }
 OTSpanExporter >> export: spans [
 

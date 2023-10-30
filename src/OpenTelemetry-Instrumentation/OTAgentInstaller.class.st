@@ -100,8 +100,8 @@ OTAgentInstaller class >> resetEnvironment [
 
 	<script>
 	OTSpan reset.
-	OTSpanProcessor instance: nil.
-	OTSpanExporter instance: nil
+	OTSpanProcessor reset.
+	OTSpanExporter reset
 ]
 
 { #category : #actions }
