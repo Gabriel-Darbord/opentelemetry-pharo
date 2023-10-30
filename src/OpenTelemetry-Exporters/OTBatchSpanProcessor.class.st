@@ -17,7 +17,7 @@ OTBatchSpanProcessor class >> initialize [
 { #category : #'system startup' }
 OTBatchSpanProcessor class >> shutDown [
 
-	self allInstancesDo: [ :processor | processor export ]
+	self allInstancesDo: [ :processor | processor flush ]
 ]
 
 { #category : #processing }
@@ -33,7 +33,7 @@ OTBatchSpanProcessor >> batchSize: anInteger [
 ]
 
 { #category : #processing }
-OTBatchSpanProcessor >> export [
+OTBatchSpanProcessor >> flush [
 
 	^ OTSpanExporter instance export: batch
 ]
@@ -52,6 +52,5 @@ OTBatchSpanProcessor >> process: span [
 
 	batch add: span.
 	batch size < batchSize ifTrue: [ ^ true ].
-	^ [ self export ] ensure: [
-		  batch := OrderedCollection new: batchSize ]
+	^ [ self flush ] ensure: [ batch := OrderedCollection new: batchSize ]
 ]

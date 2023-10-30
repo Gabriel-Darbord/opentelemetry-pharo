@@ -35,6 +35,11 @@ OTSpanProcessor class >> readConfiguration [
 ]
 
 { #category : #processing }
+OTSpanProcessor >> flush [
+	"Redefined by subclasses to terminate current span processing and forward to exporter."
+]
+
+{ #category : #processing }
 OTSpanProcessor >> process: span [
 	"Export the span and return true if it was accepted"
 
