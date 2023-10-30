@@ -1,6 +1,6 @@
-Extension { #name : #ClassDescription }
+Extension { #name : 'ClassDescription' }
 
-{ #category : #'*OpenTelemetry-Instrumentation' }
+{ #category : '*OpenTelemetry-Instrumentation' }
 ClassDescription >> otName [
 
 	^ self name

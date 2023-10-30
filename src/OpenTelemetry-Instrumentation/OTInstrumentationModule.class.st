@@ -3,12 +3,13 @@ I group several connected `OTTypeInstrumentation`s together, sharing instrumenta
 Ideally all types in a single instrumented library should live in a single module.
 "
 Class {
-	#name : #OTInstrumentationModule,
-	#superclass : #Object,
-	#category : #'OpenTelemetry-Instrumentation'
+	#name : 'OTInstrumentationModule',
+	#superclass : 'Object',
+	#category : 'OpenTelemetry-Instrumentation',
+	#package : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTInstrumentationModule class >> install [
 	"Install a specific subclass of InstrumentationModule."
 
@@ -16,7 +17,7 @@ OTInstrumentationModule class >> install [
 	OTAgentInstaller installModule: self
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTInstrumentationModule class >> instrumentationName [
 	"My subclasses must return a string with the name of the instrumentation module.
 	Ideally, the name should be the same as the library being instrumented.
@@ -25,14 +26,14 @@ OTInstrumentationModule class >> instrumentationName [
 	self subclassResponsibility
 ]
 
-{ #category : #testing }
+{ #category : 'testing' }
 OTInstrumentationModule class >> isActive [
 	"Instrumentation modules are active by default."
 
 	^ true
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTInstrumentationModule class >> reinstall [
 
 	<script>
@@ -40,14 +41,14 @@ OTInstrumentationModule class >> reinstall [
 	self install
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTInstrumentationModule class >> typeInstrumentations [
 	"My subclasses must return the list of TypeInstrumentations contained in the module."
 
 	self subclassResponsibility
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTInstrumentationModule class >> uninstall [
 	"Uninstall a specific subclass of InstrumentationModule."
 

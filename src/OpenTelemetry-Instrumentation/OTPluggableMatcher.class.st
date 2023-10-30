@@ -2,27 +2,28 @@
 A matcher that uses a one-arg block to evaluate whether to accept a given element.
 "
 Class {
-	#name : #OTPluggableMatcher,
-	#superclass : #OTMatcher,
+	#name : 'OTPluggableMatcher',
+	#superclass : 'OTMatcher',
 	#instVars : [
 		'block'
 	],
-	#category : #'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation',
+	#package : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTPluggableMatcher >> block [
 
 	^ block
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTPluggableMatcher >> block: aBlock [
 
 	block := aBlock
 ]
 
-{ #category : #testing }
+{ #category : 'testing' }
 OTPluggableMatcher >> matches: target [
 
 	^ block value: target

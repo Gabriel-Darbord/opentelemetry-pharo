@@ -1,6 +1,6 @@
-Extension { #name : #CompiledMethod }
+Extension { #name : 'CompiledMethod' }
 
-{ #category : #'*OpenTelemetry-Instrumentation' }
+{ #category : '*OpenTelemetry-Instrumentation' }
 CompiledMethod >> otName [
 
 	^ self selector
