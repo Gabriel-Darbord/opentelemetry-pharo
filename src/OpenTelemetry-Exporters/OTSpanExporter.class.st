@@ -14,7 +14,7 @@ Class {
 { #category : #accessing }
 OTSpanExporter class >> defaultFileExporter [
 
-	^ OTFileExporter new
+	^ OTFileSpanExporter new
 ]
 
 { #category : #accessing }

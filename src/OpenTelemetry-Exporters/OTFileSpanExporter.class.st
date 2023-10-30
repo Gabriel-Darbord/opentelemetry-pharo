@@ -1,5 +1,5 @@
 Class {
-	#name : #OTFileExporter,
+	#name : #OTFileSpanExporter,
 	#superclass : #OTSpanExporter,
 	#instVars : [
 		'folder'
@@ -8,7 +8,7 @@ Class {
 }
 
 { #category : #exporting }
-OTFileExporter >> export: spans [
+OTFileSpanExporter >> export: spans [
 
 	(self folder asFileReference / DateAndTime now asString)
 		ensureCreateFile writeStreamDo: [ :stream |
@@ -16,13 +16,13 @@ OTFileExporter >> export: spans [
 ]
 
 { #category : #hook }
-OTFileExporter >> folder [
+OTFileSpanExporter >> folder [
 
 	^ folder ifNil: [ folder := 'pharo-local/OpenTelemetry/traces' ]
 ]
 
 { #category : #hook }
-OTFileExporter >> folder: aString [
+OTFileSpanExporter >> folder: aString [
 
 	folder := aString
 ]
