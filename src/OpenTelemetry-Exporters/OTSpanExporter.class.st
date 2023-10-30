@@ -3,21 +3,22 @@ I am a fundamental component within the OpenTelemetry framework that facilitates
 Developers can implement custom subclasses to integrate OpenTelemetry with specific telemetry data consumers, enabling compatibility with various third-party systems.
 "
 Class {
-	#name : #OTSpanExporter,
-	#superclass : #Object,
+	#name : 'OTSpanExporter',
+	#superclass : 'Object',
 	#classVars : [
 		'Instance'
 	],
-	#category : #'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Exporters',
+	#package : 'OpenTelemetry-Exporters'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTSpanExporter class >> defaultFileExporter [
 
 	^ OTFileSpanExporter new
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTSpanExporter class >> defaultZipkinExporter [
 
 	| exporter |
@@ -28,32 +29,32 @@ OTSpanExporter class >> defaultZipkinExporter [
 	^ exporter
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTSpanExporter class >> instance [
 
 	^ Instance ifNil: [ Instance := self readConfiguration ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTSpanExporter class >> instance: aSpanExporter [
 
 	Instance := aSpanExporter
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTSpanExporter class >> readConfiguration [
 	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
 
 	^ self defaultFileExporter
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 OTSpanExporter class >> reset [
 
 	Instance := nil
 ]
 
-{ #category : #exporting }
+{ #category : 'exporting' }
 OTSpanExporter >> export: spans [
 
 	self subclassResponsibility

@@ -7,46 +7,47 @@ Spans are processed in real time, providing immediate feedback and insight into 
 By implementing custom SpanProcessor classes, developers can tailor span processing behavior to meet specific use cases and requirements.
 "
 Class {
-	#name : #OTSpanProcessor,
-	#superclass : #Object,
+	#name : 'OTSpanProcessor',
+	#superclass : 'Object',
 	#classVars : [
 		'Instance'
 	],
-	#category : #'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Exporters',
+	#package : 'OpenTelemetry-Exporters'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTSpanProcessor class >> instance [
 
 	^ Instance ifNil: [ Instance := self readConfiguration ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTSpanProcessor class >> instance: aSpanProcessor [
 
 	Instance := aSpanProcessor
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTSpanProcessor class >> readConfiguration [
 	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
 
 	^ OTBatchSpanProcessor new
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 OTSpanProcessor class >> reset [
 
 	Instance ifNotNil: [ Instance flush ].
 	Instance := nil
 ]
 
-{ #category : #processing }
+{ #category : 'processing' }
 OTSpanProcessor >> flush [
 	"Redefined by subclasses to terminate current span processing and forward to exporter."
 ]
 
-{ #category : #processing }
+{ #category : 'processing' }
 OTSpanProcessor >> process: span [
 	"Export the span and return true if it was accepted"
 
