@@ -90,6 +90,14 @@ OTInstrumentation class >> packageMatcher [
 	^ OTMatcher any
 ]
 
+{ #category : #actions }
+OTInstrumentation class >> reinstall [
+
+	<script>
+	self uninstall.
+	self install
+]
+
 { #category : #private }
 OTInstrumentation class >> run: arguments [
 
@@ -104,5 +112,5 @@ OTInstrumentation class >> uninstall [
 	"Uninstall a specific subclass of Instrumentation."
 
 	<script>
-	OTAgentInstaller uninstallInstrumentation: self
+	OTAgentInstaller resetEnvironment uninstallInstrumentation: self
 ]
