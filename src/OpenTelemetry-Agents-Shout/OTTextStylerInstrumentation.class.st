@@ -41,9 +41,10 @@ OTTextStylerInstrumentation class >> onMethodEnter: arguments [
 	span := instrumenter startRequest:
 		        (operation arguments first asString copyUpTo: Character cr).
 	span
-		attributeAt: 'class' put: operation receiver className;
-		attributeAt: 'method' put: operation method selector;
-		attributeAt: 'arguments' put: (STON toString: operation arguments)
+		attributeAt: 'class' put: 'SHRBTextStyler';
+		attributeAt: 'method' put: #privateStyle:;
+		attributeAt: 'arguments'
+		put: (SCExporter toString: operation arguments)
 ]
 
 { #category : 'instrumenting' }
@@ -52,7 +53,7 @@ OTTextStylerInstrumentation class >> onMethodExit: arguments withValue: returnVa
 	| span |
 	(span := OTSpan current)
 		attributeAt: 'result'
-		put: (STON toString: returnValue).
+		put: (SCExporter toString: returnValue).
 	instrumenter end: span
 ]
 

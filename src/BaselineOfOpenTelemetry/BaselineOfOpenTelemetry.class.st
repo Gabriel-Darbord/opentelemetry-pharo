@@ -11,8 +11,18 @@ BaselineOfOpenTelemetry >> baseline: spec [
 	<baseline>
 	spec for: #common do: [
 		spec postLoadDoIt: #instrument.
+		self dependencies: spec.
 		self packages: spec.
 		self groups: spec ]
+]
+
+{ #category : 'baselines' }
+BaselineOfOpenTelemetry >> dependencies: spec [
+
+	spec
+		baseline: 'STONCustomizer'
+		with: [
+		spec repository: 'github://jecisc/STONCustomizer:v1.x.x/src' ]
 ]
 
 { #category : 'baselines' }
