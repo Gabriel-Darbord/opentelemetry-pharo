@@ -23,7 +23,9 @@ Class {
 		'instrumentationName'
 	],
 	#classInstVars : [
-		'default'
+		'default',
+		'defaultContextProducer',
+		'defaultSpanNameExtractor'
 	],
 	#category : 'OpenTelemetry-Instrumentation',
 	#package : 'OpenTelemetry-Instrumentation'
@@ -39,7 +41,8 @@ OTInstrumenter class >> default [
 { #category : 'defaults' }
 OTInstrumenter class >> defaultContextProducer [
 
-	^ [ OTContext new ]
+	^ defaultContextProducer ifNil: [
+		  defaultContextProducer := [ OTContext new ] ]
 ]
 
 { #category : 'defaults' }
@@ -51,7 +54,9 @@ OTInstrumenter class >> defaultSpanKindExtractor [
 { #category : 'defaults' }
 OTInstrumenter class >> defaultSpanNameExtractor [
 
-	^ [ :request | request printStringLimitedTo: 50 ]
+	^ defaultSpanNameExtractor ifNil: [
+		  defaultSpanNameExtractor := [ :request |
+		                              request printStringLimitedTo: 50 ] ]
 ]
 
 { #category : 'instance creation' }
