@@ -30,7 +30,7 @@ BaselineOfOpenTelemetry >> groups: spec [
 		group: 'OpalCompiler' with: 'OpenTelemetry-Agents-OpalCompiler'
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'actions' }
 BaselineOfOpenTelemetry >> instrument [
 
 	OTAgentInstaller install
