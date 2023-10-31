@@ -1,10 +1,11 @@
 Class {
-	#name : #BaselineOfOpenTelemetry,
-	#superclass : #BaselineOf,
-	#category : #BaselineOfOpenTelemetry
+	#name : 'BaselineOfOpenTelemetry',
+	#superclass : 'BaselineOf',
+	#category : 'BaselineOfOpenTelemetry',
+	#package : 'BaselineOfOpenTelemetry'
 }
 
-{ #category : #baselines }
+{ #category : 'baselines' }
 BaselineOfOpenTelemetry >> baseline: spec [
 
 	<baseline>
@@ -13,25 +14,36 @@ BaselineOfOpenTelemetry >> baseline: spec [
 		self groups: spec ]
 ]
 
-{ #category : #baselines }
+{ #category : 'baselines' }
 BaselineOfOpenTelemetry >> groups: spec [
 
 	spec
 		group: 'default' with: #( 'core' 'tests' );
 		group: 'core'
 		with: #( 'OpenTelemetry-Instrumentation'
-			   'OpenTelemetry-Exporters' );
+			   'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling' );
+		group: 'all' with: #( 'default' 'SUnit' 'Shout' 'OpalCompiler' );
 		group: 'tests' with: 'OpenTelemetry-Instrumentation-Tests';
-		group: 'SUnit' with: #( 'default' 'OpenTelemetry-Agents-SUnit' )
+		group: 'SUnit' with: 'OpenTelemetry-Agents-SUnit';
+		group: 'Shout' with: 'OpenTelemetry-Agents-Shout';
+		group: 'OpalCompiler' with: 'OpenTelemetry-Agents-OpalCompiler'
 ]
 
-{ #category : #baselines }
+{ #category : 'baselines' }
 BaselineOfOpenTelemetry >> packages: spec [
 
 	spec
-		package: 'OpenTelemetry-Instrumentation';
+		package: 'OpenTelemetry-Instrumentation' with: [
+			spec requires:
+					#( 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling' ) ];
 		package: 'OpenTelemetry-Instrumentation-Tests'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Exporters';
+		package: 'OpenTelemetry-Sampling';
 		package: 'OpenTelemetry-Agents-SUnit'
+		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Agents-Shout'
+		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Agents-OpalCompiler'
+		with: [ spec requires: 'OpenTelemetry-Instrumentation' ]
 ]
