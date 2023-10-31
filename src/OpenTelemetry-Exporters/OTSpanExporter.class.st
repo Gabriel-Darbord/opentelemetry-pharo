@@ -48,7 +48,7 @@ OTSpanExporter class >> readConfiguration [
 	^ self defaultFileExporter
 ]
 
-{ #category : 'initialization' }
+{ #category : 'class initialization' }
 OTSpanExporter class >> reset [
 
 	Instance := nil

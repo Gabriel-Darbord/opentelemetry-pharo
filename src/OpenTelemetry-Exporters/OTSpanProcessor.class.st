@@ -35,11 +35,12 @@ OTSpanProcessor class >> readConfiguration [
 	^ OTBatchSpanProcessor new
 ]
 
-{ #category : 'initialization' }
+{ #category : 'class initialization' }
 OTSpanProcessor class >> reset [
 
-	Instance ifNotNil: [ Instance flush ].
-	Instance := nil
+	Instance ifNotNil: [
+		Instance flush.
+		Instance := nil ]
 ]
 
 { #category : 'processing' }
