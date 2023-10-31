@@ -36,9 +36,9 @@ OTBatchSpanProcessor >> batchSize: anInteger [
 { #category : 'processing' }
 OTBatchSpanProcessor >> flush [
 
-	^ batch
-		  ifEmpty: [ false ]
-		  ifNotEmpty: [ OTSpanExporter instance export: batch ]
+	^ batch ifEmpty: [ false ] ifNotEmpty: [
+		  [ OTSpanExporter instance export: batch ] ensure: [
+			  batch := OrderedCollection new: batchSize ] ]
 ]
 
 { #category : 'initialization' }
@@ -55,5 +55,5 @@ OTBatchSpanProcessor >> process: span [
 
 	batch add: span.
 	batch size < batchSize ifTrue: [ ^ true ].
-	^ [ self flush ] ensure: [ batch := OrderedCollection new: batchSize ]
+	^ self flush
 ]
