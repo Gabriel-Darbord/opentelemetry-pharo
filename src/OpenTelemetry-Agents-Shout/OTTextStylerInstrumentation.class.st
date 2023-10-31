@@ -36,20 +36,23 @@ OTTextStylerInstrumentation class >> methodMatcher [
 OTTextStylerInstrumentation class >> onMethodEnter: arguments [
 	"The request is the first line of the argument of `privateStyle: aText`"
 
-	instrumenter startRequest:
-		(arguments first arguments first asString copyUpTo: Character cr)
+	| span operation |
+	operation := arguments first.
+	span := instrumenter startRequest:
+		        (operation arguments first asString copyUpTo: Character cr).
+	span
+		attributeAt: 'class' put: operation receiver className;
+		attributeAt: 'method' put: operation method selector;
+		attributeAt: 'arguments' put: (STON toString: operation arguments)
 ]
 
 { #category : 'instrumenting' }
 OTTextStylerInstrumentation class >> onMethodExit: arguments withValue: returnValue [
 
-	| operation span |
-	operation := arguments first.
+	| span |
 	(span := OTSpan current)
-		attributeAt: 'class' put: operation receiver className;
-		attributeAt: 'method' put: operation method selector;
-		attributeAt: 'arguments' put: (STON toString: operation arguments);
-		attributeAt: 'result' put: (STON toString: returnValue).
+		attributeAt: 'result'
+		put: (STON toString: returnValue).
 	instrumenter end: span
 ]
 
