@@ -10,6 +10,7 @@ BaselineOfOpenTelemetry >> baseline: spec [
 
 	<baseline>
 	spec for: #common do: [
+		spec postLoadDoIt: #instrument.
 		self packages: spec.
 		self groups: spec ]
 ]
@@ -27,6 +28,12 @@ BaselineOfOpenTelemetry >> groups: spec [
 		group: 'SUnit' with: 'OpenTelemetry-Agents-SUnit';
 		group: 'Shout' with: 'OpenTelemetry-Agents-Shout';
 		group: 'OpalCompiler' with: 'OpenTelemetry-Agents-OpalCompiler'
+]
+
+{ #category : 'as yet unclassified' }
+BaselineOfOpenTelemetry >> instrument [
+
+	OTAgentInstaller install
 ]
 
 { #category : 'baselines' }
