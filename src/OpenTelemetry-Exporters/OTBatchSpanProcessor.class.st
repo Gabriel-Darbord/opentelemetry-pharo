@@ -36,12 +36,14 @@ OTBatchSpanProcessor >> batchSize: anInteger [
 { #category : 'processing' }
 OTBatchSpanProcessor >> flush [
 
-	^ OTSpanExporter instance export: batch
+	^ batch
+		  ifEmpty: [ false ]
+		  ifNotEmpty: [ OTSpanExporter instance export: batch ]
 ]
 
 { #category : 'initialization' }
 OTBatchSpanProcessor >> initialize [
-	"Totally arbitrary, will adjust default value with time (10/23)"
+	"Totally arbitrary default batch size, will adjust value with time (10/23)"
 
 	batchSize := 128.
 	batch := OrderedCollection new: batchSize
