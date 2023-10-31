@@ -258,6 +258,17 @@ OTSpan >> parent: anObject [
 	parent := anObject
 ]
 
+{ #category : 'printing' }
+OTSpan >> printOn: aStream [
+
+	aStream
+		nextPutAll: 'Span[';
+		nextPutAll: instrumentationName;
+		nextPutAll: ': ';
+		nextPutAll: name;
+		nextPut: $]
+]
+
 { #category : 'recording' }
 OTSpan >> recordException: anException [
 
