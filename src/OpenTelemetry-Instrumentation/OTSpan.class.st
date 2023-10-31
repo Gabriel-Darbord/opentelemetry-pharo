@@ -105,6 +105,12 @@ OTSpan class >> producer [
 	^ #producer
 ]
 
+{ #category : 'recording' }
+OTSpan class >> recordException: anException [
+
+	Current ifNotNil: [ Current recordException: anException ]
+]
+
 { #category : 'class initialization' }
 OTSpan class >> reset [
 
@@ -256,7 +262,7 @@ OTSpan >> parent: anObject [
 OTSpan >> recordException: anException [
 
 	self status: 'ERROR'.
-	self attributeAt: 'error' put: anException description
+	self attributeAt: 'error' put: anException
 ]
 
 { #category : 'accessing' }
