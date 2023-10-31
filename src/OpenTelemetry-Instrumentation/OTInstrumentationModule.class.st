@@ -26,6 +26,13 @@ OTInstrumentationModule class >> instrumentationName [
 	self subclassResponsibility
 ]
 
+{ #category : 'accessing' }
+OTInstrumentationModule class >> instrumentations [
+	"My subclasses must return the list of Instrumentations contained in the module."
+
+	self subclassResponsibility
+]
+
 { #category : 'testing' }
 OTInstrumentationModule class >> isActive [
 	"Instrumentation modules are active by default."
@@ -39,13 +46,6 @@ OTInstrumentationModule class >> reinstall [
 	<script>
 	self uninstall.
 	self install
-]
-
-{ #category : 'accessing' }
-OTInstrumentationModule class >> typeInstrumentations [
-	"My subclasses must return the list of TypeInstrumentations contained in the module."
-
-	self subclassResponsibility
 ]
 
 { #category : 'actions' }

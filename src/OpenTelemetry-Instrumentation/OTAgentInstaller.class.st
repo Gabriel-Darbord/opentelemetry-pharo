@@ -74,6 +74,7 @@ OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 	configuration := self new configureWith: anInstrumentation.
 	anInstrumentation
 		defineInstrumenter;
+		defineSampler;
 		matchingMethodsDo: [ :method |
 			(method ast links noneSatisfy: [ :link |
 					 link metaObject == anInstrumentation ]) ifTrue: [
@@ -83,7 +84,7 @@ OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 { #category : 'actions' }
 OTAgentInstaller class >> installModule: anInstrumentationModule [
 
-	anInstrumentationModule typeInstrumentations do: [
+	anInstrumentationModule instrumentations do: [
 		:typeInstrumentation |
 		self installInstrumentation: typeInstrumentation ]
 ]
@@ -118,6 +119,7 @@ OTAgentInstaller class >> uninstall [
 { #category : 'actions' }
 OTAgentInstaller class >> uninstallInstrumentation: anInstrumentation [
 
+	anInstrumentation reset.
 	MetaLink allInstances do: [ :metalink |
 		metalink metaObject == anInstrumentation ifTrue: [
 			metalink uninstall ] ]
@@ -126,7 +128,7 @@ OTAgentInstaller class >> uninstallInstrumentation: anInstrumentation [
 { #category : 'actions' }
 OTAgentInstaller class >> uninstallModule: anInstrumentationModule [
 
-	anInstrumentationModule typeInstrumentations do: [
+	anInstrumentationModule instrumentations do: [
 		:typeInstrumentation |
 		self uninstallInstrumentation: typeInstrumentation ]
 ]

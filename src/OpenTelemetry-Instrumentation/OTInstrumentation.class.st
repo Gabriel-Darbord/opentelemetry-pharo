@@ -35,10 +35,20 @@ OTInstrumentation class >> defineInstrumenter [
 	Using an instrumenter has the benefits of handling boilerplate code for you."
 
 	"instrumenter := OTInstrumenter new
+		instrumentationName: ...;
 		spanNameExtractor: [ :request | ... ];
 		spanKindExtractor: [ :request | ... ];
 		spanSuppressionStrategy: [ :span :kind | ... ];
 		contextProducer: [ ... ]"
+]
+
+{ #category : 'configuring' }
+OTInstrumentation class >> defineSampler [
+	"Redefine this method to define an OTSampler to be used in the instrumentation methods.
+	It should be stored in the `sampler` class variable.
+	This is useful to limit the number of traces generated."
+
+	"sampler := OTSampler with..."
 ]
 
 { #category : 'actions' }
@@ -98,6 +108,12 @@ OTInstrumentation class >> reinstall [
 	<script>
 	self uninstall.
 	self install
+]
+
+{ #category : 'class initialization' }
+OTInstrumentation class >> reset [
+
+	instrumenter := sampler := nil
 ]
 
 { #category : 'private' }
