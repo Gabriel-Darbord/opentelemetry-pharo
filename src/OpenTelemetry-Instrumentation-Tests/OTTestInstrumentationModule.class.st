@@ -1,17 +1,18 @@
 Class {
-	#name : #OTTestInstrumentationModule,
-	#superclass : #OTInstrumentationModule,
-	#category : #'OpenTelemetry-Instrumentation-Tests'
+	#name : 'OTTestInstrumentationModule',
+	#superclass : 'OTInstrumentationModule',
+	#category : 'OpenTelemetry-Instrumentation-Tests',
+	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTTestInstrumentationModule class >> instrumentationName [
 
 	^ 'opentelemetry-tests'
 ]
 
-{ #category : #accessing }
-OTTestInstrumentationModule class >> typeInstrumentations [
+{ #category : 'accessing' }
+OTTestInstrumentationModule class >> instrumentations [
 
-	^ { OTTestSimpleInstrumentation }
+	^ { OTTestSimpleInstrumentation. OTTestSpanInstrumentation }
 ]

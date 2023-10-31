@@ -1,1 +1,1 @@
-Package { #name : #'OpenTelemetry-Instrumentation-Tests' }
+Package { #name : 'OpenTelemetry-Instrumentation-Tests' }
