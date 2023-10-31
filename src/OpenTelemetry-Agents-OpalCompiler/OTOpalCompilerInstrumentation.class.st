@@ -21,17 +21,20 @@ OTOpalCompilerInstrumentation class >> defineInstrumenter [
 { #category : 'matching' }
 OTOpalCompilerInstrumentation class >> methodMatcher [
 
-	^ OTMatcher name: #install:
+	^ OTMatcher name: #install
 ]
 
 { #category : 'instrumenting' }
 OTOpalCompilerInstrumentation class >> onMethodEnter: arguments [
 
-	| operation class header |
-	operation := arguments first.
-	class := operation receiver semanticScope targetClass.
-	header := operation arguments first copyUpTo: Character cr.
-	instrumenter startRequest: class , '>>' , header
+	| compiler class header |
+	compiler := arguments first receiver.
+	class := compiler semanticScope targetClass.
+	class isMeta ifTrue: [ class := class soleInstance ].
+	"get the #source slot, using index for speed"
+	header := (compiler instVarAt: 2) copyUpTo: Character cr.
+
+	instrumenter startRequest: class name asString , '>>' , header
 ]
 
 { #category : 'instrumenting' }
