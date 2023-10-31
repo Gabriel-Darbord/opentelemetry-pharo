@@ -6,7 +6,8 @@ Class {
 	#name : 'OTInstrumentation',
 	#superclass : 'Object',
 	#classInstVars : [
-		'instrumenter'
+		'instrumenter',
+		'sampler'
 	],
 	#category : 'OpenTelemetry-Instrumentation',
 	#package : 'OpenTelemetry-Instrumentation'
@@ -101,10 +102,20 @@ OTInstrumentation class >> reinstall [
 
 { #category : 'private' }
 OTInstrumentation class >> run: arguments [
+	"Hook called when executing an instrumented method.
+	If the trace should not be sampled, execute the method directly.
+	Otherwise, run on enter, execute method, ensure running on exit, and record exceptions."
 
 	| returnValue |
+	sampler ifNotNil: [
+		sampler shouldSample ifFalse: [ ^ arguments first value ] ].
 	self onMethodEnter: arguments.
-	^ [ returnValue := arguments first value ] ensure: [
+	^ [
+	  [ returnValue := arguments first value ]
+		  on: Exception
+		  do: [ :exception |
+			  OTSpan recordException: exception.
+			  exception pass ] ] ensure: [
 		  self onMethodExit: arguments withValue: returnValue ]
 ]
 
