@@ -22,7 +22,7 @@ OTInstrumentation class >> classMatcher [
 ]
 
 { #category : 'configuring' }
-OTInstrumentation class >> configure: configuration [
+OTInstrumentation class >> configure: installer [
 	"Redefine this method to configure the method enter instrumentation.
 	Use the instance-side API of OTAgentInstaller."
 ]

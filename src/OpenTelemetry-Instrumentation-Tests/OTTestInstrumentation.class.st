@@ -28,7 +28,7 @@ OTTestInstrumentation class >> classMatcher [
 ]
 
 { #category : 'configuring' }
-OTTestInstrumentation class >> configure: configuration [
+OTTestInstrumentation class >> configure: installer [
 
 	self reset
 ]

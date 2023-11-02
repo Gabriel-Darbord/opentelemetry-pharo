@@ -6,10 +6,10 @@ Class {
 }
 
 { #category : 'configuring' }
-OTTestSimpleInstrumentation class >> configure: configuration [
+OTTestSimpleInstrumentation class >> configure: installer [
 
-	super configure: configuration.
-	configuration
+	super configure: installer.
+	installer
 		beOneShot;
 		withContext;
 		withObject;

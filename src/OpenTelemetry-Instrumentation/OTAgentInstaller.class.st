@@ -70,15 +70,15 @@ OTAgentInstaller class >> install [
 { #category : 'actions' }
 OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 
-	| configuration |
-	configuration := self new configureWith: anInstrumentation.
+	| installer |
+	installer := self new configureWith: anInstrumentation.
 	anInstrumentation
 		defineInstrumenter;
 		defineSampler;
 		matchingMethodsDo: [ :method |
 			(method ast links noneSatisfy: [ :link |
 					 link metaObject == anInstrumentation ]) ifTrue: [
-					configuration instrument: method ] ]
+					installer instrument: method ] ]
 ]
 
 { #category : 'actions' }
