@@ -59,8 +59,9 @@ BaselineOfOpenTelemetry >> packages: spec [
 		package: 'OpenTelemetry-Sampling';
 		package: 'OpenTelemetry-Agents-SUnit'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Agents-Shout'
-		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Agents-Shout' with: [
+			spec requires:
+					#( 'STONCustomizer' 'OpenTelemetry-Instrumentation' ) ];
 		package: 'OpenTelemetry-Agents-OpalCompiler'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ]
 ]
