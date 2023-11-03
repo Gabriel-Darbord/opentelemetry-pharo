@@ -52,9 +52,7 @@ OTZipkinSpanExporter >> transform: spans [
 			  at: 'duration'
 			  put: (span endTime - span startTime) asMicroseconds.
 		  span parent ifNotNil: [ :parent |
-			  data
-				  at: 'parentId'
-				  put: span parent spanId printMostSignificantBits ].
+			  data at: 'parentId' put: parent spanId printMostSignificantBits ].
 		  span kind ifNotNil: [ :kind |
 			  kind = OTSpan internal ifFalse: [ data at: 'kind' put: kind ] ].
 		  "events -> annotations"
