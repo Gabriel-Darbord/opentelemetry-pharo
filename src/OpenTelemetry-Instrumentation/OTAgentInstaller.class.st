@@ -158,6 +158,7 @@ OTAgentInstaller >> initialize [
 	metalink := MetaLink new.
 	"number of args depends on the configuration, so dump all in array as single arg"
 	metalink optionArgsAsArray: true.
+	metalink optionCompileOnLinkInstallation: true.
 	"the configurable arguments that will be given to the instrumentation"
 	arguments := OrderedDictionary new.
 	"always with RFMethodOperation containing method, arguments and receiver."
