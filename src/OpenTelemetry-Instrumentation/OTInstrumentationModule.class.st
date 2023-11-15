@@ -1,5 +1,5 @@
 "
-I group several connected `OTTypeInstrumentation`s together, sharing instrumentation names and control over enabling or disabling the instrumentation.
+I group several connected `OTInstrumentation`s together, sharing instrumentation names and control over enabling or disabling the instrumentation.
 Ideally all types in a single instrumented library should live in a single module.
 "
 Class {

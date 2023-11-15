@@ -1,3 +1,7 @@
+"
+I am a processor that forwards batches of `OTSpan` to the configured `OTSpanExporter`.
+Batches are only sent when the configured batchSize is reached or when the image is exited.
+"
 Class {
 	#name : 'OTBatchSpanProcessor',
 	#superclass : 'OTSpanProcessor',

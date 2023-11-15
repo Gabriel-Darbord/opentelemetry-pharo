@@ -1,3 +1,7 @@
+"
+I am used for exporting spans to local files in JSON format.
+By default, spans are exported to the `pharo-local/OpenTelemetry/traces` folder of the image.
+"
 Class {
 	#name : 'OTFileSpanExporter',
 	#superclass : 'OTSpanExporter',
