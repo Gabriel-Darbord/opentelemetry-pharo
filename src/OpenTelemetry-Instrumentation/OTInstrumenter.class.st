@@ -187,11 +187,14 @@ OTInstrumenter >> startUnder: parentSpan request: request [
 	"Start a new operation to be instrumented.
 	The parentSpan is the parent of the resulting instrumented operation."
 
-	^ (parentSpan
-		   ifNil: [ OTSpan rootIn: self produceContext ]
-		   ifNotNil: [ OTSpan under: parentSpan ])
-		  name: (self spanNameExtractor value: request);
-		  kind: (self spanKindExtractor value: request);
-		  instrumentationName: instrumentationName;
-		  start
+	^ (self shouldStartUnder: parentSpan request: request)
+		  ifFalse: [ nil ]
+		  ifTrue: [
+			  (parentSpan
+				   ifNil: [ OTSpan rootIn: self produceContext ]
+				   ifNotNil: [ OTSpan under: parentSpan ])
+				  name: (self spanNameExtractor value: request);
+				  kind: (self spanKindExtractor value: request);
+				  instrumentationName: instrumentationName;
+				  start ]
 ]
