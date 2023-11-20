@@ -32,9 +32,9 @@ Most of the API is class-side.
   - `onMethodExit:withValue:` to execute code after an instrumented method, with the configured arguments plus the method result.
 
 To handle the installation of instrumentation, the following classes (and their subclasses) respond to `install`, `uninstall` and `reinstall`:
-- `OTAgentInstaller`, which handles every instrumentation loaded into the image.
-- `OTInstrumentationModule`, which handles all of the instrumentations it groups.
-- `OTInstrumentation`, which handles itself.
+- `OTAgentInstaller` handles every instrumentation loaded into the image.
+- `OTInstrumentationModule` handles all of the instrumentations it groups.
+- `OTInstrumentation` handles itself.
 
 ### Generating Traces using an Instrumenter
 
@@ -53,7 +53,7 @@ onMethodEnter: arguments
   span := instrumenter startRequest: myRequest.
   "..." 
 ```
-The content of the request will be used to name the span.
+The content of the request is used to extract a name and [kind](https://opentelemetry.io/docs/concepts/signals/traces/#span-kind) for the span, or to suppress it.
 It can be anything, and how it is used for naming can also be configured by giving a block to `OTInstrumenter>>#spanNameExtractor:`.
 
 Finally, to end the span:
@@ -86,7 +86,7 @@ See the [`OpenTelemetry-Sampling`](https://github.com/Gabriel-Darbord/openteleme
 
 ### Examples
 
-See [an instrumentation that generates traces for Shout](https://github.com/Gabriel-Darbord/opentelemetry-pharo/tree/main/src/OpenTelemetry-Agents-Shout).
+See an [example instrumentation](https://github.com/Gabriel-Darbord/opentelemetry-pharo/tree/main/src/OpenTelemetry-Agents-Shout) that generates traces for [Shout](https://github.com/pharo-project/pharo/tree/1270cd5a5617ceb1d2bbc2c72c5d3ad1f44921d1/src/Shout).
 
 ## Contributing
 
