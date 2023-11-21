@@ -5,8 +5,8 @@ Use `OTMatcher>>#and:` instead of instantiating me.
 Class {
 	#name : 'OTConjunctionMatcher',
 	#superclass : 'OTJunctionMatcher',
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation-Matchers',
+	#package : 'OpenTelemetry-Instrumentation-Matchers'
 }
 
 { #category : 'controlling' }

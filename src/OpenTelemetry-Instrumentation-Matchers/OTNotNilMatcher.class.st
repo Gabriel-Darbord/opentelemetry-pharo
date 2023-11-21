@@ -4,8 +4,8 @@ An abstract matcher that rejects nil values.
 Class {
 	#name : 'OTNotNilMatcher',
 	#superclass : 'OTMatcher',
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation-Matchers',
+	#package : 'OpenTelemetry-Instrumentation-Matchers'
 }
 
 { #category : 'testing' }

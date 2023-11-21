@@ -52,9 +52,11 @@ BaselineOfOpenTelemetry >> packages: spec [
 	spec
 		package: 'OpenTelemetry-Instrumentation' with: [
 			spec requires:
-					#( 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling' ) ];
+					#( 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling'
+					   'OpenTelemetry-Instrumentation-Matchers' ) ];
 		package: 'OpenTelemetry-Instrumentation-Tests'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Instrumentation-Matchers';
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Sampling';
 		package: 'OpenTelemetry-Agents-SUnit'

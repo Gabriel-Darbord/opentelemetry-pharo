@@ -5,8 +5,8 @@ Use `OTMatcher class>>#any` instead of instantiating me.
 Class {
 	#name : 'OTAnyMatcher',
 	#superclass : 'OTMatcher',
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation-Matchers',
+	#package : 'OpenTelemetry-Instrumentation-Matchers'
 }
 
 { #category : 'testing' }
