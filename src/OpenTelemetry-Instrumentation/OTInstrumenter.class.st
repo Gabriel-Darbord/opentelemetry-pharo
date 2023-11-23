@@ -13,8 +13,8 @@ When instrumenting a library, there will generally be four steps:
 The `end` method is called when the instrumented operation finished. It is of extreme importance for this method to be always called after `start`. Calling `start` without later `end` will result in inaccurate or wrong telemetry and context leaks.
 "
 Class {
-	#name : 'OTInstrumenter',
-	#superclass : 'Object',
+	#name : #OTInstrumenter,
+	#superclass : #Object,
 	#instVars : [
 		'spanSuppressionStrategy',
 		'spanKindExtractor',
@@ -27,31 +27,30 @@ Class {
 		'defaultContextProducer',
 		'defaultSpanNameExtractor'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter class >> default [
 	"A shared instrumenter with default configurations."
 
 	^ default ifNil: [ default := self new ]
 ]
 
-{ #category : 'defaults' }
+{ #category : #defaults }
 OTInstrumenter class >> defaultContextProducer [
 
 	^ defaultContextProducer ifNil: [
 		  defaultContextProducer := [ OTContext new ] ]
 ]
 
-{ #category : 'defaults' }
+{ #category : #defaults }
 OTInstrumenter class >> defaultSpanKindExtractor [
 
 	^ OTSpan alwaysInternal
 ]
 
-{ #category : 'defaults' }
+{ #category : #defaults }
 OTInstrumenter class >> defaultSpanNameExtractor [
 
 	^ defaultSpanNameExtractor ifNil: [
@@ -59,40 +58,40 @@ OTInstrumenter class >> defaultSpanNameExtractor [
 		                              request printStringLimitedTo: 50 ] ]
 ]
 
-{ #category : 'instance creation' }
+{ #category : #'instance creation' }
 OTInstrumenter class >> forInstrumentationNamed: aString [
 
 	^ self new instrumentationName: aString
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> contextProducer [
 
 	^ contextProducer ifNil: [
 		  contextProducer := self class defaultContextProducer ]
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> contextProducer: anObject [
 
 	contextProducer := anObject
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTInstrumenter >> end [
 	"Mark the end of the current span."
 
 	^ self end: OTSpan current error: nil
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTInstrumenter >> end: span [
 	"Mark the end of a span execution."
 
 	^ self end: span error: nil
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTInstrumenter >> end: span error: error [
 	"Mark the end of a span execution."
 
@@ -101,7 +100,7 @@ OTInstrumenter >> end: span error: error [
 	^ OTSpanProcessor instance process: span
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTInstrumenter >> end: span request: request response: response error: error [
 	"Mark the end of a span execution."
 
@@ -110,25 +109,25 @@ OTInstrumenter >> end: span request: request response: response error: error [
 	^ OTSpanProcessor instance process: span
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> instrumentationName [
 
 	^ instrumentationName
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> instrumentationName: aString [
 
 	instrumentationName := aString
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTInstrumenter >> produceContext [
 
 	^ self contextProducer value
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTInstrumenter >> shouldStartUnder: span request: request [
 
 	^ spanSuppressionStrategy ifNil: [ true ] ifNotNil: [
@@ -137,52 +136,52 @@ OTInstrumenter >> shouldStartUnder: span request: request [
 			  value: (spanKindExtractor value: request) ]
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> spanKindExtractor [
 
 	^ spanKindExtractor ifNil: [
 		  spanKindExtractor := self class defaultSpanKindExtractor ]
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> spanKindExtractor: aBlock [
 
 	spanKindExtractor := aBlock
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> spanNameExtractor [
 
 	^ spanNameExtractor ifNil: [
 		  spanNameExtractor := self class defaultSpanNameExtractor ]
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> spanNameExtractor: aBlock [
 
 	spanNameExtractor := aBlock
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> spanSuppressionStrategy [
 
 	^ spanSuppressionStrategy
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumenter >> spanSuppressionStrategy: aBlock [
 
 	spanSuppressionStrategy := aBlock
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTInstrumenter >> startRequest: request [
 	"Start a new operation to be instrumented."
 
 	^ self startUnder: OTSpan current request: request
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTInstrumenter >> startUnder: parentSpan request: request [
 	"Start a new operation to be instrumented.
 	The parentSpan is the parent of the resulting instrumented operation."

@@ -1,14 +1,13 @@
 Class {
-	#name : 'OTSpanInstrumentationTest',
-	#superclass : 'TestCase',
+	#name : #OTSpanInstrumentationTest,
+	#superclass : #TestCase,
 	#instVars : [
 		'target'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'running' }
+{ #category : #running }
 OTSpanInstrumentationTest >> setUp [
 
 	super setUp.
@@ -16,14 +15,14 @@ OTSpanInstrumentationTest >> setUp [
 	target := OTTestTarget new
 ]
 
-{ #category : 'running' }
+{ #category : #running }
 OTSpanInstrumentationTest >> tearDown [
 
 	OTTestSpanInstrumentation uninstall.
 	super tearDown
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testFixedRateSampler [
 
 	self deny: OTTestSpanInstrumentation hasRunOnEnter.

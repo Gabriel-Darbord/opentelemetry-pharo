@@ -2,16 +2,15 @@
 An OTInstrumentationConfigurationTest is a test class for testing the behavior of OTInstrumentationConfiguration
 "
 Class {
-	#name : 'OTSimpleInstrumentationTest',
-	#superclass : 'TestCase',
+	#name : #OTSimpleInstrumentationTest,
+	#superclass : #TestCase,
 	#instVars : [
 		'target'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'running' }
+{ #category : #running }
 OTSimpleInstrumentationTest >> setUp [
 
 	super setUp.
@@ -19,14 +18,14 @@ OTSimpleInstrumentationTest >> setUp [
 	target := OTTestTarget new
 ]
 
-{ #category : 'running' }
+{ #category : #running }
 OTSimpleInstrumentationTest >> tearDown [
 
 	OTTestSimpleInstrumentation uninstall.
 	super tearDown
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testEnsureHasRunOnExit [
 
 	self deny: OTTestSimpleInstrumentation hasRunOnExit.
@@ -38,7 +37,7 @@ OTSimpleInstrumentationTest >> testEnsureHasRunOnExit [
 	self assert: OTTestSimpleInstrumentation hasRunOnExit
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testHasConfiguredArguments [
 
 	| arguments |
@@ -50,7 +49,7 @@ OTSimpleInstrumentationTest >> testHasConfiguredArguments [
 	self assert: arguments fourth class equals: ReflectiveMethod
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testHasRun [
 
 	self deny: OTTestSimpleInstrumentation hasRunOnEnter.
@@ -60,7 +59,7 @@ OTSimpleInstrumentationTest >> testHasRun [
 	self assert: OTTestSimpleInstrumentation hasRunOnExit
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testIsInstalled [
 
 	self assert:
@@ -68,7 +67,7 @@ OTSimpleInstrumentationTest >> testIsInstalled [
 			 link metaObject == OTTestSimpleInstrumentation ])
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testIsOneShot [
 
 	target answer.
@@ -77,7 +76,7 @@ OTSimpleInstrumentationTest >> testIsOneShot [
 			 link metaObject == OTTestSimpleInstrumentation ])
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testRecordException [
 
 	| span error |

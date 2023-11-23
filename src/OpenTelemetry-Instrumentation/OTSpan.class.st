@@ -9,8 +9,8 @@ My instance-side API provides methods to set attributes, log events, set status,
 Additionally, my class-side API supports the creation of child spans to represent nested operations.
 "
 Class {
-	#name : 'OTSpan',
-	#superclass : 'Object',
+	#name : #OTSpan,
+	#superclass : #Object,
 	#instVars : [
 		'spanId',
 		'traceId',
@@ -35,48 +35,47 @@ Class {
 		'alwaysProducer',
 		'alwaysServer'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : 'extracting' }
+{ #category : #extracting }
 OTSpan class >> alwaysClient [
 
 	^ alwaysClient ifNil: [ alwaysClient := [ :request | #client ] ]
 ]
 
-{ #category : 'extracting' }
+{ #category : #extracting }
 OTSpan class >> alwaysConsumer [
 
 	^ alwaysConsumer ifNil: [ alwaysConsumer := [ :request | #consumer ] ]
 ]
 
-{ #category : 'extracting' }
+{ #category : #extracting }
 OTSpan class >> alwaysInternal [
 
 	^ alwaysInternal ifNil: [ alwaysInternal := [ :request | #internal ] ]
 ]
 
-{ #category : 'extracting' }
+{ #category : #extracting }
 OTSpan class >> alwaysProducer [
 
 	^ alwaysProducer ifNil: [ alwaysProducer := [ :request | #producer ] ]
 ]
 
-{ #category : 'extracting' }
+{ #category : #extracting }
 OTSpan class >> alwaysServer [
 
 	^ alwaysServer ifNil: [ alwaysServer := [ :request | #server ] ]
 ]
 
-{ #category : 'enumeration' }
+{ #category : #enumeration }
 OTSpan class >> client [
 	"Indicates that the span covers the client-side wrapper around an RPC or other remote request."
 
 	^ #client
 ]
 
-{ #category : 'enumeration' }
+{ #category : #enumeration }
 OTSpan class >> consumer [
 	"Indicates that the span describes consumer receiving a message from a broker.
 Unlike client and server, there is no direct critical path latency relationship between producer and consumer spans."
@@ -84,20 +83,20 @@ Unlike client and server, there is no direct critical path latency relationship 
 	^ #consumer
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan class >> current [
 
 	^ Current
 ]
 
-{ #category : 'enumeration' }
+{ #category : #enumeration }
 OTSpan class >> internal [
 	"Default value. Indicates that the span is used internally."
 
 	^ #internal
 ]
 
-{ #category : 'enumeration' }
+{ #category : #enumeration }
 OTSpan class >> producer [
 	"Indicates that the span describes producer sending a message to a broker.
 	Unlike client and server, there is no direct critical path latency relationship between producer and consumer spans."
@@ -105,19 +104,19 @@ OTSpan class >> producer [
 	^ #producer
 ]
 
-{ #category : 'recording' }
+{ #category : #recording }
 OTSpan class >> recordException: anException [
 
 	Current ifNotNil: [ Current recordException: anException ]
 ]
 
-{ #category : 'class initialization' }
+{ #category : #'class initialization' }
 OTSpan class >> reset [
 
 	Current := nil
 ]
 
-{ #category : 'instance creation' }
+{ #category : #'instance creation' }
 OTSpan class >> rootIn: aContext [
 
 	^ self new
@@ -125,14 +124,14 @@ OTSpan class >> rootIn: aContext [
 		  traceId: UUID new
 ]
 
-{ #category : 'enumeration' }
+{ #category : #enumeration }
 OTSpan class >> server [
 	"Indicates that the span covers server-side handling of an RPC or other remote request."
 
 	^ #server
 ]
 
-{ #category : 'instance creation' }
+{ #category : #'instance creation' }
 OTSpan class >> under: parentSpan [
 
 	^ self new
@@ -141,7 +140,7 @@ OTSpan class >> under: parentSpan [
 		  traceId: parentSpan traceId
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> attributeAt: key put: value [
 
 	(attributes ifNil: [ attributes := Dictionary new ])
@@ -149,116 +148,116 @@ OTSpan >> attributeAt: key put: value [
 		put: value
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> attributes [
 
 	^ attributes
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> attributes: aDictionary [
 
 	attributes := aDictionary
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> context [
 
 	^ context
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> context: aContext [
 
 	context := aContext
 ]
 
-{ #category : 'control' }
+{ #category : #control }
 OTSpan >> end [
 
 	self endTime: DateAndTime now.
 	Current := self parent
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> endTime [
 
 	^ endTime
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> endTime: aDateAndTime [
 
 	endTime := aDateAndTime
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> events [
 
 	^ events
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> events: aDictionary [
 
 	events := aDictionary
 ]
 
-{ #category : 'initialization' }
+{ #category : #initialization }
 OTSpan >> initialize [
 
 	spanId := UUID new
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> instrumentationName [
 
 	^ instrumentationName
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> instrumentationName: aString [
 
 	instrumentationName := aString
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> kind [
 
 	^ kind
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> kind: aSpanKind [
 
 	kind := aSpanKind
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> name [
 
 	^ name
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> name: aString [
 
 	name := aString
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> parent [
 
 	^ parent
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> parent: anObject [
 
 	parent := anObject
 ]
 
-{ #category : 'printing' }
+{ #category : #printing }
 OTSpan >> printOn: aStream [
 
 	aStream
@@ -269,51 +268,51 @@ OTSpan >> printOn: aStream [
 		nextPut: $]
 ]
 
-{ #category : 'recording' }
+{ #category : #recording }
 OTSpan >> recordException: anException [
 
 	self status: 'ERROR'.
 	self attributeAt: 'error' put: anException
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> spanId [
 
 	^ spanId
 ]
 
-{ #category : 'control' }
+{ #category : #control }
 OTSpan >> start [
 
 	Current := self.
 	self startTime: DateAndTime now
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> startTime [
 
 	^ startTime
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> startTime: aDateAndTime [
 
 	startTime := aDateAndTime
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> status [
 
 	^ status
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> status: aString [
 
 	status := aString
 ]
 
-{ #category : 'ston persistence' }
+{ #category : #'ston persistence' }
 OTSpan >> stonOn: stonWriter [
 
 	stonWriter writeObject: self streamMap: [ :map |
@@ -333,13 +332,13 @@ OTSpan >> stonOn: stonWriter [
 		events isEmptyOrNil ifFalse: [ map at: #events put: events ] ]
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> traceId [
 
 	^ traceId
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTSpan >> traceId: id [
 
 	traceId := id
