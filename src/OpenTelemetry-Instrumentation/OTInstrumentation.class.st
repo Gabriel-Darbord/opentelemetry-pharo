@@ -79,7 +79,9 @@ OTInstrumentation class >> matchingMethodsDo: aBlock [
 	packageMatcher := self packageMatcher.
 	classMatcher := self classMatcher.
 	methodMatcher := self methodMatcher.
-	Smalltalk globals organization packages do: [ :package |
+	([ RPackage organizer ]
+		 on: Deprecation
+		 do: [ self packageOrganizer ]) packages do: [ :package |
 		(packageMatcher matches: package) ifTrue: [
 			package classes do: [ :class |
 				(classMatcher matches: class) ifTrue: [
