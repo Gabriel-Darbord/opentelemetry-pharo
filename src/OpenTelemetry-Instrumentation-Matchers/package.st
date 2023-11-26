@@ -1,1 +1,1 @@
-Package { #name : 'OpenTelemetry-Instrumentation-Matchers' }
+Package { #name : #'OpenTelemetry-Instrumentation-Matchers' }

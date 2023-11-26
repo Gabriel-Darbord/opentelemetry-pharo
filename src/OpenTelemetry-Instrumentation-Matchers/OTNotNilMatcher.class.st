@@ -2,20 +2,19 @@
 An abstract matcher that rejects nil values.
 "
 Class {
-	#name : 'OTNotNilMatcher',
-	#superclass : 'OTMatcher',
-	#category : 'OpenTelemetry-Instrumentation-Matchers',
-	#package : 'OpenTelemetry-Instrumentation-Matchers'
+	#name : #OTNotNilMatcher,
+	#superclass : #OTMatcher,
+	#category : 'OpenTelemetry-Instrumentation-Matchers'
 }
 
-{ #category : 'testing' }
+{ #category : #testing }
 OTNotNilMatcher >> doMatch: target [
 	"Matches the supplied value if it was found not to be nil."
 
 	self subclassResponsibility
 ]
 
-{ #category : 'testing' }
+{ #category : #testing }
 OTNotNilMatcher >> matches: target [
 
 	^ target isNotNil and: [ self doMatch: target ]
