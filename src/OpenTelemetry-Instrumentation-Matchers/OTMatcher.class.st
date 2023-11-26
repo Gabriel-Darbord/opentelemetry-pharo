@@ -9,7 +9,7 @@ Class {
 		'any',
 		'none'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Matchers'
+	#category : #'OpenTelemetry-Instrumentation-Matchers'
 }
 
 { #category : #'instance creation' }
@@ -26,6 +26,12 @@ OTMatcher class >> anyName: aStringCollection [
 	| names |
 	names := aStringCollection asSet.
 	^ self plug: [ :element | names includes: element otName ]
+]
+
+{ #category : #testing }
+OTMatcher class >> isAbstract [
+
+	^ self == OTMatcher
 ]
 
 { #category : #'instance creation' }
@@ -66,6 +72,12 @@ OTMatcher >> and: matcher [
 OTMatcher >> matches: target [
 
 	self subclassResponsibility
+]
+
+{ #category : #testing }
+OTMatcher >> not [
+
+	^ OTNegatingMatcher new matcher: self
 ]
 
 { #category : #controlling }

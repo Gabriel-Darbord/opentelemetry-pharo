@@ -7,8 +7,14 @@ Class {
 	#instVars : [
 		'matchers'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Matchers'
+	#category : #'OpenTelemetry-Instrumentation-Matchers'
 }
+
+{ #category : #testing }
+OTJunctionMatcher class >> isAbstract [
+
+	^ self == OTJunctionMatcher
+]
 
 { #category : #'instance creation' }
 OTJunctionMatcher class >> withAll: matchers [
