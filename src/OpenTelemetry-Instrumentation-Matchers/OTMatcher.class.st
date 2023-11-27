@@ -28,6 +28,13 @@ OTMatcher class >> anyName: aStringCollection [
 	^ self plug: [ :element | names includes: element otName ]
 ]
 
+{ #category : #'instance creation' }
+OTMatcher class >> hierarchyOf: aClass [
+	"Matches classes in the hierarchy (above or below) of aClass."
+
+	^ self plug: [ :class | class isInClassHierarchyOf: aClass ]
+]
+
 { #category : #testing }
 OTMatcher class >> isAbstract [
 
@@ -49,6 +56,13 @@ OTMatcher class >> nameBeginsWith: aString [
 ]
 
 { #category : #'instance creation' }
+OTMatcher class >> nameEndsWith: aString [
+	"Matches elements with a name ending with aString."
+
+	^ self plug: [ :element | element otName endsWith: aString ]
+]
+
+{ #category : #'instance creation' }
 OTMatcher class >> none [
 	"Never matches."
 
@@ -60,6 +74,13 @@ OTMatcher class >> plug: aBlock [
 	"Matches using custom logic defined in the given one-arg block."
 
 	^ OTPluggableMatcher new block: aBlock
+]
+
+{ #category : #'instance creation' }
+OTMatcher class >> subclassesOf: aClass [
+	"Matches subclasses of aClass."
+
+	^ self plug: [ :class | class inheritsFrom: aClass ]
 ]
 
 { #category : #controlling }
