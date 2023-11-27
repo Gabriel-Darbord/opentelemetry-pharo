@@ -75,18 +75,14 @@ OTInstrumentation class >> install [
 { #category : #private }
 OTInstrumentation class >> matchingMethodsDo: aBlock [
 
-	| packageMatcher classMatcher methodMatcher |
-	packageMatcher := self packageMatcher.
+	| classMatcher methodMatcher |
 	classMatcher := self classMatcher.
 	methodMatcher := self methodMatcher.
-	([ RPackage organizer ]
-		 on: Deprecation
-		 do: [ self packageOrganizer ]) packages do: [ :package |
-		(packageMatcher matches: package) ifTrue: [
-			package classes do: [ :class |
-				(classMatcher matches: class) ifTrue: [
-					class methods do: [ :method |
-						(methodMatcher matches: method) ifTrue: [ aBlock value: method ] ] ] ] ] ]
+	self packageMatcher matchingPackagesDo: [ :package |
+		classMatcher matching: package classes do: [ :class |
+			methodMatcher
+				matching: class methods
+				do: [ :method | aBlock value: method ] ] ]
 ]
 
 { #category : #matching }
