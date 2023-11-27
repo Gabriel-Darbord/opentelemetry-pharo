@@ -10,7 +10,7 @@ Class {
 	#name : #OTSpanProcessor,
 	#superclass : #Object,
 	#classVars : [
-		'Instance'
+		'Current'
 	],
 	#category : #'OpenTelemetry-Exporters'
 }

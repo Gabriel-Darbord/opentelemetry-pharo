@@ -43,7 +43,7 @@ OTMatcher class >> hierarchyOf: aClass [
 ]
 
 { #category : #'instance creation' }
-OTMatcher class >> identicTo: anObject [
+OTMatcher class >> identicalTo: anObject [
 	"Matches the given object."
 
 	^ self plug: [ :element | element == anObject ]
