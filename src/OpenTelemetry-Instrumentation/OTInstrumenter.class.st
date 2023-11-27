@@ -30,7 +30,7 @@ Class {
 	#category : #'OpenTelemetry-Instrumentation'
 }
 
-{ #category : #accessing }
+{ #category : #'instance creation' }
 OTInstrumenter class >> default [
 	"A shared instrumenter with default configurations."
 

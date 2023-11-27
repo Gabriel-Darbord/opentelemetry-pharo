@@ -131,18 +131,20 @@ OTInstrumentation class >> reset [
 OTInstrumentation class >> run: arguments [
 	"Hook called when executing an instrumented method.
 	If the trace should not be sampled, execute the method directly.
-	Otherwise, run on enter, execute method, ensure running on exit, and record exceptions."
+	Otherwise, run on enter, execute method, record unhandled exception if any, and ensure running on exit."
 
-	| returnValue |
+	| returnValue errorMessage |
 	sampler ifNotNil: [
 		sampler shouldSample ifFalse: [ ^ arguments first value ] ].
 	self onMethodEnter: arguments.
 	^ [
+	  [
 	  [ returnValue := arguments first value ]
 		  on: Exception
 		  do: [ :exception |
-			  OTSpan recordException: exception.
-			  exception pass ] ] ensure: [
+			  errorMessage := exception printString.
+			  exception pass ] ] ifCurtailed: [
+		  OTSpan recordException: errorMessage ] ] ensure: [
 		  self onMethodExit: arguments withValue: returnValue ]
 ]
 
