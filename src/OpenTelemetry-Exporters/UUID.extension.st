@@ -1,6 +1,6 @@
-Extension { #name : 'UUID' }
+Extension { #name : #UUID }
 
-{ #category : '*OpenTelemetry-Exporters' }
+{ #category : #'*OpenTelemetry-Exporters' }
 UUID >> printBits [
 	"Return a String representing my bits without hyphens"
 
@@ -9,7 +9,7 @@ UUID >> printBits [
 		  (self at: i) printLowercaseHexByteOn: stringStream ] ]
 ]
 
-{ #category : '*OpenTelemetry-Exporters' }
+{ #category : #'*OpenTelemetry-Exporters' }
 UUID >> printMostSignificantBits [
 	"Return a String representing my most significant bits without hyphens"
 

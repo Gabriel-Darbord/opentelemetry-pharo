@@ -2,16 +2,15 @@
 I am an exporter specifically for the [Zipkin](https://zipkin.io/) distributed tracing system.
 "
 Class {
-	#name : 'OTZipkinSpanExporter',
-	#superclass : 'OTSpanExporter',
+	#name : #OTZipkinSpanExporter,
+	#superclass : #OTSpanExporter,
 	#instVars : [
 		'httpClient'
 	],
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Exporters'
 }
 
-{ #category : 'exporting' }
+{ #category : #exporting }
 OTZipkinSpanExporter >> export: spans [
 
 	^ (self httpClient
@@ -20,7 +19,7 @@ OTZipkinSpanExporter >> export: spans [
 		   response) code = 202
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTZipkinSpanExporter >> httpClient [
 
 	^ httpClient ifNil: [
@@ -37,7 +36,7 @@ OTZipkinSpanExporter >> httpClient [
 				                ZnEntity json: (writer toString: data) ] ]
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTZipkinSpanExporter >> transform: spans [
 	"Transform OpenTelemetry spans into the Zipkin format following the rules at https://opentelemetry.io/docs/specs/otel/trace/sdk_exporters/zipkin/"
 

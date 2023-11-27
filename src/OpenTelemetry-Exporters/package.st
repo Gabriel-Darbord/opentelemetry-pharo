@@ -1,1 +1,1 @@
-Package { #name : 'OpenTelemetry-Exporters' }
+Package { #name : #'OpenTelemetry-Exporters' }
