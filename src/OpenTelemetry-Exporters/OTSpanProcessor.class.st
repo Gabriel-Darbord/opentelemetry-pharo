@@ -15,32 +15,39 @@ Class {
 	#category : #'OpenTelemetry-Exporters'
 }
 
-{ #category : #converting }
+{ #category : #'instance creation' }
 OTSpanProcessor class >> asCurrent [
 
-	^ Instance := self new
+	<script>
+	^ Current := self new
 ]
 
-{ #category : #flushing }
+{ #category : #accessing }
+OTSpanProcessor class >> current [
+
+	^ Current ifNil: [ Current := self readConfiguration ]
+]
+
+{ #category : #accessing }
+OTSpanProcessor class >> current: aSpanProcessor [
+
+	Current := aSpanProcessor
+]
+
+{ #category : #processing }
 OTSpanProcessor class >> flush [
 
 	<script>
-	Instance ifNotNil: [ Instance flush ]
+	Current ifNotNil: [ Current flush ]
 ]
 
-{ #category : #accessing }
-OTSpanProcessor class >> instance [
+{ #category : #testing }
+OTSpanProcessor class >> isAbstract [
 
-	^ Instance ifNil: [ Instance := self readConfiguration ]
+	^ self == OTSpanProcessor
 ]
 
-{ #category : #accessing }
-OTSpanProcessor class >> instance: aSpanProcessor [
-
-	Instance := aSpanProcessor
-]
-
-{ #category : #accessing }
+{ #category : #'instance creation' }
 OTSpanProcessor class >> readConfiguration [
 	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
 
@@ -51,13 +58,13 @@ OTSpanProcessor class >> readConfiguration [
 OTSpanProcessor class >> reset [
 
 	self flush.
-	Instance := nil
+	Current := nil
 ]
 
 { #category : #accessing }
 OTSpanProcessor >> beCurrent [
 
-	^ Instance := self
+	^ Current := self
 ]
 
 { #category : #processing }

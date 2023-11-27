@@ -6,24 +6,37 @@ Class {
 	#name : #OTSpanExporter,
 	#superclass : #Object,
 	#classVars : [
-		'Instance'
+		'Current'
 	],
 	#category : #'OpenTelemetry-Exporters'
 }
 
-{ #category : #converting }
+{ #category : #'instance creation' }
 OTSpanExporter class >> asCurrent [
 
-	^ Instance := self new
+	<script>
+	^ Current := self new
 ]
 
 { #category : #accessing }
+OTSpanExporter class >> current [
+
+	^ Current ifNil: [ Current := self readConfiguration ]
+]
+
+{ #category : #accessing }
+OTSpanExporter class >> current: aSpanExporter [
+
+	Current := aSpanExporter
+]
+
+{ #category : #'instance creation' }
 OTSpanExporter class >> defaultFileExporter [
 
 	^ OTFileSpanExporter new
 ]
 
-{ #category : #accessing }
+{ #category : #'instance creation' }
 OTSpanExporter class >> defaultZipkinExporter [
 
 	| exporter |
@@ -34,19 +47,13 @@ OTSpanExporter class >> defaultZipkinExporter [
 	^ exporter
 ]
 
-{ #category : #accessing }
-OTSpanExporter class >> instance [
+{ #category : #testing }
+OTSpanExporter class >> isAbstract [
 
-	^ Instance ifNil: [ Instance := self readConfiguration ]
+	^ self == OTSpanExporter
 ]
 
-{ #category : #accessing }
-OTSpanExporter class >> instance: aSpanExporter [
-
-	Instance := aSpanExporter
-]
-
-{ #category : #accessing }
+{ #category : #'instance creation' }
 OTSpanExporter class >> readConfiguration [
 	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
 
@@ -56,13 +63,14 @@ OTSpanExporter class >> readConfiguration [
 { #category : #'class initialization' }
 OTSpanExporter class >> reset [
 
-	Instance := nil
+	<script>
+	Current := nil
 ]
 
 { #category : #accessing }
 OTSpanExporter >> beCurrent [
 
-	^ Instance := self
+	^ Current := self
 ]
 
 { #category : #exporting }

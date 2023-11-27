@@ -27,7 +27,7 @@ Class {
 		'defaultContextProducer',
 		'defaultSpanNameExtractor'
 	],
-	#category : 'OpenTelemetry-Instrumentation'
+	#category : #'OpenTelemetry-Instrumentation'
 }
 
 { #category : #accessing }
@@ -97,7 +97,7 @@ OTInstrumenter >> end: span error: error [
 
 	error ifNotNil: [ span recordException: error ].
 	span end.
-	^ OTSpanProcessor instance process: span
+	^ OTSpanProcessor current process: span
 ]
 
 { #category : #instrumenting }
@@ -106,7 +106,7 @@ OTInstrumenter >> end: span request: request response: response error: error [
 
 	error ifNotNil: [ span recordException: error ].
 	span end.
-	^ OTSpanProcessor instance process: span
+	^ OTSpanProcessor current process: span
 ]
 
 { #category : #accessing }

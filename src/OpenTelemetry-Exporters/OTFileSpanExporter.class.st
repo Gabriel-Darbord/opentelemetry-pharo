@@ -8,7 +8,7 @@ Class {
 	#instVars : [
 		'folder'
 	],
-	#category : 'OpenTelemetry-Exporters'
+	#category : #'OpenTelemetry-Exporters'
 }
 
 { #category : #exporting }
@@ -19,13 +19,13 @@ OTFileSpanExporter >> export: spans [
 		STON put: spans onStream: stream ]
 ]
 
-{ #category : #hook }
+{ #category : #accessing }
 OTFileSpanExporter >> folder [
 
 	^ folder ifNil: [ folder := 'pharo-local/OpenTelemetry/traces' ]
 ]
 
-{ #category : #hook }
+{ #category : #accessing }
 OTFileSpanExporter >> folder: aString [
 
 	folder := aString

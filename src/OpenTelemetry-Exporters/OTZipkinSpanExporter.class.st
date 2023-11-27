@@ -7,7 +7,7 @@ Class {
 	#instVars : [
 		'httpClient'
 	],
-	#category : 'OpenTelemetry-Exporters'
+	#category : #'OpenTelemetry-Exporters'
 }
 
 { #category : #exporting }
@@ -36,7 +36,7 @@ OTZipkinSpanExporter >> httpClient [
 				                ZnEntity json: (writer toString: data) ] ]
 ]
 
-{ #category : #accessing }
+{ #category : #'private - utilities' }
 OTZipkinSpanExporter >> transform: spans [
 	"Transform OpenTelemetry spans into the Zipkin format following the rules at https://opentelemetry.io/docs/specs/otel/trace/sdk_exporters/zipkin/"
 

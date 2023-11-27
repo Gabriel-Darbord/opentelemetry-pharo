@@ -9,7 +9,7 @@ Class {
 		'batch',
 		'batchSize'
 	],
-	#category : 'OpenTelemetry-Exporters'
+	#category : #'OpenTelemetry-Exporters'
 }
 
 { #category : #'class initialization' }
@@ -24,13 +24,13 @@ OTBatchSpanProcessor class >> shutDown [
 	self allInstancesDo: [ :processor | processor flush ]
 ]
 
-{ #category : #processing }
+{ #category : #accessing }
 OTBatchSpanProcessor >> batchSize [
 
 	^ batchSize
 ]
 
-{ #category : #processing }
+{ #category : #accessing }
 OTBatchSpanProcessor >> batchSize: anInteger [
 
 	batchSize := anInteger
@@ -40,7 +40,7 @@ OTBatchSpanProcessor >> batchSize: anInteger [
 OTBatchSpanProcessor >> flush [
 
 	^ batch ifEmpty: [ false ] ifNotEmpty: [
-		  [ OTSpanExporter instance export: batch ] ensure: [
+		  [ OTSpanExporter current export: batch ] ensure: [
 			  batch := OrderedCollection new: batchSize ] ]
 ]
 
