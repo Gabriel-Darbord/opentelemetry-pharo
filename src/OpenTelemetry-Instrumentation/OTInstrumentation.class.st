@@ -23,7 +23,7 @@ OTInstrumentation class >> classMatcher [
 
 { #category : #configuring }
 OTInstrumentation class >> configure: installer [
-	"Redefine this method to configure the method enter instrumentation.
+	"Redefine this method to configure the arguments given to the instrumentation method.
 	Use the instance-side API of OTAgentInstaller."
 ]
 
@@ -31,8 +31,8 @@ OTInstrumentation class >> configure: installer [
 OTInstrumentation class >> defineInstrumenter [
 	"Redefine this method to define an OTInstrumenter to be used in the instrumentation methods.
 	It should be stored in the `instrumenter` class variable.
-	This is optional, but highly recommended if you wish to generate spans.
-	Using an instrumenter has the benefits of handling boilerplate code for you."
+	This is optional, but highly recommended if you want to generate spans.
+	Using an instrumenter has the advantage of handling boilerplate code for you, in particular the lifecycle and export of spans."
 
 	"instrumenter := OTInstrumenter new
 		instrumentationName: ...;

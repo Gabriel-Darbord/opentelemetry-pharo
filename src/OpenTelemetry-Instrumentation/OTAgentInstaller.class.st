@@ -70,7 +70,7 @@ OTAgentInstaller class >> install [
 OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 
 	| installer |
-	installer := self new configureWith: anInstrumentation.
+	installer := self new configureWith: anInstrumentation initialize.
 	anInstrumentation
 		defineInstrumenter;
 		defineSampler;
@@ -83,8 +83,9 @@ OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 { #category : #actions }
 OTAgentInstaller class >> installModule: anInstrumentationModule [
 
-	anInstrumentationModule instrumentations do: [ :instrumentation |
-		instrumentation isEnabled ifTrue: [
+	anInstrumentationModule initialize instrumentations do: [
+		:instrumentation |
+		instrumentation enabled ifTrue: [
 			self installInstrumentation: instrumentation ] ]
 ]
 
