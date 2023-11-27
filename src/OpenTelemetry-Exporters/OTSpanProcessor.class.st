@@ -21,6 +21,13 @@ OTSpanProcessor class >> asCurrent [
 	^ Instance := self new
 ]
 
+{ #category : #flushing }
+OTSpanProcessor class >> flush [
+
+	<script>
+	Instance ifNotNil: [ Instance flush ]
+]
+
 { #category : #accessing }
 OTSpanProcessor class >> instance [
 
@@ -43,9 +50,8 @@ OTSpanProcessor class >> readConfiguration [
 { #category : #'class initialization' }
 OTSpanProcessor class >> reset [
 
-	Instance ifNotNil: [
-		Instance flush.
-		Instance := nil ]
+	self flush.
+	Instance := nil
 ]
 
 { #category : #accessing }
