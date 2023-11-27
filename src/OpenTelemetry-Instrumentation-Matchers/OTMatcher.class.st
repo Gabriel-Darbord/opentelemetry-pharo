@@ -29,10 +29,24 @@ OTMatcher class >> anyName: aStringCollection [
 ]
 
 { #category : #'instance creation' }
+OTMatcher class >> equalTo: anObject [
+	"Matches elements equal to the given object."
+
+	^ self plug: [ :element | element = anObject ]
+]
+
+{ #category : #'instance creation' }
 OTMatcher class >> hierarchyOf: aClass [
 	"Matches classes in the hierarchy (above or below) of aClass."
 
 	^ self plug: [ :class | class isInClassHierarchyOf: aClass ]
+]
+
+{ #category : #'instance creation' }
+OTMatcher class >> identicTo: anObject [
+	"Matches the given object."
+
+	^ self plug: [ :element | element == anObject ]
 ]
 
 { #category : #testing }
