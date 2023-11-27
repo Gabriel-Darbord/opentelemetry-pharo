@@ -35,7 +35,7 @@ Class {
 		'alwaysProducer',
 		'alwaysServer'
 	],
-	#category : 'OpenTelemetry-Instrumentation'
+	#category : #'OpenTelemetry-Instrumentation'
 }
 
 { #category : #extracting }
@@ -272,7 +272,7 @@ OTSpan >> printOn: aStream [
 OTSpan >> recordException: anException [
 
 	self status: 'ERROR'.
-	self attributeAt: 'error' put: anException
+	self attributeAt: 'error' put: anException description
 ]
 
 { #category : #accessing }
