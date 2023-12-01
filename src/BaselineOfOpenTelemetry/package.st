@@ -1,1 +1,1 @@
-Package { #name : 'BaselineOfOpenTelemetry' }
+Package { #name : #BaselineOfOpenTelemetry }

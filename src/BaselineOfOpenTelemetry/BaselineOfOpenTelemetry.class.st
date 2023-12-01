@@ -1,11 +1,10 @@
 Class {
-	#name : 'BaselineOfOpenTelemetry',
-	#superclass : 'BaselineOf',
-	#category : 'BaselineOfOpenTelemetry',
-	#package : 'BaselineOfOpenTelemetry'
+	#name : #BaselineOfOpenTelemetry,
+	#superclass : #BaselineOf,
+	#category : #BaselineOfOpenTelemetry
 }
 
-{ #category : 'baselines' }
+{ #category : #baselines }
 BaselineOfOpenTelemetry >> baseline: spec [
 
 	<baseline>
@@ -16,7 +15,7 @@ BaselineOfOpenTelemetry >> baseline: spec [
 		self groups: spec ]
 ]
 
-{ #category : 'baselines' }
+{ #category : #baselines }
 BaselineOfOpenTelemetry >> dependencies: spec [
 
 	spec
@@ -25,7 +24,7 @@ BaselineOfOpenTelemetry >> dependencies: spec [
 		spec repository: 'github://jecisc/STONCustomizer:v1.x.x/src' ]
 ]
 
-{ #category : 'baselines' }
+{ #category : #baselines }
 BaselineOfOpenTelemetry >> groups: spec [
 
 	spec
@@ -40,16 +39,17 @@ BaselineOfOpenTelemetry >> groups: spec [
 		group: 'OpalCompiler' with: 'OpenTelemetry-Agents-OpalCompiler'
 ]
 
-{ #category : 'actions' }
+{ #category : #actions }
 BaselineOfOpenTelemetry >> instrument [
 
 	OTAgentInstaller install
 ]
 
-{ #category : 'baselines' }
+{ #category : #baselines }
 BaselineOfOpenTelemetry >> packages: spec [
 
 	spec
+		package: 'OpenTelemetry-Configuration';
 		package: 'OpenTelemetry-Instrumentation' with: [
 			spec requires:
 					#( 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling'
