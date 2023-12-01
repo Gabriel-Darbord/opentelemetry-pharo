@@ -44,9 +44,12 @@ OTSimpleInstrumentationTest >> testEventHasConfiguredData [
 	target answer. "run instrumented method"
 	event := OTTestSimpleInstrumentation capturedEvent.
 	self assert: event size equals: 4.
+	"withContext"
 	self assert: event second isContext.
+	"withObject"
 	self assert: event third class equals: OTTestTarget.
-	self assert: event fourth class equals: ReflectiveMethod
+	"withSender"
+	self assert: event fourth class equals: self class
 ]
 
 { #category : #tests }
