@@ -6,27 +6,27 @@ Class {
 	#name : #OTFileSpanExporter,
 	#superclass : #OTSpanExporter,
 	#instVars : [
-		'folder'
+		'directory'
 	],
 	#category : #'OpenTelemetry-Exporters'
 }
 
+{ #category : #accessing }
+OTFileSpanExporter >> directory [
+
+	^ directory ifNil: [ directory := OpenTelemetry tracesDirectory ]
+]
+
+{ #category : #accessing }
+OTFileSpanExporter >> directory: aFileReference [
+
+	directory := aFileReference
+]
+
 { #category : #exporting }
 OTFileSpanExporter >> export: spans [
 
-	(self folder asFileReference / DateAndTime now asString , 'ston')
+	(self directory asFileReference / DateAndTime now asString , 'ston')
 		ensureCreateFile writeStreamDo: [ :stream |
 		STON put: spans onStream: stream ]
-]
-
-{ #category : #accessing }
-OTFileSpanExporter >> folder [
-
-	^ folder ifNil: [ folder := 'pharo-local/OpenTelemetry/traces' ]
-]
-
-{ #category : #accessing }
-OTFileSpanExporter >> folder: aString [
-
-	folder := aString
 ]
