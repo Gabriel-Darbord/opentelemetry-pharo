@@ -1,4 +1,10 @@
+[![Pharo version](https://img.shields.io/badge/Pharo-11-%23aac9ff.svg)](https://pharo.org/download)
+[![Pharo version](https://img.shields.io/badge/Pharo-12-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
+![Build Info](https://github.com/Gabriel-Darbord/opentelemetry-pharo/workflows/CI/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/Gabriel-Darbord/opentelemetry-pharo/badge.svg?branch=main)](https://coveralls.io/github/moosetechnology/Famix-OpenTelemetry?branch=main)
+
 # OpenTelemetry-Pharo
+
 [OpenTelemetry](https://opentelemetry.io/) SDK and instrumentations for [Pharo](https://pharo.org/).  
 Use it to instrument, generate, collect, and export telemetry data (<s>metrics, logs, and </s>traces) to help you analyze your software’s performance and behavior.
 
