@@ -93,15 +93,15 @@ OTInstrumentation class >> methodMatcher [
 ]
 
 { #category : #instrumenting }
-OTInstrumentation class >> onMethodEnter: arguments [
+OTInstrumentation class >> onMethodEnter: event [
 	"This method is executed BEFORE the instrumented method.
-	The arguments contain the RFMethodOperation plus the data requested in #configure:"
+	The event contains the RFMethodOperation plus the data requested in #configure:."
 ]
 
 { #category : #instrumenting }
-OTInstrumentation class >> onMethodExit: arguments withValue: returnValue [
+OTInstrumentation class >> onMethodExit: event withValue: returnValue [
 	"This method is executed AFTER the instrumented method.
-	The first argument contains the RFMethodOperation plus the data requested in #configure:
+	The first argument contains the RFMethodOperation plus the data requested in #configure:.
 	The second contains the return value of the method."
 ]
 

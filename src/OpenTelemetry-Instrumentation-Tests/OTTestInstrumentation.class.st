@@ -2,16 +2,16 @@ Class {
 	#name : #OTTestInstrumentation,
 	#superclass : #OTInstrumentation,
 	#classInstVars : [
-		'capturedArguments',
-		'capturedValue'
+		'capturedValue',
+		'capturedEvent'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests'
+	#category : #'OpenTelemetry-Instrumentation-Tests'
 }
 
 { #category : #accessing }
-OTTestInstrumentation class >> capturedArguments [
+OTTestInstrumentation class >> capturedEvent [
 
-	^ capturedArguments
+	^ capturedEvent
 ]
 
 { #category : #accessing }
@@ -35,7 +35,7 @@ OTTestInstrumentation class >> configure: installer [
 { #category : #testing }
 OTTestInstrumentation class >> hasRunOnEnter [
 
-	^ capturedArguments isNotNil
+	^ capturedEvent isNotNil
 ]
 
 { #category : #testing }
@@ -57,13 +57,13 @@ OTTestInstrumentation class >> methodMatcher [
 ]
 
 { #category : #instrumenting }
-OTTestInstrumentation class >> onMethodEnter: arguments [
+OTTestInstrumentation class >> onMethodEnter: event [
 
-	capturedArguments := arguments
+	capturedEvent := event
 ]
 
 { #category : #instrumenting }
-OTTestInstrumentation class >> onMethodExit: arguments withValue: returnValue [
+OTTestInstrumentation class >> onMethodExit: event withValue: returnValue [
 
 	capturedValue := returnValue ifNil: [ #nil ]
 ]
@@ -78,5 +78,5 @@ OTTestInstrumentation class >> packageMatcher [
 OTTestInstrumentation class >> reset [
 
 	super reset.
-	capturedArguments := capturedValue := nil
+	capturedEvent := capturedValue := nil
 ]

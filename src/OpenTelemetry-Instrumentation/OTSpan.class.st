@@ -252,9 +252,9 @@ OTSpan >> parent [
 ]
 
 { #category : #accessing }
-OTSpan >> parent: anObject [
+OTSpan >> parent: aSpan [
 
-	parent := anObject
+	parent := aSpan
 ]
 
 { #category : #printing }

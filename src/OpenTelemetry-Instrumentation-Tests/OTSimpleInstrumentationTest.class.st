@@ -7,7 +7,7 @@ Class {
 	#instVars : [
 		'target'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests'
+	#category : #'OpenTelemetry-Instrumentation-Tests'
 }
 
 { #category : #running }
@@ -38,15 +38,15 @@ OTSimpleInstrumentationTest >> testEnsureHasRunOnExit [
 ]
 
 { #category : #tests }
-OTSimpleInstrumentationTest >> testHasConfiguredArguments [
+OTSimpleInstrumentationTest >> testEventHasConfiguredData [
 
-	| arguments |
+	| event |
 	target answer. "run instrumented method"
-	arguments := OTTestSimpleInstrumentation capturedArguments.
-	self assert: arguments size equals: 4.
-	self assert: arguments second isContext.
-	self assert: arguments third class equals: OTTestTarget.
-	self assert: arguments fourth class equals: ReflectiveMethod
+	event := OTTestSimpleInstrumentation capturedEvent.
+	self assert: event size equals: 4.
+	self assert: event second isContext.
+	self assert: event third class equals: OTTestTarget.
+	self assert: event fourth class equals: ReflectiveMethod
 ]
 
 { #category : #tests }
