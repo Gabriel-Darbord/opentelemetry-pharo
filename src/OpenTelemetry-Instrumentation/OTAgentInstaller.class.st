@@ -8,8 +8,8 @@ These methods allow them to specify contextual information, method parameters, r
 This ensures that the instrumentation is tailored to the specific needs of the application.
 "
 Class {
-	#name : #OTAgentInstaller,
-	#superclass : #Object,
+	#name : 'OTAgentInstaller',
+	#superclass : 'Object',
 	#instVars : [
 		'metalink',
 		'arguments'
@@ -17,10 +17,11 @@ Class {
 	#classInstVars : [
 		'permission'
 	],
-	#category : #'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation',
+	#package : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : #'class initialization' }
+{ #category : 'class initialization' }
 OTAgentInstaller class >> askPermission [
 	"command line and GUI"
 
@@ -28,7 +29,7 @@ OTAgentInstaller class >> askPermission [
 	^ true
 ]
 
-{ #category : #'class initialization' }
+{ #category : 'class initialization' }
 OTAgentInstaller class >> denyPermission [
 
 	<script>
@@ -36,7 +37,7 @@ OTAgentInstaller class >> denyPermission [
 	self uninstall
 ]
 
-{ #category : #'class initialization' }
+{ #category : 'class initialization' }
 OTAgentInstaller class >> givePermission [
 
 	<script>
@@ -44,20 +45,20 @@ OTAgentInstaller class >> givePermission [
 	self install
 ]
 
-{ #category : #'class initialization' }
+{ #category : 'class initialization' }
 OTAgentInstaller class >> hasPermission [
 
 	^ permission ifNil: [ permission := self askPermission ]
 ]
 
-{ #category : #'class initialization' }
+{ #category : 'class initialization' }
 OTAgentInstaller class >> initialize [
 	"Install the instrumentations when OpenTelemetry is loaded."
 
 	self hasPermission ifTrue: [ self install ]
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTAgentInstaller class >> install [
 	"Install all the active instrumentation modules present in this image."
 
@@ -66,7 +67,7 @@ OTAgentInstaller class >> install [
 		module enabled ifTrue: [ self installModule: module ] ]
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 
 	| installer |
@@ -80,7 +81,7 @@ OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 					installer instrument: method ] ]
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTAgentInstaller class >> installModule: anInstrumentationModule [
 
 	anInstrumentationModule initialize instrumentations do: [
@@ -89,7 +90,7 @@ OTAgentInstaller class >> installModule: anInstrumentationModule [
 			self installInstrumentation: instrumentation ] ]
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTAgentInstaller class >> reinstall [
 
 	<script>
@@ -97,7 +98,7 @@ OTAgentInstaller class >> reinstall [
 	self install
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 OTAgentInstaller class >> resetEnvironment [
 
 	<script>
@@ -106,7 +107,7 @@ OTAgentInstaller class >> resetEnvironment [
 	OTSpanExporter reset
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTAgentInstaller class >> uninstall [
 	"Uninstall all of the instrumentation present in this image."
 
@@ -116,7 +117,7 @@ OTAgentInstaller class >> uninstall [
 		self uninstallModule: module ]
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTAgentInstaller class >> uninstallInstrumentation: anInstrumentation [
 
 	anInstrumentation reset.
@@ -125,21 +126,21 @@ OTAgentInstaller class >> uninstallInstrumentation: anInstrumentation [
 			metalink uninstall ] ]
 ]
 
-{ #category : #actions }
+{ #category : 'actions' }
 OTAgentInstaller class >> uninstallModule: anInstrumentationModule [
 
 	anInstrumentationModule instrumentations do: [ :instrumentation |
 		self uninstallInstrumentation: instrumentation ]
 ]
 
-{ #category : #'API - configuration' }
+{ #category : 'API - configuration' }
 OTAgentInstaller >> beOneShot [
 	"Only execute the instrumentation once."
 
 	metalink optionOneShot: true
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 OTAgentInstaller >> configureWith: anInstrumentation [
 	"This is a private method, do not use this!
 	Configure the MetaLink to make it run the method instrumentation defined in an OTInstrumentation subclass."
@@ -151,7 +152,7 @@ OTAgentInstaller >> configureWith: anInstrumentation [
 	metalink metaObject: anInstrumentation
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 OTAgentInstaller >> initialize [
 
 	metalink := MetaLink new.
@@ -164,7 +165,7 @@ OTAgentInstaller >> initialize [
 	arguments add: #operation -> nil
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 OTAgentInstaller >> instrument: aMethod [
 	"This is a private method, do not use this!
 	Install the metalink on the instrumented method."
@@ -172,21 +173,21 @@ OTAgentInstaller >> instrument: aMethod [
 	aMethod ast link: metalink
 ]
 
-{ #category : #'API - configuration' }
+{ #category : 'API - configuration' }
 OTAgentInstaller >> withContext [
 	"The executing context, note that it is slow to reify."
 
 	arguments add: #context -> nil
 ]
 
-{ #category : #'API - configuration' }
+{ #category : 'API - configuration' }
 OTAgentInstaller >> withObject [
 	"Object executing the instrumented method."
 
 	arguments add: #object -> nil
 ]
 
-{ #category : #'API - configuration' }
+{ #category : 'API - configuration' }
 OTAgentInstaller >> withSender [
 	"Sender of the instrumented method."
 
