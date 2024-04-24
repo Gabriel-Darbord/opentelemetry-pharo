@@ -1,7 +1,7 @@
 [![Pharo version](https://img.shields.io/badge/Pharo-11-%23aac9ff.svg)](https://pharo.org/download)
 [![Pharo version](https://img.shields.io/badge/Pharo-12-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
 ![Build Info](https://github.com/Gabriel-Darbord/opentelemetry-pharo/workflows/CI/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/Gabriel-Darbord/opentelemetry-pharo/badge.svg?branch=main)](https://coveralls.io/github/moosetechnology/Famix-OpenTelemetry?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/Gabriel-Darbord/opentelemetry-pharo/badge.svg?branch=main)](https://coveralls.io/github/Gabriel-Darbord/opentelemetry-pharo?branch=main)
 
 # OpenTelemetry-Pharo
 
