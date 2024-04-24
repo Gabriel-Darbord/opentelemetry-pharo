@@ -134,7 +134,7 @@ OTInstrumentation class >> run: arguments [
 	If the trace should not be sampled, execute the method directly.
 	Otherwise, run on enter, execute method, record unhandled exception if any, and ensure running on exit."
 
-	| returnValue errorMessage |
+	| returnValue exception |
 	sampler ifNotNil: [
 		sampler shouldSample ifFalse: [ ^ arguments first value ] ].
 	self onMethodEnter: arguments.
@@ -142,11 +142,10 @@ OTInstrumentation class >> run: arguments [
 	  [
 	  [ returnValue := arguments first value ]
 		  on: Exception
-		  do: [ :exception |
-			  errorMessage := exception printString.
-			  exception pass ] ] ifCurtailed: [
-		  OTSpan recordException: errorMessage ] ] ensure: [
-		  self onMethodExit: arguments withValue: returnValue ]
+		  do: [ :e |
+			  exception := e.
+			  e pass ] ] ifCurtailed: [ OTSpan recordException: exception ] ]
+		  ensure: [ self onMethodExit: arguments withValue: returnValue ]
 ]
 
 { #category : 'actions' }
