@@ -2,15 +2,16 @@
 An OTInstrumentationConfigurationTest is a test class for testing the behavior of OTInstrumentationConfiguration
 "
 Class {
-	#name : #OTSimpleInstrumentationTest,
-	#superclass : #TestCase,
+	#name : 'OTSimpleInstrumentationTest',
+	#superclass : 'TestCase',
 	#instVars : [
 		'target'
 	],
-	#category : #'OpenTelemetry-Instrumentation-Tests'
+	#category : 'OpenTelemetry-Instrumentation-Tests',
+	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : #running }
+{ #category : 'running' }
 OTSimpleInstrumentationTest >> setUp [
 
 	super setUp.
@@ -18,14 +19,14 @@ OTSimpleInstrumentationTest >> setUp [
 	target := OTTestTarget new
 ]
 
-{ #category : #running }
+{ #category : 'running' }
 OTSimpleInstrumentationTest >> tearDown [
 
 	OTTestSimpleInstrumentation uninstall.
 	super tearDown
 ]
 
-{ #category : #tests }
+{ #category : 'tests' }
 OTSimpleInstrumentationTest >> testEnsureHasRunOnExit [
 
 	self deny: OTTestSimpleInstrumentation hasRunOnExit.
@@ -37,7 +38,7 @@ OTSimpleInstrumentationTest >> testEnsureHasRunOnExit [
 	self assert: OTTestSimpleInstrumentation hasRunOnExit
 ]
 
-{ #category : #tests }
+{ #category : 'tests' }
 OTSimpleInstrumentationTest >> testEventHasConfiguredData [
 
 	| event |
@@ -52,7 +53,7 @@ OTSimpleInstrumentationTest >> testEventHasConfiguredData [
 	self assert: event fourth class equals: self class
 ]
 
-{ #category : #tests }
+{ #category : 'tests' }
 OTSimpleInstrumentationTest >> testHasRun [
 
 	self deny: OTTestSimpleInstrumentation hasRunOnEnter.
@@ -62,7 +63,7 @@ OTSimpleInstrumentationTest >> testHasRun [
 	self assert: OTTestSimpleInstrumentation hasRunOnExit
 ]
 
-{ #category : #tests }
+{ #category : 'tests' }
 OTSimpleInstrumentationTest >> testIsInstalled [
 
 	self assert:
@@ -70,7 +71,7 @@ OTSimpleInstrumentationTest >> testIsInstalled [
 			 link metaObject == OTTestSimpleInstrumentation ])
 ]
 
-{ #category : #tests }
+{ #category : 'tests' }
 OTSimpleInstrumentationTest >> testIsOneShot [
 
 	target answer.
@@ -79,17 +80,16 @@ OTSimpleInstrumentationTest >> testIsOneShot [
 			 link metaObject == OTTestSimpleInstrumentation ])
 ]
 
-{ #category : #tests }
+{ #category : 'tests' }
 OTSimpleInstrumentationTest >> testRecordException [
 
 	| span error |
-	self skip. "don't use Span directly, use a real instrumentation. Otherwise it can conflict with an actual instrumentation."
 	span := OTSpan new start.
 	[ target fail ]
 		on: Error
 		do: [ :err | error := err ].
 	[
 	self assert: span status equals: 'ERROR'.
-	self assert: (span attributes at: 'error') identicalTo: error ]
+	self assert: (span attributes at: 'error') equals: error description ]
 		ensure: [ span end ]
 ]

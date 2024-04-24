@@ -1,16 +1,17 @@
 Class {
-	#name : #OTTestTarget,
-	#superclass : #Object,
-	#category : 'OpenTelemetry-Instrumentation-Tests'
+	#name : 'OTTestTarget',
+	#superclass : 'Object',
+	#category : 'OpenTelemetry-Instrumentation-Tests',
+	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTTestTarget >> answer [
 
 	^ 42
 ]
 
-{ #category : #asserting }
+{ #category : 'asserting' }
 OTTestTarget >> fail [
 
 	Error signal
