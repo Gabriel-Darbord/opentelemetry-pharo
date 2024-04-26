@@ -17,10 +17,17 @@ Class {
 }
 
 { #category : 'instance creation' }
-OTSpanProcessor class >> asCurrent [
+OTSpanProcessor class >> beCurrent [
 
 	<script>
-	^ Current := self new
+	self isAbstract
+		ifTrue: [ Error signal: self name , ' is abstract' ]
+		ifFalse: [
+			^ self == Current class
+				  ifTrue: [ Current ]
+				  ifFalse: [
+					  Current flush.
+					  Current := self new ] ]
 ]
 
 { #category : 'accessing' }

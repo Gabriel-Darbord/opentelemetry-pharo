@@ -13,10 +13,15 @@ Class {
 }
 
 { #category : 'instance creation' }
-OTSpanExporter class >> asCurrent [
+OTSpanExporter class >> beCurrent [
 
 	<script>
-	^ Current := self new
+	self isAbstract
+		ifTrue: [ Error signal: self name , ' is abstract' ]
+		ifFalse: [
+			^ self == Current class
+				  ifTrue: [ Current ]
+				  ifFalse: [ Current := self new ] ]
 ]
 
 { #category : 'accessing' }
