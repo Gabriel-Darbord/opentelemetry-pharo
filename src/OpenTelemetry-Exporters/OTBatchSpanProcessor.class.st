@@ -3,40 +3,41 @@ I am a processor that forwards batches of `OTSpan` to the configured `OTSpanExpo
 Batches are only sent when the configured batchSize is reached or when the image is exited.
 "
 Class {
-	#name : #OTBatchSpanProcessor,
-	#superclass : #OTSpanProcessor,
+	#name : 'OTBatchSpanProcessor',
+	#superclass : 'OTSpanProcessor',
 	#instVars : [
 		'batch',
 		'batchSize'
 	],
-	#category : #'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Exporters',
+	#package : 'OpenTelemetry-Exporters'
 }
 
-{ #category : #'class initialization' }
+{ #category : 'class initialization' }
 OTBatchSpanProcessor class >> initialize [
 
 	SessionManager default registerToolClassNamed: self name
 ]
 
-{ #category : #'system startup' }
+{ #category : 'system startup' }
 OTBatchSpanProcessor class >> shutDown [
 
 	self allInstancesDo: [ :processor | processor flush ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTBatchSpanProcessor >> batchSize [
 
 	^ batchSize
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTBatchSpanProcessor >> batchSize: anInteger [
 
 	batchSize := anInteger
 ]
 
-{ #category : #processing }
+{ #category : 'processing' }
 OTBatchSpanProcessor >> flush [
 
 	^ batch ifEmpty: [ false ] ifNotEmpty: [
@@ -44,7 +45,7 @@ OTBatchSpanProcessor >> flush [
 			  batch := OrderedCollection new: batchSize ] ]
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 OTBatchSpanProcessor >> initialize [
 	"Totally arbitrary default batch size, will adjust value with time (10/23)"
 
@@ -52,7 +53,7 @@ OTBatchSpanProcessor >> initialize [
 	batch := OrderedCollection new: batchSize
 ]
 
-{ #category : #processing }
+{ #category : 'processing' }
 OTBatchSpanProcessor >> process: span [
 	"Wait until the batch has been filled to export"
 
