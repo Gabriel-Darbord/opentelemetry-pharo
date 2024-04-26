@@ -14,5 +14,5 @@ OTJSONFileSpanExporter >> export: spans [
 
 	(self directory asFileReference / DateAndTime now asString , 'json')
 		ensureCreateFile writeStreamDo: [ :stream |
-		STON put: spans asJsonOnStream: stream ]
+		STON put: spans asArray asJsonOnStream: stream ]
 ]
