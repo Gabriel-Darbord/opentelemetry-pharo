@@ -132,9 +132,9 @@ OTInstrumenter >> produceContext [
 OTInstrumenter >> shouldStartUnder: span request: request [
 
 	^ spanSuppressionStrategy ifNil: [ true ] ifNotNil: [
-		  spanSuppressionStrategy
-			  value: span
-			  value: (spanKindExtractor value: request) ]
+		  (spanSuppressionStrategy
+			   value: span
+			   value: (self spanKindExtractor value: request)) not ]
 ]
 
 { #category : 'accessing' }
