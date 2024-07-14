@@ -34,6 +34,8 @@ OTBatchSpanProcessor >> batchSize [
 { #category : 'accessing' }
 OTBatchSpanProcessor >> batchSize: anInteger [
 
+	anInteger >= 1 ifFalse: [
+		Error signal: 'Batch size must be superior or equal to 1' ].
 	batchSize := anInteger
 ]
 
