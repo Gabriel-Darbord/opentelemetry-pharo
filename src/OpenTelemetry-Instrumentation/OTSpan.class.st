@@ -90,6 +90,35 @@ OTSpan class >> current [
 	^ Current
 ]
 
+{ #category : 'recording' }
+OTSpan class >> fromSton: stonReader [
+	"enumeration"
+
+	| span representation |
+	span := self new.
+	representation := stonReader parseMapOrListRepresentation.
+	span instVarNamed: #spanId put: (representation at: #spanId).
+	span instVarNamed: #traceId put: (representation at: #traceId).
+	span name: (representation at: #name).
+	span context: (representation at: #context).
+	span kind: (representation at: #kind).
+	span startTime: (representation at: #startTime).
+	span endTime: (representation at: #endTime).
+	span status: (representation at: #status).
+	span instrumentationName: (representation at: #instrumentationName).
+	representation
+		at: #parentId
+		ifPresent: [ :parentId | "self allInstances detect: [ :s | s spanId = parentId ]"
+			 ].
+	representation
+		at: #attributes
+		ifPresent: [ :attributes | span attributes: attributes ].
+	representation
+		at: #events
+		ifPresent: [ :events | span events: events ].
+	^ span
+]
+
 { #category : 'enumeration' }
 OTSpan class >> internal [
 	"Default value. Indicates that the span is used internally."
