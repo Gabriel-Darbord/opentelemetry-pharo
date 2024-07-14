@@ -22,19 +22,20 @@ OTZipkinSpanExporter >> export: spans [
 
 { #category : 'accessing' }
 OTZipkinSpanExporter >> httpClient [
+	"Configured to localhost:9411 by default."
 
 	^ httpClient ifNil: [
-		  | writer |
-		  writer := ZnUtils defaultJSONWriter.
-		  httpClient := ZnClient new
-			                http;
-			                method: #POST;
-			                accept: ZnMimeType applicationJson;
-			                addPathSegment: 'api';
-			                addPathSegment: 'v2';
-			                addPathSegment: 'spans';
-			                contentWriter: [ :data |
-				                ZnEntity json: (writer toString: data) ] ]
+		  (httpClient := ZnClient new)
+			  http;
+			  host: 'localhost';
+			  port: 9411;
+			  addPathSegment: 'api';
+			  addPathSegment: 'v2';
+			  addPathSegment: 'spans';
+			  method: #POST;
+			  accept: ZnMimeType applicationJson;
+			  contentWriter: [ :data |
+				  ZnEntity json: (ZnUtils defaultJSONWriter toString: data) ] ]
 ]
 
 { #category : 'private - utilities' }
