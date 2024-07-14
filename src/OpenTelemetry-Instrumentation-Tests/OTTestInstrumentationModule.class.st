@@ -21,5 +21,8 @@ OTTestInstrumentationModule class >> instrumentationName [
 { #category : 'accessing' }
 OTTestInstrumentationModule class >> instrumentations [
 
-	^ { OTTestSimpleInstrumentation. OTTestSpanInstrumentation }
+	^ {
+		  OTTestSimpleInstrumentation.
+		  OTTestSampledInstrumentation.
+		  OTTestSpanInstrumentation }
 ]

@@ -1,34 +1,117 @@
 Class {
 	#name : 'OTSpanInstrumentationTest',
-	#superclass : 'TestCase',
+	#superclass : 'OTAbstractInstrumentationTest',
 	#instVars : [
-		'target'
+		'currentProcessor'
 	],
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
+{ #category : 'accessing' }
+OTSpanInstrumentationTest >> instrumentationClass [
+
+	^ OTTestSpanInstrumentation
+]
+
 { #category : 'running' }
 OTSpanInstrumentationTest >> setUp [
+	"Remember the configured processor."
 
 	super setUp.
-	OTTestSpanInstrumentation install.
-	target := OTTestTarget new
+	currentProcessor := OTSpanProcessor current.
+	OTBatchSpanProcessor new beCurrent
 ]
 
 { #category : 'running' }
 OTSpanInstrumentationTest >> tearDown [
+	"Restore the configured processor."
 
-	OTTestSpanInstrumentation uninstall.
+	currentProcessor beCurrent.
 	super tearDown
 ]
 
 { #category : 'tests' }
-OTSpanInstrumentationTest >> testFixedRateSampler [
+OTSpanInstrumentationTest >> testDefaultSpanKind [
 
-	self deny: OTTestSpanInstrumentation hasRunOnEnter.
 	target answer.
-	self deny: OTTestSpanInstrumentation hasRunOnEnter.
+	self
+		assert: OTTestSpanInstrumentation capturedSpan kind
+		equals: OTSpan internal
+]
+
+{ #category : 'tests' }
+OTSpanInstrumentationTest >> testDefaultSpanName [
+
 	target answer.
-	self assert: OTTestSpanInstrumentation hasRunOnEnter
+	self
+		assert: OTTestSpanInstrumentation capturedSpan name
+		equals: (OTTestTarget >> #answer) name
+]
+
+{ #category : 'tests' }
+OTSpanInstrumentationTest >> testRecordException [
+
+	| error span |
+	[ target fail ]
+		on: Error
+		do: [ :err | error := err ].
+	span := OTTestSpanInstrumentation capturedSpan.
+	self assert: span status equals: 'ERROR'.
+	self
+		assert: (span attributes at: 'exception')
+		equals: error description
+]
+
+{ #category : 'tests' }
+OTSpanInstrumentationTest >> testSpanAttributes [
+	"Attributes were created and populated on method enter and exit."
+
+	| attributes |
+	target answer.
+	attributes := OTTestSpanInstrumentation capturedSpan attributes.
+	self assert: attributes isNotNil.
+	self assert: (attributes includesKey: 'enter').
+	self assert: (attributes at: 'enter') equals: #OK.
+	self assert: (attributes includesKey: 'exit').
+	self assert: (attributes at: 'exit') equals: #OK
+]
+
+{ #category : 'tests' }
+OTSpanInstrumentationTest >> testSpanExists [
+
+	self assert: OTTestSpanInstrumentation capturedSpan isNil.
+	target answer.
+	self
+		assert: OTTestSpanInstrumentation capturedSpan class
+		identicalTo: OTSpan
+]
+
+{ #category : 'tests' }
+OTSpanInstrumentationTest >> testSpanLifetime [
+
+	| span |
+	target answer.
+	span := OTTestSpanInstrumentation capturedSpan.
+	self assert: span startTime isNotNil.
+	self assert: span endTime isNotNil.
+	self assert: span startTime <= span endTime
+]
+
+{ #category : 'tests' }
+OTSpanInstrumentationTest >> testSpanStatus [
+
+	target answer.
+	self
+		assert: OTTestSpanInstrumentation capturedSpan status
+		equals: #OK
+]
+
+{ #category : 'tests' }
+OTSpanInstrumentationTest >> testSpanSuppression [
+
+	| span |
+	target suppressedAnswer.
+	span := OTTestSpanInstrumentation capturedSpan.
+	self assert: (span attributes includesKey: 'suppressed')
 ]

@@ -3,38 +3,26 @@ An OTInstrumentationConfigurationTest is a test class for testing the behavior o
 "
 Class {
 	#name : 'OTSimpleInstrumentationTest',
-	#superclass : 'TestCase',
-	#instVars : [
-		'target'
-	],
+	#superclass : 'OTAbstractInstrumentationTest',
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'running' }
-OTSimpleInstrumentationTest >> setUp [
+{ #category : 'accessing' }
+OTSimpleInstrumentationTest >> instrumentationClass [
 
-	super setUp.
-	OTTestSimpleInstrumentation install.
-	target := OTTestTarget new
-]
-
-{ #category : 'running' }
-OTSimpleInstrumentationTest >> tearDown [
-
-	OTTestSimpleInstrumentation uninstall.
-	super tearDown
+	^ OTTestSimpleInstrumentation
 ]
 
 { #category : 'tests' }
 OTSimpleInstrumentationTest >> testEnsureHasRunOnExit [
 
 	self deny: OTTestSimpleInstrumentation hasRunOnExit.
-	[
-	target fail.
-	self fail "should not reach" ]
-		on: Error
-		do: [ nil ].
+	self
+		should: [
+			target fail.
+			self fail "should not reach" ]
+		raise: Error.
 	self assert: OTTestSimpleInstrumentation hasRunOnExit
 ]
 
@@ -51,6 +39,16 @@ OTSimpleInstrumentationTest >> testEventHasConfiguredData [
 	self assert: event third class equals: OTTestTarget.
 	"withSender"
 	self assert: event fourth class equals: self class
+]
+
+{ #category : 'tests' }
+OTSimpleInstrumentationTest >> testEventHasOperation [
+
+	| event |
+	target answer. "run instrumented method"
+	event := OTTestSimpleInstrumentation capturedEvent.
+	self assert: event isNotEmpty.
+	self assert: event first class identicalTo: RFMethodOperation
 ]
 
 { #category : 'tests' }
@@ -81,15 +79,8 @@ OTSimpleInstrumentationTest >> testIsOneShot [
 ]
 
 { #category : 'tests' }
-OTSimpleInstrumentationTest >> testRecordException [
+OTSimpleInstrumentationTest >> testPassException [
+	"The instrumentation should let the exception happen normally."
 
-	| span error |
-	span := OTSpan new start.
-	[ target fail ]
-		on: Error
-		do: [ :err | error := err ].
-	[
-	self assert: span status equals: 'ERROR'.
-	self assert: (span attributes at: 'error') equals: error description ]
-		ensure: [ span end ]
+	self should: [ target fail ] raise: Error
 ]
