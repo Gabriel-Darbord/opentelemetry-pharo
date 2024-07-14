@@ -39,7 +39,7 @@ OTSpanExporter class >> current: aSpanExporter [
 { #category : 'instance creation' }
 OTSpanExporter class >> defaultFileExporter [
 
-	^ OTFileSpanExporter new
+	^ OTJSONFileSpanExporter new
 ]
 
 { #category : 'instance creation' }
