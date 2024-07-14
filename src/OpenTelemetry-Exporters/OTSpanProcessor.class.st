@@ -46,7 +46,7 @@ OTSpanProcessor class >> current: aSpanProcessor [
 OTSpanProcessor class >> flush [
 
 	<script>
-	Current ifNotNil: [ Current flush ]
+	^ Current ifNil: [ false ] ifNotNil: [ Current flush ]
 ]
 
 { #category : 'testing' }
