@@ -272,8 +272,23 @@ OTSpan >> printOn: aStream [
 { #category : 'recording' }
 OTSpan >> recordException: anException [
 
-	self status: 'ERROR'.
-	self attributeAt: 'error' put: anException description
+	self setErrorStatus.
+	self attributeAt: 'exception' put: anException description
+]
+
+{ #category : 'recording' }
+OTSpan >> setErrorStatus [
+	"Specification: https://opentelemetry.io/docs/specs/otel/trace/api/#set-status
+	Status values form a total order: Ok > Error > Unset.
+	This means that setting Status with Ok will override any prior or future attempts to set span Status with Error or Unset."
+
+	status == #OK ifFalse: [ status := #ERROR ]
+]
+
+{ #category : 'recording' }
+OTSpan >> setOkStatus [
+
+	status := #OK
 ]
 
 { #category : 'accessing' }
@@ -305,12 +320,6 @@ OTSpan >> startTime: aDateAndTime [
 OTSpan >> status [
 
 	^ status
-]
-
-{ #category : 'accessing' }
-OTSpan >> status: aString [
-
-	status := aString
 ]
 
 { #category : 'ston persistence' }
