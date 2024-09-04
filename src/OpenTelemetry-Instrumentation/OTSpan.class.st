@@ -351,6 +351,13 @@ OTSpan >> status [
 	^ status
 ]
 
+{ #category : 'accessing' }
+OTSpan >> status: aSymbol [
+	"Use `setErrorStatus` or `setOkStatus` instead."
+
+	status := aSymbol
+]
+
 { #category : 'ston persistence' }
 OTSpan >> stonOn: stonWriter [
 
