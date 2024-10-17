@@ -119,8 +119,7 @@ OTMatcher >> matching: aCollection do: aBlock [
 { #category : #enumerating }
 OTMatcher >> matchingPackagesDo: aBlock [
 
-	self class packageOrganizer packages do: [ :package |
-		(self matches: package) ifTrue: [ aBlock value: package ] ]
+	self matching: self class packageOrganizer packages do: aBlock
 ]
 
 { #category : #testing }

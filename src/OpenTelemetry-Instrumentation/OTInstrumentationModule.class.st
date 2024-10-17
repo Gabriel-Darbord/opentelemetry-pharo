@@ -3,29 +3,28 @@ I group several connected `OTInstrumentation`s together, sharing instrumentation
 Ideally all types in a single instrumented library should live in a single module.
 "
 Class {
-	#name : 'OTInstrumentationModule',
-	#superclass : 'Object',
+	#name : #OTInstrumentationModule,
+	#superclass : #Object,
 	#classInstVars : [
 		'enabled'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumentationModule class >> enabled [
 	"Instrumentation modules are enabled by default."
 
 	^ enabled ifNil: [ enabled := true ]
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumentationModule class >> enabled: aBoolean [
 
 	enabled := aBoolean
 ]
 
-{ #category : 'actions' }
+{ #category : #actions }
 OTInstrumentationModule class >> install [
 	"Install a specific subclass of InstrumentationModule."
 
@@ -33,7 +32,7 @@ OTInstrumentationModule class >> install [
 	OTAgentInstaller installModule: self
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumentationModule class >> instrumentationName [
 	"My subclasses must return a string with the name of the instrumentation module.
 	Ideally, the name should be the same as the library being instrumented.
@@ -42,14 +41,14 @@ OTInstrumentationModule class >> instrumentationName [
 	self subclassResponsibility
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTInstrumentationModule class >> instrumentations [
 	"My subclasses must return the list of Instrumentations contained in the module."
 
 	self subclassResponsibility
 ]
 
-{ #category : 'actions' }
+{ #category : #actions }
 OTInstrumentationModule class >> reinstall [
 
 	<script>
@@ -57,7 +56,7 @@ OTInstrumentationModule class >> reinstall [
 	self install
 ]
 
-{ #category : 'actions' }
+{ #category : #actions }
 OTInstrumentationModule class >> uninstall [
 	"Uninstall a specific subclass of InstrumentationModule."
 

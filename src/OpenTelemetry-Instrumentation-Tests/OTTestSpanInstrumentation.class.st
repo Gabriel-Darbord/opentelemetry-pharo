@@ -1,21 +1,20 @@
 Class {
-	#name : 'OTTestSpanInstrumentation',
-	#superclass : 'OTTestInstrumentation',
+	#name : #OTTestSpanInstrumentation,
+	#superclass : #OTMetaLinkTestInstrumentation,
 	#classInstVars : [
 		'capturedSpan',
 		'suppressed'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : #'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTTestSpanInstrumentation class >> capturedSpan [
 
 	^ capturedSpan
 ]
 
-{ #category : 'configuring' }
+{ #category : #configuring }
 OTTestSpanInstrumentation class >> defineInstrumenter [
 
 	instrumenter := OTInstrumenter forInstrumentationNamed: 'test'.
@@ -23,7 +22,7 @@ OTTestSpanInstrumentation class >> defineInstrumenter [
 		span isNotNil and: [ span name includesSubstring: 'suppressed' ] ]
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTTestSpanInstrumentation class >> onMethodEnter: event [
 
 	| request |
@@ -36,7 +35,7 @@ OTTestSpanInstrumentation class >> onMethodEnter: event [
 	capturedSpan attributeAt: 'enter' put: #OK
 ]
 
-{ #category : 'instrumenting' }
+{ #category : #instrumenting }
 OTTestSpanInstrumentation class >> onMethodExit: event withValue: returnValue [
 
 	suppressed ifTrue: [ "suppress only once" ^ suppressed := false ].
@@ -45,7 +44,7 @@ OTTestSpanInstrumentation class >> onMethodExit: event withValue: returnValue [
 	instrumenter end: capturedSpan
 ]
 
-{ #category : 'class initialization' }
+{ #category : #'class initialization' }
 OTTestSpanInstrumentation class >> reset [
 
 	super reset.

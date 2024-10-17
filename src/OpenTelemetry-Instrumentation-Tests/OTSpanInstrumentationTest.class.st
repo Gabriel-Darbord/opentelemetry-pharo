@@ -1,20 +1,19 @@
 Class {
-	#name : 'OTSpanInstrumentationTest',
-	#superclass : 'OTAbstractInstrumentationTest',
+	#name : #OTSpanInstrumentationTest,
+	#superclass : #OTAbstractInstrumentationTest,
 	#instVars : [
 		'currentProcessor'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : #'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'accessing' }
-OTSpanInstrumentationTest >> instrumentationClass [
+{ #category : #accessing }
+OTSpanInstrumentationTest >> instrumentation [
 
 	^ OTTestSpanInstrumentation
 ]
 
-{ #category : 'running' }
+{ #category : #running }
 OTSpanInstrumentationTest >> setUp [
 	"Remember the configured processor."
 
@@ -23,7 +22,7 @@ OTSpanInstrumentationTest >> setUp [
 	OTBatchSpanProcessor new beCurrent
 ]
 
-{ #category : 'running' }
+{ #category : #running }
 OTSpanInstrumentationTest >> tearDown [
 	"Restore the configured processor."
 
@@ -31,7 +30,7 @@ OTSpanInstrumentationTest >> tearDown [
 	super tearDown
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testDefaultSpanKind [
 
 	target answer.
@@ -40,7 +39,7 @@ OTSpanInstrumentationTest >> testDefaultSpanKind [
 		equals: OTSpan internal
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testDefaultSpanName [
 
 	target answer.
@@ -49,21 +48,21 @@ OTSpanInstrumentationTest >> testDefaultSpanName [
 		equals: (OTTestTarget >> #answer) name
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testRecordException [
 
 	| error span |
 	[ target fail ]
 		on: Error
-		do: [ :err | error := err ].
+		do: [ :e | error := e ].
 	span := OTTestSpanInstrumentation capturedSpan.
-	self assert: span status equals: 'ERROR'.
+	self assert: span status equals: #ERROR.
 	self
 		assert: (span attributes at: 'exception')
 		equals: error description
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testSpanAttributes [
 	"Attributes were created and populated on method enter and exit."
 
@@ -77,7 +76,7 @@ OTSpanInstrumentationTest >> testSpanAttributes [
 	self assert: (attributes at: 'exit') equals: #OK
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testSpanExists [
 
 	self assert: OTTestSpanInstrumentation capturedSpan isNil.
@@ -87,7 +86,7 @@ OTSpanInstrumentationTest >> testSpanExists [
 		identicalTo: OTSpan
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testSpanLifetime [
 
 	| span |
@@ -98,7 +97,7 @@ OTSpanInstrumentationTest >> testSpanLifetime [
 	self assert: span startTime <= span endTime
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testSpanStatus [
 
 	target answer.
@@ -107,7 +106,7 @@ OTSpanInstrumentationTest >> testSpanStatus [
 		equals: #OK
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSpanInstrumentationTest >> testSpanSuppression [
 
 	| span |

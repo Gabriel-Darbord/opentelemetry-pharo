@@ -1,26 +1,25 @@
 Class {
-	#name : 'OTContext',
-	#superclass : 'Object',
+	#name : #OTContext,
+	#superclass : #Object,
 	#instVars : [
 		'currentSpan'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : 'accessing - context' }
+{ #category : #'accessing - context' }
 OTContext >> currentSpan [
 
 	^ currentSpan
 ]
 
-{ #category : 'accessing' }
+{ #category : #accessing }
 OTContext >> currentSpan: aSpan [
 
 	currentSpan := aSpan
 ]
 
-{ #category : 'initialization' }
+{ #category : #initialization }
 OTContext >> initialize [
 	"TODO gather data on executor"
 ]

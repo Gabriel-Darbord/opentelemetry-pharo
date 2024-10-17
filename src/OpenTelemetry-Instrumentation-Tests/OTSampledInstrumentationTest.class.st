@@ -1,17 +1,16 @@
 Class {
-	#name : 'OTSampledInstrumentationTest',
-	#superclass : 'OTAbstractInstrumentationTest',
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#name : #OTSampledInstrumentationTest,
+	#superclass : #OTAbstractInstrumentationTest,
+	#category : #'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'accessing' }
-OTSampledInstrumentationTest >> instrumentationClass [
+{ #category : #accessing }
+OTSampledInstrumentationTest >> instrumentation [
 
 	^ OTTestSampledInstrumentation
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSampledInstrumentationTest >> testFixedRateSampler [
 
 	self deny: OTTestSampledInstrumentation hasRunOnEnter.

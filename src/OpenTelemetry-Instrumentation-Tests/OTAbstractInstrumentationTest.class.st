@@ -1,30 +1,29 @@
 Class {
-	#name : 'OTAbstractInstrumentationTest',
-	#superclass : 'TestCase',
+	#name : #OTAbstractInstrumentationTest,
+	#superclass : #TestCase,
 	#instVars : [
 		'target'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : #'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'accessing' }
-OTAbstractInstrumentationTest >> instrumentationClass [
+{ #category : #accessing }
+OTAbstractInstrumentationTest >> instrumentation [
 
 	self subclassResponsibility
 ]
 
-{ #category : 'running' }
+{ #category : #running }
 OTAbstractInstrumentationTest >> setUp [
 
 	super setUp.
-	self instrumentationClass install.
+	self instrumentation install.
 	target := OTTestTarget new
 ]
 
-{ #category : 'running' }
+{ #category : #running }
 OTAbstractInstrumentationTest >> tearDown [
 
-	self instrumentationClass uninstall.
+	self instrumentation uninstall.
 	super tearDown
 ]

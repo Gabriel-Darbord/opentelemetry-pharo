@@ -2,31 +2,26 @@
 An OTInstrumentationConfigurationTest is a test class for testing the behavior of OTInstrumentationConfiguration
 "
 Class {
-	#name : 'OTSimpleInstrumentationTest',
-	#superclass : 'OTAbstractInstrumentationTest',
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#name : #OTSimpleInstrumentationTest,
+	#superclass : #OTAbstractInstrumentationTest,
+	#category : #'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'accessing' }
-OTSimpleInstrumentationTest >> instrumentationClass [
+{ #category : #accessing }
+OTSimpleInstrumentationTest >> instrumentation [
 
 	^ OTTestSimpleInstrumentation
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testEnsureHasRunOnExit [
 
-	self deny: OTTestSimpleInstrumentation hasRunOnExit.
-	self
-		should: [
-			target fail.
-			self fail "should not reach" ]
-		raise: Error.
-	self assert: OTTestSimpleInstrumentation hasRunOnExit
+	self deny: self instrumentation hasRunOnExit.
+	self should: [ target fail ] raise: Error.
+	self assert: self instrumentation hasRunOnExit
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testEventHasConfiguredData [
 
 	| event |
@@ -41,7 +36,7 @@ OTSimpleInstrumentationTest >> testEventHasConfiguredData [
 	self assert: event fourth class equals: self class
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testEventHasOperation [
 
 	| event |
@@ -51,17 +46,25 @@ OTSimpleInstrumentationTest >> testEventHasOperation [
 	self assert: event first class identicalTo: RFMethodOperation
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testHasRun [
 
-	self deny: OTTestSimpleInstrumentation hasRunOnEnter.
-	self deny: OTTestSimpleInstrumentation hasRunOnExit.
+	self deny: self instrumentation hasRunOnEnter.
+	self deny: self instrumentation hasRunOnExit.
 	target answer.
-	self assert: OTTestSimpleInstrumentation hasRunOnEnter.
-	self assert: OTTestSimpleInstrumentation hasRunOnExit
+	self assert: self instrumentation hasRunOnEnter.
+	self assert: self instrumentation hasRunOnExit
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
+OTSimpleInstrumentationTest >> testIgnoreHandledException [
+	"The instrumentation is not influenced by an exception that is handled."
+
+	target handledFail.
+	self assert: self instrumentation hasRunOnExit
+]
+
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testIsInstalled [
 
 	self assert:
@@ -69,7 +72,7 @@ OTSimpleInstrumentationTest >> testIsInstalled [
 			 link metaObject == OTTestSimpleInstrumentation ])
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testIsOneShot [
 
 	target answer.
@@ -78,9 +81,14 @@ OTSimpleInstrumentationTest >> testIsOneShot [
 			 link metaObject == OTTestSimpleInstrumentation ])
 ]
 
-{ #category : 'tests' }
+{ #category : #tests }
 OTSimpleInstrumentationTest >> testPassException [
 	"The instrumentation should let the exception happen normally."
 
 	self should: [ target fail ] raise: Error
+]
+
+{ #category : #tests }
+OTSimpleInstrumentationTest >> testSmoke [
+	"Instrumentation is successfully installed and uninstalled."
 ]
