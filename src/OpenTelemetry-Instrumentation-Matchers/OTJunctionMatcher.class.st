@@ -2,33 +2,34 @@
 A junction allows to chain different `OTMatcher`s in a readable manner.
 "
 Class {
-	#name : #OTJunctionMatcher,
-	#superclass : #OTMatcher,
+	#name : 'OTJunctionMatcher',
+	#superclass : 'OTMatcher',
 	#instVars : [
 		'matchers'
 	],
-	#category : #'OpenTelemetry-Instrumentation-Matchers'
+	#category : 'OpenTelemetry-Instrumentation-Matchers',
+	#package : 'OpenTelemetry-Instrumentation-Matchers'
 }
 
-{ #category : #testing }
+{ #category : 'testing' }
 OTJunctionMatcher class >> isAbstract [
 
 	^ self == OTJunctionMatcher
 ]
 
-{ #category : #'instance creation' }
+{ #category : 'instance creation' }
 OTJunctionMatcher class >> withAll: matchers [
 
 	^ self new matchers: matchers asOrderedCollection
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTJunctionMatcher >> matchers [
 
 	^ matchers
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 OTJunctionMatcher >> matchers: aCollection [
 
 	matchers := aCollection

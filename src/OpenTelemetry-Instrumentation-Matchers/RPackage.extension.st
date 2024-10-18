@@ -1,6 +1,6 @@
-Extension { #name : #RPackage }
+Extension { #name : 'RPackage' }
 
-{ #category : #'*OpenTelemetry-Instrumentation-Matchers' }
+{ #category : '*OpenTelemetry-Instrumentation-Matchers' }
 RPackage >> otName [
 
 	^ name

@@ -3,18 +3,19 @@ A matcher which only matches an element if any represented matchers constitute a
 Use `OTMatcher>>#or:` instead of instantiating me.
 "
 Class {
-	#name : #OTDisjunctionMatcher,
-	#superclass : #OTJunctionMatcher,
-	#category : 'OpenTelemetry-Instrumentation-Matchers'
+	#name : 'OTDisjunctionMatcher',
+	#superclass : 'OTJunctionMatcher',
+	#category : 'OpenTelemetry-Instrumentation-Matchers',
+	#package : 'OpenTelemetry-Instrumentation-Matchers'
 }
 
-{ #category : #testing }
+{ #category : 'testing' }
 OTDisjunctionMatcher >> matches: target [
 
 	^ matchers anySatisfy: [ :matcher | matcher matches: target ]
 ]
 
-{ #category : #controlling }
+{ #category : 'controlling' }
 OTDisjunctionMatcher >> or: matcher [
 	"No need to create an instance, simply add to current matcher."
 
