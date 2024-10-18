@@ -13,6 +13,13 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Matchers'
 }
 
+{ #category : 'controlling' }
+OTMatcher class >> and: aMatcherCollection [
+	"Shortcut to easily create a conjunction of matchers that is easier to read than chaining."
+
+	^ OTConjunctionMatcher withAll: aMatcherCollection
+]
+
 { #category : 'instance creation' }
 OTMatcher class >> any [
 	"Always matches."
@@ -77,6 +84,28 @@ OTMatcher class >> nameEndsWith: aString [
 	^ self plug: [ :element | element otName endsWith: aString ]
 ]
 
+{ #category : 'testing' }
+OTMatcher class >> nameIncludes: aString [
+
+	^ self plug: [ :element | element otName includesSubstring: aString ]
+]
+
+{ #category : 'testing' }
+OTMatcher class >> nameMatches: aRegexString [
+
+	| regex |
+	regex := aRegexString asRegex.
+	^ self plug: [ :element | regex matches: element otName ]
+]
+
+{ #category : 'testing' }
+OTMatcher class >> nameSearch: aRegexString [
+
+	| regex |
+	regex := aRegexString asRegex.
+	^ self plug: [ :element | regex search: element otName ]
+]
+
 { #category : 'instance creation' }
 OTMatcher class >> none [
 	"Never matches."
@@ -84,9 +113,17 @@ OTMatcher class >> none [
 	^ none ifNil: [ none := OTNoneMatcher new ]
 ]
 
+{ #category : 'controlling' }
+OTMatcher class >> or: aMatcherCollection [
+	"Shortcut to easily create a disjunction of matchers that is easier to read than chaining."
+
+	^ OTDisjunctionMatcher withAll: aMatcherCollection
+]
+
 { #category : 'instance creation' }
 OTMatcher class >> plug: aBlock [
-	"Matches using custom logic defined in the given one-arg block."
+	"Matches using custom logic defined in the given one-arg block.
+	The argument is either a package, class or method."
 
 	^ OTPluggableMatcher new block: aBlock
 ]
@@ -96,6 +133,13 @@ OTMatcher class >> subclassesOf: aClass [
 	"Matches subclasses of aClass."
 
 	^ self plug: [ :class | class inheritsFrom: aClass ]
+]
+
+{ #category : 'instance creation' }
+OTMatcher class >> superclassesOf: aClass [
+	"Matches superclasses of aClass."
+
+	^ self plug: [ :class | aClass inheritsFrom: class ]
 ]
 
 { #category : 'controlling' }
