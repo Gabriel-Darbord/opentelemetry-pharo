@@ -1,7 +1,7 @@
-Extension { #name : 'Package' }
+Extension { #name : 'RPackage' }
 
 { #category : '*OpenTelemetry-Matchers' }
-Package >> otName [
+RPackage >> otName [
 
 	^ name
 ]
