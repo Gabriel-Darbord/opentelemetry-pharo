@@ -7,8 +7,8 @@ Class {
 	#instVars : [
 		'block'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Matchers',
-	#package : 'OpenTelemetry-Instrumentation-Matchers'
+	#category : 'OpenTelemetry-Matchers',
+	#package : 'OpenTelemetry-Matchers'
 }
 
 { #category : 'accessing' }

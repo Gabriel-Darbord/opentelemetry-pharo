@@ -1,6 +1,6 @@
 Extension { #name : 'ClassDescription' }
 
-{ #category : '*OpenTelemetry-Instrumentation-Matchers' }
+{ #category : '*OpenTelemetry-Matchers' }
 ClassDescription >> otName [
 
 	^ self name

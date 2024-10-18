@@ -9,8 +9,8 @@ Class {
 		'any',
 		'none'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Matchers',
-	#package : 'OpenTelemetry-Instrumentation-Matchers'
+	#category : 'OpenTelemetry-Matchers',
+	#package : 'OpenTelemetry-Matchers'
 }
 
 { #category : 'controlling' }

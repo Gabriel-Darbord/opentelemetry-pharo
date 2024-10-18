@@ -30,9 +30,7 @@ BaselineOfOpenTelemetry >> groups: spec [
 
 	spec
 		group: 'default' with: #( 'core' 'tests' );
-		group: 'core'
-		with: #( 'OpenTelemetry-Instrumentation'
-			   'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling' );
+		group: 'core' with: #( 'OpenTelemetry-Instrumentation' );
 		group: 'all' with: #( 'default' 'SUnit' 'Shout' 'OpalCompiler' );
 		group: 'tests' with: 'OpenTelemetry-Instrumentation-Tests';
 		group: 'SUnit' with: 'OpenTelemetry-Agents-SUnit';
@@ -54,10 +52,10 @@ BaselineOfOpenTelemetry >> packages: spec [
 		package: 'OpenTelemetry-Instrumentation' with: [
 			spec requires:
 					#( 'OpenTelemetry-Configuration' 'OpenTelemetry-Exporters'
-					   'OpenTelemetry-Sampling' 'OpenTelemetry-Instrumentation-Matchers' ) ];
+					   'OpenTelemetry-Sampling' 'OpenTelemetry-Matchers' ) ];
 		package: 'OpenTelemetry-Instrumentation-Tests'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Instrumentation-Matchers';
+		package: 'OpenTelemetry-Matchers';
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Sampling';
 		package: 'OpenTelemetry-Agents-SUnit'

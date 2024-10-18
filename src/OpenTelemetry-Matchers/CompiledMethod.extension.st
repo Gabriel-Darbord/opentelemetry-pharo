@@ -1,6 +1,6 @@
 Extension { #name : 'CompiledMethod' }
 
-{ #category : '*OpenTelemetry-Instrumentation-Matchers' }
+{ #category : '*OpenTelemetry-Matchers' }
 CompiledMethod >> otName [
 
 	^ self selector
