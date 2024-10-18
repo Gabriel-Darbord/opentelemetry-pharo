@@ -113,6 +113,14 @@ OTMatcher class >> none [
 	^ none ifNil: [ none := OTNoneMatcher new ]
 ]
 
+{ #category : 'evaluating' }
+OTMatcher class >> oneOf: aCollection [
+
+	| aSet |
+	aSet := aCollection asSet.
+	^ self plug: [ :element | aSet includes: element ]
+]
+
 { #category : 'controlling' }
 OTMatcher class >> or: aMatcherCollection [
 	"Shortcut to easily create a disjunction of matchers that is easier to read than chaining."
