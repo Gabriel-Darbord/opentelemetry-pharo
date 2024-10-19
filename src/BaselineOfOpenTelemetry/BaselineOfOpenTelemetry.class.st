@@ -22,7 +22,10 @@ BaselineOfOpenTelemetry >> dependencies: spec [
 	spec
 		baseline: 'STONCustomizer'
 		with: [
-		spec repository: 'github://jecisc/STONCustomizer:v1.x.x/src' ]
+			spec repository: 'github://jecisc/STONCustomizer:v1.x.x/src' ];
+		baseline: 'MethodProxies'
+		with: [
+			spec repository: 'github://pharo-contributions/MethodProxies/src' ]
 ]
 
 { #category : 'baselines' }
@@ -50,9 +53,9 @@ BaselineOfOpenTelemetry >> packages: spec [
 	spec
 		package: 'OpenTelemetry-Configuration';
 		package: 'OpenTelemetry-Instrumentation' with: [
-			spec requires:
-					#( 'OpenTelemetry-Configuration' 'OpenTelemetry-Exporters'
-					   'OpenTelemetry-Sampling' 'OpenTelemetry-Matchers' ) ];
+			spec requires: #( 'MethodProxies' 'OpenTelemetry-Configuration'
+					   'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling'
+					   'OpenTelemetry-Matchers' ) ];
 		package: 'OpenTelemetry-Instrumentation-Tests'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Matchers';

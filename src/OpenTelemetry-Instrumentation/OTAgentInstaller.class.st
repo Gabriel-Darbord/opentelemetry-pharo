@@ -10,10 +10,6 @@ This ensures that the instrumentation is tailored to the specific needs of the a
 Class {
 	#name : 'OTAgentInstaller',
 	#superclass : 'Object',
-	#instVars : [
-		'metalink',
-		'arguments'
-	],
 	#classInstVars : [
 		'permission'
 	],
@@ -69,25 +65,32 @@ OTAgentInstaller class >> install [
 
 { #category : 'actions' }
 OTAgentInstaller class >> installInstrumentation: anInstrumentation [
+	"Install the instrumentation on all matching methods using the configured installer.
+	It is the receiver of this message, and should be one of my subclasses."
 
 	| installer |
-	installer := self new configureWith: anInstrumentation initialize.
+	installer := self new configureWith: anInstrumentation.
 	anInstrumentation
 		defineInstrumenter;
 		defineSampler;
 		matchingMethodsDo: [ :method |
-			(method ast links noneSatisfy: [ :link |
-					 link metaObject == anInstrumentation ]) ifTrue: [
-					installer instrument: method ] ]
+			(installer shouldInstrument: method with: anInstrumentation)
+				ifTrue: [ installer instrument: method ] ]
 ]
 
 { #category : 'actions' }
 OTAgentInstaller class >> installModule: anInstrumentationModule [
+	"Install all enabled instrumentations from the module."
 
 	anInstrumentationModule initialize instrumentations do: [
 		:instrumentation |
-		instrumentation enabled ifTrue: [
-			self installInstrumentation: instrumentation ] ]
+		instrumentation enabled ifTrue: [ instrumentation install ] ]
+]
+
+{ #category : 'testing' }
+OTAgentInstaller class >> isAbstract [
+
+	^ self == OTAgentInstaller
 ]
 
 { #category : 'actions' }
@@ -120,10 +123,7 @@ OTAgentInstaller class >> uninstall [
 { #category : 'actions' }
 OTAgentInstaller class >> uninstallInstrumentation: anInstrumentation [
 
-	anInstrumentation reset.
-	MetaLink allInstances do: [ :metalink |
-		metalink metaObject == anInstrumentation ifTrue: [
-			metalink uninstall ] ]
+	self subclassResponsibility
 ]
 
 { #category : 'actions' }
@@ -133,63 +133,22 @@ OTAgentInstaller class >> uninstallModule: anInstrumentationModule [
 		self uninstallInstrumentation: instrumentation ]
 ]
 
-{ #category : 'API - configuration' }
-OTAgentInstaller >> beOneShot [
-	"Only execute the instrumentation once."
-
-	metalink optionOneShot: true
-]
-
 { #category : 'private' }
 OTAgentInstaller >> configureWith: anInstrumentation [
-	"This is a private method, do not use this!
-	Configure the MetaLink to make it run the method instrumentation defined in an OTInstrumentation subclass."
 
-	anInstrumentation configure: self.
-	metalink control: #instead.
-	metalink selector: #run:.
-	metalink arguments: arguments keys.
-	metalink metaObject: anInstrumentation
-]
-
-{ #category : 'initialization' }
-OTAgentInstaller >> initialize [
-
-	metalink := MetaLink new.
-	"number of args depends on the configuration, so dump all in array as single arg"
-	metalink optionArgsAsArray: true.
-	metalink optionCompileOnLinkInstallation: true.
-	"the configurable arguments that will be given to the instrumentation"
-	arguments := OrderedDictionary new.
-	"always with RFMethodOperation containing method, arguments and receiver."
-	arguments add: #operation -> nil
+	anInstrumentation configure: self
 ]
 
 { #category : 'private' }
 OTAgentInstaller >> instrument: aMethod [
 	"This is a private method, do not use this!
-	Install the metalink on the instrumented method."
+	Install the instrumentation on the method."
 
-	aMethod ast link: metalink
+	self subclassResponsibility
 ]
 
-{ #category : 'API - configuration' }
-OTAgentInstaller >> withContext [
-	"The executing context, note that it is slow to reify."
+{ #category : 'private' }
+OTAgentInstaller >> shouldInstrument: aMethod with: anInstrumentation [
 
-	arguments add: #context -> nil
-]
-
-{ #category : 'API - configuration' }
-OTAgentInstaller >> withObject [
-	"Object executing the instrumented method."
-
-	arguments add: #object -> nil
-]
-
-{ #category : 'API - configuration' }
-OTAgentInstaller >> withSender [
-	"Sender of the instrumented method."
-
-	arguments add: #sender -> nil
+	self subclassResponsibility
 ]

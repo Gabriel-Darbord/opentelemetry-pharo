@@ -18,6 +18,14 @@ OTTestTarget >> fail [
 ]
 
 { #category : 'test methods' }
+OTTestTarget >> handledFail [
+
+	[ self error ]
+		on: Error
+		do: [ :e |  ]
+]
+
+{ #category : 'test methods' }
 OTTestTarget >> indirectAnswer [
 
 	^ self answer

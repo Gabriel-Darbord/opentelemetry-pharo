@@ -1,6 +1,6 @@
 Class {
 	#name : 'OTTestSampledInstrumentation',
-	#superclass : 'OTTestInstrumentation',
+	#superclass : 'OTMetaLinkTestInstrumentation',
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }

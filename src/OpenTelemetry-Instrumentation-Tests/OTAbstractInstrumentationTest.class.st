@@ -9,7 +9,7 @@ Class {
 }
 
 { #category : 'accessing' }
-OTAbstractInstrumentationTest >> instrumentationClass [
+OTAbstractInstrumentationTest >> instrumentation [
 
 	self subclassResponsibility
 ]
@@ -18,13 +18,13 @@ OTAbstractInstrumentationTest >> instrumentationClass [
 OTAbstractInstrumentationTest >> setUp [
 
 	super setUp.
-	self instrumentationClass install.
+	self instrumentation install.
 	target := OTTestTarget new
 ]
 
 { #category : 'running' }
 OTAbstractInstrumentationTest >> tearDown [
 
-	self instrumentationClass uninstall.
+	self instrumentation uninstall.
 	super tearDown
 ]

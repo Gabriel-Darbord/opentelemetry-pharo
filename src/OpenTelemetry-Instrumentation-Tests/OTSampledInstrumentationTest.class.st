@@ -6,7 +6,7 @@ Class {
 }
 
 { #category : 'accessing' }
-OTSampledInstrumentationTest >> instrumentationClass [
+OTSampledInstrumentationTest >> instrumentation [
 
 	^ OTTestSampledInstrumentation
 ]

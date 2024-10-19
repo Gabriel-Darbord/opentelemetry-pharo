@@ -1,6 +1,6 @@
 Class {
-	#name : 'OTTestInstrumentation',
-	#superclass : 'OTInstrumentation',
+	#name : 'OTMetaLinkTestInstrumentation',
+	#superclass : 'OTMetaLinkInstrumentation',
 	#classInstVars : [
 		'capturedValue',
 		'capturedEvent'
@@ -10,73 +10,73 @@ Class {
 }
 
 { #category : 'accessing' }
-OTTestInstrumentation class >> capturedEvent [
+OTMetaLinkTestInstrumentation class >> capturedEvent [
 
 	^ capturedEvent
 ]
 
 { #category : 'accessing' }
-OTTestInstrumentation class >> capturedValue [
+OTMetaLinkTestInstrumentation class >> capturedValue [
 
 	^ capturedValue
 ]
 
 { #category : 'matching' }
-OTTestInstrumentation class >> classMatcher [
+OTMetaLinkTestInstrumentation class >> classMatcher [
 
 	^ OTMatcher name: #OTTestTarget
 ]
 
 { #category : 'configuring' }
-OTTestInstrumentation class >> configure: installer [
+OTMetaLinkTestInstrumentation class >> configure: installer [
 
 	self reset
 ]
 
 { #category : 'testing' }
-OTTestInstrumentation class >> hasRunOnEnter [
+OTMetaLinkTestInstrumentation class >> hasRunOnEnter [
 
 	^ capturedEvent isNotNil
 ]
 
 { #category : 'testing' }
-OTTestInstrumentation class >> hasRunOnExit [
+OTMetaLinkTestInstrumentation class >> hasRunOnExit [
 
 	^ capturedValue isNotNil
 ]
 
 { #category : 'testing' }
-OTTestInstrumentation class >> isAbstract [
+OTMetaLinkTestInstrumentation class >> isAbstract [
 
-	^ self == OTTestInstrumentation
+	^ self == OTMetaLinkTestInstrumentation
 ]
 
 { #category : 'matching' }
-OTTestInstrumentation class >> methodMatcher [
+OTMetaLinkTestInstrumentation class >> methodMatcher [
 
 	^ OTMatcher any
 ]
 
 { #category : 'instrumenting' }
-OTTestInstrumentation class >> onMethodEnter: event [
+OTMetaLinkTestInstrumentation class >> onMethodEnter: event [
 
 	capturedEvent := event
 ]
 
 { #category : 'instrumenting' }
-OTTestInstrumentation class >> onMethodExit: event withValue: returnValue [
+OTMetaLinkTestInstrumentation class >> onMethodExit: event withValue: returnValue [
 
 	capturedValue := returnValue ifNil: [ #nil ]
 ]
 
 { #category : 'matching' }
-OTTestInstrumentation class >> packageMatcher [
+OTMetaLinkTestInstrumentation class >> packageMatcher [
 
 	^ OTMatcher name: #'OpenTelemetry-Instrumentation-Tests'
 ]
 
 { #category : 'class initialization' }
-OTTestInstrumentation class >> reset [
+OTMetaLinkTestInstrumentation class >> reset [
 
 	super reset.
 	capturedEvent := capturedValue := nil

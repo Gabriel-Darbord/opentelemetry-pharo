@@ -1,6 +1,6 @@
 "
 Interface representing a single type instrumentation.
-Part of an `OTelInstrumentationModule`.
+Part of an `OTInstrumentationModule`.
 "
 Class {
 	#name : 'OTInstrumentation',
@@ -25,7 +25,7 @@ OTInstrumentation class >> classMatcher [
 { #category : 'configuring' }
 OTInstrumentation class >> configure: installer [
 	"Redefine this method to configure the arguments given to the instrumentation method.
-	Use the instance-side API of OTAgentInstaller."
+	Use the instance-side API of a subclass of OTAgentInstaller."
 ]
 
 { #category : 'configuring' }
@@ -70,7 +70,19 @@ OTInstrumentation class >> install [
 	"Install a specific subclass of Instrumentation."
 
 	<script>
-	OTAgentInstaller installInstrumentation: self
+	self installer installInstrumentation: self
+]
+
+{ #category : 'configuring' }
+OTInstrumentation class >> installer [
+
+	self subclassResponsibility
+]
+
+{ #category : 'testing' }
+OTInstrumentation class >> isAbstract [
+
+	^ self == OTInstrumentation
 ]
 
 { #category : 'private' }
@@ -91,19 +103,6 @@ OTInstrumentation class >> methodMatcher [
 	"My subclasses must define a matcher for the methods to instrument."
 
 	self subclassResponsibility
-]
-
-{ #category : 'instrumenting' }
-OTInstrumentation class >> onMethodEnter: event [
-	"This method is executed BEFORE the instrumented method.
-	The event contains the RFMethodOperation plus the data requested in #configure:."
-]
-
-{ #category : 'instrumenting' }
-OTInstrumentation class >> onMethodExit: event withValue: returnValue [
-	"This method is executed AFTER the instrumented method.
-	The first argument contains the RFMethodOperation plus the data requested in #configure:.
-	The second contains the return value of the method."
 ]
 
 { #category : 'matching' }
@@ -128,30 +127,10 @@ OTInstrumentation class >> reset [
 	instrumenter := sampler := nil
 ]
 
-{ #category : 'private' }
-OTInstrumentation class >> run: arguments [
-	"Hook called when executing an instrumented method.
-	If the trace should not be sampled, execute the method directly.
-	Otherwise, run on enter, execute method, record unhandled exception if any, and ensure running on exit."
-
-	| returnValue exception |
-	sampler ifNotNil: [
-		sampler shouldSample ifFalse: [ ^ arguments first value ] ].
-	self onMethodEnter: arguments.
-	^ [
-	  [
-	  [ returnValue := arguments first value ]
-		  on: Exception
-		  do: [ :e |
-			  exception := e.
-			  e pass ] ] ifCurtailed: [ OTSpan recordException: exception ] ]
-		  ensure: [ self onMethodExit: arguments withValue: returnValue ]
-]
-
 { #category : 'actions' }
 OTInstrumentation class >> uninstall [
 	"Uninstall a specific subclass of Instrumentation."
 
 	<script>
-	OTAgentInstaller resetEnvironment uninstallInstrumentation: self
+	self installer resetEnvironment uninstallInstrumentation: self
 ]

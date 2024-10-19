@@ -24,5 +24,6 @@ OTTestInstrumentationModule class >> instrumentations [
 	^ {
 		  OTTestSimpleInstrumentation.
 		  OTTestSampledInstrumentation.
-		  OTTestSpanInstrumentation }
+		  OTTestSpanInstrumentation.
+		  OTMethodProxyTestInstrumentation }
 ]

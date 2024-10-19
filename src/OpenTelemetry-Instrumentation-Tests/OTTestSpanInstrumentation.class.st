@@ -1,6 +1,6 @@
 Class {
 	#name : 'OTTestSpanInstrumentation',
-	#superclass : 'OTTestInstrumentation',
+	#superclass : 'OTMetaLinkTestInstrumentation',
 	#classInstVars : [
 		'capturedSpan',
 		'suppressed'

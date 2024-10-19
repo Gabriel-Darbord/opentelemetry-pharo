@@ -14,9 +14,9 @@ Class {
 
 { #category : 'accessing' }
 OTInstrumentationModule class >> enabled [
-	"Instrumentation modules are enabled by default."
+	"Instrumentation modules are disabled by default."
 
-	^ enabled ifNil: [ enabled := true ]
+	^ enabled ifNil: [ enabled := false ]
 ]
 
 { #category : 'accessing' }

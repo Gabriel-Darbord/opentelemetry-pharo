@@ -8,7 +8,7 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : 'accessing - context' }
+{ #category : 'accessing' }
 OTContext >> currentSpan [
 
 	^ currentSpan

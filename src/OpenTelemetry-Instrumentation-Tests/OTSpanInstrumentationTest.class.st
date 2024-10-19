@@ -9,7 +9,7 @@ Class {
 }
 
 { #category : 'accessing' }
-OTSpanInstrumentationTest >> instrumentationClass [
+OTSpanInstrumentationTest >> instrumentation [
 
 	^ OTTestSpanInstrumentation
 ]
@@ -55,9 +55,9 @@ OTSpanInstrumentationTest >> testRecordException [
 	| error span |
 	[ target fail ]
 		on: Error
-		do: [ :err | error := err ].
+		do: [ :e | error := e ].
 	span := OTTestSpanInstrumentation capturedSpan.
-	self assert: span status equals: 'ERROR'.
+	self assert: span status equals: #ERROR.
 	self
 		assert: (span attributes at: 'exception')
 		equals: error description

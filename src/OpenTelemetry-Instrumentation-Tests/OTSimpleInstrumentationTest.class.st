@@ -9,7 +9,7 @@ Class {
 }
 
 { #category : 'accessing' }
-OTSimpleInstrumentationTest >> instrumentationClass [
+OTSimpleInstrumentationTest >> instrumentation [
 
 	^ OTTestSimpleInstrumentation
 ]
@@ -17,13 +17,9 @@ OTSimpleInstrumentationTest >> instrumentationClass [
 { #category : 'tests' }
 OTSimpleInstrumentationTest >> testEnsureHasRunOnExit [
 
-	self deny: OTTestSimpleInstrumentation hasRunOnExit.
-	self
-		should: [
-			target fail.
-			self fail "should not reach" ]
-		raise: Error.
-	self assert: OTTestSimpleInstrumentation hasRunOnExit
+	self deny: self instrumentation hasRunOnExit.
+	self should: [ target fail ] raise: Error.
+	self assert: self instrumentation hasRunOnExit
 ]
 
 { #category : 'tests' }
@@ -54,11 +50,19 @@ OTSimpleInstrumentationTest >> testEventHasOperation [
 { #category : 'tests' }
 OTSimpleInstrumentationTest >> testHasRun [
 
-	self deny: OTTestSimpleInstrumentation hasRunOnEnter.
-	self deny: OTTestSimpleInstrumentation hasRunOnExit.
+	self deny: self instrumentation hasRunOnEnter.
+	self deny: self instrumentation hasRunOnExit.
 	target answer.
-	self assert: OTTestSimpleInstrumentation hasRunOnEnter.
-	self assert: OTTestSimpleInstrumentation hasRunOnExit
+	self assert: self instrumentation hasRunOnEnter.
+	self assert: self instrumentation hasRunOnExit
+]
+
+{ #category : 'tests' }
+OTSimpleInstrumentationTest >> testIgnoreHandledException [
+	"The instrumentation is not influenced by an exception that is handled."
+
+	target handledFail.
+	self assert: self instrumentation hasRunOnExit
 ]
 
 { #category : 'tests' }
@@ -83,4 +87,9 @@ OTSimpleInstrumentationTest >> testPassException [
 	"The instrumentation should let the exception happen normally."
 
 	self should: [ target fail ] raise: Error
+]
+
+{ #category : 'tests' }
+OTSimpleInstrumentationTest >> testSmoke [
+	"Instrumentation is successfully installed and uninstalled."
 ]
