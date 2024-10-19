@@ -130,7 +130,7 @@ OTAgentInstaller class >> uninstallInstrumentation: anInstrumentation [
 OTAgentInstaller class >> uninstallModule: anInstrumentationModule [
 
 	anInstrumentationModule instrumentations do: [ :instrumentation |
-		self uninstallInstrumentation: instrumentation ]
+		instrumentation uninstall ]
 ]
 
 { #category : 'private' }
