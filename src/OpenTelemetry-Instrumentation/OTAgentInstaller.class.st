@@ -59,7 +59,7 @@ OTAgentInstaller class >> install [
 	"Install all the active instrumentation modules present in this image."
 
 	<script>
-	OTInstrumentationModule subclasses do: [ :module |
+	OTInstrumentationModule allSubmodulesDo: [ :module |
 		module enabled ifTrue: [ self installModule: module ] ]
 ]
 
@@ -115,7 +115,7 @@ OTAgentInstaller class >> uninstall [
 
 	<script>
 	self resetEnvironment.
-	OTInstrumentationModule subclasses do: [ :module |
+	OTInstrumentationModule allSubmodulesDo: [ :module |
 		self uninstallModule: module ]
 ]
 
