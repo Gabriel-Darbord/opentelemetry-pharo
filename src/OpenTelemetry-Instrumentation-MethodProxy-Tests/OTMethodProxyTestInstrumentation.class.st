@@ -6,8 +6,8 @@ Class {
 		'capturedArguments',
 		'capturedValue'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : 'OpenTelemetry-Instrumentation-MethodProxy-Tests',
+	#package : 'OpenTelemetry-Instrumentation-MethodProxy-Tests'
 }
 
 { #category : 'evaluating' }

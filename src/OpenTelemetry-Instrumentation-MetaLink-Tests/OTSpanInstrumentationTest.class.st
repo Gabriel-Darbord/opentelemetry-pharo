@@ -4,8 +4,8 @@ Class {
 	#instVars : [
 		'currentProcessor'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : 'OpenTelemetry-Instrumentation-MetaLink-Tests',
+	#package : 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 }
 
 { #category : 'accessing' }

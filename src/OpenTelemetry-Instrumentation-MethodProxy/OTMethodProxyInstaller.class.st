@@ -4,8 +4,8 @@ Class {
 	#instVars : [
 		'proxy'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation-MethodProxy',
+	#package : 'OpenTelemetry-Instrumentation-MethodProxy'
 }
 
 { #category : 'actions' }

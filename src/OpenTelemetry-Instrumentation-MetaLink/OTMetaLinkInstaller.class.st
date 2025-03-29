@@ -5,8 +5,8 @@ Class {
 		'metalink',
 		'arguments'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation-MetaLink',
+	#package : 'OpenTelemetry-Instrumentation-MetaLink'
 }
 
 { #category : 'actions' }

@@ -1,8 +1,8 @@
 Class {
 	#name : 'OTMethodProxyInstrumentationTest',
 	#superclass : 'OTAbstractInstrumentationTest',
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : 'OpenTelemetry-Instrumentation-MethodProxy-Tests',
+	#package : 'OpenTelemetry-Instrumentation-MethodProxy-Tests'
 }
 
 { #category : 'accessing' }

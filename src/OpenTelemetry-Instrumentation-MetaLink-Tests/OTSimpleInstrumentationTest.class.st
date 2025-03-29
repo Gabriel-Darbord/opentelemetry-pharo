@@ -4,8 +4,8 @@ An OTInstrumentationConfigurationTest is a test class for testing the behavior o
 Class {
 	#name : 'OTSimpleInstrumentationTest',
 	#superclass : 'OTAbstractInstrumentationTest',
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : 'OpenTelemetry-Instrumentation-MetaLink-Tests',
+	#package : 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 }
 
 { #category : 'accessing' }

@@ -1,8 +1,8 @@
 Class {
 	#name : 'OTMethodProxyInstrumentation',
 	#superclass : 'OTInstrumentation',
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Instrumentation-MethodProxy',
+	#package : 'OpenTelemetry-Instrumentation-MethodProxy'
 }
 
 { #category : 'evaluating' }

@@ -10,62 +10,66 @@ BaselineOfOpenTelemetry >> baseline: spec [
 
 	<baseline>
 	spec for: #common do: [
-		spec postLoadDoIt: #instrument.
-		self dependencies: spec.
-		self packages: spec.
-		self groups: spec ]
-]
+		spec
+			baseline: 'STONCustomizer'
+			with: [
+			spec repository: 'github://jecisc/STONCustomizer:v1.x.x/src' ].
 
-{ #category : 'baselines' }
-BaselineOfOpenTelemetry >> dependencies: spec [
+		spec
+			package: 'OpenTelemetry-Instrumentation-MetaLink'
+			with: 'OpenTelemetry-Instrumentation';
+			package: 'OpenTelemetry-Instrumentation' with: [
+				spec requires:
+						#( 'OpenTelemetry-Configuration' 'OpenTelemetry-Exporters'
+						   'OpenTelemetry-Matchers' 'OpenTelemetry-Sampling' ) ];
+			package: 'OpenTelemetry-Instrumentation-MetaLink-Tests'
+			with: 'OpenTelemetry-Instrumentation-Tests';
+			package: 'OpenTelemetry-Instrumentation-Tests'
+			with: 'OpenTelemetry-Instrumentation';
+			package: 'OpenTelemetry-Configuration';
+			package: 'OpenTelemetry-Exporters';
+			package: 'OpenTelemetry-Matchers';
+			package: 'OpenTelemetry-Sampling';
+			package: 'OpenTelemetry-Agents-SUnit'
+			with: 'OpenTelemetry-Instrumentation';
+			package: 'OpenTelemetry-Agents-Shout' with: [
+				spec requires:
+						#( 'STONCustomizer' 'OpenTelemetry-Instrumentation' ) ];
+			package: 'OpenTelemetry-Agents-OpalCompiler'
+			with: 'OpenTelemetry-Instrumentation'.
 
-	spec
-		baseline: 'STONCustomizer'
-		with: [
-			spec repository: 'github://jecisc/STONCustomizer:v1.x.x/src' ];
-		baseline: 'MethodProxies'
-		with: [
-			spec repository: 'github://pharo-contributions/MethodProxies/src' ]
-]
 
-{ #category : 'baselines' }
-BaselineOfOpenTelemetry >> groups: spec [
+		spec
+			group: 'default' with: #( 'core' 'tests' );
+			group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink' );
+			group: 'all' with: #( 'default' 'SUnit' 'Shout' 'OpalCompiler' );
+			group: 'tests'
+			with: 'OpenTelemetry-Instrumentation-MetaLink-Tests';
+			group: 'SUnit' with: 'OpenTelemetry-Agents-SUnit';
+			group: 'Shout' with: 'OpenTelemetry-Agents-Shout';
+			group: 'OpalCompiler' with: 'OpenTelemetry-Agents-OpalCompiler' ].
 
-	spec
-		group: 'default' with: #( 'core' 'tests' );
-		group: 'core' with: #( 'OpenTelemetry-Instrumentation' );
-		group: 'all' with: #( 'default' 'SUnit' 'Shout' 'OpalCompiler' );
-		group: 'tests' with: 'OpenTelemetry-Instrumentation-Tests';
-		group: 'SUnit' with: 'OpenTelemetry-Agents-SUnit';
-		group: 'Shout' with: 'OpenTelemetry-Agents-Shout';
-		group: 'OpalCompiler' with: 'OpenTelemetry-Agents-OpalCompiler'
-]
+	"Only use MethodProxies for Pharo 12+"
+	spec for: #( 'pharo12.x' 'pharo13.x' ) do: [
+		spec
+			baseline: 'MethodProxies'
+			with: [
+			spec repository: 'github://pharo-contributions/MethodProxies/src' ].
 
-{ #category : 'actions' }
-BaselineOfOpenTelemetry >> instrument [
+		spec
+			package: 'OpenTelemetry-Instrumentation-MethodProxy'
+			with: [
+				spec requires:
+						#( 'MethodProxies' 'OpenTelemetry-Instrumentation' ) ];
+			package: 'OpenTelemetry-Instrumentation-MethodProxy-Tests'
+			with: [
+				spec requires: #( 'OpenTelemetry-Instrumentation-Tests'
+						   'OpenTelemetry-Instrumentation-MethodProxy' ) ].
 
-	OTAgentInstaller install
-]
-
-{ #category : 'baselines' }
-BaselineOfOpenTelemetry >> packages: spec [
-
-	spec
-		package: 'OpenTelemetry-Configuration';
-		package: 'OpenTelemetry-Instrumentation' with: [
-			spec requires: #( 'MethodProxies' 'OpenTelemetry-Configuration'
-					   'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling'
-					   'OpenTelemetry-Matchers' ) ];
-		package: 'OpenTelemetry-Instrumentation-Tests'
-		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Matchers';
-		package: 'OpenTelemetry-Exporters';
-		package: 'OpenTelemetry-Sampling';
-		package: 'OpenTelemetry-Agents-SUnit'
-		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Agents-Shout' with: [
-			spec requires:
-					#( 'STONCustomizer' 'OpenTelemetry-Instrumentation' ) ];
-		package: 'OpenTelemetry-Agents-OpalCompiler'
-		with: [ spec requires: 'OpenTelemetry-Instrumentation' ]
+		spec
+			group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink'
+				   'OpenTelemetry-Instrumentation-MethodProxy' );
+			group: 'tests'
+			with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests'
+				   'OpenTelemetry-Instrumentation-MethodProxy-Tests' ) ]
 ]

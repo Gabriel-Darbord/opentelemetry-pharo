@@ -5,8 +5,8 @@ Class {
 		'capturedSpan',
 		'suppressed'
 	],
-	#category : 'OpenTelemetry-Instrumentation-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Tests'
+	#category : 'OpenTelemetry-Instrumentation-MetaLink-Tests',
+	#package : 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 }
 
 { #category : 'instrumenting' }
