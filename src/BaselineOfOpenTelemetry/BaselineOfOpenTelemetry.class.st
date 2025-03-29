@@ -17,31 +17,32 @@ BaselineOfOpenTelemetry >> baseline: spec [
 
 		spec
 			package: 'OpenTelemetry-Instrumentation-MetaLink'
-			with: 'OpenTelemetry-Instrumentation';
+			with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 			package: 'OpenTelemetry-Instrumentation' with: [
 				spec requires:
 						#( 'OpenTelemetry-Configuration' 'OpenTelemetry-Exporters'
 						   'OpenTelemetry-Matchers' 'OpenTelemetry-Sampling' ) ];
-			package: 'OpenTelemetry-Instrumentation-MetaLink-Tests'
-			with: 'OpenTelemetry-Instrumentation-Tests';
+			package: 'OpenTelemetry-Instrumentation-MetaLink-Tests' with: [
+				spec requires: #( 'OpenTelemetry-Instrumentation-Tests'
+						   'OpenTelemetry-Instrumentation-MetaLink' ) ];
 			package: 'OpenTelemetry-Instrumentation-Tests'
-			with: 'OpenTelemetry-Instrumentation';
+			with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 			package: 'OpenTelemetry-Configuration';
 			package: 'OpenTelemetry-Exporters';
 			package: 'OpenTelemetry-Matchers';
 			package: 'OpenTelemetry-Sampling';
 			package: 'OpenTelemetry-Agents-SUnit'
-			with: 'OpenTelemetry-Instrumentation';
+			with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 			package: 'OpenTelemetry-Agents-Shout' with: [
 				spec requires:
 						#( 'STONCustomizer' 'OpenTelemetry-Instrumentation' ) ];
 			package: 'OpenTelemetry-Agents-OpalCompiler'
-			with: 'OpenTelemetry-Instrumentation'.
+			with: [ spec requires: 'OpenTelemetry-Instrumentation' ].
 
 
 		spec
 			group: 'default' with: #( 'core' 'tests' );
-			group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink' );
+			group: 'core' with: 'OpenTelemetry-Instrumentation-MetaLink';
 			group: 'all' with: #( 'default' 'SUnit' 'Shout' 'OpalCompiler' );
 			group: 'tests'
 			with: 'OpenTelemetry-Instrumentation-MetaLink-Tests';
