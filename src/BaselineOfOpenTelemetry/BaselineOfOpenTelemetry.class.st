@@ -15,7 +15,7 @@ BaselineOfOpenTelemetry >> baseline: spec [
 	spec for: #'pharo12.x' do: [
 		spec baseline: 'MethodProxies' with: [
 			spec repository:
-				'github://pharo-contributions/MethodProxies:Pharo12/src' ].
+				'github://pharo-contributions/MethodProxies:56c1a23/src' ].
 		self baselinePharo12Plus: spec ].
 
 	spec for: #'pharo13.x' do: [
