@@ -57,13 +57,13 @@ OTMetaLinkTestInstrumentation class >> methodMatcher [
 	^ OTMatcher any
 ]
 
-{ #category : 'instrumenting' }
+{ #category : 'evaluating' }
 OTMetaLinkTestInstrumentation class >> onMethodEnter: event [
 
 	capturedEvent := event
 ]
 
-{ #category : 'instrumenting' }
+{ #category : 'evaluating' }
 OTMetaLinkTestInstrumentation class >> onMethodExit: event withValue: returnValue [
 
 	capturedValue := returnValue ifNil: [ #nil ]

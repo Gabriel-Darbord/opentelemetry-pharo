@@ -23,7 +23,7 @@ OTTestSpanInstrumentation class >> defineInstrumenter [
 		span isNotNil and: [ span name includesSubstring: 'suppressed' ] ]
 ]
 
-{ #category : 'instrumenting' }
+{ #category : 'evaluating' }
 OTTestSpanInstrumentation class >> onMethodEnter: event [
 
 	| request |
@@ -36,7 +36,7 @@ OTTestSpanInstrumentation class >> onMethodEnter: event [
 	capturedSpan attributeAt: 'enter' put: #OK
 ]
 
-{ #category : 'instrumenting' }
+{ #category : 'evaluating' }
 OTTestSpanInstrumentation class >> onMethodExit: event withValue: returnValue [
 
 	suppressed ifTrue: [ "suppress only once" ^ suppressed := false ].

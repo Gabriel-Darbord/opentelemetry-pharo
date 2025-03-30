@@ -17,13 +17,13 @@ OTMetaLinkInstrumentation class >> isAbstract [
 	^ self == OTMetaLinkInstrumentation
 ]
 
-{ #category : 'instrumenting' }
+{ #category : 'evaluating' }
 OTMetaLinkInstrumentation class >> onMethodEnter: event [
 	"This method is executed BEFORE the instrumented method.
 	The event contains the RFMethodOperation plus the data requested in #configure:."
 ]
 
-{ #category : 'instrumenting' }
+{ #category : 'evaluating' }
 OTMetaLinkInstrumentation class >> onMethodExit: event withValue: returnValue [
 	"This method is executed AFTER the instrumented method.
 	The first argument contains the RFMethodOperation plus the data requested in #configure:.
