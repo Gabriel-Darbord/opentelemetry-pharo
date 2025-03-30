@@ -93,9 +93,8 @@ OTInstrumentation class >> matchingMethodsDo: aBlock [
 	methodMatcher := self methodMatcher.
 	self packageMatcher matchingPackagesDo: [ :package |
 		classMatcher matching: package classes do: [ :class |
-			methodMatcher
-				matching: class methods
-				do: [ :method | aBlock value: method ] ] ]
+			methodMatcher matching: class methods do: aBlock.
+			methodMatcher matching: class class methods do: aBlock ] ]
 ]
 
 { #category : 'matching' }
