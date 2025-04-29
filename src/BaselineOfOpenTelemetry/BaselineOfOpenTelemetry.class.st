@@ -11,19 +11,9 @@ BaselineOfOpenTelemetry >> baseline: spec [
 	<baseline>
 	spec for: #common do: [ self baselineCommon: spec ].
 
-	"Only use MethodProxies for Pharo 12+"
-	spec for: #'pharo12.x' do: [
-		spec baseline: 'MethodProxies' with: [
-			spec repository:
-				'github://pharo-contributions/MethodProxies:56c1a23/src' ].
-		self baselinePharo12Plus: spec ].
-
-	spec for: #'pharo13.x' do: [
-		spec
-			baseline: 'MethodProxies'
-			with: [
-			spec repository: 'github://pharo-contributions/MethodProxies/src' ].
-		self baselinePharo12Plus: spec ]
+	spec
+		for: #( 'pharo12.x' 'pharo13.x' )
+		do: [ self baselinePharo12Plus: spec ]
 ]
 
 { #category : 'baselines' }
@@ -70,6 +60,11 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 
 { #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
+
+	spec
+		baseline: 'MethodProxies'
+		with: [ "Only use MethodProxies for Pharo 12+"
+			spec repository: 'github://pharo-contributions/MethodProxies/src' ].
 
 	spec
 		package: 'OpenTelemetry-Instrumentation-MethodProxy'
