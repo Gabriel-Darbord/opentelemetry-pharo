@@ -36,7 +36,7 @@ OTSpanInstrumentationTest >> testDefaultSpanKind [
 
 	target answer.
 	self
-		assert: OTTestSpanInstrumentation capturedSpan kind
+		assert: self instrumentation capturedSpan kind
 		equals: OTSpan internal
 ]
 
@@ -45,7 +45,7 @@ OTSpanInstrumentationTest >> testDefaultSpanName [
 
 	target answer.
 	self
-		assert: OTTestSpanInstrumentation capturedSpan name
+		assert: self instrumentation capturedSpan name
 		equals: (OTTestTarget >> #answer) name
 ]
 
@@ -56,7 +56,7 @@ OTSpanInstrumentationTest >> testRecordException [
 	[ target fail ]
 		on: Error
 		do: [ :e | error := e ].
-	span := OTTestSpanInstrumentation capturedSpan.
+	span := self instrumentation capturedSpan.
 	self assert: span status equals: #ERROR.
 	self
 		assert: (span attributes at: 'exception')
@@ -69,7 +69,7 @@ OTSpanInstrumentationTest >> testSpanAttributes [
 
 	| attributes |
 	target answer.
-	attributes := OTTestSpanInstrumentation capturedSpan attributes.
+	attributes := self instrumentation capturedSpan attributes.
 	self assert: attributes isNotNil.
 	self assert: (attributes includesKey: 'enter').
 	self assert: (attributes at: 'enter') equals: #OK.
@@ -80,10 +80,10 @@ OTSpanInstrumentationTest >> testSpanAttributes [
 { #category : 'tests' }
 OTSpanInstrumentationTest >> testSpanExists [
 
-	self assert: OTTestSpanInstrumentation capturedSpan isNil.
+	self assert: self instrumentation capturedSpan isNil.
 	target answer.
 	self
-		assert: OTTestSpanInstrumentation capturedSpan class
+		assert: self instrumentation capturedSpan class
 		identicalTo: OTSpan
 ]
 
@@ -92,7 +92,7 @@ OTSpanInstrumentationTest >> testSpanLifetime [
 
 	| span |
 	target answer.
-	span := OTTestSpanInstrumentation capturedSpan.
+	span := self instrumentation capturedSpan.
 	self assert: span startTime isNotNil.
 	self assert: span endTime isNotNil.
 	self assert: span startTime <= span endTime
@@ -102,9 +102,7 @@ OTSpanInstrumentationTest >> testSpanLifetime [
 OTSpanInstrumentationTest >> testSpanStatus [
 
 	target answer.
-	self
-		assert: OTTestSpanInstrumentation capturedSpan status
-		equals: #OK
+	self assert: self instrumentation capturedSpan status equals: #OK
 ]
 
 { #category : 'tests' }
@@ -112,6 +110,6 @@ OTSpanInstrumentationTest >> testSpanSuppression [
 
 	| span |
 	target suppressedAnswer.
-	span := OTTestSpanInstrumentation capturedSpan.
+	span := self instrumentation capturedSpan.
 	self assert: (span attributes includesKey: 'suppressed')
 ]

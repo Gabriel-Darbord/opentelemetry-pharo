@@ -27,7 +27,7 @@ OTSimpleInstrumentationTest >> testEventHasConfiguredData [
 
 	| event |
 	target answer. "run instrumented method"
-	event := OTTestSimpleInstrumentation capturedEvent.
+	event := self instrumentation capturedEvent.
 	self assert: event size equals: 4.
 	"withContext"
 	self assert: event second isContext.
@@ -42,7 +42,7 @@ OTSimpleInstrumentationTest >> testEventHasOperation [
 
 	| event |
 	target answer. "run instrumented method"
-	event := OTTestSimpleInstrumentation capturedEvent.
+	event := self instrumentation capturedEvent.
 	self assert: event isNotEmpty.
 	self assert: event first class identicalTo: RFMethodOperation
 ]
@@ -70,7 +70,7 @@ OTSimpleInstrumentationTest >> testIsInstalled [
 
 	self assert:
 		((OTTestTarget >> #answer) ast links anySatisfy: [ :link |
-			 link metaObject == OTTestSimpleInstrumentation ])
+			 link metaObject == self instrumentation ])
 ]
 
 { #category : 'tests' }
@@ -79,7 +79,7 @@ OTSimpleInstrumentationTest >> testIsOneShot [
 	target answer.
 	self assert:
 		((OTTestTarget >> #answer) ast links noneSatisfy: [ :link |
-			 link metaObject == OTTestSimpleInstrumentation ])
+			 link metaObject == self instrumentation ])
 ]
 
 { #category : 'tests' }

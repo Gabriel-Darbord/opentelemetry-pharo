@@ -14,9 +14,9 @@ OTSampledInstrumentationTest >> instrumentation [
 { #category : 'tests' }
 OTSampledInstrumentationTest >> testFixedRateSampler [
 
-	self deny: OTTestSampledInstrumentation hasRunOnEnter.
+	self deny: self instrumentation hasRunOnEnter.
 	target answer.
-	self deny: OTTestSampledInstrumentation hasRunOnEnter.
+	self deny: self instrumentation hasRunOnEnter.
 	target answer.
-	self assert: OTTestSampledInstrumentation hasRunOnEnter
+	self assert: self instrumentation hasRunOnEnter
 ]
