@@ -13,7 +13,8 @@ OTMethodProxyInstaller class >> uninstallInstrumentation: anInstrumentation [
 
 	anInstrumentation reset.
 	MpMethodProxy allSubInstancesDo: [ :proxy |
-		proxy handler == anInstrumentation ifTrue: [ proxy uninstall ] ]
+		proxy handler == anInstrumentation ifTrue: [ proxy uninstall ] ].
+	MpMethodProxy enableInstrumentation "keep proxies enabled"
 ]
 
 { #category : 'private' }
