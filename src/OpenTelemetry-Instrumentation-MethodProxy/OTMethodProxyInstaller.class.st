@@ -21,7 +21,7 @@ OTMethodProxyInstaller >> instrument: aMethod [
 	"This is a private method, do not use this!
 	Install the method proxy on the instrumented method."
 
-	proxy install
+	proxy enableInstrumentation install
 ]
 
 { #category : 'private' }
