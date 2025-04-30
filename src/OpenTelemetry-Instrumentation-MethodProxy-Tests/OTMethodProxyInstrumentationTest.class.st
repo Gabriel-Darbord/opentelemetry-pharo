@@ -37,8 +37,8 @@ OTMethodProxyInstrumentationTest >> testIsInstalled [
 	| method literals instrumentation |
 	method := OTTestTarget >> #answer.
 	literals := method literals.
-	instrumentation := method literalsAt: 7.
-	self assert: literals size >= 7.
+	self assert: literals size >= 8.
+	instrumentation := method literalsAt: 8.
 	self assert: instrumentation identicalTo: self instrumentation
 ]
 
