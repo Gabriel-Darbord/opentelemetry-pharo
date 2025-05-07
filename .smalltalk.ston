@@ -5,5 +5,18 @@ SmalltalkCISpec {
       #directory : 'src',
       #platforms : [ #pharo ]
     }
-  ]
+  ],
+  #testing : {
+    #coverage : {
+      #packages : [
+        'OpenTelemetry-Exporters',
+        'OpenTelemetry-Instrumentation',
+        'OpenTelemetry-Instrumentation-MetaLink',
+        'OpenTelemetry-Instrumentation-MethodProxy',
+        'OpenTelemetry-Matchers',
+        'OpenTelemetry-Sampling'
+      ],
+      #format : #lcov
+    }
+  }
 }
