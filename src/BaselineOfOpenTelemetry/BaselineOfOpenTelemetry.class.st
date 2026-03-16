@@ -61,6 +61,8 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 BaselineOfOpenTelemetry >> baselinePharo11: spec [
 	"Only MetaLinks, no MethodProxies yet"
 
+	spec package: 'OpenTelemetry-Compatibility-Pharo11'.
+
 	spec
 		group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink'
 			   'OpenTelemetry-Compatibility-Pharo11' );
@@ -78,6 +80,7 @@ BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
 		spec repository: 'github://pharo-contributions/MethodProxies/src' ].
 
 	spec
+		package: 'OpenTelemetry-Compatibility-Pharo12Plus';
 		package: 'OpenTelemetry-Instrumentation-MethodProxy'
 		with: [
 			spec requires: #( 'MethodProxies' 'OpenTelemetry-Instrumentation' ) ];
