@@ -1,6 +1,6 @@
 Extension { #name : 'Package' }
 
-{ #category : '*OpenTelemetry-Matchers' }
+{ #category : '*OpenTelemetry-Compatibility-Pharo12Plus' }
 Package >> otName [
 
 	^ name

@@ -11,8 +11,10 @@ BaselineOfOpenTelemetry >> baseline: spec [
 	<baseline>
 	spec for: #common do: [ self baselineCommon: spec ].
 
+	spec for: #( 'pharo11.x' ) do: [ self baselinePharo11: spec ].
+
 	spec
-		for: #( 'pharo12.x' 'pharo13.x' )
+		for: #( 'pharo12.x' 'pharo13.x' 'pharo14.x' )
 		do: [ self baselinePharo12Plus: spec ]
 ]
 
@@ -28,12 +30,12 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		package: 'OpenTelemetry-Instrumentation-MetaLink'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Instrumentation' with: [
-			spec requires:
-					#( 'OpenTelemetry-Exporters' 'OpenTelemetry-Matchers'
-					   'OpenTelemetry-Sampling' ) ];
+				spec requires:
+						#( 'OpenTelemetry-Exporters' 'OpenTelemetry-Matchers'
+						   'OpenTelemetry-Sampling' ) ];
 		package: 'OpenTelemetry-Instrumentation-MetaLink-Tests' with: [
-			spec requires: #( 'OpenTelemetry-Instrumentation-Tests'
-					   'OpenTelemetry-Instrumentation-MetaLink' ) ];
+				spec requires: #( 'OpenTelemetry-Instrumentation-Tests'
+						   'OpenTelemetry-Instrumentation-MetaLink' ) ];
 		package: 'OpenTelemetry-Instrumentation-Tests'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Exporters';
@@ -47,15 +49,25 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		package: 'OpenTelemetry-Agents-OpalCompiler'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ].
 
-
 	spec
 		group: 'default' with: #( 'core' 'tests' );
-		group: 'core' with: 'OpenTelemetry-Instrumentation-MetaLink';
 		group: 'all' with: #( 'default' 'SUnit' 'Shout' 'OpalCompiler' );
-		group: 'tests' with: 'OpenTelemetry-Instrumentation-MetaLink-Tests';
-		group: 'SUnit' with: 'OpenTelemetry-Agents-SUnit';
-		group: 'Shout' with: 'OpenTelemetry-Agents-Shout';
-		group: 'OpalCompiler' with: 'OpenTelemetry-Agents-OpalCompiler'
+		group: 'SUnit' with: #( 'OpenTelemetry-Agents-SUnit' );
+		group: 'Shout' with: #( 'OpenTelemetry-Agents-Shout' );
+		group: 'OpalCompiler'
+		with: #( 'OpenTelemetry-Agents-OpalCompiler' )
+]
+
+{ #category : 'baselines' }
+BaselineOfOpenTelemetry >> baselinePharo11: spec [
+
+	spec package: 'OpenTelemetry-Compatibility-Pharo11'.
+
+	"Only MetaLinks, no MethodProxies yet"
+	spec
+		group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink' );
+		group: 'tests'
+		with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' )
 ]
 
 { #category : 'baselines' }
@@ -67,12 +79,13 @@ BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
 			spec repository: 'github://pharo-contributions/MethodProxies/src' ].
 
 	spec
+		package: 'OpenTelemetry-Compatibility-Pharo12Plus';
 		package: 'OpenTelemetry-Instrumentation-MethodProxy'
 		with: [
 			spec requires: #( 'MethodProxies' 'OpenTelemetry-Instrumentation' ) ];
 		package: 'OpenTelemetry-Instrumentation-MethodProxy-Tests' with: [
-			spec requires: #( 'OpenTelemetry-Instrumentation-Tests'
-					   'OpenTelemetry-Instrumentation-MethodProxy' ) ].
+				spec requires: #( 'OpenTelemetry-Instrumentation-Tests'
+						   'OpenTelemetry-Instrumentation-MethodProxy' ) ].
 
 	spec
 		group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink'
