@@ -1,11 +1,10 @@
 Class {
-	#name : 'BaselineOfOpenTelemetry',
-	#superclass : 'BaselineOf',
-	#category : 'BaselineOfOpenTelemetry',
-	#package : 'BaselineOfOpenTelemetry'
+	#name : #BaselineOfOpenTelemetry,
+	#superclass : #BaselineOf,
+	#category : #BaselineOfOpenTelemetry
 }
 
-{ #category : 'baselines' }
+{ #category : #baselines }
 BaselineOfOpenTelemetry >> baseline: spec [
 
 	<baseline>
@@ -18,7 +17,7 @@ BaselineOfOpenTelemetry >> baseline: spec [
 		do: [ self baselinePharo12Plus: spec ]
 ]
 
-{ #category : 'baselines' }
+{ #category : #baselines }
 BaselineOfOpenTelemetry >> baselineCommon: spec [
 
 	spec
@@ -58,38 +57,38 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		with: #( 'OpenTelemetry-Agents-OpalCompiler' )
 ]
 
-{ #category : 'baselines' }
+{ #category : #baselines }
 BaselineOfOpenTelemetry >> baselinePharo11: spec [
-
-	spec package: 'OpenTelemetry-Compatibility-Pharo11'.
-
 	"Only MetaLinks, no MethodProxies yet"
+
 	spec
-		group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink' );
+		group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink'
+			   'OpenTelemetry-Compatibility-Pharo11' );
 		group: 'tests'
 		with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' )
 ]
 
-{ #category : 'baselines' }
+{ #category : #baselines }
 BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
+	"MethodProxies are available for Pharo 12+"
 
 	spec
 		baseline: 'MethodProxies'
-		with: [ "Only use MethodProxies for Pharo 12+"
-			spec repository: 'github://pharo-contributions/MethodProxies/src' ].
+		with: [
+		spec repository: 'github://pharo-contributions/MethodProxies/src' ].
 
 	spec
-		package: 'OpenTelemetry-Compatibility-Pharo12Plus';
 		package: 'OpenTelemetry-Instrumentation-MethodProxy'
 		with: [
 			spec requires: #( 'MethodProxies' 'OpenTelemetry-Instrumentation' ) ];
 		package: 'OpenTelemetry-Instrumentation-MethodProxy-Tests' with: [
-				spec requires: #( 'OpenTelemetry-Instrumentation-Tests'
-						   'OpenTelemetry-Instrumentation-MethodProxy' ) ].
+			spec requires: #( 'OpenTelemetry-Instrumentation-Tests'
+					   'OpenTelemetry-Instrumentation-MethodProxy' ) ].
 
 	spec
 		group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink'
-			   'OpenTelemetry-Instrumentation-MethodProxy' );
+			   'OpenTelemetry-Instrumentation-MethodProxy'
+			   'OpenTelemetry-Compatibility-Pharo12Plus' );
 		group: 'tests'
 		with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 			   'OpenTelemetry-Instrumentation-MethodProxy-Tests' )
