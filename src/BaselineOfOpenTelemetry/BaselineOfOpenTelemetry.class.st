@@ -1,10 +1,11 @@
 Class {
-	#name : #BaselineOfOpenTelemetry,
-	#superclass : #BaselineOf,
-	#category : #BaselineOfOpenTelemetry
+	#name : 'BaselineOfOpenTelemetry',
+	#superclass : 'BaselineOf',
+	#category : 'BaselineOfOpenTelemetry',
+	#package : 'BaselineOfOpenTelemetry'
 }
 
-{ #category : #baselines }
+{ #category : 'baselines' }
 BaselineOfOpenTelemetry >> baseline: spec [
 
 	<baseline>
@@ -17,7 +18,7 @@ BaselineOfOpenTelemetry >> baseline: spec [
 		do: [ self baselinePharo12Plus: spec ]
 ]
 
-{ #category : #baselines }
+{ #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselineCommon: spec [
 
 	spec
@@ -57,7 +58,7 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		with: #( 'OpenTelemetry-Agents-OpalCompiler' )
 ]
 
-{ #category : #baselines }
+{ #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselinePharo11: spec [
 	"Only MetaLinks, no MethodProxies yet"
 
@@ -70,14 +71,13 @@ BaselineOfOpenTelemetry >> baselinePharo11: spec [
 		with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' )
 ]
 
-{ #category : #baselines }
+{ #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
 	"MethodProxies are available for Pharo 12+"
 
-	spec
-		baseline: 'MethodProxies'
-		with: [
-		spec repository: 'github://pharo-contributions/MethodProxies/src' ].
+	spec baseline: 'MethodProxies' with: [
+		spec repository:
+			'github://pharo-contributions/MethodProxies:v.2.0/src' ].
 
 	spec
 		package: 'OpenTelemetry-Compatibility-Pharo12Plus';
