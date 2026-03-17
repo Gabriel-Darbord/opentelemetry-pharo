@@ -1,12 +1,12 @@
 Class {
-	#name : 'OTTestSimpleInstrumentation',
+	#name : 'OTSimpleTestInstrumentation',
 	#superclass : 'OTMetaLinkTestInstrumentation',
 	#category : 'OpenTelemetry-Instrumentation-MetaLink-Tests',
 	#package : 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 }
 
 { #category : 'configuring' }
-OTTestSimpleInstrumentation class >> configure: installer [
+OTSimpleTestInstrumentation class >> configure: installer [
 
 	super configure: installer.
 	installer

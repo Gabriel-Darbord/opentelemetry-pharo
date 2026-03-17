@@ -1,18 +1,18 @@
 Class {
-	#name : 'OTSampledInstrumentationTest',
+	#name : 'OTFixedRateSamplerTest',
 	#superclass : 'OTAbstractInstrumentationTest',
 	#category : 'OpenTelemetry-Instrumentation-MetaLink-Tests',
 	#package : 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 }
 
 { #category : 'accessing' }
-OTSampledInstrumentationTest >> instrumentation [
+OTFixedRateSamplerTest >> instrumentation [
 
-	^ OTTestSampledInstrumentation
+	^ OTFixedRateSamplerTestInstrumentation
 ]
 
 { #category : 'tests' }
-OTSampledInstrumentationTest >> testFixedRateSampler [
+OTFixedRateSamplerTest >> testShouldSample [
 
 	self deny: self instrumentation hasRunOnEnter.
 	target answer.

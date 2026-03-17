@@ -11,7 +11,7 @@ Class {
 { #category : 'accessing' }
 OTSpanInstrumentationTest >> instrumentation [
 
-	^ OTTestSpanInstrumentation
+	^ OTSpanTestInstrumentation
 ]
 
 { #category : 'running' }

@@ -1,12 +1,12 @@
 Class {
-	#name : 'OTTestSampledInstrumentation',
+	#name : 'OTFixedRateSamplerTestInstrumentation',
 	#superclass : 'OTMetaLinkTestInstrumentation',
 	#category : 'OpenTelemetry-Instrumentation-MetaLink-Tests',
 	#package : 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 }
 
 { #category : 'configuring' }
-OTTestSampledInstrumentation class >> defineSampler [
+OTFixedRateSamplerTestInstrumentation class >> defineSampler [
 
 	sampler := OTSampler withRate: 2
 ]

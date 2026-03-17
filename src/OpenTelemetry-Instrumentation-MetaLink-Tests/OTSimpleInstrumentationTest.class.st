@@ -11,7 +11,7 @@ Class {
 { #category : 'accessing' }
 OTSimpleInstrumentationTest >> instrumentation [
 
-	^ OTTestSimpleInstrumentation
+	^ OTSimpleTestInstrumentation
 ]
 
 { #category : 'tests' }
