@@ -11,14 +11,14 @@ Class {
 	#package : 'OpenTelemetry-Sampling'
 }
 
-{ #category : 'accessing' }
+{ #category : 'instance creation' }
 OTSampler class >> withProbability: aFloat [
 	"A probabilistic sampler with a probability between 0 and 1"
 
 	^ OTProbabilisticSampler new probability: aFloat
 ]
 
-{ #category : 'accessing' }
+{ #category : 'instance creation' }
 OTSampler class >> withRate: anInteger [
 	"A fixed-rate sampler with a positive rate"
 
