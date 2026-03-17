@@ -12,6 +12,13 @@ Class {
 }
 
 { #category : 'instance creation' }
+OTSampler class >> withInterval: anInteger [
+	"A minimum time interval sampler using milliseconds"
+
+	^ OTTimeIntervalSampler new interval: anInteger
+]
+
+{ #category : 'instance creation' }
 OTSampler class >> withProbability: aFloat [
 	"A probabilistic sampler with a probability between 0 and 1"
 
