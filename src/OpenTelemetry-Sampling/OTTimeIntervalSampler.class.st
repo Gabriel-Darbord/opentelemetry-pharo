@@ -52,7 +52,7 @@ OTTimeIntervalSampler >> interval: anInteger [
 OTTimeIntervalSampler >> reset [
 	"See class comment"
 
-	last := 0
+	last := SmallInteger maxVal
 ]
 
 { #category : 'asserting' }
