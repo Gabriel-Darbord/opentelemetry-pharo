@@ -31,6 +31,20 @@ OTSpanContext class >> byteArrayFromHex: aString size: anInteger [
 	^ bytes
 ]
 
+{ #category : 'private' }
+OTSpanContext class >> hexFromByteArray: aByteArray size: anInteger label: aLabelString [
+
+	(aByteArray isKindOf: ByteArray) ifFalse: [
+		Error signal: aLabelString , ' must be a ByteArray' ].
+	aByteArray size = anInteger ifFalse: [
+		Error signal: aLabelString , ' must be a ' , anInteger asString , '-byte array' ].
+	^ String streamContents: [ :stream |
+		aByteArray do: [ :each |
+			stream
+				nextPut: ('0123456789abcdef' at: ((each bitShift: -4) bitAnd: 16rF) + 1);
+				nextPut: ('0123456789abcdef' at: (each bitAnd: 16rF) + 1) ] ]
+]
+
 { #category : 'instance creation' }
 OTSpanContext class >> fromSpan: aSpan [
 
@@ -155,6 +169,17 @@ OTSpanContext class >> traceId: aTraceId spanId: aSpanId traceFlags: someTraceFl
 		yourself
 ]
 
+{ #category : 'instance creation' }
+OTSpanContext class >> traceIdBytes: aTraceIdByteArray spanIdBytes: aSpanIdByteArray traceFlags: someTraceFlags traceState: aTraceState remote: aBoolean [
+
+	^ self
+		traceId: (self hexFromByteArray: aTraceIdByteArray size: 16 label: 'TraceId')
+		spanId: (self hexFromByteArray: aSpanIdByteArray size: 8 label: 'SpanId')
+		traceFlags: someTraceFlags
+		traceState: aTraceState
+		remote: aBoolean
+]
+
 { #category : 'comparing' }
 OTSpanContext >> = anObject [
 
@@ -177,6 +202,18 @@ OTSpanContext >> asNonRecordingSpan [
 OTSpanContext >> asSpanContext [
 
 	^ self
+]
+
+{ #category : 'converting' }
+OTSpanContext >> asLocal [
+
+	^ self withRemote: false
+]
+
+{ #category : 'converting' }
+OTSpanContext >> asRemote [
+
+	^ self withRemote: true
 ]
 
 { #category : 'comparing' }
@@ -288,4 +325,37 @@ OTSpanContext >> traceState: aTraceState [
 	| normalized |
 	normalized := OTTraceState from: aTraceState.
 	traceState := normalized
+]
+
+{ #category : 'copying' }
+OTSpanContext >> withRemote: aBoolean [
+
+	^ self class
+		traceId: self traceId
+		spanId: self spanId
+		traceFlags: self traceFlags
+		traceState: self traceState
+		remote: aBoolean
+]
+
+{ #category : 'copying' }
+OTSpanContext >> withTraceFlags: someTraceFlags [
+
+	^ self class
+		traceId: self traceId
+		spanId: self spanId
+		traceFlags: someTraceFlags
+		traceState: self traceState
+		remote: self isRemote
+]
+
+{ #category : 'copying' }
+OTSpanContext >> withTraceState: aTraceState [
+
+	^ self class
+		traceId: self traceId
+		spanId: self spanId
+		traceFlags: self traceFlags
+		traceState: aTraceState
+		remote: self isRemote
 ]

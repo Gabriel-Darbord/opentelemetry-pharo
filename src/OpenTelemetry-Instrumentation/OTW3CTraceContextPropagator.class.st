@@ -213,12 +213,9 @@ OTW3CTraceContextPropagator >> spanContext: aSpanContext withTraceStateHeader: a
 	| traceState |
 	traceState := OTTraceState fromHeader: aString.
 	(traceState isNil or: [ traceState isEmpty ]) ifTrue: [ ^ aSpanContext ].
-	^ OTSpanContext
-		traceId: aSpanContext traceId
-		spanId: aSpanContext spanId
-		traceFlags: aSpanContext traceFlags
-		traceState: traceState
-		remote: true
+	^ (aSpanContext
+		withTraceState: traceState)
+		asRemote
 ]
 
 { #category : 'private' }

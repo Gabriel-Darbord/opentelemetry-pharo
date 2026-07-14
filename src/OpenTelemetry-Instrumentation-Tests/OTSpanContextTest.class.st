@@ -23,6 +23,46 @@ OTSpanContextTest >> testBinaryAccessorsReturnSpecSizedByteArrays [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testBinaryConstructorBuildsEquivalentSpanContext [
+
+	| spanContext |
+	spanContext := OTSpanContext
+		traceIdBytes: #[0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255]
+		spanIdBytes: #[17 34 51 68 85 102 119 136]
+		traceFlags: '01'
+		traceState: 'vendor=value'
+		remote: true.
+	self assert: spanContext traceIdHex equals: '00112233445566778899aabbccddeeff'.
+	self assert: spanContext spanIdHex equals: '1122334455667788'.
+	self assert: spanContext traceFlags equals: '01'.
+	self assert: spanContext traceState asHeaderValue equals: 'vendor=value'.
+	self assert: spanContext isRemote
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testBinaryConstructorRejectsMalformedByteArrays [
+
+	self
+		should: [
+			OTSpanContext
+				traceIdBytes: #[1 2 3]
+				spanIdBytes: #[17 34 51 68 85 102 119 136]
+				traceFlags: '01'
+				traceState: nil
+				remote: false ]
+		raise: Error.
+	self
+		should: [
+			OTSpanContext
+				traceIdBytes: #[0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255]
+				spanIdBytes: #[1 2 3]
+				traceFlags: '01'
+				traceState: nil
+				remote: false ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testGeneratedIdentifiersHaveSpecShape [
 
 	| spanId traceId |
@@ -143,4 +183,42 @@ OTSpanContextTest >> testTraceStateStringNormalizesToTraceStateObject [
 	self assert: spanContext traceState class identicalTo: OTTraceState.
 	self assert: (spanContext traceState valueAt: 'vendor') equals: 'value'.
 	self assert: spanContext traceState asHeaderValue equals: 'vendor=value,tenant@system=opaque'
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testWithTraceStateReturnsCopiedImmutableContext [
+
+	| original updated |
+	original := OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '01'
+		traceState: nil
+		remote: false.
+	updated := original withTraceState: 'vendor=value'.
+	self deny: updated identicalTo: original.
+	self assert: original traceState equals: nil.
+	self assert: updated traceState asHeaderValue equals: 'vendor=value'.
+	self deny: updated isRemote
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testWithRemoteHelpersPreserveIdentityAndFlags [
+
+	| local remote |
+	local := OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: 'vendor=value'
+		remote: false.
+	remote := local asRemote.
+	self deny: local identicalTo: remote.
+	self deny: local isRemote.
+	self assert: remote isRemote.
+	self assert: remote traceIdHex equals: local traceIdHex.
+	self assert: remote spanIdHex equals: local spanIdHex.
+	self assert: remote traceFlags equals: local traceFlags.
+	self assert: remote traceState asHeaderValue equals: local traceState asHeaderValue.
+	self assert: remote asLocal equals: local
 ]
