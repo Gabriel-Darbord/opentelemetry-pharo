@@ -18,6 +18,17 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation'
 }
 
+{ #category : 'private - logging' }
+OTSpanBuilder class >> defaultParentContextWarningSink [
+
+	^ [ :message | | transcript |
+		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
+		transcript ifNotNil: [
+			transcript
+				show: message;
+				cr ] ]
+]
+
 { #category : 'instance creation' }
 OTSpanBuilder class >> forTracer: aTracer name: aString [
 
@@ -27,6 +38,40 @@ OTSpanBuilder class >> forTracer: aTracer name: aString [
 		tracer: aTracer;
 		spanName: (aString ifNil: [ '' ] ifNotNil: [ aString ]).
 	^ builder
+]
+
+{ #category : 'private - logging' }
+OTSpanBuilder class >> noteInvalidParentContext: anObject [
+
+	self parentContextWarningSink value:
+		'OpenTelemetry span builder ignored an invalid parent context and used a root context instead: '
+			, (anObject ifNil: [ 'nil' ] ifNotNil: [ anObject printString ])
+]
+
+{ #category : 'private' }
+OTSpanBuilder class >> normalizedParentContextFrom: aContext [
+
+	aContext ifNil: [ ^ OTContext new ].
+	(aContext isKindOf: OTContext) ifTrue: [ ^ aContext ].
+	self noteInvalidParentContext: aContext.
+	^ OTContext new
+]
+
+{ #category : 'private - logging' }
+OTSpanBuilder class >> parentContextWarningSink [
+
+	^ self
+		propertyAt: #otParentContextWarningSink
+		ifAbsent: [ self defaultParentContextWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTSpanBuilder class >> parentContextWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ self removeProperty: #otParentContextWarningSink ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otParentContextWarningSink put: aBlock ].
+	^ self parentContextWarningSink
 ]
 
 { #category : 'configuring' }
@@ -88,7 +133,7 @@ OTSpanBuilder >> attributes: aCollection [
 { #category : 'configuring' }
 OTSpanBuilder >> inContext: aContext [
 
-	parentContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	parentContext := self class normalizedParentContextFrom: aContext.
 	rootRequested := false.
 	^ self
 ]
@@ -143,7 +188,7 @@ OTSpanBuilder >> spanName: aString [
 OTSpanBuilder >> startSpan [
 
 	| baseContext parentSpan traceId samplingResult span effectiveTraceFlags |
-	baseContext := parentContext ifNil: [ OTContext new ] ifNotNil: [ parentContext ].
+	baseContext := self class normalizedParentContextFrom: parentContext.
 	tracer enabled ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext ].
 	parentSpan := rootRequested ifTrue: [ nil ] ifFalse: [ tracer parentSpanFrom: baseContext ].
 	traceId := parentSpan ifNil: [ OTSpan newTraceId ] ifNotNil: [ parentSpan traceId ].
