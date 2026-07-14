@@ -35,6 +35,7 @@ OTEnvironmentConfigurationTest >> tearDown [
 		OTTracerProvider resourceDetectors: nil.
 		OTTracerProvider samplerConfigurationWarningSink: nil.
 		OTSpanProcessor current: nil.
+		OTSpanExporter warningSink: nil.
 		OTSpanExporter current: nil.
 		OTSpan reset ]
 		ensure: [ super tearDown ]
@@ -60,6 +61,17 @@ OTEnvironmentConfigurationTest >> withSamplerWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTTracerProvider samplerConfigurationWarningSink: nil ]
+]
+
+{ #category : 'private' }
+OTEnvironmentConfigurationTest >> withExporterWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTSpanExporter warningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTSpanExporter warningSink: nil ]
 ]
 
 { #category : 'tests' }
@@ -204,6 +216,36 @@ OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpJsonExporterWhenConfigu
 			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpJsonSpanExporter.
 			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
 			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownTraceExporterNameAndFallsBackToDefaultExporter [
+
+	self withExporterWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_TRACES_EXPORTER' put: 'mystery';
+				yourself)
+			during: [
+				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry trace exporter name was unrecognized and has been ignored: ''mystery''' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentWarnsWhenOtlpProtocolIsUnsupportedAndFallsBackToDefaultExporter [
+
+	self withExporterWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+				yourself)
+			during: [
+				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: ''http/protobuf''' ]
 ]
 
 { #category : 'tests' }

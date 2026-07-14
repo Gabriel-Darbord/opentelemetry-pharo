@@ -42,6 +42,17 @@ OTSpanExporter class >> defaultFileExporter [
 	^ OTJSONFileSpanExporter new
 ]
 
+{ #category : 'private - logging' }
+OTSpanExporter class >> defaultWarningSink [
+
+	^ [ :message | | transcript |
+		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
+		transcript ifNotNil: [
+			transcript
+				show: message;
+				cr ] ]
+]
+
 { #category : 'instance creation' }
 OTSpanExporter class >> defaultZipkinEndpoint [
 
@@ -83,6 +94,7 @@ OTSpanExporter class >> exporterFromEnvironmentName: aString [
 	exporterName = 'otlp' ifTrue: [ ^ self configuredOtlpExporter ].
 	exporterName = 'otlp/stdout' ifTrue: [ ^ OTOtlpStdoutSpanExporter new ].
 	exporterName = 'zipkin' ifTrue: [ ^ self configuredZipkinExporter ].
+	aString ifNotEmpty: [ self noteUnknownTraceExporterName: aString ].
 	^ nil
 ]
 
@@ -154,7 +166,9 @@ OTSpanExporter class >> configuredOtlpExporter [
 	| configuration |
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
 	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol
-		ifFalse: [ ^ nil ].
+		ifFalse: [
+			self noteUnsupportedOtlpProtocol: configuration protocol.
+			^ nil ].
 	^ OTOtlpHttpJsonSpanExporter configuration: configuration
 ]
 
@@ -166,8 +180,9 @@ OTSpanExporter class >> readConfiguration [
 	configuredValue ifNil: [ ^ self defaultFileExporter ].
 	(configuredValue substrings: ',')
 		do: [ :each |
-			| exporter |
-			exporter := self exporterFromEnvironmentName: each trimBoth.
+			| exporter exporterName |
+			exporterName := each trimBoth.
+			exporter := self exporterFromEnvironmentName: exporterName.
 			exporter ifNotNil: [ ^ exporter ] ].
 	^ self defaultFileExporter
 ]
@@ -204,6 +219,39 @@ OTSpanExporter class >> strictPositiveIntegerFrom: aString [
 	stream atEnd ifFalse: [ ^ nil ].
 	value > 0 ifFalse: [ ^ nil ].
 	^ value
+]
+
+{ #category : 'private - logging' }
+OTSpanExporter class >> noteUnknownTraceExporterName: aString [
+
+	self warningSink value:
+		'OpenTelemetry trace exporter name was unrecognized and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTSpanExporter class >> noteUnsupportedOtlpProtocol: aString [
+
+	self warningSink value:
+		'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTSpanExporter class >> warningSink [
+
+	^ self
+		propertyAt: #otWarningSink
+		ifAbsent: [ self defaultWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTSpanExporter class >> warningSink: aBlock [
+
+	aBlock
+		ifNil: [ self removeProperty: #otWarningSink ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otWarningSink put: aBlock ].
+	^ self warningSink
 ]
 
 { #category : 'accessing' }
