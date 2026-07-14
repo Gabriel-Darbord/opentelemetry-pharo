@@ -27,6 +27,14 @@ OTCustomTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentatio
 ]
 
 { #category : 'tracing' }
+OTCustomTracerProvider >> tracerForInstrumentationScope: anInstrumentationScope [
+
+	^ OTCustomTracer
+		forProvider: self
+		instrumentationScope: anInstrumentationScope
+]
+
+{ #category : 'tracing' }
 OTCustomTracerProvider >> wrapSpanContext: aSpanContext [
 
 	^ OTCustomNonRecordingSpan withSpanContext: aSpanContext

@@ -896,7 +896,15 @@ OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSch
 		attributes: aCollection.
 	^ tracers
 		at: scope
-		ifAbsentPut: [ OTTracer forProvider: self instrumentationScope: scope ]
+		ifAbsentPut: [ self tracerForInstrumentationScope: scope ]
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> tracerForInstrumentationScope: anInstrumentationScope [
+
+	^ OTTracer
+		forProvider: self
+		instrumentationScope: anInstrumentationScope
 ]
 
 { #category : 'sampling' }

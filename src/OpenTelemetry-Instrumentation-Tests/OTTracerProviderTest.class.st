@@ -116,6 +116,18 @@ OTTracerProviderTest >> testCustomTracerProviderCanCustomizeRecordingAndNonRecor
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testCustomTracerProviderCanCustomizeTracerClass [
+
+	| firstTracer provider secondTracer |
+	provider := OTCustomTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	firstTracer := provider tracerNamed: 'demo.scope'.
+	secondTracer := provider tracerNamed: 'demo.scope'.
+	self assert: firstTracer class identicalTo: OTCustomTracer.
+	self assert: secondTracer identicalTo: firstTracer
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testCustomIdGeneratorControlsRootTraceAndSpanIds [
 
 	| generator provider span tracer |
