@@ -32,6 +32,7 @@ OTEnvironmentConfigurationTest >> tearDown [
 	[
 		OTTracerProvider current: nil.
 		OTTracerProvider resourceConfigurationWarningSink: nil.
+		OTTracerProvider resourceDetectors: nil.
 		OTTracerProvider samplerConfigurationWarningSink: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
@@ -209,6 +210,23 @@ OTEnvironmentConfigurationTest >> testCurrentProvidesDefaultSdkResourceAttribute
 			self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
 			self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
 			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentProvidesProcessRuntimeResourceAttributes [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			self assert: (resource attributeAt: 'process.executable.name') equals: OTTracerProvider defaultProcessExecutableName.
+			self assert: (resource attributeAt: 'process.executable.path') equals: OTTracerProvider defaultProcessExecutablePath.
+			self assert: (resource attributeAt: 'process.command') equals: OTTracerProvider currentImagePath.
+			self assert: (resource attributeAt: 'process.runtime.name') equals: 'pharo'.
+			self assert: (resource attributeAt: 'process.runtime.version') equals: OTTracerProvider runtimeVersion.
+			self assert: (resource attributeAt: 'process.runtime.description') equals: OTTracerProvider runtimeDescription.
+			self assert: (resource attributeAt: 'process.command_args') equals: OTTracerProvider processCommandArguments ]
 ]
 
 { #category : 'tests' }

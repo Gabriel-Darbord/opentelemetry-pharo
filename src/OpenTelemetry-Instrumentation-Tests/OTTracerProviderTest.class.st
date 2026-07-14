@@ -29,6 +29,8 @@ OTTracerProviderTest >> tearDown [
 	[
 		OTTracerProvider current: nil.
 		OTTracerProvider tracerConfigurationWarningSink: nil.
+		OTTracerProvider resourceConfigurationWarningSink: nil.
+		OTTracerProvider resourceDetectors: nil.
 		OTTracerProvider spanProcessorWarningSink: nil.
 		OTTracerProvider tracerNameWarningSink: nil.
 		OTSpanProcessor current: nil.
@@ -68,6 +70,17 @@ OTTracerProviderTest >> withSpanProcessorWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTTracerProvider spanProcessorWarningSink: nil ]
+]
+
+{ #category : 'private' }
+OTTracerProviderTest >> withResourceConfigurationWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider resourceConfigurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
 ]
 
 { #category : 'tests' }
@@ -585,6 +598,61 @@ OTTracerProviderTest >> testTracerCachesByFullInstrumentationScope [
 		attributes: self sampleAttributes.
 	self assert: first identicalTo: second.
 	self deny: first identicalTo: third
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testConfiguredResourceMergesConfiguredDetectorsInOrder [
+
+	| resource |
+	OTTracerProvider resourceDetectors: {
+		(OTStaticResourceDetector
+			named: 'first'
+			resource: (OTResource attributes: {
+				'service.name' -> 'first'.
+				'deployment.environment.name' -> 'dev' })).
+		(OTStaticResourceDetector
+			named: 'second'
+			resource: (OTResource attributes: {
+				'service.name' -> 'second'.
+				'host.name' -> 'pharo-host' })) }.
+	resource := OTTracerProvider configuredResource.
+	self assert: resource serviceName equals: 'second'.
+	self assert: (resource attributeAt: 'deployment.environment.name') equals: 'dev'.
+	self assert: (resource attributeAt: 'host.name') equals: 'pharo-host'
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testConfiguredResourceSkipsFailingDetectorAndLogsWarning [
+
+	self withResourceConfigurationWarningsDo: [ :warnings |
+		| resource |
+		OTTracerProvider resourceDetectors: {
+			(OTStaticResourceDetector
+				named: 'base'
+				resource: (OTResource attributes: { 'service.name' -> 'base' })).
+			(OTBlockResourceDetector
+				named: 'broken'
+				detecting: [ Error signal: 'boom' ]).
+			(OTStaticResourceDetector
+				named: 'after'
+				resource: (OTResource attributes: { 'host.name' -> 'pharo-host' })) }.
+		resource := OTTracerProvider configuredResource.
+		self assert: resource serviceName equals: 'base'.
+		self assert: (resource attributeAt: 'host.name') equals: 'pharo-host'.
+		self assert: warnings asArray equals:
+			{ 'OpenTelemetry resource detector failed during resource detection for OTBlockResourceDetector (''broken''): boom' } ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testConfiguredResourceWarnsAboutDuplicateDetectorNames [
+
+	self withResourceConfigurationWarningsDo: [ :warnings |
+		OTTracerProvider resourceDetectors: {
+			(OTStaticResourceDetector named: 'duplicate' resource: OTResource empty).
+			(OTStaticResourceDetector named: 'duplicate' resource: OTResource empty) }.
+		OTTracerProvider configuredResource.
+		self assert: warnings asArray equals:
+			{ 'OpenTelemetry resource detector name was registered more than once: ''duplicate''' } ]
 ]
 
 { #category : 'tests' }

@@ -17,14 +17,7 @@ Class {
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredResource [
 
-	| attributes resource serviceName |
-	resource := self defaultResource.
-	attributes := self configuredResourceAttributes.
-	serviceName := self configuredServiceName.
-	serviceName ifNotNil: [ attributes at: 'service.name' put: serviceName ].
-	^ attributes isEmpty
-		ifTrue: [ resource ]
-		ifFalse: [ resource merge: (OTResource attributes: attributes) ]
+	^ self resourceFromDetectors: self configuredResourceDetectors
 ]
 
 { #category : 'private' }
@@ -54,6 +47,14 @@ OTTracerProvider class >> configuredSampler [
 OTTracerProvider class >> configuredServiceName [
 
 	^ self environmentValueAt: 'OTEL_SERVICE_NAME'
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> configuredResourceDetectors [
+
+	^ self
+		propertyAt: #otResourceDetectors
+		ifAbsent: [ self defaultResourceDetectors ]
 ]
 
 { #category : 'instance creation' }
@@ -106,7 +107,45 @@ OTTracerProvider class >> defaultResource [
 { #category : 'instance creation' }
 OTTracerProvider class >> defaultServiceName [
 
-	^ 'unknown_service:pharo'
+	| executableName |
+	executableName := self defaultProcessExecutableName.
+	^ executableName
+		ifNil: [ 'unknown_service' ]
+		ifNotNil: [ 'unknown_service:' , executableName ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultProcessExecutableName [
+
+	| path |
+	path := self defaultProcessExecutablePath.
+	path ifNil: [ ^ nil ].
+	^ [ path asFileReference basename ]
+		on: Error
+		do: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultProcessExecutablePath [
+
+	^ self systemAttributeAt: 0
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> currentImagePath [
+
+	^ self systemAttributeAt: 1
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultResourceDetectors [
+
+	^ OrderedCollection new
+		add: (OTStaticResourceDetector named: 'sdk' resource: self defaultResource);
+		add: OTProcessResourceDetector new;
+		add: OTEnvironmentResourceDetector new;
+		add: OTServiceNameResourceDetector new;
+		yourself
 ]
 
 { #category : 'instance creation' }
@@ -248,6 +287,28 @@ OTTracerProvider class >> noteInvalidResourceAttributes: aValue error: anError [
 ]
 
 { #category : 'private - logging' }
+OTTracerProvider class >> noteDuplicateResourceDetectorName: aString [
+
+	self resourceConfigurationWarningSink value:
+		'OpenTelemetry resource detector name was registered more than once: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteResourceDetector: aDetector failedDuring: anOperationName error: anError [
+
+	self resourceConfigurationWarningSink value:
+		'OpenTelemetry resource detector failed during '
+			, anOperationName
+			, ' for '
+			, aDetector class name
+			, ' ('
+			, aDetector detectorName printString
+			, '): '
+			, anError messageText
+]
+
+{ #category : 'private - logging' }
 OTTracerProvider class >> noteSpanProcessor: aProcessor failedDuring: anOperationName error: anError [
 
 	self spanProcessorWarningSink value:
@@ -334,7 +395,8 @@ OTTracerProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default:
 OTTracerProvider class >> reset [
 
 	Current ifNotNil: [ Current shutdown ].
-	Current := nil
+	Current := nil.
+	self resourceDetectors: nil
 ]
 
 { #category : 'private' }
@@ -359,6 +421,24 @@ OTTracerProvider class >> resourceByProvider [
 ]
 
 { #category : 'private' }
+OTTracerProvider class >> resourceFromDetectors: aCollection [
+
+	| detectorNames resource |
+	detectorNames := Set new.
+	resource := OTResource empty.
+	aCollection do: [ :detector |
+		(detectorNames includes: detector detectorName) ifTrue: [
+			self noteDuplicateResourceDetectorName: detector detectorName ].
+		detectorNames add: detector detectorName.
+		resource := [ resource merge: detector detectResource ]
+			on: Error
+			do: [ :error |
+				self noteResourceDetector: detector failedDuring: 'resource detection' error: error.
+				resource ] ].
+	^ resource
+]
+
+{ #category : 'private' }
 OTTracerProvider class >> idGeneratorByProvider [
 
 	^ self stateDictionaryAt: #otIdGeneratorByProvider
@@ -375,6 +455,15 @@ OTTracerProvider class >> resourceEnvironmentEntry: aString into: anOrderedDicti
 	value := self decodePercentEncoded: (aString copyFrom: separator + 1 to: aString size).
 	key isEmpty ifTrue: [ Error signal: 'Resource attribute keys must not be empty' ].
 	anOrderedDictionary at: key put: value
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> resourceDetectors: aCollection [
+
+	aCollection
+		ifNil: [ self removeProperty: #otResourceDetectors ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otResourceDetectors put: aCollection ].
+	^ self configuredResourceDetectors
 ]
 
 { #category : 'private' }
@@ -430,6 +519,44 @@ OTTracerProvider class >> sdkDisabled [
 	^ value asLowercase = 'true'
 ]
 
+{ #category : 'instance creation' }
+OTTracerProvider class >> runtimeDescription [
+
+	^ [ Smalltalk vm version trimBoth ]
+		on: Error
+		do: [ self runtimeName ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> runtimeName [
+
+	^ 'pharo'
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> runtimeVersion [
+
+	^ [ SystemVersion current dottedMajorMinor ]
+		on: Error
+		do: [ 'unknown' ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> processCommandArguments [
+
+	| arguments imagePath |
+	arguments := OrderedCollection new.
+	self defaultProcessExecutablePath ifNotNil: [ :value | arguments add: value ].
+	imagePath := self currentImagePath.
+	imagePath ifNotNil: [ arguments add: imagePath ].
+	2 to: 32 do: [ :index |
+		| value |
+		value := self systemAttributeAt: index.
+		value ifNil: [ ^ arguments asArray ].
+		arguments add: value ].
+	^ arguments asArray
+]
+
 { #category : 'private - lifecycle' }
 OTTracerProvider class >> shutdownByProvider [
 
@@ -457,6 +584,18 @@ OTTracerProvider class >> stateDictionaryAt: aSymbol [
 		dictionary := WeakIdentityKeyDictionary new.
 		self propertyAt: aSymbol put: dictionary ].
 	^ dictionary
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> systemAttributeAt: anInteger [
+
+	| value |
+	value := [ Smalltalk getSystemAttribute: anInteger ]
+		on: Error
+		do: [ nil ].
+	value ifNil: [ ^ nil ].
+	value := value asString trimBoth.
+	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
 ]
 
 { #category : 'private' }
