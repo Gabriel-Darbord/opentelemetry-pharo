@@ -115,6 +115,17 @@ OTTracerProvider class >> defaultServiceName [
 ]
 
 { #category : 'instance creation' }
+OTTracerProvider class >> defaultServiceInstanceId [
+
+	| identifier |
+	identifier := self propertyAt: #otDefaultServiceInstanceId ifAbsent: [ nil ].
+	identifier ifNil: [
+		identifier := UUID new asString36.
+		self propertyAt: #otDefaultServiceInstanceId put: identifier ].
+	^ identifier
+]
+
+{ #category : 'instance creation' }
 OTTracerProvider class >> defaultProcessExecutableName [
 
 	| path |
@@ -143,6 +154,7 @@ OTTracerProvider class >> defaultResourceDetectors [
 	^ OrderedCollection new
 		add: (OTStaticResourceDetector named: 'sdk' resource: self defaultResource);
 		add: OTProcessResourceDetector new;
+		add: OTServiceInstanceResourceDetector new;
 		add: OTEnvironmentResourceDetector new;
 		add: OTServiceNameResourceDetector new;
 		yourself

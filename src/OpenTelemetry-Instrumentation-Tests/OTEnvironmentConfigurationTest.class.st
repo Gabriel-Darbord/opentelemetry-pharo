@@ -207,6 +207,7 @@ OTEnvironmentConfigurationTest >> testCurrentProvidesDefaultSdkResourceAttribute
 			| resource |
 			resource := OTTracerProvider current resource.
 			self assert: resource serviceName equals: OTTracerProvider defaultServiceName.
+			self deny: (resource attributeAt: 'service.instance.id') isEmpty.
 			self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
 			self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
 			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
@@ -238,6 +239,30 @@ OTEnvironmentConfigurationTest >> testCurrentReadsServiceNameFromResourceAttribu
 			yourself)
 		during: [
 			self assert: OTTracerProvider current resource serviceName equals: 'resource-only' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentKeepsStableDefaultServiceInstanceIdAcrossProviderReset [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			| first second |
+			first := OTTracerProvider current resource attributeAt: 'service.instance.id'.
+			OTTracerProvider current: nil.
+			second := OTTracerProvider current resource attributeAt: 'service.instance.id'.
+			self assert: second equals: first ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentLetsResourceAttributesOverrideDefaultServiceInstanceId [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.instance.id=instance-42';
+			yourself)
+		during: [
+			self assert: (OTTracerProvider current resource attributeAt: 'service.instance.id') equals: 'instance-42' ]
 ]
 
 { #category : 'tests' }
