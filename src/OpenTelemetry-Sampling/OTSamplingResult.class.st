@@ -113,7 +113,7 @@ OTSamplingResult >> traceState [
 ]
 
 { #category : 'accessing' }
-OTSamplingResult >> traceState: aString [
+OTSamplingResult >> traceState: aTraceState [
 
-	traceState := aString
+	traceState := aTraceState
 ]

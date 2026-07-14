@@ -139,32 +139,13 @@ OTW3CTraceContextPropagator >> isValidIdentifier: aString size: anInteger [
 { #category : 'private' }
 OTW3CTraceContextPropagator >> isValidTraceState: aString [
 
-	| entries |
-	aString ifNil: [ ^ false ].
-	aString isEmpty ifTrue: [ ^ false ].
-	aString size <= 512 ifFalse: [ ^ false ].
-	entries := aString substrings: ','.
-	entries size <= 32 ifFalse: [ ^ false ].
-	^ entries allSatisfy: [ :each |
-		self isValidTraceStateEntry: each trimBoth ]
+	^ (OTTraceState fromHeader: aString) isNotNil
 ]
 
 { #category : 'private' }
 OTW3CTraceContextPropagator >> isValidTraceStateEntry: aString [
 
-	| separator key value |
-	aString isEmpty ifTrue: [ ^ false ].
-	separator := aString indexOf: $= ifAbsent: [ ^ false ].
-	separator = 1 ifTrue: [ ^ false ].
-	separator = aString size ifTrue: [ ^ false ].
-	(aString indexOf: $= startingAt: separator + 1 ifAbsent: [ 0 ]) > 0 ifTrue: [ ^ false ].
-	key := aString copyFrom: 1 to: separator - 1.
-	value := aString copyFrom: separator + 1 to: aString size.
-	^ key isNotEmpty and: [
-		value isNotEmpty and: [
-			(key includes: Character space) not and: [
-				(value includes: $, ) not and: [
-					(value includes: Character tab) not ] ] ] ]
+	^ (OTTraceState fromHeader: aString) isNotNil
 ]
 
 { #category : 'private' }
@@ -190,19 +171,22 @@ OTW3CTraceContextPropagator >> normalizedTraceStateFrom: aSpanContext [
 
 	| traceState |
 	traceState := aSpanContext traceState.
-	(self isValidTraceState: traceState) ifTrue: [ ^ traceState ].
-	^ nil
+	traceState ifNil: [ ^ nil ].
+	traceState isEmpty ifTrue: [ ^ nil ].
+	^ traceState asHeaderValue
 ]
 
 { #category : 'private' }
 OTW3CTraceContextPropagator >> spanContext: aSpanContext withTraceStateHeader: aString [
 
-	(self isValidTraceState: aString) ifFalse: [ ^ aSpanContext ].
+	| traceState |
+	traceState := OTTraceState fromHeader: aString.
+	(traceState isNil or: [ traceState isEmpty ]) ifTrue: [ ^ aSpanContext ].
 	^ OTSpanContext
 		traceId: aSpanContext traceId
 		spanId: aSpanContext spanId
 		traceFlags: aSpanContext traceFlags
-		traceState: aString
+		traceState: traceState
 		remote: true
 ]
 

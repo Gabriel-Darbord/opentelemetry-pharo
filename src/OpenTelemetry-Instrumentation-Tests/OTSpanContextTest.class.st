@@ -71,6 +71,19 @@ OTSpanContextTest >> testIdentifiersNormalizeToLowercaseHex [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
+
+	| spanContext |
+	spanContext := OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '01'
+		traceState: 'vendor=value,vendor=duplicate'
+		remote: false.
+	self assert: spanContext traceState equals: nil
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testInvalidContextUsesZeroIdentifiersAndUnsampledFlags [
 
 	| spanContext |
@@ -81,4 +94,19 @@ OTSpanContextTest >> testInvalidContextUsesZeroIdentifiersAndUnsampledFlags [
 	self deny: spanContext isSampled.
 	self deny: spanContext isValid.
 	self deny: spanContext isRemote
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testTraceStateStringNormalizesToTraceStateObject [
+
+	| spanContext |
+	spanContext := OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '01'
+		traceState: 'vendor=value,tenant@system=opaque'
+		remote: false.
+	self assert: spanContext traceState class identicalTo: OTTraceState.
+	self assert: (spanContext traceState valueAt: 'vendor') equals: 'value'.
+	self assert: spanContext traceState asHeaderValue equals: 'vendor=value,tenant@system=opaque'
 ]

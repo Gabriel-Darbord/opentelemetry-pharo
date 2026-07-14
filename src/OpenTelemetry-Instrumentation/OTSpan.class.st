@@ -1014,7 +1014,7 @@ OTSpan >> stonOn: stonWriter [
 			at: #instrumentationName put: self instrumentationName.
 		self instrumentationScope isEmpty ifFalse: [ map at: #instrumentationScope put: self instrumentationScope ].
 		parent ifNotNil: [ map at: #parentId put: parent spanId ].
-		self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState ].
+		self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
 		self statusDescription ifNotNil: [ :description | map at: #statusDescription put: description ].
 		attributes isEmptyOrNil ifFalse: [ map at: #attributes put: attributes ].
 		events isEmptyOrNil ifFalse: [ map at: #events put: events ].
@@ -1056,9 +1056,13 @@ OTSpan >> traceState [
 ]
 
 { #category : 'accessing' }
-OTSpan >> traceState: aString [
+OTSpan >> traceState: aTraceState [
 
-	traceState := aString
+	| normalized |
+	normalized := OTTraceState from: aTraceState.
+	traceState := normalized
+		ifNil: [ nil ]
+		ifNotNil: [ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ] ]
 ]
 
 { #category : 'recording' }
