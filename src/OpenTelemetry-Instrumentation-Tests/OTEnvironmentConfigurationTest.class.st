@@ -59,6 +59,7 @@ OTEnvironmentConfigurationTest >> testCurrentDiscardsMalformedResourceAttributes
 		during: [
 			| provider |
 			provider := OTTracerProvider current.
+			self assert: provider resource serviceName equals: OTTracerProvider defaultServiceName.
 			self assert: (provider resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
 			self assert: (provider resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
 			self assert: (provider resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
@@ -166,9 +167,21 @@ OTEnvironmentConfigurationTest >> testCurrentProvidesDefaultSdkResourceAttribute
 		during: [
 			| resource |
 			resource := OTTracerProvider current resource.
+			self assert: resource serviceName equals: OTTracerProvider defaultServiceName.
 			self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
 			self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
 			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsServiceNameFromResourceAttributesWhenDedicatedVariableIsAbsent [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.name=resource-only';
+			yourself)
+		during: [
+			self assert: OTTracerProvider current resource serviceName equals: 'resource-only' ]
 ]
 
 { #category : 'tests' }

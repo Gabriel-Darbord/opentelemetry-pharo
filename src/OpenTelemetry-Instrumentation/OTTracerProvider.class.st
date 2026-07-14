@@ -20,7 +20,7 @@ OTTracerProvider class >> configuredResource [
 	| attributes resource serviceName |
 	resource := self defaultResource.
 	attributes := self configuredResourceAttributes.
-	serviceName := self environmentValueAt: 'OTEL_SERVICE_NAME'.
+	serviceName := self configuredServiceName.
 	serviceName ifNotNil: [ attributes at: 'service.name' put: serviceName ].
 	^ attributes isEmpty
 		ifTrue: [ resource ]
@@ -94,10 +94,17 @@ OTTracerProvider class >> defaultSampler [
 OTTracerProvider class >> defaultResource [
 
 	^ OTResource attributes: (OrderedDictionary new
+		at: 'service.name' put: self defaultServiceName;
 		at: 'telemetry.sdk.name' put: 'opentelemetry';
 		at: 'telemetry.sdk.language' put: 'pharo';
 		at: 'telemetry.sdk.version' put: self sdkVersion;
 		yourself)
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultServiceName [
+
+	^ 'unknown_service:pharo'
 ]
 
 { #category : 'private - logging' }
