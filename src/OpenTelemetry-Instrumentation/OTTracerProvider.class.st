@@ -89,6 +89,17 @@ OTTracerProvider class >> defaultSampler [
 	^ OTParentBasedSampler default
 ]
 
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultTracerNameWarningSink [
+
+	^ [ :message | | transcript |
+		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
+		transcript ifNotNil: [
+			transcript
+				show: message;
+				cr ] ]
+]
+
 { #category : 'private' }
 OTTracerProvider class >> decodePercentEncoded: aString [
 
@@ -125,6 +136,28 @@ OTTracerProvider class >> hexadecimalValueFrom: aString [
 	value := [ Integer readFrom: stream base: 16 ] on: Error do: [ Error signal: 'Malformed percent encoding' ].
 	stream atEnd ifFalse: [ Error signal: 'Malformed percent encoding' ].
 	^ value
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidTracerName: aValue [
+
+	self tracerNameWarningSink value:
+		'OpenTelemetry tracer name was invalid and has been normalized to an empty string: '
+			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> normalizedTracerNameFrom: aValue [
+
+	| name |
+	aValue ifNil: [
+		self noteInvalidTracerName: aValue.
+		^ '' ].
+	name := aValue asString.
+	name trimBoth isEmpty ifTrue: [
+		self noteInvalidTracerName: aValue.
+		^ '' ].
+	^ name
 ]
 
 { #category : 'private' }
@@ -312,6 +345,23 @@ OTTracerProvider class >> strictProbabilityFrom: aString [
 	stream atEnd ifFalse: [ ^ nil ].
 	(value isNumber and: [ value >= 0 and: [ value <= 1 ] ]) ifFalse: [ ^ nil ].
 	^ value
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> tracerNameWarningSink [
+
+	^ self
+		propertyAt: #otTracerNameWarningSink
+		ifAbsent: [ self defaultTracerNameWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> tracerNameWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ self removeProperty: #otTracerNameWarningSink ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otTracerNameWarningSink put: aBlock ].
+	^ self tracerNameWarningSink
 ]
 
 { #category : 'private' }
@@ -551,7 +601,7 @@ OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSch
 
 	| scope |
 	scope := OTInstrumentationScope
-		named: (aString ifNil: [ '' ] ifNotNil: [ aString asString ])
+		named: (self class normalizedTracerNameFrom: aString)
 		version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
 		schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
 		attributes: aCollection.

@@ -28,10 +28,22 @@ OTTracerProviderTest >> tearDown [
 
 	[
 		OTTracerProvider current: nil.
+		OTTracerProvider tracerNameWarningSink: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
 		OTSpan reset ]
 		ensure: [ super tearDown ]
+]
+
+{ #category : 'private' }
+OTTracerProviderTest >> withTracerNameWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider tracerNameWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider tracerNameWarningSink: nil ]
 ]
 
 { #category : 'tests' }
@@ -55,6 +67,49 @@ OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 	self assert: span instrumentationScope version equals: '1.2.3'.
 	self assert: span instrumentationScope schemaUrl equals: 'https://opentelemetry.io/schemas/1.0.0'.
 	self assert: (span instrumentationScope attributeAt: 'scope.answer') equals: 42
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerNamedEmptyStringReturnsWorkingTracerWithEmptyNameAndWarning [
+
+	self
+		withTracerNameWarningsDo: [ :warnings |
+			| provider tracer |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			tracer := provider tracerNamed: ''.
+			self assert: tracer instrumentationName equals: ''.
+			self assert: warnings size equals: 1.
+			self assert: warnings first equals:
+				'OpenTelemetry tracer name was invalid and has been normalized to an empty string: ''''' ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerNamedNilReturnsWorkingTracerWithEmptyNameAndWarning [
+
+	self
+		withTracerNameWarningsDo: [ :warnings |
+			| provider tracer |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			tracer := provider tracerNamed: nil.
+			self assert: tracer instrumentationName equals: ''.
+			self assert: warnings size equals: 1.
+			self assert: warnings first equals:
+				'OpenTelemetry tracer name was invalid and has been normalized to an empty string: nil' ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerNamedWhitespaceOnlyStringNormalizesToEmptyName [
+
+	self
+		withTracerNameWarningsDo: [ :warnings |
+			| provider tracer |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			tracer := provider tracerNamed: '   '.
+			self assert: tracer instrumentationName equals: ''.
+			self assert: warnings size equals: 1 ]
 ]
 
 { #category : 'tests' }
