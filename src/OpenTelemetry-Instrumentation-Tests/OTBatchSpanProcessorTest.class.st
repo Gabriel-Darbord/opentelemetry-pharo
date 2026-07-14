@@ -34,6 +34,8 @@ OTBatchSpanProcessorTest >> sampledSpanWithSuffix: anInteger [
 OTBatchSpanProcessorTest >> tearDown [
 
 	[
+		(exporter isKindOf: OTBlockingSpanExporter) ifTrue: [
+			exporter allowBlockedExport ].
 		processor ifNotNil: [ processor shutdown ].
 		exporter ifNotNil: [ exporter shutdown ].
 		OTSpanProcessor current: nil.
@@ -62,6 +64,46 @@ OTBatchSpanProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExport
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter exportedBatches first size equals: 1
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testProcessDropsSpansWhenQueueFillsDuringBlockedExport [
+
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 1;
+		maxQueueSize: 2;
+		scheduledDelayMillis: 1000.
+	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	self assert: (processor process: (self sampledSpanWithSuffix: 2)).
+	self assert: (processor process: (self sampledSpanWithSuffix: 3)).
+	self deny: (processor process: (self sampledSpanWithSuffix: 4)).
+	exporter allowBlockedExport.
+	self waitUntil: [ exporter exportedBatches size = 3 ] timeoutMillis: 500.
+	self
+		assert: ((exporter exportedBatches inject: 0 into: [ :total :each | total + each size ]))
+		equals: 3
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testProcessReturnsBeforeBlockedBatchExportCompletes [
+
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 1;
+		scheduledDelayMillis: 1000.
+	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	self assert: exporter exportedBatches isEmpty.
+	exporter allowBlockedExport.
+	self waitUntil: [ exporter exportedBatches size = 1 ] timeoutMillis: 500
 ]
 
 { #category : 'tests' }

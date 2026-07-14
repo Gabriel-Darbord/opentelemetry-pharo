@@ -9,8 +9,14 @@ Class {
 		'batch',
 		'batchSize',
 		'maxQueueSize',
+		'queueLock',
 		'exportLock',
-		'flushProcess'
+		'flushProcess',
+		'workAvailable',
+		'stateLock',
+		'exportInProgress',
+		'shutdownRequested',
+		'queueBecameNonEmptyAt'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
@@ -69,18 +75,13 @@ OTBatchSpanProcessor >> batchSize: anInteger [
 { #category : 'processing' }
 OTBatchSpanProcessor >> exportNextBatch [
 
-	^ self synchronized: [ self exportNextBatchLocked ]
+	^ self exportAvailableBatchesAllowPartial: false
 ]
 
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> exportNextBatchLocked [
 
-	| exportCount spans |
-	batch ifEmpty: [ ^ false ].
-	exportCount := batchSize min: batch size.
-	spans := batch copyFrom: 1 to: exportCount.
-	exportCount timesRepeat: [ batch removeFirst ].
-	^ OTSpanExporter current export: spans
+	^ self exportAvailableBatchesAllowPartial: false
 ]
 
 { #category : 'accessing' }
@@ -103,15 +104,10 @@ OTBatchSpanProcessor >> exportTimeoutMillis: anInteger [
 { #category : 'processing' }
 OTBatchSpanProcessor >> flush [
 
-	| allExported didExport |
 	self isShutdown ifTrue: [ ^ false ].
-	^ self synchronized: [
-		allExported := true.
-		didExport := false.
-		[ batch isEmpty ] whileFalse: [
-			didExport := true.
-			allExported := (self exportNextBatchLocked) & allExported ].
-		^ didExport ifTrue: [ allExported ] ifFalse: [ false ] ]
+	self ensureFlushProcess.
+	(self exportAvailableBatchesAllowPartial: true) ifFalse: [ ^ false ].
+	^ self waitUntilIdleTimeoutMillis: self exportTimeoutMillis
 ]
 
 { #category : 'processing' }
@@ -120,8 +116,10 @@ OTBatchSpanProcessor >> forceFlush [
 	| flushed exported |
 	self isShutdown ifTrue: [ ^ false ].
 	flushed := self flush.
-	exported := OTSpanExporter current forceFlush.
-	^ flushed | exported
+	flushed ifFalse: [ ^ false ].
+	exported := self
+		runExporterOperation: [ OTSpanExporter current forceFlush ].
+	^ flushed & exported
 ]
 
 { #category : 'initialization' }
@@ -132,7 +130,13 @@ OTBatchSpanProcessor >> initialize [
 	maxQueueSize := 2048.
 	batchSize := 512.
 	batch := OrderedCollection new: maxQueueSize.
-	exportLock := Semaphore forMutualExclusion
+	queueLock := Semaphore forMutualExclusion.
+	exportLock := Semaphore forMutualExclusion.
+	workAvailable := Semaphore new.
+	stateLock := Semaphore forMutualExclusion.
+	exportInProgress := false.
+	shutdownRequested := false.
+	queueBecameNonEmptyAt := nil
 ]
 
 { #category : 'accessing' }
@@ -152,16 +156,116 @@ OTBatchSpanProcessor >> maxQueueSize: anInteger [
 
 { #category : 'processing' }
 OTBatchSpanProcessor >> process: span [
-	"Wait until the sampled batch has been filled to export"
+	"Queue sampled spans for asynchronous export."
 
+	| accepted shouldWakeWorker |
+	accepted := false.
+	shouldWakeWorker := false.
+	self isStopping ifTrue: [ ^ false ].
 	self isShutdown ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
 	self ensureFlushProcess.
-	^ self synchronized: [
+	queueLock critical: [
+		| wasEmpty |
 		batch size >= maxQueueSize ifTrue: [ ^ false ].
+		wasEmpty := batch isEmpty.
 		batch add: span.
-		batch size < batchSize ifTrue: [ ^ true ].
-		^ self exportNextBatchLocked ]
+		wasEmpty ifTrue: [ queueBecameNonEmptyAt := Time millisecondClockValue ].
+		accepted := true.
+		shouldWakeWorker := wasEmpty or: [ batch size >= batchSize ] ].
+	shouldWakeWorker ifTrue: [ workAvailable signal ].
+	^ accepted
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> exportAvailableBatchesAllowPartial: allowPartial [
+
+	| allExported allowPartialNow spans |
+	allExported := true.
+	allowPartialNow := allowPartial.
+	[
+	spans := self nextBatchForExportAllowPartial: allowPartialNow.
+	spans notNil ]
+		whileTrue: [
+			allExported := (self exportSpans: spans) & allExported.
+			allowPartialNow := false ].
+	^ allExported
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> exportInProgress [
+
+	^ stateLock critical: [ exportInProgress = true ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> exportInProgress: aBoolean [
+
+	stateLock critical: [ exportInProgress := aBoolean = true ].
+	^ exportInProgress
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> exportSpans: spans [
+
+	^ exportLock critical: [
+		self exportInProgress: true.
+		[ self runExporterOperation: [ OTSpanExporter current export: spans ] ]
+			ensure: [ self exportInProgress: false ] ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> isIdle [
+
+	| queueEmpty |
+	queueEmpty := queueLock critical: [ batch isEmpty ].
+	^ queueEmpty and: [ self exportInProgress not ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> isStopping [
+
+	^ stateLock critical: [ shutdownRequested = true ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> markShutdownRequested [
+
+	stateLock critical: [ shutdownRequested := true ].
+	^ self
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> nextBatchForExportAllowPartial: allowPartial [
+
+	| exportCount spans |
+	^ queueLock critical: [
+		batch ifEmpty: [ ^ nil ].
+		(allowPartial not and: [ batch size < batchSize ]) ifTrue: [ ^ nil ].
+		exportCount := batchSize min: batch size.
+		spans := batch copyFrom: 1 to: exportCount.
+		exportCount timesRepeat: [ batch removeFirst ].
+		batch isEmpty
+			ifTrue: [ queueBecameNonEmptyAt := nil ]
+			ifFalse: [
+				batch size < batchSize ifTrue: [
+					queueBecameNonEmptyAt := Time millisecondClockValue ] ].
+		spans ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> nextWorkDecision [
+
+	^ queueLock critical: [
+		| remainingDelay |
+		batch isEmpty ifTrue: [ ^ #idle ].
+		batch size >= batchSize ifTrue: [ ^ #fullBatch ].
+		queueBecameNonEmptyAt ifNil: [
+			queueBecameNonEmptyAt := Time millisecondClockValue ].
+		remainingDelay := self scheduledDelayMillis
+			- (Time millisecondClockValue - queueBecameNonEmptyAt).
+		remainingDelay <= 0 ifTrue: [ ^ #partialBatch ].
+		remainingDelay ]
 ]
 
 { #category : 'accessing' }
@@ -186,9 +290,12 @@ OTBatchSpanProcessor >> shutdown [
 
 	| flushed shutdownResult |
 	self isShutdown ifTrue: [ ^ false ].
+	self markShutdownRequested.
+	workAvailable signal.
+	flushed := self flush.
 	self stopFlushProcess.
-	flushed := self forceFlush.
-	shutdownResult := OTSpanExporter current shutdown.
+	shutdownResult := self
+		runExporterOperation: [ OTSpanExporter current shutdown ].
 	self markShutdown.
 	^ shutdownResult & flushed
 ]
@@ -196,6 +303,7 @@ OTBatchSpanProcessor >> shutdown [
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> ensureFlushProcess [
 
+	self isStopping ifTrue: [ ^ nil ].
 	(flushProcess notNil and: [ flushProcess isTerminated not ]) ifTrue: [ ^ flushProcess ].
 	flushProcess := [ self runFlushLoop ] forkAt: Processor userBackgroundPriority.
 	^ flushProcess
@@ -204,15 +312,36 @@ OTBatchSpanProcessor >> ensureFlushProcess [
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> runFlushLoop [
 
-	[ self isShutdown ] whileFalse: [
-		(Delay forMilliseconds: self scheduledDelayMillis) wait.
-		self isShutdown ifFalse: [ self flush ] ]
+	| decision timedOut |
+	[ self isStopping ] whileFalse: [
+		decision := self nextWorkDecision.
+		decision = #idle ifTrue: [
+			workAvailable wait ]
+		ifFalse: [
+			decision = #fullBatch ifTrue: [
+				self exportAvailableBatchesAllowPartial: false ]
+			ifFalse: [
+				decision = #partialBatch ifTrue: [
+					self exportAvailableBatchesAllowPartial: true ]
+				ifFalse: [
+					timedOut := workAvailable waitTimeoutMilliseconds: decision.
+					timedOut ifTrue: [
+						self exportAvailableBatchesAllowPartial: true ] ] ] ] ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> runExporterOperation: aBlock [
+
+	^ aBlock
+		valueWithinMilliseconds: self exportTimeoutMillis
+		onTimeout: [ false ]
 ]
 
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> stopFlushProcess [
 
 	flushProcess ifNotNil: [
+		workAvailable signal.
 		flushProcess terminate.
 		flushProcess := nil ]
 ]
@@ -220,5 +349,17 @@ OTBatchSpanProcessor >> stopFlushProcess [
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> synchronized: aBlock [
 
-	^ exportLock critical: aBlock
+	^ queueLock critical: aBlock
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> waitUntilIdleTimeoutMillis: anInteger [
+
+	| deadline |
+	deadline := Time millisecondClockValue + anInteger.
+	[
+		self isIdle ifTrue: [ ^ true ].
+		Time millisecondClockValue >= deadline ifTrue: [ ^ false ].
+		(Delay forMilliseconds: 5) wait ]
+		repeat
 ]
