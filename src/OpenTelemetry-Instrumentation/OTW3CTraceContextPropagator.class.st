@@ -46,6 +46,7 @@ OTW3CTraceContextPropagator >> extract: aContext from: aCarrier getter: aGetter 
 
 	| baseContext spanContext traceParent traceState |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	aGetter ifNil: [ ^ baseContext ].
 	traceParent := aGetter getFrom: aCarrier key: self class traceParentHeaderName.
 	spanContext := self extractSpanContextFromTraceParent: traceParent.
 	spanContext ifNil: [ ^ baseContext ].
@@ -103,6 +104,7 @@ OTW3CTraceContextPropagator >> inject: aContext into: aCarrier [
 OTW3CTraceContextPropagator >> inject: aContext into: aCarrier setter: aSetter [
 
 	| span spanContext traceState |
+	aSetter ifNil: [ ^ self ].
 	span := aContext ifNotNil: [ aContext span ].
 	span ifNil: [ ^ self ].
 	spanContext := span spanContext.

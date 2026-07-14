@@ -71,3 +71,71 @@ OTW3CTraceContextPropagatorTest >> testInjectOmitsTraceStateHeaderWhenTraceState
 		into: carrier.
 	self deny: (carrier includesKey: 'tracestate')
 ]
+
+{ #category : 'tests' }
+OTW3CTraceContextPropagatorTest >> testExtractAcceptsFutureVersionTraceParentWithExtraSuffix [
+
+	| carrier context |
+	carrier := Dictionary new
+		at: 'traceparent' put: '01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00-02';
+		yourself.
+	context := OTW3CTraceContextPropagator current
+		extract: OTContext new
+		from: carrier.
+	self assert: context span spanContext traceId equals: '4bf92f3577b34da6a3ce929d0e0e4736'.
+	self assert: context span spanContext spanId equals: '00f067aa0ba902b7'.
+	self assert: context span spanContext traceFlags equals: '00'.
+	self assert: context span spanContext isRemote
+]
+
+{ #category : 'tests' }
+OTW3CTraceContextPropagatorTest >> testExtractNilGetterReturnsOriginalContext [
+
+	| context |
+	context := OTContext new
+		withSpan: ((OTSpanContext
+			traceId: '4bf92f3577b34da6a3ce929d0e0e4736'
+			spanId: '00f067aa0ba902b7'
+			traceFlags: '01'
+			traceState: nil
+			remote: false) asNonRecordingSpan).
+	self
+		assert: (OTW3CTraceContextPropagator current
+			extract: context
+			from: Dictionary new
+			getter: nil)
+		identicalTo: context
+]
+
+{ #category : 'tests' }
+OTW3CTraceContextPropagatorTest >> testInjectNilSetterDoesNothing [
+
+	| context spanContext |
+	spanContext := OTSpanContext
+		traceId: '4bf92f3577b34da6a3ce929d0e0e4736'
+		spanId: '00f067aa0ba902b7'
+		traceFlags: '01'
+		traceState: 'rojo=one'
+		remote: false.
+	context := OTContext new withSpan: spanContext asNonRecordingSpan.
+	self
+		shouldnt: [
+			OTW3CTraceContextPropagator current
+				inject: context
+				into: Dictionary new
+				setter: nil ]
+		raise: Error
+]
+
+{ #category : 'tests' }
+OTW3CTraceContextPropagatorTest >> testRejectsVersion00TraceParentWithExtraSuffix [
+
+	| carrier context |
+	carrier := Dictionary new
+		at: 'traceparent' put: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00-02';
+		yourself.
+	context := OTW3CTraceContextPropagator current
+		extract: OTContext new
+		from: carrier.
+	self assert: context span equals: nil
+]
