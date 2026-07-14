@@ -188,6 +188,45 @@ OTTracerProviderTest >> testInstrumenterEndNotifiesSpanProcessorOnlyOnce [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testInstrumenterUsesInjectedTracerProvider [
+
+	| instrumenter processor provider span |
+	provider := OTTracerProvider new.
+	processor := OTRecordingSpanProcessor new.
+	provider spanProcessor: processor.
+	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
+	instrumenter tracerProvider: provider.
+	span := instrumenter startRequest: 'request'.
+	instrumenter end: span.
+	self assert: processor startedSpans asArray equals: { span }.
+	self assert: processor endingSpans asArray equals: { span }.
+	self assert: processor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testInstrumenterIgnoresGlobalCurrentWhenTracerProviderIsInjected [
+
+	| globalProcessor globalProvider injectedProcessor injectedProvider instrumenter span |
+	injectedProvider := OTTracerProvider new.
+	injectedProcessor := OTRecordingSpanProcessor new.
+	injectedProvider spanProcessor: injectedProcessor.
+	globalProvider := OTTracerProvider new.
+	globalProcessor := OTRecordingSpanProcessor new.
+	globalProvider spanProcessor: globalProcessor.
+	OTTracerProvider current: globalProvider.
+	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
+	instrumenter tracerProvider: injectedProvider.
+	span := instrumenter startRequest: 'request'.
+	instrumenter end: span.
+	self assert: injectedProcessor startedSpans asArray equals: { span }.
+	self assert: injectedProcessor endingSpans asArray equals: { span }.
+	self assert: injectedProcessor endedSpans asArray equals: { span }.
+	self assert: globalProcessor startedSpans isEmpty.
+	self assert: globalProcessor endingSpans isEmpty.
+	self assert: globalProcessor endedSpans isEmpty
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testForceFlushSuppressesProcessorErrorsAndContinues [
 
 	self withSpanProcessorWarningsDo: [ :warnings |

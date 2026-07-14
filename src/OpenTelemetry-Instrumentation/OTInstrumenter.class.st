@@ -20,7 +20,8 @@ Class {
 		'spanKindExtractor',
 		'spanNameExtractor',
 		'contextProducer',
-		'instrumentationName'
+		'instrumentationName',
+		'tracerProvider'
 	],
 	#classInstVars : [
 		'default',
@@ -130,6 +131,18 @@ OTInstrumenter >> instrumentationName: aString [
 	instrumentationName := aString
 ]
 
+{ #category : 'accessing' }
+OTInstrumenter >> tracerProvider [
+
+	^ tracerProvider ifNil: [ OTTracerProvider current ]
+]
+
+{ #category : 'accessing' }
+OTInstrumenter >> tracerProvider: anObject [
+
+	tracerProvider := anObject
+]
+
 { #category : 'instrumenting' }
 OTInstrumenter >> produceContext [
 
@@ -215,5 +228,5 @@ OTInstrumenter >> startUnder: parentSpan request: request [
 { #category : 'instrumenting' }
 OTInstrumenter >> tracer [
 
-	^ OTTracerProvider current tracerNamed: instrumentationName
+	^ self tracerProvider tracerNamed: instrumentationName
 ]
