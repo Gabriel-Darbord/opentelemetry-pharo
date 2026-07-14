@@ -104,3 +104,48 @@ OTSpanBuilderTest >> testInContextNilUsesEmptyContextWithoutWarning [
 			self assert: span parent isNil.
 			self assert: warnings isEmpty ]
 ]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testInCurrentContextUsesImplicitCurrentSpanAsParent [
+
+	| currentContext parentSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: nil
+		remote: false) asNonRecordingSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	OpenTelemetry
+		useContext: currentContext
+		during: [
+			span := ((tracer spanBuilderNamed: 'operation')
+				inCurrentContext;
+				startSpan) ].
+	self assert: span parent identicalTo: parentSpan.
+	self assert: span traceId equals: parentSpan traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
+
+	| currentContext parentSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: nil
+		remote: false) asNonRecordingSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	OpenTelemetry
+		useContext: currentContext
+		during: [ span := tracer startSpanNamed: 'operation' ].
+	self assert: span parent identicalTo: parentSpan.
+	self assert: span traceId equals: parentSpan traceId
+]

@@ -138,6 +138,14 @@ OTSpanBuilder >> inContext: aContext [
 	^ self
 ]
 
+{ #category : 'configuring' }
+OTSpanBuilder >> inCurrentContext [
+
+	parentContext := OTSpan currentContext.
+	rootRequested := false.
+	^ self
+]
+
 { #category : 'initialization' }
 OTSpanBuilder >> initialize [
 

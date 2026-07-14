@@ -115,6 +115,23 @@ OTTracer >> spanBuilderNamed: aString [
 ]
 
 { #category : 'tracing' }
+OTTracer >> startSpanNamed: aString [
+
+	^ self startSpanNamed: aString kind: OTSpan internal
+]
+
+{ #category : 'tracing' }
+OTTracer >> startSpanNamed: aString kind: aSpanKind [
+
+	| builder |
+	builder := self spanBuilderNamed: aString.
+	builder
+		kind: aSpanKind;
+		inCurrentContext.
+	^ builder startSpan
+]
+
+{ #category : 'tracing' }
 OTTracer >> startSpanNamed: aString in: aContext [
 
 	^ self startSpanNamed: aString kind: OTSpan internal in: aContext
