@@ -7,7 +7,11 @@ Class {
 	#instVars : [
 		'configuration',
 		'encoder',
-		'httpClient'
+		'httpClient',
+		'maxExportAttempts',
+		'warningSink',
+		'sleepStrategy',
+		'retryJitterBlock'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
@@ -21,10 +25,62 @@ OTOtlpHttpJsonSpanExporter class >> configuration: anOtlpConfiguration [
 		yourself
 ]
 
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter class >> defaultRetryBaseDelayMillis [
+
+	^ 1000
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter class >> defaultRetryMaxDelayMillis [
+
+	^ 5000
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter class >> defaultWarningSink [
+
+	^ [ :message | | transcript |
+		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
+		transcript ifNotNil: [
+			transcript
+				show: message;
+				cr ] ]
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter class >> maxExportAttempts [
+
+	^ 6
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter class >> retryableStatusCodes [
+
+	^ #( 429 502 503 504 ) asSet
+]
+
 { #category : 'accessing' }
 OTOtlpHttpJsonSpanExporter class >> supportedProtocol [
 
 	^ 'http/json'
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter class >> warningSink [
+
+	^ self
+		propertyAt: #otWarningSink
+		ifAbsent: [ self defaultWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter class >> warningSink: aBlock [
+
+	aBlock
+		ifNil: [ self removeProperty: #otWarningSink ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otWarningSink put: aBlock ].
+	^ self warningSink
 ]
 
 { #category : 'private - configuration' }
@@ -40,7 +96,9 @@ OTOtlpHttpJsonSpanExporter >> applyConfigurationToHttpClient [
 		client headerAt: each key put: each value ].
 	(self hasUserAgentHeaderConfigured: self configuration headers) ifFalse: [
 		client headerAt: 'User-Agent' put: self configuration userAgent ].
-	client headerAt: 'Content-Type' put: 'application/json'
+	client
+		headerAt: 'Content-Type' put: 'application/json';
+		headerAt: 'Accept-Encoding' put: 'gzip'
 ]
 
 { #category : 'accessing' }
@@ -68,6 +126,20 @@ OTOtlpHttpJsonSpanExporter >> encoder: anEncoder [
 	encoder := anEncoder
 ]
 
+{ #category : 'private - decoding' }
+OTOtlpHttpJsonSpanExporter >> decodedResponseContentsFrom: aResponse [
+
+	| contents encoding |
+	contents := self responseContentsFrom: aResponse.
+	contents ifNil: [ ^ nil ].
+	encoding := self
+		responseHeaderAt: 'Content-Encoding'
+		in: aResponse
+		ifAbsent: [ 'identity' ].
+	(encoding asString sameAs: 'gzip') ifFalse: [ ^ contents ].
+	^ (GZipReadStream on: contents readStream) upToEnd
+]
+
 { #category : 'private - encoding' }
 OTOtlpHttpJsonSpanExporter >> entityForPayload: aString [
 
@@ -83,14 +155,43 @@ OTOtlpHttpJsonSpanExporter >> entityForPayload: aString [
 OTOtlpHttpJsonSpanExporter >> export: spans [
 
 	self isShutdown ifTrue: [ ^ false ].
-	^ [
-		self applyConfigurationToHttpClient.
-		self httpClient entity: (self entityForPayload: (self payloadStringFrom: spans)).
-		self configuration usesGzipCompression ifTrue: [
-			self httpClient headerAt: 'Content-Encoding' put: 'gzip' ].
-		(self httpClient execute; response) code = 200 ]
+	^ self
+		exportAttemptNumber: 1
+		payloadString: (self payloadStringFrom: spans)
+]
+
+{ #category : 'exporting' }
+OTOtlpHttpJsonSpanExporter >> exportAttemptNumber: attemptNumber payloadString: payloadString [
+
+	| response responseCode |
+	[
+	self applyConfigurationToHttpClient.
+	self httpClient entity: (self entityForPayload: payloadString).
+	self configuration usesGzipCompression
+		ifTrue: [ self httpClient headerAt: 'Content-Encoding' put: 'gzip' ]
+		ifFalse: [ self removeRequestHeaderNamed: 'Content-Encoding' ].
+	response := self httpClient execute; response ]
 		on: Error
-		do: [ false ]
+		do: [ :error |
+			attemptNumber >= self maxExportAttempts ifTrue: [
+				self noteRetryExhaustedForError: error.
+				^ false ].
+			self sleepForMilliseconds:
+				(self retryDelayMillisForAttempt: attemptNumber response: nil).
+			^ self
+				exportAttemptNumber: attemptNumber + 1
+				payloadString: payloadString ].
+	responseCode := self responseCodeFrom: response.
+	responseCode = 200 ifTrue: [ ^ self handleSuccessResponse: response ].
+	(self isRetryableStatusCode: responseCode) ifFalse: [ ^ false ].
+	attemptNumber >= self maxExportAttempts ifTrue: [
+		self noteRetryExhaustedForResponse: response.
+		^ false ].
+	self sleepForMilliseconds:
+		(self retryDelayMillisForAttempt: attemptNumber response: response).
+	^ self
+		exportAttemptNumber: attemptNumber + 1
+		payloadString: payloadString
 ]
 
 { #category : 'private - encoding' }
@@ -101,6 +202,21 @@ OTOtlpHttpJsonSpanExporter >> gzipCompressedBytesFor: aString [
 		zipper := GZipWriteStream on: stream.
 		zipper nextPutAll: aString utf8Encoded.
 		zipper close ]
+]
+
+{ #category : 'private - success handling' }
+OTOtlpHttpJsonSpanExporter >> handleSuccessResponse: aResponse [
+
+	| partialSuccess responseRepresentation |
+	responseRepresentation := [ self successfulResponseRepresentationFrom: aResponse ]
+		on: Error
+		do: [ :error |
+			self noteInvalidSuccessResponse: error.
+			^ false ].
+	partialSuccess := self partialSuccessFrom: responseRepresentation.
+	partialSuccess ifNil: [ ^ true ].
+	self notePartialSuccess: partialSuccess.
+	^ true
 ]
 
 { #category : 'testing' }
@@ -121,8 +237,220 @@ OTOtlpHttpJsonSpanExporter >> httpClient: anHttpClient [
 	httpClient := anHttpClient
 ]
 
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> isRetryableStatusCode: anInteger [
+
+	^ self class retryableStatusCodes includes: anInteger
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> maxExportAttempts [
+
+	^ maxExportAttempts ifNil: [ self class maxExportAttempts ]
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> maxExportAttempts: anInteger [
+
+	maxExportAttempts := anInteger.
+	^ self maxExportAttempts
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> noteInvalidSuccessResponse: anError [
+
+	self warningSink value:
+		'OpenTelemetry OTLP trace export returned an invalid success response: '
+			, anError messageText
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> notePartialSuccess: aDictionary [
+
+	self warningSink value:
+		'OpenTelemetry OTLP trace export reported partial success: '
+			, aDictionary printString
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForError: anError [
+
+	self warningSink value:
+		'OpenTelemetry OTLP trace export exhausted retries after a retryable transport failure: '
+			, anError messageText
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForResponse: aResponse [
+
+	self warningSink value:
+		'OpenTelemetry OTLP trace export exhausted retries after HTTP status '
+			, (self responseCodeFrom: aResponse) asString
+]
+
 { #category : 'private - encoding' }
 OTOtlpHttpJsonSpanExporter >> payloadStringFrom: spans [
 
 	^ ZnUtils defaultJSONWriter toString: (self encoder encodeSpans: spans asArray)
+]
+
+{ #category : 'private - success handling' }
+OTOtlpHttpJsonSpanExporter >> partialSuccessFrom: aDictionary [
+
+	| partialSuccess |
+	partialSuccess := aDictionary
+		at: 'partialSuccess'
+		ifAbsent: [ aDictionary at: 'partial_success' ifAbsent: [ nil ] ].
+	partialSuccess ifNil: [ ^ nil ].
+	((self rejectedSpanCountFromPartialSuccess: partialSuccess) <= 0
+		and: [ ((partialSuccess at: 'errorMessage' ifAbsent: [
+					  partialSuccess at: 'error_message' ifAbsent: [ '' ] ]) asString)
+				trimBoth isEmpty ]) ifTrue: [ ^ nil ].
+	^ partialSuccess
+]
+
+{ #category : 'private - success handling' }
+OTOtlpHttpJsonSpanExporter >> rejectedSpanCountFromPartialSuccess: aDictionary [
+
+	^ self
+		nonNegativeIntegerFrom:
+			(aDictionary
+				at: 'rejectedSpans'
+				ifAbsent: [ aDictionary at: 'rejected_spans' ifAbsent: [ 0 ] ])
+		default: 0
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> responseCodeFrom: aResponse [
+
+	^ aResponse code
+]
+
+{ #category : 'private - configuration' }
+OTOtlpHttpJsonSpanExporter >> removeRequestHeaderNamed: aString [
+
+	(self httpClient respondsTo: #headers) ifFalse: [ ^ self ].
+	self httpClient headers removeKey: aString ifAbsent: [  ]
+]
+
+{ #category : 'private - decoding' }
+OTOtlpHttpJsonSpanExporter >> responseContentsFrom: aResponse [
+
+	(aResponse respondsTo: #responseContents) ifTrue: [ ^ aResponse responseContents ].
+	(aResponse respondsTo: #entity) ifTrue: [
+		| entity |
+		entity := aResponse entity.
+		entity ifNotNil: [ ^ entity contents ] ].
+	(aResponse respondsTo: #contents) ifTrue: [ ^ aResponse contents ].
+	^ nil
+]
+
+{ #category : 'private - decoding' }
+OTOtlpHttpJsonSpanExporter >> responseHeaderAt: aString in: aResponse ifAbsent: aBlock [
+
+	(aResponse respondsTo: #responseHeaderAt:ifAbsent:) ifTrue: [
+		^ aResponse responseHeaderAt: aString ifAbsent: aBlock ].
+	(aResponse respondsTo: #headers) ifTrue: [
+		^ aResponse headers at: aString ifAbsent: aBlock ].
+	^ aBlock value
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> retryDelayMillisForAttempt: attemptNumber response: aResponse [
+
+	| retryAfter baseDelay cappedDelay |
+	retryAfter := aResponse
+		ifNil: [ nil ]
+		ifNotNil: [ self retryAfterMillisFromResponse: aResponse ].
+	retryAfter ifNotNil: [ ^ retryAfter ].
+	baseDelay := self class defaultRetryBaseDelayMillis * (2 raisedTo: attemptNumber - 1).
+	cappedDelay := baseDelay min: self class defaultRetryMaxDelayMillis.
+	^ self retryJitterBlock value: cappedDelay
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> retryAfterMillisFromResponse: aResponse [
+
+	^ self
+		parseRetryAfterMillisFrom:
+			(self responseHeaderAt: 'Retry-After' in: aResponse ifAbsent: [ nil ])
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> retryJitterBlock [
+
+	^ retryJitterBlock ifNil: [
+		  retryJitterBlock := [ :delayMillis | | multiplier |
+			  multiplier := 0.8 + ((Random new next) * 0.4).
+			  ((delayMillis asFloat * multiplier) rounded max: 1) ] ]
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> retryJitterBlock: aBlock [
+
+	retryJitterBlock := aBlock.
+	^ self retryJitterBlock
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> parseRetryAfterMillisFrom: aValue [
+
+	| parsed |
+	aValue ifNil: [ ^ nil ].
+	parsed := OTSpanExporter strictPositiveIntegerFrom: aValue asString.
+	^ parsed ifNil: [ nil ] ifNotNil: [ parsed * 1000 ]
+]
+
+{ #category : 'private - success handling' }
+OTOtlpHttpJsonSpanExporter >> successfulResponseRepresentationFrom: aResponse [
+
+	| contents text |
+	contents := self decodedResponseContentsFrom: aResponse.
+	contents ifNil: [ Error signal: 'Missing OTLP success response body' ].
+	text := contents asString trimBoth.
+	text isEmpty ifTrue: [ Error signal: 'Missing OTLP success response body' ].
+	^ STONJSON fromString: text
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> sleepForMilliseconds: anInteger [
+
+	self sleepStrategy value: anInteger
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> sleepStrategy [
+
+	^ sleepStrategy ifNil: [
+		  sleepStrategy := [ :delayMillis | (Delay forMilliseconds: delayMillis) wait ] ]
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> sleepStrategy: aBlock [
+
+	sleepStrategy := aBlock.
+	^ self sleepStrategy
+]
+
+{ #category : 'private - success handling' }
+OTOtlpHttpJsonSpanExporter >> nonNegativeIntegerFrom: anObject default: aDefaultValue [
+
+	| parsed |
+	anObject ifNil: [ ^ aDefaultValue ].
+	(anObject isInteger and: [ anObject >= 0 ]) ifTrue: [ ^ anObject ].
+	parsed := OTSpanExporter strictPositiveIntegerFrom: anObject asString.
+	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> warningSink [
+
+	^ warningSink ifNil: [ self class warningSink ]
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> warningSink: aBlock [
+
+	warningSink := aBlock.
+	^ self warningSink
 ]

@@ -8,7 +8,11 @@ Class {
 		'headers',
 		'entity',
 		'responseCode',
-		'shouldRaiseOnExecute'
+		'shouldRaiseOnExecute',
+		'plannedExecutions',
+		'executionCount',
+		'responseHeaders',
+		'responseContents'
 	],
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
@@ -18,6 +22,12 @@ Class {
 OTRecordingHttpClient >> code [
 
 	^ responseCode ifNil: [ 200 ]
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> executionCount [
+
+	^ executionCount ifNil: [ 0 ]
 ]
 
 { #category : 'accessing' }
@@ -35,6 +45,8 @@ OTRecordingHttpClient >> entity: aZnEntity [
 { #category : 'executing' }
 OTRecordingHttpClient >> execute [
 
+	executionCount := self executionCount + 1.
+	self playNextPlannedExecution.
 	self shouldRaiseOnExecute ifTrue: [
 		Error signal: 'simulated HTTP failure' ].
 	^ self
@@ -52,6 +64,16 @@ OTRecordingHttpClient >> headers [
 	^ headers ifNil: [ headers := OrderedDictionary new ]
 ]
 
+{ #category : 'private' }
+OTRecordingHttpClient >> nextPlannedExecution [
+
+	| executions |
+	executions := self plannedExecutions.
+	^ executions isEmpty
+		ifTrue: [ nil ]
+		ifFalse: [ executions removeFirst ]
+]
+
 { #category : 'accessing' }
 OTRecordingHttpClient >> method [
 
@@ -64,6 +86,40 @@ OTRecordingHttpClient >> method: aSymbol [
 	method := aSymbol
 ]
 
+{ #category : 'private' }
+OTRecordingHttpClient >> plannedExecutions [
+
+	^ plannedExecutions ifNil: [ plannedExecutions := OrderedCollection new ]
+]
+
+{ #category : 'private' }
+OTRecordingHttpClient >> playNextPlannedExecution [
+
+	| plannedExecution |
+	plannedExecution := self nextPlannedExecution.
+	plannedExecution ifNil: [ ^ self ].
+	plannedExecution value: self
+]
+
+{ #category : 'private' }
+OTRecordingHttpClient >> queueExecutionFailure [
+
+	self plannedExecutions add: [ :client | client shouldRaiseOnExecute: true ].
+	^ self
+]
+
+{ #category : 'private' }
+OTRecordingHttpClient >> queueResponseCode: anInteger headers: aDictionary contents: anObject [
+
+	self plannedExecutions add: [ :client |
+		client
+			shouldRaiseOnExecute: false;
+			responseCode: anInteger;
+			responseHeaders: aDictionary;
+			responseContents: anObject ].
+	^ self
+]
+
 { #category : 'executing' }
 OTRecordingHttpClient >> response [
 
@@ -74,6 +130,39 @@ OTRecordingHttpClient >> response [
 OTRecordingHttpClient >> responseCode: anInteger [
 
 	responseCode := anInteger
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> responseContents [
+
+	^ responseContents ifNil: [ '{}' ]
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> responseContents: anObject [
+
+	responseContents := anObject
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> responseHeaderAt: aKey ifAbsent: aBlock [
+
+	^ self responseHeaders at: aKey ifAbsent: aBlock
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> responseHeaders [
+
+	^ responseHeaders ifNil: [
+		  OrderedDictionary new
+			  at: 'Content-Type' put: 'application/json';
+			  yourself ]
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> responseHeaders: aDictionary [
+
+	responseHeaders := aDictionary
 ]
 
 { #category : 'accessing' }
