@@ -19,6 +19,18 @@ OTSampler class >> alwaysRecord: aSampler [
 ]
 
 { #category : 'instance creation' }
+OTSampler class >> parentBased [
+
+	^ OTParentBasedSampler default
+]
+
+{ #category : 'instance creation' }
+OTSampler class >> parentBased: aSampler [
+
+	^ OTParentBasedSampler root: aSampler
+]
+
+{ #category : 'instance creation' }
 OTSampler class >> traceIdRatioBased: aNumber [
 	"A deterministic trace-id-ratio sampler with a probability between 0 and 1"
 

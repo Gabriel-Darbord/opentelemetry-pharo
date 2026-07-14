@@ -21,6 +21,24 @@ OTParentBasedSampler class >> default [
 	^ self new initialize
 ]
 
+{ #category : 'instance creation' }
+OTParentBasedSampler class >> root: aSampler [
+
+	^ self default
+		rootSampler: aSampler;
+		yourself
+]
+
+{ #category : 'instance creation' }
+OTParentBasedSampler class >> root: aRootSampler remoteParentSampled: aRemoteParentSampledSampler remoteParentNotSampled: aRemoteParentNotSampledSampler localParentSampled: aLocalParentSampledSampler localParentNotSampled: aLocalParentNotSampledSampler [
+
+	^ (self root: aRootSampler)
+		remoteParentSampledSampler: aRemoteParentSampledSampler;
+		remoteParentNotSampledSampler: aRemoteParentNotSampledSampler;
+		localParentSampledSampler: aLocalParentSampledSampler;
+		localParentNotSampledSampler: aLocalParentNotSampledSampler;
+		yourself
+]
 { #category : 'accessing' }
 OTParentBasedSampler >> description [
 
@@ -60,6 +78,7 @@ OTParentBasedSampler >> localParentNotSampledSampler [
 { #category : 'accessing' }
 OTParentBasedSampler >> localParentNotSampledSampler: aSampler [
 
+	aSampler ifNil: [ self error: 'ParentBasedSampler requires a local-parent-not-sampled delegate sampler' ].
 	localParentNotSampledSampler := aSampler
 ]
 
@@ -72,6 +91,7 @@ OTParentBasedSampler >> localParentSampledSampler [
 { #category : 'accessing' }
 OTParentBasedSampler >> localParentSampledSampler: aSampler [
 
+	aSampler ifNil: [ self error: 'ParentBasedSampler requires a local-parent-sampled delegate sampler' ].
 	localParentSampledSampler := aSampler
 ]
 
@@ -84,6 +104,7 @@ OTParentBasedSampler >> remoteParentNotSampledSampler [
 { #category : 'accessing' }
 OTParentBasedSampler >> remoteParentNotSampledSampler: aSampler [
 
+	aSampler ifNil: [ self error: 'ParentBasedSampler requires a remote-parent-not-sampled delegate sampler' ].
 	remoteParentNotSampledSampler := aSampler
 ]
 
@@ -96,6 +117,7 @@ OTParentBasedSampler >> remoteParentSampledSampler [
 { #category : 'accessing' }
 OTParentBasedSampler >> remoteParentSampledSampler: aSampler [
 
+	aSampler ifNil: [ self error: 'ParentBasedSampler requires a remote-parent-sampled delegate sampler' ].
 	remoteParentSampledSampler := aSampler
 ]
 
@@ -108,6 +130,7 @@ OTParentBasedSampler >> rootSampler [
 { #category : 'accessing' }
 OTParentBasedSampler >> rootSampler: aSampler [
 
+	aSampler ifNil: [ self error: 'ParentBasedSampler requires a root delegate sampler' ].
 	rootSampler := aSampler
 ]
 
