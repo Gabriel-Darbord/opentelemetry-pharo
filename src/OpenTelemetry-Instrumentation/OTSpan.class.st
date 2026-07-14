@@ -198,7 +198,7 @@ OTSpan class >> internal [
 { #category : 'private - id generation' }
 OTSpan class >> isZeroHexIdentifier: aString [
 
-	^ aString allSatisfy: [ :each | each = $0 ]
+	^ OTSpanContext isZeroHexIdentifier: aString
 ]
 
 { #category : 'private - logging' }
@@ -233,25 +233,19 @@ OTSpan class >> linkFromSpanContext: aSpanContext attributes: aDictionary [
 { #category : 'private - id generation' }
 OTSpan class >> newHexIdentifierOfSize: anInteger [
 
-	| identifier |
-	[
-		identifier := String streamContents: [ :stream |
-			anInteger timesRepeat: [
-				stream nextPut: self randomHexDigit ] ].
-		self isZeroHexIdentifier: identifier ] whileTrue.
-	^ identifier
+	^ OTSpanContext newHexIdentifierOfSize: anInteger
 ]
 
 { #category : 'private - id generation' }
 OTSpan class >> newSpanId [
 
-	^ self newHexIdentifierOfSize: 16
+	^ OTSpanContext newSpanId
 ]
 
 { #category : 'private - id generation' }
 OTSpan class >> newTraceId [
 
-	^ self newHexIdentifierOfSize: 32
+	^ OTSpanContext newTraceId
 ]
 
 { #category : 'private - logging' }
@@ -283,7 +277,7 @@ OTSpan class >> producer [
 { #category : 'private - id generation' }
 OTSpan class >> randomHexDigit [
 
-	^ '0123456789abcdef' at: (SharedRandom globalGenerator nextInteger: 16)
+	^ OTSpanContext randomHexDigit
 ]
 
 { #category : 'recording' }

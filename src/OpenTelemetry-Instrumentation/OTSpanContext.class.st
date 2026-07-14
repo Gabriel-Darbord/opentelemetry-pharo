@@ -65,6 +65,12 @@ OTSpanContext class >> invalidTraceId [
 	^ String new: 32 withAll: $0
 ]
 
+{ #category : 'private - id generation' }
+OTSpanContext class >> isZeroHexIdentifier: aString [
+
+	^ aString allSatisfy: [ :each | each = $0 ]
+]
+
 { #category : 'private' }
 OTSpanContext class >> isLowercaseHexString: aString size: anInteger [
 
@@ -94,6 +100,36 @@ OTSpanContext class >> normalizedTraceFlags: someTraceFlags [
 	(self isLowercaseHexString: normalized size: 2) ifFalse: [
 		Error signal: 'TraceFlags must be a 2-character lowercase hex string' ].
 	^ normalized
+]
+
+{ #category : 'private - id generation' }
+OTSpanContext class >> newHexIdentifierOfSize: anInteger [
+
+	| identifier |
+	[
+		identifier := String streamContents: [ :stream |
+			anInteger timesRepeat: [
+				stream nextPut: self randomHexDigit ] ].
+		self isZeroHexIdentifier: identifier ] whileTrue.
+	^ identifier
+]
+
+{ #category : 'private - id generation' }
+OTSpanContext class >> newSpanId [
+
+	^ self newHexIdentifierOfSize: 16
+]
+
+{ #category : 'private - id generation' }
+OTSpanContext class >> newTraceId [
+
+	^ self newHexIdentifierOfSize: 32
+]
+
+{ #category : 'private - id generation' }
+OTSpanContext class >> randomHexDigit [
+
+	^ '0123456789abcdef' at: (SharedRandom globalGenerator nextInteger: 16)
 ]
 
 { #category : 'instance creation' }

@@ -23,6 +23,18 @@ OTSpanContextTest >> testBinaryAccessorsReturnSpecSizedByteArrays [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testGeneratedIdentifiersHaveSpecShape [
+
+	| spanId traceId |
+	traceId := OTSpanContext newTraceId.
+	spanId := OTSpanContext newSpanId.
+	self assert: (OTSpanContext isLowercaseHexString: traceId size: 32).
+	self assert: (OTSpanContext isLowercaseHexString: spanId size: 16).
+	self deny: (OTSpanContext isZeroHexIdentifier: traceId).
+	self deny: (OTSpanContext isZeroHexIdentifier: spanId)
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testConstructorRejectsMalformedIdentifiers [
 
 	self

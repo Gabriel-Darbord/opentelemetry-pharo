@@ -25,7 +25,7 @@ OTIdGenerator >> asLowercaseHexFromBytes: aByteArray [
 { #category : 'generating' }
 OTIdGenerator >> generateSpanIdBytes [
 
-	^ OTSpanContext byteArrayFromHex: OTSpan newSpanId size: 8
+	^ OTSpanContext byteArrayFromHex: OTSpanContext newSpanId size: 8
 ]
 
 { #category : 'generating' }
@@ -37,7 +37,7 @@ OTIdGenerator >> generateSpanIdHex [
 { #category : 'generating' }
 OTIdGenerator >> generateTraceIdBytes [
 
-	^ OTSpanContext byteArrayFromHex: OTSpan newTraceId size: 16
+	^ OTSpanContext byteArrayFromHex: OTSpanContext newTraceId size: 16
 ]
 
 { #category : 'generating' }

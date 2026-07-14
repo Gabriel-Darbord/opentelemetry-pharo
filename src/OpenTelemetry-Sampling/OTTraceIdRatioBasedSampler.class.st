@@ -51,7 +51,7 @@ OTTraceIdRatioBasedSampler >> probability: aNumber [
 { #category : 'asserting' }
 OTTraceIdRatioBasedSampler >> shouldSample [
 
-	^ self shouldSampleTraceId: OTSpan newTraceId
+	^ self shouldSampleTraceId: OTSpanContext newTraceId
 ]
 
 { #category : 'sampling' }
