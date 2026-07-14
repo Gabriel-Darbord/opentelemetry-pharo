@@ -17,3 +17,53 @@ Class {
 	#category : 'OpenTelemetry-Sampling',
 	#package : 'OpenTelemetry-Sampling'
 }
+
+{ #category : 'accessing' }
+OTTimeIntervalSampler >> description [
+
+	^ 'TimeIntervalSampler{', self interval asString, 'ms}'
+]
+
+{ #category : 'initialization' }
+OTTimeIntervalSampler >> initialize [
+
+	super initialize.
+	interval := 0.
+	last := nil
+]
+
+{ #category : 'accessing' }
+OTTimeIntervalSampler >> interval [
+
+	^ interval
+]
+
+{ #category : 'accessing' }
+OTTimeIntervalSampler >> interval: anInteger [
+
+	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [
+		Error signal: 'Sampling interval must be a non-negative integer number of milliseconds' ].
+	interval := anInteger.
+	^ self
+]
+
+{ #category : 'initialization' }
+OTTimeIntervalSampler >> reset [
+
+	last := nil
+]
+
+{ #category : 'asserting' }
+OTTimeIntervalSampler >> shouldSample [
+
+	| now previous |
+	now := Time millisecondClockValue.
+	previous := last.
+	previous ifNil: [
+		last := now.
+		^ true ].
+	(now < previous or: [ now - previous >= self interval ]) ifTrue: [
+		last := now.
+		^ true ].
+	^ false
+]
