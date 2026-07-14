@@ -80,6 +80,7 @@ OTSpanExporter class >> exporterFromEnvironmentName: aString [
 	exporterName = 'console' ifTrue: [ ^ OTConsoleSpanExporter new ].
 	exporterName = 'logging' ifTrue: [ ^ OTConsoleSpanExporter new ].
 	exporterName = 'none' ifTrue: [ ^ OTNoopSpanExporter new ].
+	exporterName = 'otlp' ifTrue: [ ^ self configuredOtlpExporter ].
 	exporterName = 'otlp/stdout' ifTrue: [ ^ OTOtlpStdoutSpanExporter new ].
 	exporterName = 'zipkin' ifTrue: [ ^ self configuredZipkinExporter ].
 	^ nil
@@ -145,6 +146,16 @@ OTSpanExporter class >> configuredZipkinExporter [
 		default: self defaultZipkinTimeoutMillis.
 	exporter httpClient timeout: timeout.
 	^ exporter
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> configuredOtlpExporter [
+
+	| configuration |
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol
+		ifFalse: [ ^ nil ].
+	^ OTOtlpHttpJsonSpanExporter configuration: configuration
 ]
 
 { #category : 'instance creation' }

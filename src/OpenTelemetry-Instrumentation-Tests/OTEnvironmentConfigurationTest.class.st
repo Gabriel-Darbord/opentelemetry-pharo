@@ -193,6 +193,20 @@ OTEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterAndBatchProce
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpJsonExporterWhenConfiguredProtocolIsSupported [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'http/json';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpJsonSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsResourceAttributesAndServiceNameFromEnvironment [
 
 	self
