@@ -100,6 +100,17 @@ OTTracerProvider class >> defaultTracerNameWarningSink [
 				cr ] ]
 ]
 
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultSamplerConfigurationWarningSink [
+
+	^ [ :message | | transcript |
+		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
+		transcript ifNotNil: [
+			transcript
+				show: message;
+				cr ] ]
+]
+
 { #category : 'private' }
 OTTracerProvider class >> decodePercentEncoded: aString [
 
@@ -144,6 +155,32 @@ OTTracerProvider class >> noteInvalidTracerName: aValue [
 	self tracerNameWarningSink value:
 		'OpenTelemetry tracer name was invalid and has been normalized to an empty string: '
 			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSamplerName [
+
+	self samplerConfigurationWarningSink value:
+		'OpenTelemetry sampler argument was invalid and has been ignored for '
+			, aSamplerName printString
+			, ': '
+			, aValue printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteUnknownSamplerName: aValue [
+
+	self samplerConfigurationWarningSink value:
+		'OpenTelemetry sampler name was unrecognized and has been ignored: '
+			, aValue printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteUnsupportedSamplerName: aValue [
+
+	self samplerConfigurationWarningSink value:
+		'OpenTelemetry sampler name is recognized but not supported by this SDK yet: '
+			, aValue printString
 ]
 
 { #category : 'private' }
@@ -251,6 +288,8 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 	samplerName = 'always_on' ifTrue: [ ^ OTAlwaysOnSampler new ].
 	samplerName = 'always_off' ifTrue: [ ^ OTAlwaysOffSampler new ].
 	samplerName = 'traceidratio' ifTrue: [
+		(anotherString notNil and: [ probability isNil ]) ifTrue: [
+			self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
 		^ OTTraceIdRatioBasedSampler new
 			probability: (probability ifNil: [ 1 ]);
 			yourself ].
@@ -263,12 +302,18 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 			rootSampler: OTAlwaysOffSampler new;
 			yourself ].
 	samplerName = 'parentbased_traceidratio' ifTrue: [
+		(anotherString notNil and: [ probability isNil ]) ifTrue: [
+			self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
 		rootSampler := OTTraceIdRatioBasedSampler new
 			probability: (probability ifNil: [ 1 ]);
 			yourself.
 		^ OTParentBasedSampler default
 			rootSampler: rootSampler;
 			yourself ].
+	(#('jaeger_remote' 'parentbased_jaeger_remote' 'xray') includes: samplerName) ifTrue: [
+		self noteUnsupportedSamplerName: samplerName.
+		^ self defaultSampler ].
+	self noteUnknownSamplerName: samplerName.
 	^ self defaultSampler
 ]
 
@@ -345,6 +390,23 @@ OTTracerProvider class >> strictProbabilityFrom: aString [
 	stream atEnd ifFalse: [ ^ nil ].
 	(value isNumber and: [ value >= 0 and: [ value <= 1 ] ]) ifFalse: [ ^ nil ].
 	^ value
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> samplerConfigurationWarningSink [
+
+	^ self
+		propertyAt: #otSamplerConfigurationWarningSink
+		ifAbsent: [ self defaultSamplerConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> samplerConfigurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ self removeProperty: #otSamplerConfigurationWarningSink ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otSamplerConfigurationWarningSink put: aBlock ].
+	^ self samplerConfigurationWarningSink
 ]
 
 { #category : 'private - logging' }

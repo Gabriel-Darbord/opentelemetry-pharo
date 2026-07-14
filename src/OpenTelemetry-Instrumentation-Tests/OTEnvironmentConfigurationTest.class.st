@@ -31,10 +31,22 @@ OTEnvironmentConfigurationTest >> tearDown [
 
 	[
 		OTTracerProvider current: nil.
+		OTTracerProvider samplerConfigurationWarningSink: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
 		OTSpan reset ]
 		ensure: [ super tearDown ]
+]
+
+{ #category : 'private' }
+OTEnvironmentConfigurationTest >> withSamplerWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider samplerConfigurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider samplerConfigurationWarningSink: nil ]
 ]
 
 { #category : 'tests' }
@@ -195,6 +207,58 @@ OTEnvironmentConfigurationTest >> testCurrentReadsTraceIdRatioSamplerCaseInsensi
 			rootSampler := sampler rootSampler.
 			self assert: rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
 			self assert: rootSampler probability equals: 1 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentLogsInvalidSamplerArgumentAndFallsBackToDefaultProbability [
+
+	self
+		withSamplerWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+					at: 'OTEL_TRACES_SAMPLER' put: 'traceidratio';
+					at: 'OTEL_TRACES_SAMPLER_ARG' put: 'invalid';
+					yourself)
+				during: [
+					| sampler |
+					sampler := OTTracerProvider current sampler.
+					self assert: sampler class identicalTo: OTTraceIdRatioBasedSampler.
+					self assert: sampler probability equals: 1.
+					self assert: warnings size equals: 1.
+					self assert: warnings first equals:
+						'OpenTelemetry sampler argument was invalid and has been ignored for ''traceidratio'': ''invalid''' ] ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentLogsUnknownSamplerNameAndFallsBackToDefaultSampler [
+
+	self
+		withSamplerWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+					at: 'OTEL_TRACES_SAMPLER' put: 'mystery';
+					yourself)
+				during: [
+					self assert: OTTracerProvider current sampler class identicalTo: OTParentBasedSampler.
+					self assert: warnings size equals: 1.
+					self assert: warnings first equals:
+						'OpenTelemetry sampler name was unrecognized and has been ignored: ''mystery''' ] ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentLogsUnsupportedJaegerRemoteSamplerNameAndFallsBackToDefaultSampler [
+
+	self
+		withSamplerWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+					at: 'OTEL_TRACES_SAMPLER' put: 'jaeger_remote';
+					yourself)
+				during: [
+					self assert: OTTracerProvider current sampler class identicalTo: OTParentBasedSampler.
+					self assert: warnings size equals: 1.
+					self assert: warnings first equals:
+						'OpenTelemetry sampler name is recognized but not supported by this SDK yet: ''jaeger_remote''' ] ]
 ]
 
 { #category : 'tests' }
