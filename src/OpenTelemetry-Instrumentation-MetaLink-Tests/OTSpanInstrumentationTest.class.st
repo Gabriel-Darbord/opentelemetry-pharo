@@ -50,17 +50,19 @@ OTSpanInstrumentationTest >> testDefaultSpanName [
 ]
 
 { #category : 'tests' }
-OTSpanInstrumentationTest >> testRecordException [
+OTSpanInstrumentationTest >> testRecordException [ [
 
-	| error span |
+	| error span exceptionEvent |
 	[ target fail ]
 		on: Error
 		do: [ :e | error := e ].
 	span := self instrumentation capturedSpan.
-	self assert: span status equals: #ERROR.
-	self
-		assert: (span attributes at: 'exception')
-		equals: error description
+	exceptionEvent := span events detect: [ :each | each name = 'exception' ].
+	self assert: span status equals: OTSpan error.
+	self assert: span statusDescription equals: error description.
+	self assert: (exceptionEvent attributeAt: 'exception.message') equals: error messageText.
+	self assert: (exceptionEvent attributeAt: 'exception.type') equals: error class name asString
+]
 ]
 
 { #category : 'tests' }

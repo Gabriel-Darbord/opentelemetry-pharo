@@ -53,10 +53,42 @@ OTSpanExporter class >> defaultZipkinExporter [
 	^ exporter
 ]
 
+{ #category : 'exporting' }
+OTSpanExporter class >> forceFlush [
+
+	<script>
+	^ Current ifNil: [ false ] ifNotNil: [ Current forceFlush ]
+]
+
 { #category : 'testing' }
 OTSpanExporter class >> isAbstract [
 
 	^ self == OTSpanExporter
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanExporter class >> isShutdown: anExporter [
+
+	^ (self lifecycleStateByExporter at: anExporter ifAbsent: [ false ]) = true
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanExporter class >> lifecycleStateByExporter [
+
+	^ OTSpanExporter
+		propertyAt: #otLifecycleStateByExporter
+		ifAbsent: [
+			| states |
+			states := WeakIdentityKeyDictionary new.
+			OTSpanExporter propertyAt: #otLifecycleStateByExporter put: states.
+			states ]
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanExporter class >> markShutdown: anExporter [
+
+	self lifecycleStateByExporter at: anExporter put: true.
+	^ anExporter
 ]
 
 { #category : 'instance creation' }
@@ -70,7 +102,22 @@ OTSpanExporter class >> readConfiguration [
 OTSpanExporter class >> reset [
 
 	<script>
+	self shutdown.
+	self resetLifecycleState.
 	Current := nil
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanExporter class >> resetLifecycleState [
+
+	self removeProperty: #otLifecycleStateByExporter ifAbsent: [  ]
+]
+
+{ #category : 'exporting' }
+OTSpanExporter class >> shutdown [
+
+	<script>
+	^ Current ifNil: [ false ] ifNotNil: [ Current shutdown ]
 ]
 
 { #category : 'accessing' }
@@ -83,4 +130,31 @@ OTSpanExporter >> beCurrent [
 OTSpanExporter >> export: spans [
 
 	self subclassResponsibility
+]
+
+{ #category : 'exporting' }
+OTSpanExporter >> forceFlush [
+
+	^ self isShutdown not
+]
+
+{ #category : 'testing' }
+OTSpanExporter >> isShutdown [
+
+	^ self class isShutdown: self
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanExporter >> markShutdown [
+
+	self class markShutdown: self.
+	^ self
+]
+
+{ #category : 'exporting' }
+OTSpanExporter >> shutdown [
+
+	self isShutdown ifTrue: [ ^ false ].
+	self markShutdown.
+	^ true
 ]

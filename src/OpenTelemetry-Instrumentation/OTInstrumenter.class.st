@@ -79,6 +79,16 @@ OTInstrumenter >> contextProducer: anObject [
 ]
 
 { #category : 'instrumenting' }
+OTInstrumenter >> currentContext [
+
+	| currentContext |
+	currentContext := OpenTelemetry currentContext.
+	^ currentContext isEmpty
+		ifTrue: [ self produceContext ]
+		ifFalse: [ currentContext ]
+]
+
+{ #category : 'instrumenting' }
 OTInstrumenter >> end [
 	"Mark the end of the current span."
 
@@ -98,7 +108,7 @@ OTInstrumenter >> end: span error: error [
 
 	error ifNotNil: [ span recordException: error ].
 	span end.
-	^ OTSpanProcessor current process: span
+	^ self tracer provider processEndedSpan: span
 ]
 
 { #category : 'instrumenting' }
@@ -107,7 +117,7 @@ OTInstrumenter >> end: span request: request response: response error: error [
 
 	error ifNotNil: [ span recordException: error ].
 	span end.
-	^ OTSpanProcessor current process: span
+	^ self tracer provider processEndedSpan: span
 ]
 
 { #category : 'accessing' }
@@ -176,10 +186,20 @@ OTInstrumenter >> spanSuppressionStrategy: aBlock [
 ]
 
 { #category : 'instrumenting' }
+OTInstrumenter >> startIn: aContext request: request [
+	"Start a new operation to be instrumented from a context."
+
+	^ self tracer
+		startSpanNamed: (self spanNameExtractor value: request)
+		kind: (self spanKindExtractor value: request)
+		in: aContext
+]
+
+{ #category : 'instrumenting' }
 OTInstrumenter >> startRequest: request [
 	"Start a new operation to be instrumented."
 
-	^ self startUnder: OTSpan current request: request
+	^ self startIn: self currentContext request: request
 ]
 
 { #category : 'instrumenting' }
@@ -187,11 +207,15 @@ OTInstrumenter >> startUnder: parentSpan request: request [
 	"Start a new operation to be instrumented.
 	The parentSpan is the parent context of the resulting instrumented operation."
 
-	^ (parentSpan
-		   ifNil: [ OTSpan rootIn: self produceContext ]
-		   ifNotNil: [ OTSpan under: parentSpan ])
-		  name: (self spanNameExtractor value: request);
-		  kind: (self spanKindExtractor value: request);
-		  instrumentationName: instrumentationName;
-		  start
+	^ self
+		startIn: (parentSpan
+			ifNil: [ self produceContext ]
+			ifNotNil: [ parentSpan context ])
+		request: request
+]
+
+{ #category : 'instrumenting' }
+OTInstrumenter >> tracer [
+
+	^ OTTracerProvider current tracerNamed: instrumentationName
 ]

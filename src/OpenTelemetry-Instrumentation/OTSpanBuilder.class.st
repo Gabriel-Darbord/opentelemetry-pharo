@@ -1,0 +1,187 @@
+"
+A builder for configuring and starting spans through a tracer.
+"
+Class {
+	#name : 'OTSpanBuilder',
+	#superclass : 'Object',
+	#instVars : [
+		'tracer',
+		'spanName',
+		'parentContext',
+		'spanKind',
+		'attributes',
+		'startTime',
+		'rootRequested',
+		'links'
+	],
+	#category : 'OpenTelemetry-Instrumentation',
+	#package : 'OpenTelemetry-Instrumentation'
+}
+
+{ #category : 'instance creation' }
+OTSpanBuilder class >> forTracer: aTracer name: aString [
+
+	| builder |
+	builder := self new.
+	builder
+		tracer: aTracer;
+		spanName: (aString ifNil: [ '' ] ifNotNil: [ aString ]).
+	^ builder
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> addLink: aSpanLink [
+
+	(aSpanLink isNil or: [ (aSpanLink isKindOf: OTSpanLink) not ]) ifTrue: [
+		Error signal: 'OpenTelemetry span builders require OTSpanLink instances' ].
+	links add: aSpanLink.
+	^ self
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> addLinkSpanContext: aSpanContext [
+
+	^ self addLinkSpanContext: aSpanContext attributes: nil
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> addLinkSpanContext: aSpanContext attributes: aDictionary [
+
+	^ self addLink: (OTSpanLink spanContext: aSpanContext attributes: aDictionary)
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> addLinks: aCollection [
+
+	aCollection ifNil: [ ^ self ].
+	aCollection do: [ :each | self addLink: each ].
+	^ self
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> asRoot [
+
+	rootRequested := true.
+	^ self
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> attributeAt: aKey put: aValue [
+
+	attributes
+		at: (OTAttributeNormalizer normalizeAttributeKey: aKey)
+		put: (OTAttributeNormalizer normalizeAttributeValue: aValue).
+	^ self
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> attributes: aCollection [
+
+	| normalized |
+	aCollection ifNil: [ ^ self ].
+	normalized := OTAttributeNormalizer normalizeAttributes: aCollection.
+	normalized associationsDo: [ :each |
+		attributes at: each key put: each value ].
+	^ self
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> inContext: aContext [
+
+	parentContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	rootRequested := false.
+	^ self
+]
+
+{ #category : 'initialization' }
+OTSpanBuilder >> initialize [
+
+	super initialize.
+	parentContext := OTContext new.
+	spanKind := OTSpan internal.
+	attributes := OrderedDictionary new.
+	links := OrderedCollection new.
+	rootRequested := false.
+	startTime := nil
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> kind: aSpanKind [
+
+	spanKind := aSpanKind ifNil: [ OTSpan internal ] ifNotNil: [ aSpanKind ].
+	^ self
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> links: aCollection [
+
+	links := OrderedCollection new.
+	aCollection ifNil: [ ^ self ].
+	aCollection do: [ :each | self addLink: each ].
+	^ self
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> noParent [
+
+	^ self asRoot
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> parentContext: aContext [
+
+	^ self inContext: aContext
+]
+
+{ #category : 'accessing' }
+OTSpanBuilder >> spanName: aString [
+
+	spanName := aString ifNil: [ '' ] ifNotNil: [ aString ]
+]
+
+{ #category : 'starting' }
+OTSpanBuilder >> startSpan [
+
+	| baseContext parentSpan traceId samplingResult span effectiveTraceFlags |
+	baseContext := parentContext ifNil: [ OTContext new ] ifNotNil: [ parentContext ].
+	tracer enabled ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext ].
+	parentSpan := rootRequested ifTrue: [ nil ] ifFalse: [ tracer parentSpanFrom: baseContext ].
+	traceId := parentSpan ifNil: [ OTSpan newTraceId ] ifNotNil: [ parentSpan traceId ].
+	samplingResult := tracer provider samplingResultIn: baseContext traceId: traceId name: spanName kind: spanKind attributes: attributes links: links.
+	samplingResult isRecording ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext parent: parentSpan traceId: traceId samplingResult: samplingResult instrumentationScope: tracer instrumentationScope ].
+	span := parentSpan ifNil: [ OTSpan rootIn: baseContext ] ifNotNil: [ OTSpan under: parentSpan ].
+	span limits: tracer provider spanLimits.
+	effectiveTraceFlags := tracer provider traceFlagsForSamplingResult: samplingResult parentSpan: parentSpan.
+	span traceFlags: effectiveTraceFlags; resource: tracer provider resource.
+	samplingResult traceState ifNotNil: [ span traceState: samplingResult traceState ].
+	span
+		context: (baseContext withSpan: span);
+		name: spanName;
+		kind: spanKind;
+		instrumentationScope: tracer instrumentationScope;
+		start.
+	samplingResult attributes do: [ :each | span attributeAt: each key put: each value ].
+	attributes associationsDo: [ :each | span attributeAt: each key put: each value ].
+	span addLinks: links.
+	startTime ifNotNil: [ span startTime: startTime ].
+	^ span
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> startTime: aDateAndTime [
+
+	startTime := aDateAndTime.
+	^ self
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> startTimestamp: aDateAndTime [
+
+	^ self startTime: aDateAndTime
+]
+
+{ #category : 'accessing' }
+OTSpanBuilder >> tracer: aTracer [
+
+	tracer := aTracer
+]

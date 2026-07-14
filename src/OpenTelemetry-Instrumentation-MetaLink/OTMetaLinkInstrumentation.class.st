@@ -36,15 +36,14 @@ OTMetaLinkInstrumentation class >> run: arguments [
 	If the trace should not be sampled, execute the method directly.
 	Otherwise, run on enter, execute method, record unhandled exception if any, and ensure running on exit."
 
-	| returnValue exception |
-	sampler ifNotNil: [
-		sampler shouldSample ifFalse: [ ^ arguments first value ] ].
+	| returnValue |
+	sampler ifNotNil: [ sampler shouldSample ifFalse: [ ^ arguments first value ] ].
 	self onMethodEnter: arguments.
 	^ [
-	  [
-	  [ returnValue := arguments first value ]
-		  on: Exception
-		  do: [ :e | (exception := e) pass ] ] ifCurtailed: [
-		  OTSpan recordException: exception ] ] ensure: [
-		  self onMethodExit: arguments withValue: returnValue ]
+		[ returnValue := arguments first value ]
+			on: Exception
+			do: [ :e |
+				OTSpan recordException: e.
+				e pass ] ]
+		ensure: [ self onMethodExit: arguments withValue: returnValue ]
 ]

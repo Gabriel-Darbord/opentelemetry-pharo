@@ -21,7 +21,8 @@ OTFileSpanExporter class >> isAbstract [
 { #category : 'accessing' }
 OTFileSpanExporter >> directory [
 
-	^ directory ifNil: [ directory := OpenTelemetry tracesDirectory ]
+	^ directory ifNil: [
+		  directory := FileLocator imageDirectory / 'pharo-local' / 'OpenTelemetry' / 'traces' ]
 ]
 
 { #category : 'accessing' }

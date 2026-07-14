@@ -11,6 +11,19 @@ OTMethodProxyInstrumentationTest >> instrumentation [
 	^ OTMethodProxyTestInstrumentation
 ]
 
+{ #category : 'asserting' }
+OTMethodProxyInstrumentationTest >> assertTargetHasNoMethodProxyArtifacts [
+
+	self deny: (OTTestTarget methods anySatisfy: [ :method |
+			 method selector isKindOf: MpHiddenSelector ]).
+	#( answer suppressedAnswer indirectAnswer fail handledFail ) do: [
+		:selector |
+		| method |
+		method := OTTestTarget >> selector.
+		self deny: (OTMethodProxyInstaller isMethodProxyTrap: method) ].
+	self assert: target answer equals: 42
+]
+
 { #category : 'tests' }
 OTMethodProxyInstrumentationTest >> testEnsureHasRunOnExit [
 	"TODO: implement OTMetaLinkInstrumentation class>>#run: for MethodProxies.
@@ -50,6 +63,21 @@ OTMethodProxyInstrumentationTest >> testPassException [
 ]
 
 { #category : 'tests' }
+OTMethodProxyInstrumentationTest >> testRepeatedInstallDoesNotAccumulateProxyArtifacts [
+
+	self instrumentation install.
+	self instrumentation uninstall.
+	self assertTargetHasNoMethodProxyArtifacts
+]
+
+{ #category : 'tests' }
 OTMethodProxyInstrumentationTest >> testSmoke [
 	"Instrumentation is successfully installed and uninstalled."
+]
+
+{ #category : 'tests' }
+OTMethodProxyInstrumentationTest >> testUninstallRestoresTargetMethodDictionary [
+
+	self instrumentation uninstall.
+	self assertTargetHasNoMethodProxyArtifacts
 ]

@@ -41,7 +41,7 @@ OTSpanTestInstrumentation class >> onMethodExit: event withValue: returnValue [
 
 	suppressed ifTrue: [ "suppress only once" ^ suppressed := false ].
 	capturedSpan attributeAt: 'exit' put: #OK.
-	capturedSpan status ifNil: [ capturedSpan setOkStatus ].
+	capturedSpan status = OTSpan unset ifTrue: [ capturedSpan setOkStatus ].
 	instrumenter end: capturedSpan
 ]
 
