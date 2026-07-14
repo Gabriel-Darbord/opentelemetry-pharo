@@ -1,6 +1,6 @@
 "
 I am a processor that forwards batches of `OTSpan` to the configured `OTSpanExporter`.
-Batches are only sent when the configured batchSize is reached or when the image is exited.
+Batches are sent when the configured batchSize is reached, when the scheduled delay elapses, or when the image is exited.
 "
 Class {
 	#name : 'OTBatchSpanProcessor',
@@ -8,7 +8,9 @@ Class {
 	#instVars : [
 		'batch',
 		'batchSize',
-		'maxQueueSize'
+		'maxQueueSize',
+		'exportLock',
+		'flushProcess'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
@@ -67,6 +69,12 @@ OTBatchSpanProcessor >> batchSize: anInteger [
 { #category : 'processing' }
 OTBatchSpanProcessor >> exportNextBatch [
 
+	^ self synchronized: [ self exportNextBatchLocked ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> exportNextBatchLocked [
+
 	| exportCount spans |
 	batch ifEmpty: [ ^ false ].
 	exportCount := batchSize min: batch size.
@@ -97,12 +105,13 @@ OTBatchSpanProcessor >> flush [
 
 	| allExported didExport |
 	self isShutdown ifTrue: [ ^ false ].
-	allExported := true.
-	didExport := false.
-	[ batch isEmpty ] whileFalse: [
-		didExport := true.
-		allExported := (self exportNextBatch) & allExported ].
-	^ didExport ifTrue: [ allExported ] ifFalse: [ false ]
+	^ self synchronized: [
+		allExported := true.
+		didExport := false.
+		[ batch isEmpty ] whileFalse: [
+			didExport := true.
+			allExported := (self exportNextBatchLocked) & allExported ].
+		^ didExport ifTrue: [ allExported ] ifFalse: [ false ] ]
 ]
 
 { #category : 'processing' }
@@ -119,9 +128,11 @@ OTBatchSpanProcessor >> forceFlush [
 OTBatchSpanProcessor >> initialize [
 	"Default BSP sizing is aligned with the OpenTelemetry environment variable defaults"
 
+	super initialize.
 	maxQueueSize := 2048.
 	batchSize := 512.
-	batch := OrderedCollection new: maxQueueSize
+	batch := OrderedCollection new: maxQueueSize.
+	exportLock := Semaphore forMutualExclusion
 ]
 
 { #category : 'accessing' }
@@ -145,9 +156,12 @@ OTBatchSpanProcessor >> process: span [
 
 	self isShutdown ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
-	batch add: span.
-	batch size < batchSize ifTrue: [ ^ true ].
-	^ self exportNextBatch
+	self ensureFlushProcess.
+	^ self synchronized: [
+		batch size >= maxQueueSize ifTrue: [ ^ false ].
+		batch add: span.
+		batch size < batchSize ifTrue: [ ^ true ].
+		^ self exportNextBatchLocked ]
 ]
 
 { #category : 'accessing' }
@@ -172,8 +186,39 @@ OTBatchSpanProcessor >> shutdown [
 
 	| flushed shutdownResult |
 	self isShutdown ifTrue: [ ^ false ].
+	self stopFlushProcess.
 	flushed := self forceFlush.
 	shutdownResult := OTSpanExporter current shutdown.
 	self markShutdown.
 	^ shutdownResult & flushed
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> ensureFlushProcess [
+
+	(flushProcess notNil and: [ flushProcess isTerminated not ]) ifTrue: [ ^ flushProcess ].
+	flushProcess := [ self runFlushLoop ] forkAt: Processor userBackgroundPriority.
+	^ flushProcess
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> runFlushLoop [
+
+	[ self isShutdown ] whileFalse: [
+		(Delay forMilliseconds: self scheduledDelayMillis) wait.
+		self isShutdown ifFalse: [ self flush ] ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> stopFlushProcess [
+
+	flushProcess ifNotNil: [
+		flushProcess terminate.
+		flushProcess := nil ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> synchronized: aBlock [
+
+	^ exportLock critical: aBlock
 ]

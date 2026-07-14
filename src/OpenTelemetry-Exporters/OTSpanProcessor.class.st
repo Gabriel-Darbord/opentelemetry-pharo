@@ -64,7 +64,7 @@ OTSpanProcessor class >> beCurrent [
 			^ self == Current class
 				  ifTrue: [ Current ]
 				  ifFalse: [
-					  Current flush.
+					  Current ifNotNil: [ Current flush ].
 					  Current := self new ] ]
 ]
 
