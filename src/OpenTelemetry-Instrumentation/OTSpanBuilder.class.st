@@ -209,7 +209,12 @@ OTSpanBuilder >> startSpan [
 
 	| baseContext effectiveTraceFlags idGenerator parentSpan samplingResult span traceId |
 	baseContext := self class normalizedParentContextFrom: parentContext.
-	tracer enabled ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext ].
+	(tracer
+		enabledForSpanNamed: spanName
+		kind: spanKind
+		in: baseContext
+		attributes: attributes
+		links: links) ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext ].
 	idGenerator := tracer provider idGenerator.
 	parentSpan := rootRequested ifTrue: [ nil ] ifFalse: [ tracer parentSpanFrom: baseContext ].
 	traceId := parentSpan ifNil: [ idGenerator generateTraceIdHex ] ifNotNil: [ parentSpan traceId ].

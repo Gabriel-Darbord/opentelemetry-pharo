@@ -127,6 +127,17 @@ OTTracerProvider class >> defaultTracerNameWarningSink [
 ]
 
 { #category : 'private - logging' }
+OTTracerProvider class >> defaultTracerConfigurationWarningSink [
+
+	^ [ :message | | transcript |
+		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
+		transcript ifNotNil: [
+			transcript
+				show: message;
+				cr ] ]
+]
+
+{ #category : 'private - logging' }
 OTTracerProvider class >> defaultSamplerConfigurationWarningSink [
 
 	^ [ :message | | transcript |
@@ -203,6 +214,16 @@ OTTracerProvider class >> noteInvalidTracerName: aValue [
 	self tracerNameWarningSink value:
 		'OpenTelemetry tracer name was invalid and has been normalized to an empty string: '
 			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteTracerConfigurationFailedDuring: anOperationName error: anError [
+
+	self tracerConfigurationWarningSink value:
+		'OpenTelemetry tracer configuration callback failed during '
+			, anOperationName
+			, ': '
+			, anError messageText
 ]
 
 { #category : 'private - logging' }
@@ -535,6 +556,23 @@ OTTracerProvider class >> tracerNameWarningSink [
 ]
 
 { #category : 'private - logging' }
+OTTracerProvider class >> tracerConfigurationWarningSink [
+
+	^ self
+		propertyAt: #otTracerConfigurationWarningSink
+		ifAbsent: [ self defaultTracerConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> tracerConfigurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ self removeProperty: #otTracerConfigurationWarningSink ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otTracerConfigurationWarningSink put: aBlock ].
+	^ self tracerConfigurationWarningSink
+]
+
+{ #category : 'private - logging' }
 OTTracerProvider class >> tracerNameWarningSink: aBlock [
 
 	aBlock
@@ -846,6 +884,16 @@ OTTracerProvider >> withSpanProcessor: aProcessor operationNamed: anOperationNam
 			aDefaultValue ]
 ]
 
+{ #category : 'private - error handling' }
+OTTracerProvider >> withTracerConfigurationDefault: aDefaultValue operationNamed: anOperationName do: aBlock [
+
+	^ [ aBlock value ]
+		on: Error
+		do: [ :error |
+			self class noteTracerConfigurationFailedDuring: anOperationName error: error.
+			aDefaultValue ]
+]
+
 { #category : 'tracing' }
 OTTracerProvider >> wrapSpanContext: aSpanContext [
 
@@ -873,9 +921,52 @@ OTTracerProvider >> tracerConfigurator: aBlock [
 { #category : 'testing' }
 OTTracerProvider >> tracerEnabled: aTracer [
 
+	^ self
+		tracerEnabled: aTracer
+		forSpanNamed: nil
+		kind: nil
+		inContext: nil
+		attributes: #()
+		links: #()
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> tracerConfigurationValueFor: aTracer spanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
+
+	| arguments configuredValue |
+	arguments := {
+		aTracer instrumentationScope.
+		aString.
+		aSpanKind.
+		aContext.
+		someAttributes.
+		someLinks }.
+	configuredValue := self
+		withTracerConfigurationDefault: nil
+		operationNamed: 'enabled'
+		do: [
+			| configurator |
+			configurator := self tracerConfigurator.
+			configurator numArgs = 0
+				ifTrue: [ configurator value ]
+				ifFalse: [
+					configurator valueWithArguments:
+						(arguments copyFrom: 1 to: (configurator numArgs min: arguments size)) ] ].
+	^ configuredValue
+]
+
+{ #category : 'testing' }
+OTTracerProvider >> tracerEnabled: aTracer forSpanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
+
 	| configuredValue |
 	(self isShutdown or: [ self spanProcessors isEmpty ]) ifTrue: [ ^ false ].
-	configuredValue := self tracerConfigurator value: aTracer instrumentationScope.
+	configuredValue := self
+		tracerConfigurationValueFor: aTracer
+		spanNamed: aString
+		kind: aSpanKind
+		inContext: aContext
+		attributes: someAttributes
+		links: someLinks.
 	^ configuredValue ifNil: [ true ] ifNotNil: [ configuredValue ]
 ]
 

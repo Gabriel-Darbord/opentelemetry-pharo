@@ -35,7 +35,27 @@ OTTracer class >> forProvider: aTracerProvider instrumentationScope: anInstrumen
 { #category : 'tracing' }
 OTTracer >> enabled [
 
-	^ provider ifNil: [ true ] ifNotNil: [ provider tracerEnabled: self ]
+	^ self
+		enabledForSpanNamed: nil
+		kind: nil
+		in: nil
+		attributes: #()
+		links: #()
+]
+
+{ #category : 'tracing' }
+OTTracer >> enabledForSpanNamed: aString kind: aSpanKind in: aContext attributes: someAttributes links: someLinks [
+
+	^ provider
+		ifNil: [ true ]
+		ifNotNil: [
+			provider
+				tracerEnabled: self
+				forSpanNamed: aString
+				kind: aSpanKind
+				inContext: aContext
+				attributes: someAttributes
+				links: someLinks ]
 ]
 
 { #category : 'accessing' }
