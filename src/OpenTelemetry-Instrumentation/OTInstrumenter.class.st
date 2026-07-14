@@ -107,8 +107,7 @@ OTInstrumenter >> end: span error: error [
 	"Mark the end of a span execution."
 
 	error ifNotNil: [ span recordException: error ].
-	span end.
-	^ self tracer provider processEndedSpan: span
+	^ span end
 ]
 
 { #category : 'instrumenting' }
@@ -116,8 +115,7 @@ OTInstrumenter >> end: span request: request response: response error: error [
 	"Mark the end of a span execution."
 
 	error ifNotNil: [ span recordException: error ].
-	span end.
-	^ self tracer provider processEndedSpan: span
+	^ span end
 ]
 
 { #category : 'accessing' }

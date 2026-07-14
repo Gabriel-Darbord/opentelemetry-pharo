@@ -29,6 +29,7 @@ Class {
 		'traceState',
 		'links',
 		'resource',
+		'tracerProvider',
 		'instrumentationScope',
 		'limits',
 		'droppedAttributesCount',
@@ -543,6 +544,7 @@ OTSpan >> end: aDateAndTime [
 
 	self isEnded ifTrue: [ ^ self ].
 	self endTime: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]).
+	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ].
 	^ self
 ]
 
@@ -876,6 +878,18 @@ OTSpan >> resource [
 OTSpan >> resource: anOTResource [
 
 	resource := anOTResource
+]
+
+{ #category : 'accessing' }
+OTSpan >> tracerProvider [
+
+	^ tracerProvider
+]
+
+{ #category : 'accessing' }
+OTSpan >> tracerProvider: aTracerProvider [
+
+	tracerProvider := aTracerProvider
 ]
 
 { #category : 'recording' }

@@ -212,6 +212,7 @@ OTSpanBuilder >> startSpan [
 		name: spanName;
 		kind: spanKind;
 		instrumentationScope: tracer instrumentationScope;
+		tracerProvider: tracer provider;
 		start.
 	samplingResult attributes do: [ :each | span attributeAt: each key put: each value ].
 	attributes associationsDo: [ :each | span attributeAt: each key put: each value ].

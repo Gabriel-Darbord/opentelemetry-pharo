@@ -70,7 +70,21 @@ OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 ]
 
 { #category : 'tests' }
-OTTracerProviderTest >> testProcessEndedSpanUsesSpanProcessorOnEndLifecycle [
+OTTracerProviderTest >> testInstrumenterEndNotifiesSpanProcessorOnlyOnce [
+
+	| instrumenter processor provider span |
+	provider := OTTracerProvider new.
+	processor := OTRecordingSpanProcessor new.
+	provider spanProcessor: processor.
+	OTTracerProvider current: provider.
+	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
+	span := instrumenter startRequest: 'request'.
+	instrumenter end: span.
+	self assert: processor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testSpanEndUsesSpanProcessorOnEndLifecycle [
 
 	| processor provider span tracer |
 	provider := OTTracerProvider new.
@@ -79,7 +93,6 @@ OTTracerProviderTest >> testProcessEndedSpanUsesSpanProcessorOnEndLifecycle [
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	span end.
-	self assert: (provider processEndedSpan: span).
 	self assert: processor endedSpans asArray equals: { span }
 ]
 
