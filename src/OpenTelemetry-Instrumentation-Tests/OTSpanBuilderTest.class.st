@@ -130,6 +130,37 @@ OTSpanBuilderTest >> testInCurrentContextUsesImplicitCurrentSpanAsParent [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
+
+	| firstContext provider secondContext span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	firstContext := span spanContext.
+	secondContext := span spanContext.
+	self assert: secondContext identicalTo: firstContext.
+	span end.
+	self assert: span spanContext identicalTo: firstContext
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
+
+	| childSpan parentSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
+	parentSpan end.
+	childSpan := ((tracer spanBuilderNamed: 'child')
+		inContext: (parentSpan inContext: OTContext new);
+		startSpan).
+	self assert: childSpan parent identicalTo: parentSpan.
+	self assert: childSpan traceId equals: parentSpan traceId
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 
 	| currentContext parentSpan provider span tracer |

@@ -14,6 +14,7 @@ Class {
 	#instVars : [
 		'spanId',
 		'traceId',
+		'spanContext',
 		'parent',
 		'name',
 		'context',
@@ -616,6 +617,7 @@ OTSpan >> initialize [
 
 	super initialize.
 	spanId := self class newSpanId.
+	spanContext := nil.
 	traceFlags := '01'.
 	traceState := nil.
 	ended := false.
@@ -949,7 +951,7 @@ OTSpan >> setStatus: aSymbol description: aString [
 { #category : 'accessing' }
 OTSpan >> spanContext [
 
-	^ OTSpanContext fromSpan: self
+	^ spanContext ifNil: [ spanContext := OTSpanContext fromSpan: self ]
 ]
 
 { #category : 'accessing' }
@@ -961,7 +963,8 @@ OTSpan >> spanId [
 { #category : 'accessing' }
 OTSpan >> spanId: anIdentifier [
 
-	spanId := anIdentifier
+	spanId := anIdentifier.
+	spanContext := nil
 ]
 
 { #category : 'control' }
@@ -1060,7 +1063,8 @@ OTSpan >> traceFlags [
 { #category : 'accessing' }
 OTSpan >> traceFlags: aString [
 
-	traceFlags := aString
+	traceFlags := aString.
+	spanContext := nil
 ]
 
 { #category : 'accessing' }
@@ -1072,7 +1076,8 @@ OTSpan >> traceId [
 { #category : 'accessing' }
 OTSpan >> traceId: id [
 
-	traceId := id
+	traceId := id.
+	spanContext := nil
 ]
 
 { #category : 'accessing' }
@@ -1086,7 +1091,8 @@ OTSpan >> traceState: aTraceState [
 
 	| normalized |
 	normalized := OTTraceState from: aTraceState.
-	traceState := normalized
+	traceState := normalized.
+	spanContext := nil
 ]
 
 { #category : 'recording' }
