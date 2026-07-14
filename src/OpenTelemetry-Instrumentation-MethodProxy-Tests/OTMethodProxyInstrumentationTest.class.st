@@ -26,12 +26,10 @@ OTMethodProxyInstrumentationTest >> assertTargetHasNoMethodProxyArtifacts [
 
 { #category : 'tests' }
 OTMethodProxyInstrumentationTest >> testEnsureHasRunOnExit [
-	"TODO: implement OTMetaLinkInstrumentation class>>#run: for MethodProxies.
-	Test is commented instead of skipped because it can lead to issues with proxies."
 
-	"self deny: self instrumentation hasRunBefore.
+	self deny: self instrumentation hasRunBefore.
 	self should: [ target fail ] raise: Error.
-	self assert: self instrumentation hasRunAfter"
+	self assert: self instrumentation hasRunAfter
 ]
 
 { #category : 'tests' }

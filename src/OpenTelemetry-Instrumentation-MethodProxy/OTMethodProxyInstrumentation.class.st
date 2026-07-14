@@ -7,6 +7,15 @@ Class {
 
 { #category : 'evaluating' }
 OTMethodProxyInstrumentation class >> aboutToReturnWithReceiver: receiver arguments: arguments [
+
+	"MethodProxy invokes this hook during stack unwind for abnormal exits and
+	non-local returns. Mirror the MetaLink backend by still running the
+	after-hook with a nil return value."
+
+	^ self
+		afterExecutionWithReceiver: receiver
+		arguments: arguments
+		returnValue: nil
 ]
 
 { #category : 'evaluating' }
