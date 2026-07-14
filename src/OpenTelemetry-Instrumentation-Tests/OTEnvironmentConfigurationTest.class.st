@@ -31,11 +31,23 @@ OTEnvironmentConfigurationTest >> tearDown [
 
 	[
 		OTTracerProvider current: nil.
+		OTTracerProvider resourceConfigurationWarningSink: nil.
 		OTTracerProvider samplerConfigurationWarningSink: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
 		OTSpan reset ]
 		ensure: [ super tearDown ]
+]
+
+{ #category : 'private' }
+OTEnvironmentConfigurationTest >> withResourceWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider resourceConfigurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
 ]
 
 { #category : 'private' }
@@ -52,18 +64,22 @@ OTEnvironmentConfigurationTest >> withSamplerWarningsDo: aBlock [
 { #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentDiscardsMalformedResourceAttributesEnvironmentValue [
 
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.name=demo,bad%ZZ=value';
-			yourself)
-		during: [
-			| provider |
-			provider := OTTracerProvider current.
-			self assert: provider resource serviceName equals: OTTracerProvider defaultServiceName.
-			self assert: (provider resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
-			self assert: (provider resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
-			self assert: (provider resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
-			self deny: provider resource isEmpty ]
+	self withResourceWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.name=demo,bad%ZZ=value';
+				yourself)
+			during: [
+				| provider |
+				provider := OTTracerProvider current.
+				self assert: provider resource serviceName equals: OTTracerProvider defaultServiceName.
+				self assert: (provider resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
+				self assert: (provider resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
+				self assert: (provider resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
+				self deny: provider resource isEmpty ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry resource attributes configuration was invalid and has been ignored: ''service.name=demo,bad%ZZ=value'' (Malformed percent encoding)' ]
 ]
 
 { #category : 'tests' }

@@ -35,7 +35,9 @@ OTTracerProvider class >> configuredResourceAttributes [
 	rawValue ifNil: [ ^ OrderedDictionary new ].
 	^ [ self resourceAttributesFromEnvironment: rawValue ]
 		on: Error
-		do: [ :error | OrderedDictionary new ]
+		do: [ :error |
+			self noteInvalidResourceAttributes: rawValue error: error.
+			OrderedDictionary new ]
 ]
 
 { #category : 'instance creation' }
@@ -129,6 +131,17 @@ OTTracerProvider class >> defaultSamplerConfigurationWarningSink [
 				cr ] ]
 ]
 
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultResourceConfigurationWarningSink [
+
+	^ [ :message | | transcript |
+		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
+		transcript ifNotNil: [
+			transcript
+				show: message;
+				cr ] ]
+]
+
 { #category : 'private' }
 OTTracerProvider class >> decodePercentEncoded: aString [
 
@@ -183,6 +196,17 @@ OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSample
 			, aSamplerName printString
 			, ': '
 			, aValue printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidResourceAttributes: aValue error: anError [
+
+	self resourceConfigurationWarningSink value:
+		'OpenTelemetry resource attributes configuration was invalid and has been ignored: '
+			, aValue printString
+			, ' ('
+			, anError messageText
+			, ')'
 ]
 
 { #category : 'private - logging' }
@@ -431,6 +455,23 @@ OTTracerProvider class >> samplerConfigurationWarningSink: aBlock [
 		ifNil: [ self removeProperty: #otSamplerConfigurationWarningSink ifAbsent: [  ] ]
 		ifNotNil: [ self propertyAt: #otSamplerConfigurationWarningSink put: aBlock ].
 	^ self samplerConfigurationWarningSink
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> resourceConfigurationWarningSink [
+
+	^ self
+		propertyAt: #otResourceConfigurationWarningSink
+		ifAbsent: [ self defaultResourceConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> resourceConfigurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ self removeProperty: #otResourceConfigurationWarningSink ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otResourceConfigurationWarningSink put: aBlock ].
+	^ self resourceConfigurationWarningSink
 ]
 
 { #category : 'private - logging' }
