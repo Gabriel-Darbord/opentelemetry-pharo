@@ -180,6 +180,19 @@ OTEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterAndSimpleProcess
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterAndBatchProcessorForOtlpStdoutSelection [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpStdoutSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsResourceAttributesAndServiceNameFromEnvironment [
 
 	self

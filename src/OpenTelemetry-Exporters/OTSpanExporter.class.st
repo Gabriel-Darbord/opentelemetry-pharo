@@ -80,6 +80,7 @@ OTSpanExporter class >> exporterFromEnvironmentName: aString [
 	exporterName = 'console' ifTrue: [ ^ OTConsoleSpanExporter new ].
 	exporterName = 'logging' ifTrue: [ ^ OTConsoleSpanExporter new ].
 	exporterName = 'none' ifTrue: [ ^ OTNoopSpanExporter new ].
+	exporterName = 'otlp/stdout' ifTrue: [ ^ OTOtlpStdoutSpanExporter new ].
 	exporterName = 'zipkin' ifTrue: [ ^ self configuredZipkinExporter ].
 	^ nil
 ]
