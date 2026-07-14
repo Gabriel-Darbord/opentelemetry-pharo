@@ -328,6 +328,26 @@ OTEnvironmentConfigurationTest >> testCurrentProvidesProcessRuntimeResourceAttri
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentProvidesHostAndOperatingSystemResourceAttributes [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			OTTracerProvider defaultHostName ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'host.name') equals: value ].
+			OTTracerProvider defaultHostArchitecture ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'host.arch') equals: value ].
+			OTTracerProvider defaultOsType ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'os.type') equals: value ].
+			OTTracerProvider defaultOsName ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'os.name') equals: value ].
+			OTTracerProvider defaultOsDescription ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'os.description') equals: value ] ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsServiceNameFromResourceAttributesWhenDedicatedVariableIsAbsent [
 
 	self

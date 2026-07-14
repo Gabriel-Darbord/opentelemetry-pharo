@@ -149,10 +149,81 @@ OTTracerProvider class >> currentImagePath [
 ]
 
 { #category : 'instance creation' }
+OTTracerProvider class >> defaultHostArchitecture [
+
+	^ [ | architecture |
+		architecture := Smalltalk os current processorArchitecture asString trimBoth asLowercase.
+		architecture isEmpty ifTrue: [ nil ] ifFalse: [ architecture ] ]
+		on: Error
+		do: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultHostName [
+
+	^ [ | hostName |
+		hostName := NetNameResolver localHostName asString trimBoth.
+		hostName isEmpty ifTrue: [ nil ] ifFalse: [ hostName ] ]
+		on: Error
+		do: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultOsDescription [
+
+	| osSubtype osVersion parts |
+	parts := OrderedCollection new.
+	self defaultOsName ifNotNil: [ :value | parts add: value ].
+	osVersion := [ Smalltalk os version asString trimBoth ]
+		on: Error
+		do: [ nil ].
+	(osVersion notNil and: [ osVersion isNotEmpty ]) ifTrue: [ parts add: osVersion ].
+	osSubtype := [ Smalltalk os subtype asString trimBoth ]
+		on: Error
+		do: [ nil ].
+	(osSubtype notNil and: [ osSubtype isNotEmpty ]) ifTrue: [ parts add: osSubtype ].
+	parts isEmpty ifTrue: [ ^ nil ].
+	^ String streamContents: [ :stream |
+		parts
+			do: [ :each | stream nextPutAll: each ]
+			separatedBy: [ stream space ] ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultOsName [
+
+	^ [ | name |
+		name := Smalltalk os name asString trimBoth.
+		name isEmpty ifTrue: [ nil ] ifFalse: [ name ] ]
+		on: Error
+		do: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultOsType [
+
+	| os name |
+	os := [ Smalltalk os current ] on: Error do: [ nil ].
+	os ifNil: [ ^ nil ].
+	(os isLinux) ifTrue: [ ^ 'linux' ].
+	(os isWindows) ifTrue: [ ^ 'windows' ].
+	((os isMacOS) or: [ os isMacOSX ]) ifTrue: [ ^ 'darwin' ].
+	name := [ os name asString trimBoth asLowercase ] on: Error do: [ '' ].
+	(name includesSubstring: 'freebsd') ifTrue: [ ^ 'freebsd' ].
+	(name includesSubstring: 'netbsd') ifTrue: [ ^ 'netbsd' ].
+	(name includesSubstring: 'openbsd') ifTrue: [ ^ 'openbsd' ].
+	((name includesSubstring: 'sunos') or: [ name includesSubstring: 'solaris' ]) ifTrue: [ ^ 'solaris' ].
+	(name includesSubstring: 'aix') ifTrue: [ ^ 'aix' ].
+	((name includesSubstring: 'hp-ux') or: [ name includesSubstring: 'hpux' ]) ifTrue: [ ^ 'hpux' ].
+	^ nil
+]
+
+{ #category : 'instance creation' }
 OTTracerProvider class >> defaultResourceDetectors [
 
 	^ OrderedCollection new
 		add: (OTStaticResourceDetector named: 'sdk' resource: self defaultResource);
+		add: OTHostResourceDetector new;
 		add: OTProcessResourceDetector new;
 		add: OTServiceInstanceResourceDetector new;
 		add: OTEnvironmentResourceDetector new;
