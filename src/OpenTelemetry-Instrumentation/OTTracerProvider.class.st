@@ -58,16 +58,16 @@ OTTracerProvider class >> configuredSpanLimits [
 
 	| defaultLimits generalAttributeCountLimit generalValueLengthLimit limits |
 	defaultLimits := OTSpanLimits default.
-	generalAttributeCountLimit := self integerEnvironmentValueAt: 'OTEL_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributeCountLimit.
-	generalValueLengthLimit := self integerEnvironmentValueAt: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT' default: defaultLimits attributeValueLengthLimit.
+	generalAttributeCountLimit := self nonNegativeIntegerEnvironmentValueAt: 'OTEL_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributeCountLimit.
+	generalValueLengthLimit := self nonNegativeIntegerEnvironmentValueAt: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT' default: defaultLimits attributeValueLengthLimit.
 	limits := OTSpanLimits default.
 	limits
-		attributeCountLimit: (self integerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT' default: generalAttributeCountLimit);
-		attributeValueLengthLimit: (self integerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT' default: generalValueLengthLimit);
-		eventCountLimit: (self integerEnvironmentValueAt: 'OTEL_SPAN_EVENT_COUNT_LIMIT' default: defaultLimits eventCountLimit);
-		linkCountLimit: (self integerEnvironmentValueAt: 'OTEL_SPAN_LINK_COUNT_LIMIT' default: defaultLimits linkCountLimit);
-		attributePerEventCountLimit: (self integerEnvironmentValueAt: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributePerEventCountLimit);
-		attributePerLinkCountLimit: (self integerEnvironmentValueAt: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributePerLinkCountLimit).
+		attributeCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT' default: generalAttributeCountLimit);
+		attributeValueLengthLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT' default: generalValueLengthLimit);
+		eventCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_EVENT_COUNT_LIMIT' default: defaultLimits eventCountLimit);
+		linkCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_LINK_COUNT_LIMIT' default: defaultLimits linkCountLimit);
+		attributePerEventCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributePerEventCountLimit);
+		attributePerLinkCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributePerLinkCountLimit).
 	^ limits
 ]
 
@@ -145,9 +145,19 @@ OTTracerProvider class >> readConfiguration [
 	provider
 		resource: self configuredResource;
 		sampler: self configuredSampler;
-		spanLimits: self configuredSpanLimits;
-		spanProcessor: OTSpanProcessor current.
+		spanLimits: self configuredSpanLimits.
+	self sdkDisabled ifFalse: [ provider spanProcessor: OTSpanProcessor current ].
 	^ provider
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := self strictNonNegativeIntegerFrom: rawValue.
+	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
 ]
 
 { #category : 'class initialization' }
@@ -227,6 +237,15 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 	^ self defaultSampler
 ]
 
+{ #category : 'private' }
+OTTracerProvider class >> sdkDisabled [
+
+	| value |
+	value := self environmentValueAt: 'OTEL_SDK_DISABLED'.
+	value ifNil: [ ^ false ].
+	^ value asLowercase = 'true'
+]
+
 { #category : 'private - lifecycle' }
 OTTracerProvider class >> shutdownByProvider [
 
@@ -265,6 +284,18 @@ OTTracerProvider class >> strictPositiveIntegerFrom: aString [
 	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
 	stream atEnd ifFalse: [ ^ nil ].
 	value > 0 ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictNonNegativeIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value >= 0 ifFalse: [ ^ nil ].
 	^ value
 ]
 
