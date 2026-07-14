@@ -186,6 +186,28 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansProducesSpecShapedOtlpJsonPayload [
 	self assert: (link at: 'droppedAttributesCount') equals: 2
 ]
 
+{ #category : 'tests' }
+OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessage [
+
+	| payload span |
+	span := OTSpan new.
+	span
+		traceId: '12345678876543211234567887654321';
+		spanId: '8765432112345678';
+		name: 'testSpan';
+		kind: OTSpan internal;
+		startTime: DateAndTime unixEpoch;
+		endTime: DateAndTime unixEpoch;
+		traceFlags: '01';
+		attributes: #();
+		events: #();
+		links: #();
+		resource: OTResource empty;
+		instrumentationScope: (OTInstrumentationScope named: '').
+	payload := encoder encodeSpans: { span }.
+	self assert: ((((payload at: 'resourceSpans') first at: 'scopeSpans') first at: 'spans') first at: 'status') isEmpty
+]
+
 { #category : 'running' }
 OTOtlpJsonTraceEncoderTest >> setUp [
 

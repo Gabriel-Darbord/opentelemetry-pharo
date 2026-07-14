@@ -165,11 +165,12 @@ OTSpanExporter class >> configuredOtlpExporter [
 
 	| configuration |
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+	configuration protocol = OTOtlpHttpProtobufSpanExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpHttpProtobufSpanExporter configuration: configuration ].
 	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol
-		ifFalse: [
-			self noteUnsupportedOtlpProtocol: configuration protocol.
-			^ nil ].
-	^ OTOtlpHttpJsonSpanExporter configuration: configuration
+		ifTrue: [ ^ OTOtlpHttpJsonSpanExporter configuration: configuration ].
+	self noteUnsupportedOtlpProtocol: configuration protocol.
+	^ nil
 ]
 
 { #category : 'instance creation' }

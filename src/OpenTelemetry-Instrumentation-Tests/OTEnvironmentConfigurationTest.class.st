@@ -234,18 +234,46 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownTraceExporterNameA
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenConfiguredProtocolIsSupported [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'http/protobuf';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenUsingDefaultProtocol [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentWarnsWhenOtlpProtocolIsUnsupportedAndFallsBackToDefaultExporter [
 
 	self withExporterWarningsDo: [ :warnings |
 		self
 			withEnvironmentValues: (Dictionary new
 				at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+				at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
 				yourself)
 			during: [
 				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
 		self assert: warnings size equals: 1.
 		self assert: warnings first equals:
-			'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: ''http/protobuf''' ]
+			'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: ''grpc''' ]
 ]
 
 { #category : 'tests' }

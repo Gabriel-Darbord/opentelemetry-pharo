@@ -252,15 +252,16 @@ OTOtlpJsonTraceEncoder >> spanDataFor: aSpan [
 { #category : 'private - encoding' }
 OTOtlpJsonTraceEncoder >> statusDataFor: aSpan [
 
-	| data |
+	| data description |
 	data := OrderedDictionary new.
 	aSpan status = OTSpan ok ifTrue: [
 		data at: 'code' put: 1.
 		^ data ].
 	aSpan status = OTSpan error ifTrue: [
 		data at: 'code' put: 2.
-		aSpan statusDescription ifNotEmpty: [
-			data at: 'message' put: aSpan statusDescription ] ].
+		description := aSpan statusDescription.
+		description ifNotNil: [
+			description ifNotEmpty: [ data at: 'message' put: description ] ] ].
 	^ data
 ]
 
