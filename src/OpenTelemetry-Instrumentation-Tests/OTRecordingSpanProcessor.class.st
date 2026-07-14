@@ -2,6 +2,7 @@ Class {
 	#name : 'OTRecordingSpanProcessor',
 	#superclass : 'OTSpanProcessor',
 	#instVars : [
+		'endingSpans',
 		'startedSpans',
 		'startedParentContexts',
 		'endedSpans'
@@ -9,6 +10,12 @@ Class {
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
+
+{ #category : 'accessing' }
+OTRecordingSpanProcessor >> endingSpans [
+
+	^ endingSpans ifNil: [ endingSpans := OrderedCollection new ]
+]
 
 { #category : 'accessing' }
 OTRecordingSpanProcessor >> endedSpans [
@@ -20,6 +27,14 @@ OTRecordingSpanProcessor >> endedSpans [
 OTRecordingSpanProcessor >> onEnd: aSpan [
 
 	self endedSpans add: aSpan.
+	^ true
+]
+
+{ #category : 'accessing' }
+OTRecordingSpanProcessor >> onEnding: aSpan [
+
+	self endingSpans add: aSpan.
+	aSpan attributeAt: 'processor.onEnding' put: true.
 	^ true
 ]
 

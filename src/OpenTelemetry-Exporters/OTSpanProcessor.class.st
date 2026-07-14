@@ -257,6 +257,11 @@ OTSpanProcessor >> onEnd: aSpan [
 ]
 
 { #category : 'processing' }
+OTSpanProcessor >> onEnding: aSpan [
+	"Default no-op lifecycle callback for spans that are about to end."
+]
+
+{ #category : 'processing' }
 OTSpanProcessor >> onStart: aSpan parentContext: aContext [
 	"Default no-op lifecycle callback for started spans."
 ]

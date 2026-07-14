@@ -80,6 +80,7 @@ OTTracerProviderTest >> testInstrumenterEndNotifiesSpanProcessorOnlyOnce [
 	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
 	span := instrumenter startRequest: 'request'.
 	instrumenter end: span.
+	self assert: processor endingSpans asArray equals: { span }.
 	self assert: processor endedSpans asArray equals: { span }
 ]
 
@@ -93,7 +94,10 @@ OTTracerProviderTest >> testSpanEndUsesSpanProcessorOnEndLifecycle [
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	span end.
-	self assert: processor endedSpans asArray equals: { span }
+	self assert: processor endingSpans asArray equals: { span }.
+	self assert: processor endedSpans asArray equals: { span }.
+	self assert: span isEnded.
+	self assert: (span attributes at: 'processor.onEnding') equals: true
 ]
 
 { #category : 'tests' }

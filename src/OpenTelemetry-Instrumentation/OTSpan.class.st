@@ -20,6 +20,7 @@ Class {
 		'kind',
 		'startTime',
 		'endTime',
+		'ended',
 		'status',
 		'instrumentationName',
 		'attributes',
@@ -182,6 +183,7 @@ OTSpan class >> fromSton: stonReader [
 	span droppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ span droppedEventsCount ]).
 	span droppedLinksCount: (representation at: #droppedLinksCount ifAbsent: [ span droppedLinksCount ]).
 	span endTime: (representation at: #endTime).
+	span endTime ifNotNil: [ span markEnded ].
 	^ span
 ]
 
@@ -544,6 +546,8 @@ OTSpan >> end: aDateAndTime [
 
 	self isEnded ifTrue: [ ^ self ].
 	self endTime: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]).
+	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ].
+	self markEnded.
 	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ].
 	^ self
 ]
@@ -614,6 +618,7 @@ OTSpan >> initialize [
 	spanId := self class newSpanId.
 	traceFlags := '01'.
 	traceState := nil.
+	ended := false.
 	links := nil.
 	resource := OTResource empty.
 	instrumentationScope := OTInstrumentationScope named: ''.
@@ -679,13 +684,20 @@ OTSpan >> instrumentationVersion [
 { #category : 'testing' }
 OTSpan >> isEnded [
 
-	^ endTime isNotNil
+	^ ended = true
 ]
 
 { #category : 'testing' }
 OTSpan >> isRecording [
 
 	^ self isEnded not
+]
+
+{ #category : 'private' }
+OTSpan >> markEnded [
+
+	ended := true.
+	^ self
 ]
 
 { #category : 'accessing' }
