@@ -121,6 +121,38 @@ OTTracerProviderTest >> testCustomIdGeneratorControlsRootTraceAndSpanIds [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerPicksUpLaterDisablementWithoutReacquiring [
+
+	| disabledSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	self assert: tracer enabled.
+	provider tracerConfigurator: [ :scope | false ].
+	self deny: tracer enabled.
+	disabledSpan := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
+	self deny: disabledSpan spanContext isValid
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerPicksUpLaterResourceChangesForNewSpans [
+
+	| provider resource span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	resource := OTResource attributes: (OrderedDictionary new
+		at: 'service.name' put: 'updated-service';
+		at: 'deployment.environment.name' put: 'staging';
+		yourself).
+	provider resource: resource.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span resource equals: resource.
+	self assert: (span resource attributeAt: 'deployment.environment.name') equals: 'staging'
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testInstrumenterEndNotifiesSpanProcessorOnlyOnce [
 
 	| instrumenter processor provider span |
