@@ -622,9 +622,13 @@ OTTracerProvider >> idGenerator: anIdGenerator [
 { #category : 'tracing' }
 OTTracerProvider >> nonRecordingSpanIn: aContext [
 
-	| baseContext span |
+	| baseContext parentSpan span |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
-	span := OTSpan wrapping: OTSpanContext invalid.
+	parentSpan := baseContext span.
+	parentSpan ifNotNil: [
+		parentSpan isRecording ifFalse: [ ^ parentSpan ].
+		span := OTSpan wrapping: parentSpan spanContext ]
+	ifNil: [ span := OTSpan wrapping: OTSpanContext invalid ].
 	span
 		context: (baseContext withSpan: span);
 		instrumentationScope: (OTInstrumentationScope named: '');

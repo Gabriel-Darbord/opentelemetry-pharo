@@ -136,6 +136,26 @@ OTTracerProviderTest >> testExistingTracerPicksUpLaterDisablementWithoutReacquir
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testDisabledTracerPreservesParentSpanContext [
+
+	| disabledSpan parentSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
+	provider tracerConfigurator: [ :scope | false ].
+	disabledSpan := ((tracer spanBuilderNamed: 'child')
+		inContext: (parentSpan inContext: OTContext new);
+		startSpan).
+	self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
+	self deny: disabledSpan identicalTo: parentSpan.
+	self assert: disabledSpan traceId equals: parentSpan traceId.
+	self assert: disabledSpan spanId equals: parentSpan spanId.
+	self assert: disabledSpan traceFlags equals: parentSpan traceFlags.
+	self assert: disabledSpan traceState equals: parentSpan traceState
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testExistingTracerPicksUpLaterResourceChangesForNewSpans [
 
 	| provider resource span tracer |

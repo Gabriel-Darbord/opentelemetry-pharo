@@ -101,6 +101,28 @@ OTEnvironmentConfigurationTest >> testCurrentDisablesSdkWhenConfigured [
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentDisabledSdkPreservesExistingNonRecordingParentSpan [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_SDK_DISABLED' put: 'TRUE';
+			yourself)
+		during: [
+			| parentSpan provider returnedSpan |
+			provider := OTTracerProvider current.
+			parentSpan := (OTSpanContext
+				traceId: '4bf92f3577b34da6a3ce929d0e0e4736'
+				spanId: '00f067aa0ba902b7'
+				traceFlags: '01'
+				traceState: 'rojo=one'
+				remote: true) asNonRecordingSpan.
+			returnedSpan := (provider tracerNamed: 'demo.scope')
+				startSpanNamed: 'operation'
+				in: (OTContext new withSpan: parentSpan).
+			self assert: returnedSpan identicalTo: parentSpan ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsAlwaysOffSamplerFromEnvironment [
 
 	self
