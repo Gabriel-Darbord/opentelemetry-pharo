@@ -4,6 +4,9 @@ I am a basic processor that forwards any `OTSpan` I receive directly to the conf
 Class {
 	#name : 'OTSimpleSpanProcessor',
 	#superclass : 'OTSpanProcessor',
+	#instVars : [
+		'exportLock'
+	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
 }
@@ -18,7 +21,14 @@ OTSimpleSpanProcessor >> flush [
 OTSimpleSpanProcessor >> forceFlush [
 
 	self isShutdown ifTrue: [ ^ false ].
-	^ OTSpanExporter current forceFlush
+	^ exportLock critical: [ OTSpanExporter current forceFlush ]
+]
+
+{ #category : 'initialization' }
+OTSimpleSpanProcessor >> initialize [
+
+	super initialize.
+	exportLock := Semaphore forMutualExclusion
 ]
 
 { #category : 'processing' }
@@ -27,7 +37,7 @@ OTSimpleSpanProcessor >> process: span [
 
 	self isShutdown ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
-	^ OTSpanExporter current export: { span }
+	^ exportLock critical: [ OTSpanExporter current export: { span } ]
 ]
 
 { #category : 'processing' }
@@ -36,7 +46,7 @@ OTSimpleSpanProcessor >> shutdown [
 	| flushed shutdownResult |
 	self isShutdown ifTrue: [ ^ false ].
 	flushed := self forceFlush.
-	shutdownResult := OTSpanExporter current shutdown.
+	shutdownResult := exportLock critical: [ OTSpanExporter current shutdown ].
 	self markShutdown.
 	^ shutdownResult & flushed
 ]
