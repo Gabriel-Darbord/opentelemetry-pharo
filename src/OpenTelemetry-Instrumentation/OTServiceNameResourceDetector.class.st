@@ -29,5 +29,8 @@ OTServiceNameResourceDetector >> detectResource [
 				put: OTTracerProvider defaultServiceInstanceId ].
 	^ attributes
 		ifEmpty: [ OTResource empty ]
-		ifNotEmpty: [ OTResource attributes: attributes ]
+		ifNotEmpty: [
+			OTResource
+				attributes: attributes
+				schemaUrl: OTTracerProvider semanticConventionsSchemaUrl ]
 ]

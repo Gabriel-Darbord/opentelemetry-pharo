@@ -29,5 +29,10 @@ OTHostResourceDetector >> detectResource [
 		attributes at: 'os.name' put: value ].
 	OTTracerProvider defaultOsDescription ifNotNil: [ :value |
 		attributes at: 'os.description' put: value ].
-	^ OTResource attributes: attributes
+	^ attributes
+		ifEmpty: [ OTResource empty ]
+		ifNotEmpty: [
+			OTResource
+				attributes: attributes
+				schemaUrl: OTTracerProvider semanticConventionsSchemaUrl ]
 ]

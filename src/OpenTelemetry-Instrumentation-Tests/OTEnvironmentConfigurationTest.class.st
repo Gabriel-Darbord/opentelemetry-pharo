@@ -284,13 +284,14 @@ OTEnvironmentConfigurationTest >> testCurrentReadsResourceAttributesAndServiceNa
 			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.name=resource,host.name=pharo,key%3Dvalue=some%2Cthing';
 			at: 'OTEL_SERVICE_NAME' put: 'override';
 			yourself)
-		during: [
-			| resource |
-			resource := OTTracerProvider current resource.
-			self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
-			self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
-			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
-			self assert: resource serviceName equals: 'override'.
+			during: [
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
+				self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
+				self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
+				self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
+				self assert: resource serviceName equals: 'override'.
 			self assert: (resource attributeAt: 'host.name') equals: 'pharo'.
 			self assert: (resource attributeAt: 'key=value') equals: 'some,thing' ]
 ]
@@ -300,14 +301,15 @@ OTEnvironmentConfigurationTest >> testCurrentProvidesDefaultSdkResourceAttribute
 
 	self
 		withEnvironmentValues: Dictionary new
-		during: [
-			| resource |
-			resource := OTTracerProvider current resource.
-			self assert: resource serviceName equals: OTTracerProvider defaultServiceName.
-			self deny: (resource attributeAt: 'service.instance.id') isEmpty.
-			self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
-			self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
-			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
+			during: [
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource serviceName equals: OTTracerProvider defaultServiceName.
+				self deny: (resource attributeAt: 'service.instance.id') isEmpty.
+				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
+				self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
+				self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
+				self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
 ]
 
 { #category : 'tests' }
@@ -315,12 +317,13 @@ OTEnvironmentConfigurationTest >> testCurrentProvidesProcessRuntimeResourceAttri
 
 	self
 		withEnvironmentValues: Dictionary new
-		during: [
-			| resource |
-			resource := OTTracerProvider current resource.
-			self assert: (resource attributeAt: 'process.executable.name') equals: OTTracerProvider defaultProcessExecutableName.
-			self assert: (resource attributeAt: 'process.executable.path') equals: OTTracerProvider defaultProcessExecutablePath.
-			self assert: (resource attributeAt: 'process.command') equals: OTTracerProvider currentImagePath.
+			during: [
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
+				self assert: (resource attributeAt: 'process.executable.name') equals: OTTracerProvider defaultProcessExecutableName.
+				self assert: (resource attributeAt: 'process.executable.path') equals: OTTracerProvider defaultProcessExecutablePath.
+				self assert: (resource attributeAt: 'process.command') equals: OTTracerProvider currentImagePath.
 			self assert: (resource attributeAt: 'process.runtime.name') equals: 'pharo'.
 			self assert: (resource attributeAt: 'process.runtime.version') equals: OTTracerProvider runtimeVersion.
 			self assert: (resource attributeAt: 'process.runtime.description') equals: OTTracerProvider runtimeDescription.
@@ -332,11 +335,12 @@ OTEnvironmentConfigurationTest >> testCurrentProvidesHostAndOperatingSystemResou
 
 	self
 		withEnvironmentValues: Dictionary new
-		during: [
-			| resource |
-			resource := OTTracerProvider current resource.
-			OTTracerProvider defaultHostName ifNotNil: [ :value |
-				self assert: (resource attributeAt: 'host.name') equals: value ].
+			during: [
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
+				OTTracerProvider defaultHostName ifNotNil: [ :value |
+					self assert: (resource attributeAt: 'host.name') equals: value ].
 			OTTracerProvider defaultHostArchitecture ifNotNil: [ :value |
 				self assert: (resource attributeAt: 'host.arch') equals: value ].
 			OTTracerProvider defaultOsType ifNotNil: [ :value |

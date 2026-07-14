@@ -96,12 +96,14 @@ OTTracerProvider class >> defaultSampler [
 { #category : 'instance creation' }
 OTTracerProvider class >> defaultResource [
 
-	^ OTResource attributes: (OrderedDictionary new
-		at: 'service.name' put: self defaultServiceName;
-		at: 'telemetry.sdk.name' put: 'opentelemetry';
-		at: 'telemetry.sdk.language' put: 'pharo';
-		at: 'telemetry.sdk.version' put: self sdkVersion;
-		yourself)
+	^ OTResource
+		attributes: (OrderedDictionary new
+			at: 'service.name' put: self defaultServiceName;
+			at: 'telemetry.sdk.name' put: 'opentelemetry';
+			at: 'telemetry.sdk.language' put: 'pharo';
+			at: 'telemetry.sdk.version' put: self sdkVersion;
+			yourself)
+		schemaUrl: self semanticConventionsSchemaUrl
 ]
 
 { #category : 'instance creation' }
@@ -446,6 +448,12 @@ OTTracerProvider class >> integerEnvironmentValueAt: aString default: aDefaultVa
 OTTracerProvider class >> sdkVersion [
 
 	^ 'dev'
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> semanticConventionsSchemaUrl [
+
+	^ 'https://opentelemetry.io/schemas/1.21.0'
 ]
 
 { #category : 'instance creation' }
