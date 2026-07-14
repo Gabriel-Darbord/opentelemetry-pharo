@@ -217,6 +217,7 @@ OTSpanBuilder >> startSpan [
 	attributes associationsDo: [ :each | span attributeAt: each key put: each value ].
 	span addLinks: links.
 	startTime ifNotNil: [ span startTime: startTime ].
+	tracer provider processStartedSpan: span parentContext: baseContext.
 	^ span
 ]
 

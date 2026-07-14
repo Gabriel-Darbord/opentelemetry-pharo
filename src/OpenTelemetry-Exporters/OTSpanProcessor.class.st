@@ -250,6 +250,18 @@ OTSpanProcessor >> markShutdown [
 ]
 
 { #category : 'processing' }
+OTSpanProcessor >> onEnd: aSpan [
+	"Compatibility hook for processors that still implement completed-span processing via #process:."
+
+	^ self process: aSpan
+]
+
+{ #category : 'processing' }
+OTSpanProcessor >> onStart: aSpan parentContext: aContext [
+	"Default no-op lifecycle callback for started spans."
+]
+
+{ #category : 'processing' }
 OTSpanProcessor >> process: span [
 	"Export the span and return true if it was accepted"
 

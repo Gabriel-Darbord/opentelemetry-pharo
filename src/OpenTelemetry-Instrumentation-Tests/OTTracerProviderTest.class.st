@@ -70,6 +70,43 @@ OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testProcessEndedSpanUsesSpanProcessorOnEndLifecycle [
+
+	| processor provider span tracer |
+	provider := OTTracerProvider new.
+	processor := OTRecordingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span end.
+	self assert: (provider processEndedSpan: span).
+	self assert: processor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testRecordingSpanNotifiesSpanProcessorOnStartWithResolvedParentContext [
+
+	| parentContext parentSpan processor provider span tracer |
+	provider := OTTracerProvider new.
+	processor := OTRecordingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: nil
+		remote: true) asNonRecordingSpan.
+	parentContext := OTContext new withSpan: parentSpan.
+	span := ((tracer spanBuilderNamed: 'child')
+		inContext: parentContext;
+		startSpan).
+	self assert: processor startedSpans asArray equals: { span }.
+	self assert: processor startedParentContexts asArray equals: { parentContext }.
+	self assert: processor endedSpans isEmpty
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testTracerNamedEmptyStringReturnsWorkingTracerWithEmptyNameAndWarning [
 
 	self

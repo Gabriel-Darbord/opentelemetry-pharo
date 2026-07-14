@@ -525,8 +525,19 @@ OTTracerProvider >> processEndedSpan: aSpan [
 	processors := self spanProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
 	allProcessed := true.
-	processors do: [ :each | allProcessed := (each process: aSpan) & allProcessed ].
+	processors do: [ :each | allProcessed := (each onEnd: aSpan) & allProcessed ].
 	^ allProcessed
+]
+
+{ #category : 'processing' }
+OTTracerProvider >> processStartedSpan: aSpan parentContext: aContext [
+
+	| processors |
+	self isShutdown ifTrue: [ ^ false ].
+	processors := self spanProcessors.
+	processors isEmpty ifTrue: [ ^ false ].
+	processors do: [ :each | each onStart: aSpan parentContext: aContext ].
+	^ true
 ]
 
 { #category : 'accessing' }
