@@ -28,6 +28,7 @@ OTTracerProviderTest >> tearDown [
 
 	[
 		OTTracerProvider current: nil.
+		OTTracerProvider spanProcessorWarningSink: nil.
 		OTTracerProvider tracerNameWarningSink: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
@@ -44,6 +45,17 @@ OTTracerProviderTest >> withTracerNameWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTTracerProvider tracerNameWarningSink: nil ]
+]
+
+{ #category : 'private' }
+OTTracerProviderTest >> withSpanProcessorWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider spanProcessorWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider spanProcessorWarningSink: nil ]
 ]
 
 { #category : 'tests' }
@@ -121,6 +133,46 @@ OTTracerProviderTest >> testInstrumenterEndNotifiesSpanProcessorOnlyOnce [
 	instrumenter end: span.
 	self assert: processor endingSpans asArray equals: { span }.
 	self assert: processor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testForceFlushSuppressesProcessorErrorsAndContinues [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+		| failingProcessor provider succeedingProcessor |
+		provider := OTTracerProvider new.
+		failingProcessor := OTFailingSpanProcessor failingOperations: { 'forceFlush' }.
+		succeedingProcessor := OTFailingSpanProcessor new.
+		provider
+			spanProcessor: failingProcessor;
+			addSpanProcessor: succeedingProcessor.
+		self deny: provider forceFlush.
+		self assert: succeedingProcessor forceFlushCount equals: 1.
+		self assert: warnings asArray equals: {
+			'OpenTelemetry span processor callback failed during forceFlush for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testProcessorErrorsDuringSpanLifecycleAreSuppressedAndLaterProcessorsStillRun [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+		| failingProcessor provider succeedingProcessor span tracer |
+		provider := OTTracerProvider new.
+		failingProcessor := OTFailingSpanProcessor failingOperations: { 'onStart'. 'onEnding'. 'onEnd' }.
+		succeedingProcessor := OTFailingSpanProcessor new.
+		provider
+			spanProcessor: failingProcessor;
+			addSpanProcessor: succeedingProcessor.
+		tracer := provider tracerNamed: 'demo.scope'.
+		span := (tracer spanBuilderNamed: 'operation') startSpan.
+		span end.
+		self assert: succeedingProcessor startedSpans asArray equals: { span }.
+		self assert: succeedingProcessor endingSpans asArray equals: { span }.
+		self assert: succeedingProcessor endedSpans asArray equals: { span }.
+		self assert: warnings asArray equals: {
+			'OpenTelemetry span processor callback failed during onStart for OTFailingSpanProcessor: processor failure'.
+			'OpenTelemetry span processor callback failed during onEnding for OTFailingSpanProcessor: processor failure'.
+			'OpenTelemetry span processor callback failed during onEnd for OTFailingSpanProcessor: processor failure' } ]
 ]
 
 { #category : 'tests' }
@@ -254,6 +306,24 @@ OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 		in: OTContext new.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self deny: span spanContext isValid
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testShutdownSuppressesProcessorErrorsAndContinues [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+		| failingProcessor provider succeedingProcessor |
+		provider := OTTracerProvider new.
+		failingProcessor := OTFailingSpanProcessor failingOperations: { 'shutdown' }.
+		succeedingProcessor := OTFailingSpanProcessor new.
+		provider
+			spanProcessor: failingProcessor;
+			addSpanProcessor: succeedingProcessor.
+		self deny: provider shutdown.
+		self assert: provider isShutdown.
+		self assert: succeedingProcessor shutdownCount equals: 1.
+		self assert: warnings asArray equals: {
+			'OpenTelemetry span processor callback failed during shutdown for OTFailingSpanProcessor: processor failure' } ]
 ]
 
 { #category : 'tests' }

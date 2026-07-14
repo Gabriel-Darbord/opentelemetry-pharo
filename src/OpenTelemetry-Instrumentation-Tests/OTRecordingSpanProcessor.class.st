@@ -12,6 +12,13 @@ Class {
 }
 
 { #category : 'accessing' }
+OTRecordingSpanProcessor >> forceFlush [
+
+	self isShutdown ifTrue: [ ^ false ].
+	^ true
+]
+
+{ #category : 'accessing' }
 OTRecordingSpanProcessor >> endingSpans [
 
 	^ endingSpans ifNil: [ endingSpans := OrderedCollection new ]

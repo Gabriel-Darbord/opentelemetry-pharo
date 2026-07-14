@@ -148,6 +148,17 @@ OTTracerProvider class >> defaultResourceConfigurationWarningSink [
 				cr ] ]
 ]
 
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultSpanProcessorWarningSink [
+
+	^ [ :message | | transcript |
+		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
+		transcript ifNotNil: [
+			transcript
+				show: message;
+				cr ] ]
+]
+
 { #category : 'private' }
 OTTracerProvider class >> decodePercentEncoded: aString [
 
@@ -213,6 +224,18 @@ OTTracerProvider class >> noteInvalidResourceAttributes: aValue error: anError [
 			, ' ('
 			, anError messageText
 			, ')'
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteSpanProcessor: aProcessor failedDuring: anOperationName error: anError [
+
+	self spanProcessorWarningSink value:
+		'OpenTelemetry span processor callback failed during '
+			, anOperationName
+			, ' for '
+			, aProcessor class name
+			, ': '
+			, anError messageText
 ]
 
 { #category : 'private - logging' }
@@ -470,6 +493,23 @@ OTTracerProvider class >> samplerConfigurationWarningSink: aBlock [
 ]
 
 { #category : 'private - logging' }
+OTTracerProvider class >> spanProcessorWarningSink [
+
+	^ self
+		propertyAt: #otSpanProcessorWarningSink
+		ifAbsent: [ self defaultSpanProcessorWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> spanProcessorWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ self removeProperty: #otSpanProcessorWarningSink ifAbsent: [  ] ]
+		ifNotNil: [ self propertyAt: #otSpanProcessorWarningSink put: aBlock ].
+	^ self spanProcessorWarningSink
+]
+
+{ #category : 'private - logging' }
 OTTracerProvider class >> resourceConfigurationWarningSink [
 
 	^ self
@@ -539,7 +579,12 @@ OTTracerProvider >> forceFlush [
 	processors := self spanProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
 	allFlushed := true.
-	processors do: [ :each | allFlushed := (each forceFlush) & allFlushed ].
+	processors do: [ :each |
+		allFlushed := (self
+			withSpanProcessor: each
+			operationNamed: 'forceFlush'
+			default: false
+			do: [ each forceFlush ]) & allFlushed ].
 	^ allFlushed
 ]
 
@@ -620,30 +665,49 @@ OTTracerProvider >> processEndedSpan: aSpan [
 	processors := self spanProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
 	allProcessed := true.
-	processors do: [ :each | allProcessed := (each onEnd: aSpan) & allProcessed ].
+	processors do: [ :each |
+		allProcessed := (self
+			withSpanProcessor: each
+			operationNamed: 'onEnd'
+			default: false
+			do: [ each onEnd: aSpan ]) & allProcessed ].
 	^ allProcessed
 ]
 
 { #category : 'processing' }
 OTTracerProvider >> processEndingSpan: aSpan [
 
-	| processors |
+	| processors allProcessed |
 	self isShutdown ifTrue: [ ^ false ].
 	processors := self spanProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
-	processors do: [ :each | each onEnding: aSpan ].
-	^ true
+	allProcessed := true.
+	processors do: [ :each |
+		allProcessed := (self
+			withSpanProcessor: each
+			operationNamed: 'onEnding'
+			default: false
+			do: [ each onEnding: aSpan.
+				true ]) & allProcessed ].
+	^ allProcessed
 ]
 
 { #category : 'processing' }
 OTTracerProvider >> processStartedSpan: aSpan parentContext: aContext [
 
-	| processors |
+	| processors allProcessed |
 	self isShutdown ifTrue: [ ^ false ].
 	processors := self spanProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
-	processors do: [ :each | each onStart: aSpan parentContext: aContext ].
-	^ true
+	allProcessed := true.
+	processors do: [ :each |
+		allProcessed := (self
+			withSpanProcessor: each
+			operationNamed: 'onStart'
+			default: false
+			do: [ each onStart: aSpan parentContext: aContext.
+				true ]) & allProcessed ].
+	^ allProcessed
 ]
 
 { #category : 'accessing' }
@@ -737,9 +801,24 @@ OTTracerProvider >> shutdown [
 	self isShutdown ifTrue: [ ^ false ].
 	processors := self spanProcessors.
 	allShutdown := true.
-	processors do: [ :each | allShutdown := (each shutdown) & allShutdown ].
+	processors do: [ :each |
+		allShutdown := (self
+			withSpanProcessor: each
+			operationNamed: 'shutdown'
+			default: false
+			do: [ each shutdown ]) & allShutdown ].
 	self class shutdownByProvider at: self put: true.
 	^ allShutdown
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> withSpanProcessor: aProcessor operationNamed: anOperationName default: aDefaultValue do: aBlock [
+
+	^ [ aBlock value ]
+		on: Error
+		do: [ :error |
+			self class noteSpanProcessor: aProcessor failedDuring: anOperationName error: error.
+			aDefaultValue ]
 ]
 
 { #category : 'accessing' }
