@@ -58,6 +58,31 @@ OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testRecordingSpanSamplerCanExplicitlyClearParentTraceState [
+
+	| parentContext provider sampler span |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	sampler := OTSamplingResultSampler result: (OTSamplingResult
+		decision: #recordAndSample
+		attributes: #()
+		traceState: OTTraceState empty).
+	provider sampler: sampler.
+	parentContext := OTContext new
+		withSpan: ((OTSpanContext
+			traceId: '00112233445566778899aabbccddeeff'
+			spanId: '1122334455667788'
+			traceFlags: '03'
+			traceState: 'vendor=value'
+			remote: true) asNonRecordingSpan).
+	span := (((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
+		inContext: parentContext;
+		startSpan).
+	self assert: span spanContext traceState class identicalTo: OTTraceState.
+	self assert: span spanContext traceState isEmpty
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testRootSpanMarksGeneratedTraceIdsAsRandom [
 
 	| provider tracer span |
@@ -81,6 +106,32 @@ OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 		in: OTContext new.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self deny: span spanContext isValid
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testNonRecordingSpanSamplerCanExplicitlyClearParentTraceState [
+
+	| parentContext provider sampler span |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	sampler := OTSamplingResultSampler result: (OTSamplingResult
+		decision: #drop
+		attributes: #()
+		traceState: OTTraceState empty).
+	provider sampler: sampler.
+	parentContext := OTContext new
+		withSpan: ((OTSpanContext
+			traceId: '00112233445566778899aabbccddeeff'
+			spanId: '1122334455667788'
+			traceFlags: '03'
+			traceState: 'vendor=value'
+			remote: true) asNonRecordingSpan).
+	span := (((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
+		inContext: parentContext;
+		startSpan).
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span spanContext traceState class identicalTo: OTTraceState.
+	self assert: span spanContext traceState isEmpty
 ]
 
 { #category : 'tests' }

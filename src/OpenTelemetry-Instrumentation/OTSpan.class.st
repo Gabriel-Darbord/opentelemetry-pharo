@@ -1061,8 +1061,6 @@ OTSpan >> traceState: aTraceState [
 	| normalized |
 	normalized := OTTraceState from: aTraceState.
 	traceState := normalized
-		ifNil: [ nil ]
-		ifNotNil: [ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ] ]
 ]
 
 { #category : 'recording' }

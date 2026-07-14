@@ -53,3 +53,21 @@ OTW3CTraceContextPropagatorTest >> testInvalidTraceStateHeaderIsDiscardedOnExtra
 		from: carrier.
 	self assert: context span spanContext traceState equals: nil
 ]
+
+{ #category : 'tests' }
+OTW3CTraceContextPropagatorTest >> testInjectOmitsTraceStateHeaderWhenTraceStateIsEmpty [
+
+	| carrier context spanContext |
+	spanContext := OTSpanContext
+		traceId: '4bf92f3577b34da6a3ce929d0e0e4736'
+		spanId: '00f067aa0ba902b7'
+		traceFlags: '01'
+		traceState: OTTraceState empty
+		remote: false.
+	context := OTContext new withSpan: spanContext asNonRecordingSpan.
+	carrier := Dictionary new.
+	OTW3CTraceContextPropagator current
+		inject: context
+		into: carrier.
+	self deny: (carrier includesKey: 'tracestate')
+]
