@@ -432,6 +432,18 @@ OTSpan >> addLinkSpanContext: aSpanContext [
 ]
 
 { #category : 'accessing' }
+OTSpan >> addLinkSpan: aSpan [
+
+	^ self addLinkSpan: aSpan attributes: nil
+]
+
+{ #category : 'accessing' }
+OTSpan >> addLinkSpan: aSpan attributes: aDictionary [
+
+	^ self addLink: (OTSpanLink span: aSpan attributes: aDictionary)
+]
+
+{ #category : 'accessing' }
 OTSpan >> addLinkSpanContext: aSpanContext attributes: aDictionary [
 
 	^ self addLink: (OTSpanLink spanContext: aSpanContext attributes: aDictionary)
@@ -952,6 +964,12 @@ OTSpan >> setStatus: aSymbol description: aString [
 OTSpan >> spanContext [
 
 	^ spanContext ifNil: [ spanContext := OTSpanContext fromSpan: self ]
+]
+
+{ #category : 'converting' }
+OTSpan >> asSpanContext [
+
+	^ self spanContext
 ]
 
 { #category : 'accessing' }

@@ -31,6 +31,27 @@ OTSpanLink class >> spanContext: aSpanContext [
 ]
 
 { #category : 'instance creation' }
+OTSpanLink class >> span: aSpan [
+
+	^ self span: aSpan attributes: nil
+]
+
+{ #category : 'instance creation' }
+OTSpanLink class >> span: aSpan attributes: aDictionary [
+
+	^ self spanContext: (self spanContextFrom: aSpan) attributes: aDictionary
+]
+
+{ #category : 'private' }
+OTSpanLink class >> spanContextFrom: anObject [
+
+	anObject ifNil: [ Error signal: 'OpenTelemetry links require a span or span context' ].
+	^ [ anObject asSpanContext ]
+		on: MessageNotUnderstood
+		do: [ Error signal: 'OpenTelemetry links require a span or span context' ]
+]
+
+{ #category : 'instance creation' }
 OTSpanLink class >> spanContext: aSpanContext attributes: aDictionary [
 
 	^ self new
@@ -98,9 +119,7 @@ OTSpanLink >> spanContext [
 { #category : 'accessing' }
 OTSpanLink >> spanContext: aSpanContext [
 
-	(aSpanContext isNil or: [ (aSpanContext isKindOf: OTSpanContext) not ]) ifTrue: [
-		Error signal: 'OpenTelemetry links require a span context' ].
-	spanContext := aSpanContext
+	spanContext := self class spanContextFrom: aSpanContext
 ]
 
 { #category : 'ston persistence' }

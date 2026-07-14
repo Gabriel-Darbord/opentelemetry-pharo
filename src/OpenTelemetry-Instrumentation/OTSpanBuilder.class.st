@@ -90,6 +90,18 @@ OTSpanBuilder >> addLinkSpanContext: aSpanContext [
 ]
 
 { #category : 'configuring' }
+OTSpanBuilder >> addLinkSpan: aSpan [
+
+	^ self addLinkSpan: aSpan attributes: nil
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> addLinkSpan: aSpan attributes: aDictionary [
+
+	^ self addLink: (OTSpanLink span: aSpan attributes: aDictionary)
+]
+
+{ #category : 'configuring' }
 OTSpanBuilder >> addLinkSpanContext: aSpanContext attributes: aDictionary [
 
 	^ self addLink: (OTSpanLink spanContext: aSpanContext attributes: aDictionary)

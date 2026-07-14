@@ -161,6 +161,41 @@ OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
+
+	| linkedSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span addLinkSpan: linkedSpan attributes: (OrderedDictionary new
+		at: 'link.kind' put: 'follows_from';
+		yourself).
+	self assert: span links size equals: 1.
+	self assert: span links first spanContext equals: linkedSpan spanContext.
+	self assert: (span links first attributes at: 'link.kind') equals: 'follows_from'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderCanAddLinkFromAnotherSpan [
+
+	| linkedSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
+	span := ((tracer spanBuilderNamed: 'operation')
+		addLinkSpan: linkedSpan attributes: (OrderedDictionary new
+			at: 'link.kind' put: 'caused_by';
+			yourself);
+		startSpan).
+	self assert: span links size equals: 1.
+	self assert: span links first spanContext equals: linkedSpan spanContext.
+	self assert: (span links first attributes at: 'link.kind') equals: 'caused_by'
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 
 	| currentContext parentSpan provider span tracer |

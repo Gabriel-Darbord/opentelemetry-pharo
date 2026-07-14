@@ -137,6 +137,12 @@ OTSpanContext >> asNonRecordingSpan [
 	^ OTSpan wrapping: self
 ]
 
+{ #category : 'converting' }
+OTSpanContext >> asSpanContext [
+
+	^ self
+]
+
 { #category : 'comparing' }
 OTSpanContext >> hash [
 
