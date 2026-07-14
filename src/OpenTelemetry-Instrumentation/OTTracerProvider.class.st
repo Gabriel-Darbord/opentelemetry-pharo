@@ -225,7 +225,6 @@ OTTracerProvider class >> defaultResourceDetectors [
 		add: (OTStaticResourceDetector named: 'sdk' resource: self defaultResource);
 		add: OTHostResourceDetector new;
 		add: OTProcessResourceDetector new;
-		add: OTServiceInstanceResourceDetector new;
 		add: OTEnvironmentResourceDetector new;
 		add: OTServiceNameResourceDetector new;
 		yourself

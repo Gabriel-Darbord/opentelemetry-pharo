@@ -1,5 +1,5 @@
 "
-Reads OTEL_SERVICE_NAME as a dedicated service resource detector.
+Supplies the built-in service resource attributes derived from SDK defaults and OTEL_SERVICE_NAME.
 "
 Class {
 	#name : 'OTServiceNameResourceDetector',
@@ -17,8 +17,17 @@ OTServiceNameResourceDetector class >> detectorName [
 { #category : 'detecting' }
 OTServiceNameResourceDetector >> detectResource [
 
-	| serviceName |
+	| attributes rawResourceAttributes serviceName |
+	attributes := OrderedDictionary new.
 	serviceName := OTTracerProvider configuredServiceName.
-	serviceName ifNil: [ ^ OTResource empty ].
-	^ OTResource attributes: { 'service.name' -> serviceName }
+	serviceName ifNotNil: [ attributes at: 'service.name' put: serviceName ].
+	rawResourceAttributes := OTTracerProvider environmentValueAt: 'OTEL_RESOURCE_ATTRIBUTES'.
+	(rawResourceAttributes isNil
+		or: [ (rawResourceAttributes includesSubstring: 'service.instance.id=') not ]) ifTrue: [
+			attributes
+				at: 'service.instance.id'
+				put: OTTracerProvider defaultServiceInstanceId ].
+	^ attributes
+		ifEmpty: [ OTResource empty ]
+		ifNotEmpty: [ OTResource attributes: attributes ]
 ]
