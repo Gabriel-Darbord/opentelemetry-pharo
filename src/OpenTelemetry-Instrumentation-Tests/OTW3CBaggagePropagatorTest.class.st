@@ -53,6 +53,30 @@ OTW3CBaggagePropagatorTest >> testExtractUsesLastValueForDuplicateKeysAcrossHead
 ]
 
 { #category : 'tests' }
+OTW3CBaggagePropagatorTest >> testExtractCountsDuplicateMembersTowardEntryLimit [
+
+	| baggage carrier context duplicateMembers header |
+	duplicateMembers := OrderedCollection new.
+	64 timesRepeat: [ duplicateMembers add: 'user.id=42' ].
+	duplicateMembers add: 'tenant.id=acme'.
+	header := String streamContents: [ :stream |
+		duplicateMembers
+			doWithIndex: [ :each :index |
+				index > 1 ifTrue: [ stream nextPut: $, ].
+				stream nextPutAll: each ] ].
+	carrier := Dictionary new
+		at: 'baggage' put: header;
+		yourself.
+	context := OTW3CBaggagePropagator current
+		extract: OTContext new
+		from: carrier.
+	baggage := context baggage.
+	self assert: baggage size equals: 1.
+	self assert: (baggage valueAt: 'user.id') equals: '42'.
+	self deny: (baggage includesEntryNamed: 'tenant.id')
+]
+
+{ #category : 'tests' }
 OTW3CBaggagePropagatorTest >> testInjectPercentEncodesMetadata [
 
 	| baggage carrier context |

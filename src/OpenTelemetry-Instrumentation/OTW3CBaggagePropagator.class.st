@@ -49,16 +49,17 @@ OTW3CBaggagePropagator >> baggageFromCarrier: aCarrier getter: aGetter [
 	totalBytes := 0.
 	totalEntries := 0.
 	(aGetter getAllFrom: aCarrier key: self class baggageHeaderName) do: [ :eachHeader |
-		| headerBytes remainingEntries |
+		| headerBytes parsedHeader remainingEntries |
 		eachHeader isEmpty ifFalse: [
 			headerBytes := eachHeader size.
 			(totalEntries >= self class maxBaggageEntries or: [ totalBytes + headerBytes > self class maxBaggageBytes ]) ifTrue: [ ^ baggage ].
 			remainingEntries := self class maxBaggageEntries - totalEntries.
-			baggage := self
-				baggageFromHeader: eachHeader
+			parsedHeader := self
+				baggageAndEntryCountFromHeader: eachHeader
 				startingWith: baggage
 				remainingEntries: remainingEntries.
-			totalEntries := baggage size.
+			baggage := parsedHeader first.
+			totalEntries := totalEntries + parsedHeader second.
 			totalBytes := totalBytes + headerBytes ] ].
 	^ baggage
 ]
@@ -66,25 +67,29 @@ OTW3CBaggagePropagator >> baggageFromCarrier: aCarrier getter: aGetter [
 { #category : 'private' }
 OTW3CBaggagePropagator >> baggageFromHeader: aString [
 
-	^ self
-		baggageFromHeader: aString
+	^ (self
+		baggageAndEntryCountFromHeader: aString
 		startingWith: OTBaggage empty
-		remainingEntries: self class maxBaggageEntries
+		remainingEntries: self class maxBaggageEntries) first
 ]
 
 { #category : 'private' }
-OTW3CBaggagePropagator >> baggageFromHeader: aString startingWith: aBaggage remainingEntries: anInteger [
+OTW3CBaggagePropagator >> baggageAndEntryCountFromHeader: aString startingWith: aBaggage remainingEntries: anInteger [
 
-	| baggage |
+	| acceptedEntries baggage |
 	baggage := aBaggage.
+	acceptedEntries := 0.
 	(aString substrings: ',') do: [ :eachMember |
-		(baggage size < (aBaggage size + anInteger)) ifTrue: [
+		acceptedEntries < anInteger ifTrue: [
 			(self baggageMemberFrom: eachMember) ifNotNil: [ :anAssociation |
+				acceptedEntries := acceptedEntries + 1.
 				baggage := baggage
 					withEntryNamed: anAssociation key
 					value: anAssociation value value
 					metadata: anAssociation value metadata ] ] ].
-	^ baggage
+	^ Array
+		with: baggage
+		with: acceptedEntries
 ]
 
 { #category : 'private' }
