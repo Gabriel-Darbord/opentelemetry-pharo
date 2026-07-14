@@ -79,9 +79,13 @@ OTBaggageBuilder >> putEntryNamed: aName value: aValue [
 { #category : 'updating' }
 OTBaggageBuilder >> putEntryNamed: aName value: aValue metadata: aMetadataObject [
 
+	| name value |
+	name := OTBaggage normalizedEntryNameFrom: aName.
+	value := OTBaggage normalizedEntryValueFrom: aValue.
+	(name isNil or: [ value isNil ]) ifTrue: [ ^ self ].
 	entriesByName
-		at: aName
-		put: (OTBaggageEntry value: aValue metadata: aMetadataObject).
+		at: name
+		put: (OTBaggageEntry value: value metadata: aMetadataObject).
 	^ self
 ]
 
@@ -96,6 +100,9 @@ OTBaggageBuilder >> removeEntriesNamed: aCollection [
 { #category : 'updating' }
 OTBaggageBuilder >> removeEntryNamed: aName [
 
-	entriesByName removeKey: aName ifAbsent: [  ].
+	| name |
+	name := OTBaggage normalizedEntryNameFrom: aName.
+	name ifNil: [ ^ self ].
+	entriesByName removeKey: name ifAbsent: [  ].
 	^ self
 ]

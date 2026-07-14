@@ -61,6 +61,20 @@ OTBaggage class >> fromContext: aContext [
 		ifNotNil: [ aContext baggage ]
 ]
 
+{ #category : 'private' }
+OTBaggage class >> normalizedEntryNameFrom: anObject [
+
+	anObject ifNil: [ ^ nil ].
+	^ anObject asString
+]
+
+{ #category : 'private' }
+OTBaggage class >> normalizedEntryValueFrom: anObject [
+
+	anObject ifNil: [ ^ nil ].
+	^ anObject asString
+]
+
 { #category : 'actions' }
 OTBaggage class >> use: aBaggage during: aBlock [
 
@@ -96,9 +110,11 @@ OTBaggage >> cleared [
 { #category : 'private' }
 OTBaggage >> copyWithoutEntryNamed: aName [
 
-	| updatedEntries |
+	| name updatedEntries |
+	name := self class normalizedEntryNameFrom: aName.
+	name ifNil: [ ^ self ].
 	updatedEntries := entriesByName copy.
-	updatedEntries removeKey: aName.
+	updatedEntries removeKey: name.
 	^ self class new
 		entriesByName: updatedEntries;
 		yourself
@@ -125,13 +141,19 @@ OTBaggage >> entriesByName: aDictionary [
 { #category : 'accessing' }
 OTBaggage >> entryAt: aName [
 
-	^ entriesByName at: aName ifAbsent: [ nil ]
+	| name |
+	name := self class normalizedEntryNameFrom: aName.
+	name ifNil: [ ^ nil ].
+	^ entriesByName at: name ifAbsent: [ nil ]
 ]
 
 { #category : 'accessing' }
 OTBaggage >> entryAt: aName ifAbsent: anAbsentBlock [
 
-	^ entriesByName at: aName ifAbsent: anAbsentBlock
+	| name |
+	name := self class normalizedEntryNameFrom: aName.
+	name ifNil: [ ^ anAbsentBlock value ].
+	^ entriesByName at: name ifAbsent: anAbsentBlock
 ]
 
 { #category : 'comparing' }
@@ -151,7 +173,10 @@ OTBaggage >> inContext: aContext [
 { #category : 'testing' }
 OTBaggage >> includesEntryNamed: aName [
 
-	^ entriesByName includesKey: aName
+	| name |
+	name := self class normalizedEntryNameFrom: aName.
+	name ifNil: [ ^ false ].
+	^ entriesByName includesKey: name
 ]
 
 { #category : 'initialization' }
@@ -206,11 +231,14 @@ OTBaggage >> withEntryNamed: aName value: aValue [
 { #category : 'updating' }
 OTBaggage >> withEntryNamed: aName value: aValue metadata: aMetadataString [
 
-	| updatedEntries |
+	| name updatedEntries value |
+	name := self class normalizedEntryNameFrom: aName.
+	value := self class normalizedEntryValueFrom: aValue.
+	(name isNil or: [ value isNil ]) ifTrue: [ ^ self ].
 	updatedEntries := entriesByName copy.
 	updatedEntries
-		at: aName
-		put: (OTBaggageEntry value: aValue metadata: aMetadataString).
+		at: name
+		put: (OTBaggageEntry value: value metadata: aMetadataString).
 	^ self class new
 		entriesByName: updatedEntries;
 		yourself
@@ -229,6 +257,9 @@ OTBaggage >> withoutEntriesNamed: aCollection [
 { #category : 'updating' }
 OTBaggage >> withoutEntryNamed: aName [
 
-	(entriesByName includesKey: aName) ifFalse: [ ^ self ].
+	| name |
+	name := self class normalizedEntryNameFrom: aName.
+	name ifNil: [ ^ self ].
+	(entriesByName includesKey: name) ifFalse: [ ^ self ].
 	^ self copyWithoutEntryNamed: aName
 ]
