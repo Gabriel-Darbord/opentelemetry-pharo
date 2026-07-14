@@ -47,10 +47,16 @@ OTW3CTraceContextPropagator >> extract: aContext from: aCarrier getter: aGetter 
 	| baseContext spanContext traceParent traceState |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
 	aGetter ifNil: [ ^ baseContext ].
-	traceParent := aGetter getFrom: aCarrier key: self class traceParentHeaderName.
+	traceParent := self
+		headerValueIn: self class traceParentHeaderName
+		from: aCarrier
+		getter: aGetter.
 	spanContext := self extractSpanContextFromTraceParent: traceParent.
 	spanContext ifNil: [ ^ baseContext ].
-	traceState := aGetter getFrom: aCarrier key: self class traceStateHeaderName.
+	traceState := self
+		headerValueIn: self class traceStateHeaderName
+		from: aCarrier
+		getter: aGetter.
 	^ baseContext withSpan: ((self spanContext: spanContext withTraceStateHeader: traceState) asNonRecordingSpan)
 ]
 
@@ -82,6 +88,29 @@ OTW3CTraceContextPropagator >> extractSpanContextFromTraceParent: aString [
 OTW3CTraceContextPropagator >> fields [
 
 	^ { self class traceParentHeaderName. self class traceStateHeaderName }
+]
+
+{ #category : 'private' }
+OTW3CTraceContextPropagator >> headerStringFrom: anObject [
+
+	| firstValue normalized |
+	anObject ifNil: [ ^ nil ].
+	(anObject isString or: [ anObject isSymbol ]) ifTrue: [
+		normalized := anObject asString trimBoth.
+		^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ] ].
+	anObject isCollection ifTrue: [
+		firstValue := anObject
+			detect: [ :each | each isNotNil ]
+			ifNone: [ nil ].
+		^ self headerStringFrom: firstValue ].
+	normalized := anObject asString trimBoth.
+	^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ]
+]
+
+{ #category : 'private' }
+OTW3CTraceContextPropagator >> headerValueIn: aHeaderName from: aCarrier getter: aGetter [
+
+	^ self headerStringFrom: (aGetter getFrom: aCarrier key: aHeaderName)
 ]
 
 { #category : 'private' }

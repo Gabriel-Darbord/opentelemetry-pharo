@@ -23,6 +23,40 @@ OTW3CTraceContextPropagatorTest >> testExtractBuildsTraceStateFromHeader [
 ]
 
 { #category : 'tests' }
+OTW3CTraceContextPropagatorTest >> testExtractNormalizesCollectionHeaderValues [
+
+	| carrier context |
+	carrier := Dictionary new
+		at: 'traceparent' put: #(nil ' 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01 ');
+		at: 'tracestate' put: #(nil ' rojo=one,tenant@system=two ');
+		yourself.
+	context := OTW3CTraceContextPropagator current
+		extract: OTContext new
+		from: carrier.
+	self assert: context span spanContext traceId equals: '4bf92f3577b34da6a3ce929d0e0e4736'.
+	self assert: context span spanContext spanId equals: '00f067aa0ba902b7'.
+	self assert: context span spanContext traceFlags equals: '01'.
+	self assert: (context span spanContext traceState valueAt: 'rojo') equals: 'one'
+]
+
+{ #category : 'tests' }
+OTW3CTraceContextPropagatorTest >> testExtractNormalizesSymbolHeaderValues [
+
+	| carrier context |
+	carrier := Dictionary new
+		at: 'traceparent' put: #'00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
+		at: 'tracestate' put: #'rojo=one,tenant@system=two';
+		yourself.
+	context := OTW3CTraceContextPropagator current
+		extract: OTContext new
+		from: carrier.
+	self assert: context span spanContext traceId equals: '4bf92f3577b34da6a3ce929d0e0e4736'.
+	self assert: context span spanContext spanId equals: '00f067aa0ba902b7'.
+	self assert: context span spanContext traceFlags equals: '01'.
+	self assert: (context span spanContext traceState valueAt: 'tenant@system') equals: 'two'
+]
+
+{ #category : 'tests' }
 OTW3CTraceContextPropagatorTest >> testInjectSerializesTraceStateHeader [
 
 	| carrier context spanContext |
