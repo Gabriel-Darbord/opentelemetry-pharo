@@ -80,6 +80,7 @@ OTB3TextMapPropagator >> extract: aContext from: aCarrier getter: aGetter [
 
 	| baseContext singleHeaderValue |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	aGetter ifNil: [ ^ baseContext ].
 	singleHeaderValue := self
 		headerValueIn: self class b3HeaderName
 		from: aCarrier
@@ -198,6 +199,7 @@ OTB3TextMapPropagator >> inject: aContext into: aCarrier setter: aSetter [
 
 	| context span spanContext |
 	context := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	aSetter ifNil: [ ^ self ].
 	span := context span.
 	span ifNil: [ ^ self ].
 	spanContext := span spanContext.
