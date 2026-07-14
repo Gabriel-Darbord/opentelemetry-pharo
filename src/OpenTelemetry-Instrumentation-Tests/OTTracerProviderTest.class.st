@@ -58,6 +58,18 @@ OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testRootSpanMarksGeneratedTraceIdsAsRandom [
+
+	| provider tracer span |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span spanContext traceFlags equals: '03'.
+	self assert: span spanContext isRandom
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 
 	| provider span |
@@ -69,6 +81,28 @@ OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 		in: OTContext new.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self deny: span spanContext isValid
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testUnsampledChildSpanPreservesParentRandomFlag [
+
+	| provider tracer parentContext span |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentContext := OTContext new
+		withSpan: ((OTSpanContext
+			traceId: '00112233445566778899aabbccddeeff'
+			spanId: '1122334455667788'
+			traceFlags: '02'
+			traceState: nil
+			remote: true) asNonRecordingSpan).
+	span := ((tracer spanBuilderNamed: 'child')
+		inContext: parentContext;
+		startSpan).
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span spanContext traceFlags equals: '02'.
+	self assert: span spanContext isRandom
 ]
 
 { #category : 'tests' }

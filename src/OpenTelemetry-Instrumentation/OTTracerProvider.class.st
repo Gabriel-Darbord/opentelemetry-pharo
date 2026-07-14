@@ -565,7 +565,7 @@ OTTracerProvider >> traceFlagsForSamplingResult: aSamplingResult parentSpan: aSp
 
 	| parentFlags integerFlags |
 	parentFlags := aSpan
-		ifNil: [ 0 ]
+		ifNil: [ 16r02 ]
 		ifNotNil: [ Integer readFrom: aSpan traceFlags readStream base: 16 ].
 	integerFlags := (parentFlags bitAnd: 16rFE)
 		bitOr: (aSamplingResult isRecordAndSample ifTrue: [ 1 ] ifFalse: [ 0 ]).

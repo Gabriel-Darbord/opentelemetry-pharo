@@ -97,6 +97,28 @@ OTSpanContextTest >> testInvalidContextUsesZeroIdentifiersAndUnsampledFlags [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testTraceFlagsSupportSampledAndRandomBits [
+
+	| sampledRandom randomOnly |
+	sampledRandom := OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: nil
+		remote: false.
+	randomOnly := OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '02'
+		traceState: nil
+		remote: false.
+	self assert: sampledRandom isSampled.
+	self assert: sampledRandom isRandom.
+	self deny: randomOnly isSampled.
+	self assert: randomOnly isRandom
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testTraceStateStringNormalizesToTraceStateObject [
 
 	| spanContext |

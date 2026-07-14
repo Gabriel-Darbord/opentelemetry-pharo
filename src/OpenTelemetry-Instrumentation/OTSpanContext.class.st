@@ -150,6 +150,12 @@ OTSpanContext >> isRemote [
 ]
 
 { #category : 'testing' }
+OTSpanContext >> isRandom [
+
+	^ ((Integer readFrom: self traceFlags readStream base: 16) bitAnd: 2) = 2
+]
+
+{ #category : 'testing' }
 OTSpanContext >> isSampled [
 
 	^ ((Integer readFrom: self traceFlags readStream base: 16) bitAnd: 1) = 1
