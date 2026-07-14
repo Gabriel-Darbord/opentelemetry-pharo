@@ -80,6 +80,18 @@ OTEnvironmentConfigurationTest >> testCurrentReadsAlwaysOffSamplerFromEnvironmen
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesNoopExporterWhenTraceExportIsDisabled [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'none';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTNoopSpanExporter.
+			self assert: OTTracerProvider current spanProcessors isEmpty ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsBatchProcessorSizingFromEnvironment [
 
 	self
@@ -100,6 +112,19 @@ OTEnvironmentConfigurationTest >> testCurrentReadsBatchProcessorSizingFromEnviro
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterAndSimpleProcessorForConsoleSelection [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'console';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTConsoleSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTSimpleSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTSimpleSpanProcessor ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsResourceAttributesAndServiceNameFromEnvironment [
 
 	self
@@ -113,6 +138,23 @@ OTEnvironmentConfigurationTest >> testCurrentReadsResourceAttributesAndServiceNa
 			self assert: resource serviceName equals: 'override'.
 			self assert: (resource attributeAt: 'host.name') equals: 'pharo'.
 			self assert: (resource attributeAt: 'key=value') equals: 'some,thing' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesZipkinExporterConfigurationFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'zipkin';
+			at: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT' put: 'http://example.com:9999/custom/path';
+			at: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT' put: '1234';
+			yourself)
+		during: [
+			| exporter |
+			exporter := OTSpanExporter current.
+			self assert: exporter class identicalTo: OTZipkinSpanExporter.
+			self assert: exporter httpClient request url asString equals: 'http://example.com:9999/custom/path'.
+			self assert: exporter httpClient timeout equals: 1234 ]
 ]
 
 { #category : 'tests' }

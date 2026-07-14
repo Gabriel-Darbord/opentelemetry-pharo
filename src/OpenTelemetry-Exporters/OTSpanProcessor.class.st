@@ -173,6 +173,7 @@ OTSpanProcessor class >> readConfiguration [
 	"Use BSP env sizing where it fits the current synchronous batch processor model"
 
 	| processor maxQueueSize maxExportBatchSize |
+	OTSpanExporter current class == OTConsoleSpanExporter ifTrue: [ ^ OTSimpleSpanProcessor new ].
 	processor := OTBatchSpanProcessor new.
 	maxQueueSize := self batchSpanProcessorMaxQueueSize.
 	maxExportBatchSize := self batchSpanProcessorMaxExportBatchSizeForQueueSize: maxQueueSize.

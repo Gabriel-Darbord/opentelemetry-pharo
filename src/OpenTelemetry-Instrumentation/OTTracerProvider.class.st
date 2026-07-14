@@ -140,13 +140,15 @@ OTTracerProvider class >> integerEnvironmentValueAt: aString default: aDefaultVa
 { #category : 'instance creation' }
 OTTracerProvider class >> readConfiguration [
 
-	| provider |
+	| exporter provider |
 	provider := self new.
+	exporter := OTSpanExporter current.
 	provider
 		resource: self configuredResource;
 		sampler: self configuredSampler;
 		spanLimits: self configuredSpanLimits.
-	self sdkDisabled ifFalse: [ provider spanProcessor: OTSpanProcessor current ].
+	(self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
+		ifFalse: [ provider spanProcessor: OTSpanProcessor current ].
 	^ provider
 ]
 

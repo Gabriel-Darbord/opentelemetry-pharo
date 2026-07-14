@@ -43,14 +43,45 @@ OTSpanExporter class >> defaultFileExporter [
 ]
 
 { #category : 'instance creation' }
+OTSpanExporter class >> defaultZipkinEndpoint [
+
+	^ 'http://localhost:9411/api/v2/spans'
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> defaultZipkinTimeoutMillis [
+
+	^ 10000
+]
+
+{ #category : 'instance creation' }
 OTSpanExporter class >> defaultZipkinExporter [
 
 	| exporter |
 	exporter := OTZipkinSpanExporter new.
-	exporter httpClient request url
-		host: 'localhost';
-		port: 9411.
+	exporter httpClient url: self defaultZipkinEndpoint.
 	^ exporter
+]
+
+{ #category : 'private' }
+OTSpanExporter class >> environmentValueAt: aString [
+
+	| value |
+	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
+	value := value asString trimBoth.
+	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> exporterFromEnvironmentName: aString [
+
+	| exporterName |
+	exporterName := aString asLowercase.
+	exporterName = 'console' ifTrue: [ ^ OTConsoleSpanExporter new ].
+	exporterName = 'logging' ifTrue: [ ^ OTConsoleSpanExporter new ].
+	exporterName = 'none' ifTrue: [ ^ OTNoopSpanExporter new ].
+	exporterName = 'zipkin' ifTrue: [ ^ self configuredZipkinExporter ].
+	^ nil
 ]
 
 { #category : 'exporting' }
@@ -91,10 +122,41 @@ OTSpanExporter class >> markShutdown: anExporter [
 	^ anExporter
 ]
 
+{ #category : 'private' }
+OTSpanExporter class >> positiveIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := self strictPositiveIntegerFrom: rawValue.
+	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> configuredZipkinExporter [
+
+	| endpoint exporter timeout |
+	exporter := self defaultZipkinExporter.
+	endpoint := self environmentValueAt: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT'.
+	endpoint ifNotNil: [ exporter httpClient url: endpoint ].
+	timeout := self
+		positiveIntegerEnvironmentValueAt: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT'
+		default: self defaultZipkinTimeoutMillis.
+	exporter httpClient timeout: timeout.
+	^ exporter
+]
+
 { #category : 'instance creation' }
 OTSpanExporter class >> readConfiguration [
-	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
 
+	| configuredValue |
+	configuredValue := self environmentValueAt: 'OTEL_TRACES_EXPORTER'.
+	configuredValue ifNil: [ ^ self defaultFileExporter ].
+	(configuredValue substrings: ',')
+		do: [ :each |
+			| exporter |
+			exporter := self exporterFromEnvironmentName: each trimBoth.
+			exporter ifNotNil: [ ^ exporter ] ].
 	^ self defaultFileExporter
 ]
 
@@ -118,6 +180,18 @@ OTSpanExporter class >> shutdown [
 
 	<script>
 	^ Current ifNil: [ false ] ifNotNil: [ Current shutdown ]
+]
+
+{ #category : 'private' }
+OTSpanExporter class >> strictPositiveIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value > 0 ifFalse: [ ^ nil ].
+	^ value
 ]
 
 { #category : 'accessing' }
