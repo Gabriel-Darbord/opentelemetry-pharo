@@ -109,6 +109,12 @@ OTTracerProvider class >> defaultServiceName [
 	^ 'unknown_service:pharo'
 ]
 
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultIdGenerator [
+
+	^ OTIdGenerator default
+]
+
 { #category : 'private - logging' }
 OTTracerProvider class >> defaultTracerNameWarningSink [
 
@@ -306,6 +312,12 @@ OTTracerProvider class >> resourceAttributesFromEnvironment: aString [
 OTTracerProvider class >> resourceByProvider [
 
 	^ self stateDictionaryAt: #otResourceByProvider
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> idGeneratorByProvider [
+
+	^ self stateDictionaryAt: #otIdGeneratorByProvider
 ]
 
 { #category : 'private' }
@@ -544,6 +556,24 @@ OTTracerProvider >> isShutdown [
 	^ (self class shutdownByProvider at: self ifAbsent: [ false ]) = true
 ]
 
+{ #category : 'accessing' }
+OTTracerProvider >> idGenerator [
+
+	^ self class idGeneratorByProvider
+		at: self
+		ifAbsentPut: [ self class defaultIdGenerator ]
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> idGenerator: anIdGenerator [
+
+	self ensureOpen.
+	self class idGeneratorByProvider
+		at: self
+		put: (anIdGenerator ifNil: [ self class defaultIdGenerator ] ifNotNil: [ anIdGenerator ]).
+	^ self idGenerator
+]
+
 { #category : 'tracing' }
 OTTracerProvider >> nonRecordingSpanIn: aContext [
 
@@ -567,7 +597,7 @@ OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId
 		ifNotNil: [ aSamplingResult traceState ].
 	spanContext := OTSpanContext
 		traceId: aTraceId
-		spanId: OTSpan newSpanId
+		spanId: self idGenerator generateSpanIdHex
 		traceFlags: (self traceFlagsForSamplingResult: aSamplingResult parentSpan: aSpan)
 		traceState: traceState
 		remote: false.
@@ -764,7 +794,7 @@ OTTracerProvider >> traceFlagsForSamplingResult: aSamplingResult parentSpan: aSp
 
 	| parentFlags integerFlags |
 	parentFlags := aSpan
-		ifNil: [ 16r02 ]
+		ifNil: [ self idGenerator isRandom ifTrue: [ 16r02 ] ifFalse: [ 0 ] ]
 		ifNotNil: [ Integer readFrom: aSpan traceFlags readStream base: 16 ].
 	integerFlags := (parentFlags bitAnd: 16rFE)
 		bitOr: (aSamplingResult isRecordAndSample ifTrue: [ 1 ] ifFalse: [ 0 ]).

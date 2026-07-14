@@ -70,6 +70,45 @@ OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testCustomIdGeneratorControlsNonRecordingSpanIds [
+
+	| generator provider span tracer |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		sampler: OTAlwaysOffSampler new;
+		idGenerator: (generator := OTFixedIdGenerator
+			traceIdHex: '00112233445566778899aabbccddeeff'
+			spanIdHex: '1122334455667788'
+			random: false).
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span traceId equals: generator generateTraceIdHex.
+	self assert: span spanId equals: generator generateSpanIdHex.
+	self assert: span spanContext traceFlags equals: '00'
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testCustomIdGeneratorControlsRootTraceAndSpanIds [
+
+	| generator provider span tracer |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		idGenerator: (generator := OTFixedIdGenerator
+			traceIdHex: '00112233445566778899aabbccddeeff'
+			spanIdHex: '1122334455667788'
+			random: false).
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span traceId equals: generator generateTraceIdHex.
+	self assert: span spanId equals: generator generateSpanIdHex.
+	self assert: span spanContext traceFlags equals: '01'.
+	self deny: span spanContext isRandom
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testInstrumenterEndNotifiesSpanProcessorOnlyOnce [
 
 	| instrumenter processor provider span |

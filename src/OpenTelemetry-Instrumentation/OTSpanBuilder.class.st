@@ -195,15 +195,19 @@ OTSpanBuilder >> spanName: aString [
 { #category : 'starting' }
 OTSpanBuilder >> startSpan [
 
-	| baseContext parentSpan traceId samplingResult span effectiveTraceFlags |
+	| baseContext effectiveTraceFlags idGenerator parentSpan samplingResult span traceId |
 	baseContext := self class normalizedParentContextFrom: parentContext.
 	tracer enabled ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext ].
+	idGenerator := tracer provider idGenerator.
 	parentSpan := rootRequested ifTrue: [ nil ] ifFalse: [ tracer parentSpanFrom: baseContext ].
-	traceId := parentSpan ifNil: [ OTSpan newTraceId ] ifNotNil: [ parentSpan traceId ].
+	traceId := parentSpan ifNil: [ idGenerator generateTraceIdHex ] ifNotNil: [ parentSpan traceId ].
 	samplingResult := tracer provider samplingResultIn: baseContext traceId: traceId name: spanName kind: spanKind attributes: attributes links: links.
 	samplingResult isRecording ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext parent: parentSpan traceId: traceId samplingResult: samplingResult instrumentationScope: tracer instrumentationScope ].
 	span := parentSpan ifNil: [ OTSpan rootIn: baseContext ] ifNotNil: [ OTSpan under: parentSpan ].
-	span limits: tracer provider spanLimits.
+	span
+		limits: tracer provider spanLimits;
+		traceId: traceId;
+		spanId: idGenerator generateSpanIdHex.
 	effectiveTraceFlags := tracer provider traceFlagsForSamplingResult: samplingResult parentSpan: parentSpan.
 	span traceFlags: effectiveTraceFlags; resource: tracer provider resource.
 	samplingResult traceState ifNotNil: [ span traceState: samplingResult traceState ].
