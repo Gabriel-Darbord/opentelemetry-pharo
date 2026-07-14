@@ -59,7 +59,10 @@ OTEnvironmentConfigurationTest >> testCurrentDiscardsMalformedResourceAttributes
 		during: [
 			| provider |
 			provider := OTTracerProvider current.
-			self assert: provider resource isEmpty ]
+			self assert: (provider resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
+			self assert: (provider resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
+			self assert: (provider resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
+			self deny: provider resource isEmpty ]
 ]
 
 { #category : 'tests' }
@@ -147,9 +150,25 @@ OTEnvironmentConfigurationTest >> testCurrentReadsResourceAttributesAndServiceNa
 		during: [
 			| resource |
 			resource := OTTracerProvider current resource.
+			self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
+			self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
+			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
 			self assert: resource serviceName equals: 'override'.
 			self assert: (resource attributeAt: 'host.name') equals: 'pharo'.
 			self assert: (resource attributeAt: 'key=value') equals: 'some,thing' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentProvidesDefaultSdkResourceAttributes [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
+			self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
+			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
 ]
 
 { #category : 'tests' }

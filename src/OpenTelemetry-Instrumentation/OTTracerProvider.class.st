@@ -17,13 +17,14 @@ Class {
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredResource [
 
-	| attributes serviceName |
+	| attributes resource serviceName |
+	resource := self defaultResource.
 	attributes := self configuredResourceAttributes.
 	serviceName := self environmentValueAt: 'OTEL_SERVICE_NAME'.
 	serviceName ifNotNil: [ attributes at: 'service.name' put: serviceName ].
 	^ attributes isEmpty
-		ifTrue: [ OTResource empty ]
-		ifFalse: [ OTResource attributes: attributes ]
+		ifTrue: [ resource ]
+		ifFalse: [ resource merge: (OTResource attributes: attributes) ]
 ]
 
 { #category : 'private' }
@@ -87,6 +88,16 @@ OTTracerProvider class >> current: aTracerProvider [
 OTTracerProvider class >> defaultSampler [
 
 	^ OTParentBasedSampler default
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultResource [
+
+	^ OTResource attributes: (OrderedDictionary new
+		at: 'telemetry.sdk.name' put: 'opentelemetry';
+		at: 'telemetry.sdk.language' put: 'pharo';
+		at: 'telemetry.sdk.version' put: self sdkVersion;
+		yourself)
 ]
 
 { #category : 'private - logging' }
@@ -205,6 +216,12 @@ OTTracerProvider class >> integerEnvironmentValueAt: aString default: aDefaultVa
 	rawValue ifNil: [ ^ aDefaultValue ].
 	parsed := self strictPositiveIntegerFrom: rawValue.
 	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> sdkVersion [
+
+	^ 'dev'
 ]
 
 { #category : 'instance creation' }
