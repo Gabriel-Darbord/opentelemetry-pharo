@@ -102,6 +102,20 @@ OTTracerProviderTest >> testCustomIdGeneratorControlsNonRecordingSpanIds [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testCustomTracerProviderCanCustomizeRecordingAndNonRecordingSpanClasses [
+
+	| provider recordedSpan sampledOffSpan tracer |
+	provider := OTCustomTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	recordedSpan := (tracer spanBuilderNamed: 'recorded') startSpan.
+	provider sampler: OTAlwaysOffSampler new.
+	sampledOffSpan := (tracer spanBuilderNamed: 'dropped') startSpan.
+	self assert: recordedSpan class identicalTo: OTCustomRecordingSpan.
+	self assert: sampledOffSpan class identicalTo: OTCustomNonRecordingSpan
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testCustomIdGeneratorControlsRootTraceAndSpanIds [
 
 	| generator provider span tracer |
@@ -185,6 +199,23 @@ OTTracerProviderTest >> testInstrumenterEndNotifiesSpanProcessorOnlyOnce [
 	instrumenter end: span.
 	self assert: processor endingSpans asArray equals: { span }.
 	self assert: processor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testCustomTracerProviderWrapsNoopSpanContextsWithCustomSpanClass [
+
+	| parentSpan provider returnedSpan tracer |
+	provider := OTCustomTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
+	provider tracerConfigurator: [ :scope | false ].
+	returnedSpan := ((tracer spanBuilderNamed: 'operation')
+		inContext: (OTContext new withSpan: parentSpan);
+		startSpan).
+	self assert: returnedSpan class identicalTo: OTCustomNonRecordingSpan.
+	self assert: returnedSpan traceId equals: parentSpan traceId.
+	self assert: returnedSpan spanId equals: parentSpan spanId
 ]
 
 { #category : 'tests' }

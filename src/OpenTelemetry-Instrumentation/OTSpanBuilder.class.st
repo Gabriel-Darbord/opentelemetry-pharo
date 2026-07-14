@@ -215,7 +215,10 @@ OTSpanBuilder >> startSpan [
 	traceId := parentSpan ifNil: [ idGenerator generateTraceIdHex ] ifNotNil: [ parentSpan traceId ].
 	samplingResult := tracer provider samplingResultIn: baseContext traceId: traceId name: spanName kind: spanKind attributes: attributes links: links.
 	samplingResult isRecording ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext parent: parentSpan traceId: traceId samplingResult: samplingResult instrumentationScope: tracer instrumentationScope ].
-	span := parentSpan ifNil: [ OTSpan rootIn: baseContext ] ifNotNil: [ OTSpan under: parentSpan ].
+	span := tracer provider
+		recordingSpanIn: baseContext
+		parent: parentSpan
+		instrumentationScope: tracer instrumentationScope.
 	span
 		limits: tracer provider spanLimits;
 		traceId: traceId;

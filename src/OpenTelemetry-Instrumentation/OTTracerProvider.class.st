@@ -627,8 +627,8 @@ OTTracerProvider >> nonRecordingSpanIn: aContext [
 	parentSpan := baseContext span.
 	parentSpan ifNotNil: [
 		parentSpan isRecording ifFalse: [ ^ parentSpan ].
-		span := OTSpan wrapping: parentSpan spanContext ]
-	ifNil: [ span := OTSpan wrapping: OTSpanContext invalid ].
+		span := self wrapSpanContext: parentSpan spanContext ]
+	ifNil: [ span := self wrapSpanContext: OTSpanContext invalid ].
 	span
 		context: (baseContext withSpan: span);
 		instrumentationScope: (OTInstrumentationScope named: '');
@@ -650,8 +650,8 @@ OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId
 		traceFlags: (self traceFlagsForSamplingResult: aSamplingResult parentSpan: aSpan)
 		traceState: traceState
 		remote: false.
-	span := OTNonRecordingSpan
-		spanContext: spanContext
+	span := self
+		nonRecordingSpanContext: spanContext
 		context: baseContext
 		parent: aSpan
 		instrumentationScope: anInstrumentationScope.
@@ -659,6 +659,16 @@ OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId
 		context: (baseContext withSpan: span);
 		resource: self resource.
 	^ span
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> nonRecordingSpanContext: aSpanContext context: aContext parent: aSpan instrumentationScope: anInstrumentationScope [
+
+	^ OTNonRecordingSpan
+		spanContext: aSpanContext
+		context: aContext
+		parent: aSpan
+		instrumentationScope: anInstrumentationScope
 ]
 
 { #category : 'processing' }
@@ -720,6 +730,17 @@ OTTracerProvider >> resource [
 	^ self class resourceByProvider
 		at: self
 		ifAbsentPut: [ OTResource empty ]
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope: anInstrumentationScope [
+
+	| span |
+	span := aSpan
+		ifNil: [ OTSpan rootIn: aContext ]
+		ifNotNil: [ OTSpan under: aSpan ].
+	span instrumentationScope: anInstrumentationScope.
+	^ span
 ]
 
 { #category : 'accessing' }
@@ -823,6 +844,12 @@ OTTracerProvider >> withSpanProcessor: aProcessor operationNamed: anOperationNam
 		do: [ :error |
 			self class noteSpanProcessor: aProcessor failedDuring: anOperationName error: error.
 			aDefaultValue ]
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> wrapSpanContext: aSpanContext [
+
+	^ OTSpan wrapping: aSpanContext
 ]
 
 { #category : 'accessing' }
