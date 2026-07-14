@@ -110,6 +110,8 @@ OTW3CBaggagePropagator >> baggageMemberFrom: aString [
 	metadata := metadataIndex = 0
 		ifTrue: [ '' ]
 		ifFalse: [ (member copyFrom: metadataIndex + 1 to: member size) trimBoth ].
+	metadata := self decodedComponentFrom: metadata.
+	metadata ifNil: [ ^ nil ].
 	^ key -> (OTBaggageEntry value: value metadata: metadata)
 ]
 
@@ -229,5 +231,5 @@ OTW3CBaggagePropagator >> serializedMemberNamed: aName entry: anEntry [
 		stream nextPutAll: anEntry value urlEncoded.
 		anEntry hasMetadata ifTrue: [
 			stream nextPut: $;.
-			stream nextPutAll: anEntry metadata asString ] ]
+			stream nextPutAll: anEntry metadata asString urlEncoded ] ]
 ]
