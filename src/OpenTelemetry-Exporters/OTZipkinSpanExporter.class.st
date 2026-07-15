@@ -166,16 +166,16 @@ OTZipkinSpanExporter >> transform: spans [
 	"Transform OpenTelemetry spans into the Zipkin format following the rules at https://opentelemetry.io/docs/specs/otel/trace/sdk_exporters/zipkin/"
 
 	^ spans collect: [ :span |
-		| data tags spanEvents |
+		| data parentContext tags spanEvents |
 		data := Dictionary new.
+		parentContext := span parentSpanContext.
 		data
 			at: 'traceId' put: span traceId;
 			at: 'id' put: span spanId;
 			at: 'name' put: span name;
 			at: 'timestamp' put: span startTime asUnixMicroseconds;
 			at: 'duration' put: (span endTime - span startTime) asMicroseconds.
-		span parent ifNotNil: [ :parent |
-			data at: 'parentId' put: parent spanId ].
+		parentContext ifNotNil: [ data at: 'parentId' put: parentContext spanId ].
 		span kind ifNotNil: [ :kind |
 			kind = OTSpan internal ifFalse: [ data at: 'kind' put: kind ] ].
 		spanEvents := span events.

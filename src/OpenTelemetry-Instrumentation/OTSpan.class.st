@@ -189,9 +189,18 @@ OTSpan class >> fromSton: stonReader [
 		at: #instrumentationScope
 		ifAbsent: [ OTInstrumentationScope named: (representation at: #instrumentationName ifAbsent: [ '' ]) ].
 	span instrumentationScope: scope.
-	representation
-		at: #parentId
-		ifPresent: [ :parentId | span parent: (self fromParentId: parentId) ].
+	(representation includesKey: #parentSpanContext)
+		ifTrue: [ span parentSpanContext: (representation at: #parentSpanContext) ]
+		ifFalse: [
+			representation
+				at: #parentId
+				ifPresent: [ :parentId |
+					span
+						parentSpanContext: (self
+							legacyParentSpanContextFromParentId: parentId
+							traceId: span traceId
+							traceFlags: span traceFlags
+							traceState: span traceState) ] ].
 	representation
 		at: #attributes
 		ifPresent: [ :attributes | span attributes: attributes ].
@@ -210,6 +219,17 @@ OTSpan class >> fromSton: stonReader [
 	span endTime: (representation at: #endTime).
 	span endTime ifNotNil: [ span markEnded ].
 	^ span
+]
+
+{ #category : 'private' }
+OTSpan class >> legacyParentSpanContextFromParentId: aParentId traceId: aTraceId traceFlags: someTraceFlags traceState: aTraceState [
+
+	^ OTSpanContext
+		traceId: aTraceId
+		spanId: aParentId
+		traceFlags: someTraceFlags
+		traceState: aTraceState
+		remote: false
 ]
 
 { #category : 'enumeration' }
@@ -906,6 +926,18 @@ OTSpan >> parent: aSpan [
 	parent := aSpan
 ]
 
+{ #category : 'accessing' }
+OTSpan >> parentSpanContext [
+
+	^ parent ifNotNil: [ parent asSpanContext ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> parentSpanContext: anObject [
+
+	parent := anObject ifNotNil: [ anObject asSpanContext asNonRecordingSpan ]
+]
+
 { #category : 'printing' }
 OTSpan >> printOn: aStream [ [
 
@@ -1101,7 +1133,10 @@ OTSpan >> stonOn: stonWriter [
 			at: #traceFlags put: self traceFlags;
 			at: #instrumentationName put: self instrumentationName.
 		self instrumentationScope isEmpty ifFalse: [ map at: #instrumentationScope put: self instrumentationScope ].
-		parent ifNotNil: [ map at: #parentId put: parent spanId ].
+		self parentSpanContext ifNotNil: [ :parentContext |
+			map
+				at: #parentSpanContext put: parentContext;
+				at: #parentId put: parentContext spanId ].
 		self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
 		self statusDescription ifNotNil: [ :description | map at: #statusDescription put: description ].
 		attributes isEmptyOrNil ifFalse: [ map at: #attributes put: attributes ].

@@ -222,7 +222,7 @@ OTOtlpJsonTraceEncoder >> spanDataFor: aSpan [
 
 	| data parentContext traceState |
 	data := OrderedDictionary new.
-	parentContext := aSpan parent ifNil: [ nil ] ifNotNil: [ aSpan parent asSpanContext ].
+	parentContext := aSpan parentSpanContext.
 	data
 		at: 'traceId' put: aSpan traceId;
 		at: 'spanId' put: aSpan spanId;

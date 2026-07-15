@@ -180,7 +180,7 @@ OTOtlpProtobufTraceEncoder >> encodeScope: anInstrumentationScope spans: someSpa
 OTOtlpProtobufTraceEncoder >> encodeSpan: aSpan on: aWriter [
 
 	| parentContext traceState |
-	parentContext := aSpan parent ifNil: [ nil ] ifNotNil: [ aSpan parent asSpanContext ].
+	parentContext := aSpan parentSpanContext.
 	aWriter
 		writeTag: 1 wireType: 2;
 		writeBytes: aSpan spanContext traceIdBytes;

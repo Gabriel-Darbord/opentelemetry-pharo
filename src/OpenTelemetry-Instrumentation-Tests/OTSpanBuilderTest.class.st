@@ -235,6 +235,26 @@ OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testStartedSpanExposesRemoteParentSpanContext [
+
+	| parentContext provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentContext := OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: 'upstream=value'
+		remote: true.
+	span := ((tracer spanBuilderNamed: 'operation')
+		inContext: (OTContext new withSpan: parentContext asNonRecordingSpan);
+		startSpan).
+	self assert: span parentSpanContext equals: parentContext.
+	self assert: span parentSpanContext isRemote
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testSpanBuilderCanAddLinkFromAnotherSpan [
 
 	| linkedSpan provider span tracer |
