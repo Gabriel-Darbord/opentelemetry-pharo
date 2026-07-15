@@ -78,6 +78,12 @@ OpenTelemetry class >> currentSpan: aSpan [
 		withSpan: aSpan)
 ]
 
+{ #category : 'private - logging' }
+OpenTelemetry class >> defaultPropagatorConfigurationWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
 { #category : 'private' }
 OpenTelemetry class >> defaultTextMapPropagator [
 
@@ -99,10 +105,76 @@ OpenTelemetry class >> jaegerTextMapPropagator [
 	^ OTJaegerTextMapPropagator new
 ]
 
+{ #category : 'private - logging' }
+OpenTelemetry class >> notePropagatorNoneConflictIn: aString [
+
+	self propagatorConfigurationWarningSink value:
+		'OpenTelemetry propagator configuration mixes ''none'' with other propagators and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OpenTelemetry class >> noteUnknownPropagatorName: aString [
+
+	self propagatorConfigurationWarningSink value:
+		'OpenTelemetry propagator name was unrecognized and has been ignored: '
+			, aString printString
+]
+
 { #category : 'accessing' }
 OpenTelemetry class >> otTraceTextMapPropagator [
 
 	^ OTOtTraceTextMapPropagator new
+]
+
+{ #category : 'private' }
+OpenTelemetry class >> propagatorConfigurationWarningSink [
+
+	^ OTClassStateStore
+		valueAt: #otPropagatorConfigurationWarningSink
+		forClass: self
+		ifAbsent: [ self defaultPropagatorConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OpenTelemetry class >> propagatorConfigurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otPropagatorConfigurationWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otPropagatorConfigurationWarningSink
+				forClass: self
+				put: aBlock ].
+	^ self propagatorConfigurationWarningSink
+]
+
+{ #category : 'private' }
+OpenTelemetry class >> propagatorNamesFromConfigurationValue: aString [
+
+	| names seen |
+	names := OrderedCollection new.
+	seen := Set new.
+	(aString substrings: ',') do: [ :each |
+		| normalizedName propagatorName |
+		propagatorName := each trimBoth.
+		propagatorName isEmpty ifFalse: [
+			normalizedName := propagatorName asLowercase.
+			(seen includes: normalizedName) ifFalse: [
+				(self textMapPropagatorNamed: normalizedName) ifNil: [
+					self noteUnknownPropagatorName: propagatorName.
+					^ nil ].
+				seen add: normalizedName.
+				names add: normalizedName ] ] ].
+	names isEmpty ifTrue: [ ^ nil ].
+	((names includes: 'none') and: [ names size > 1 ]) ifTrue: [
+		self notePropagatorNoneConflictIn: aString.
+		^ nil ].
+	^ names asArray
 ]
 
 { #category : 'actions' }
@@ -127,20 +199,11 @@ OpenTelemetry class >> textMapPropagator: aPropagator [
 { #category : 'private' }
 OpenTelemetry class >> textMapPropagatorFromEnvironment: aString [
 
-	| propagators seen |
-	propagators := OrderedCollection new.
-	seen := Set new.
-	(aString substrings: ',') do: [ :each |
-		| propagatorName propagator |
-		propagatorName := each trimBoth.
-		propagatorName isEmpty ifFalse: [
-			propagatorName := propagatorName asLowercase.
-			(seen includes: propagatorName) ifFalse: [
-				propagator := self textMapPropagatorNamed: propagatorName.
-				propagator ifNil: [ ^ nil ].
-				seen add: propagatorName.
-				propagators add: propagator ] ] ].
-	^ OTTextMapPropagator compositeAll: propagators
+	| propagatorNames |
+	propagatorNames := self propagatorNamesFromConfigurationValue: aString.
+	propagatorNames ifNil: [ ^ nil ].
+	^ OTTextMapPropagator compositeAll:
+		(propagatorNames collect: [ :each | self textMapPropagatorNamed: each ])
 ]
 
 { #category : 'private' }

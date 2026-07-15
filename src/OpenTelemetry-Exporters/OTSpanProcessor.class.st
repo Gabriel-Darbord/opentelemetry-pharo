@@ -20,7 +20,7 @@ Class {
 OTSpanProcessor class >> batchSpanProcessorExportTimeoutMillis [
 
 	^ self
-		positiveIntegerEnvironmentValueAt: 'OTEL_BSP_EXPORT_TIMEOUT'
+		nonNegativeIntegerEnvironmentValueAt: 'OTEL_BSP_EXPORT_TIMEOUT'
 		default: self defaultBatchSpanProcessorExportTimeoutMillis
 ]
 
@@ -33,7 +33,11 @@ OTSpanProcessor class >> batchSpanProcessorMaxExportBatchSizeForQueueSize: maxQu
 		ifNil: [ self defaultBatchSpanProcessorMaxExportBatchSize ]
 		ifNotNil: [
 			(self strictPositiveIntegerFrom: rawValue)
-				ifNil: [ self defaultBatchSpanProcessorMaxExportBatchSize ]
+				ifNil: [
+					self
+						noteInvalidEnvironmentValue: rawValue
+						forVariable: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE'.
+					self defaultBatchSpanProcessorMaxExportBatchSize ]
 				ifNotNil: [ :value | value ] ].
 	^ parsed min: maxQueueSize
 ]
@@ -50,7 +54,7 @@ OTSpanProcessor class >> batchSpanProcessorMaxQueueSize [
 OTSpanProcessor class >> batchSpanProcessorScheduledDelayMillis [
 
 	^ self
-		positiveIntegerEnvironmentValueAt: 'OTEL_BSP_SCHEDULE_DELAY'
+		nonNegativeIntegerEnvironmentValueAt: 'OTEL_BSP_SCHEDULE_DELAY'
 		default: self defaultBatchSpanProcessorScheduledDelayMillis
 ]
 
@@ -127,6 +131,12 @@ OTSpanProcessor class >> defaultBatchSpanProcessorScheduledDelayMillis [
 	^ 5000
 ]
 
+{ #category : 'private - logging' }
+OTSpanProcessor class >> defaultConfigurationWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
 { #category : 'private' }
 OTSpanProcessor class >> environmentValueAt: aString [
 
@@ -134,6 +144,32 @@ OTSpanProcessor class >> environmentValueAt: aString [
 	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
 	value := value asString trimBoth.
 	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
+{ #category : 'private - logging' }
+OTSpanProcessor class >> configurationWarningSink [
+
+	^ OTClassStateStore
+		valueAt: #otConfigurationWarningSink
+		forClass: self
+		ifAbsent: [ self defaultConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTSpanProcessor class >> configurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otConfigurationWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otConfigurationWarningSink
+				forClass: self
+				put: aBlock ].
+	^ self configurationWarningSink
 ]
 
 { #category : 'processing' }
@@ -185,6 +221,29 @@ OTSpanProcessor class >> markShutdown: aProcessor [
 	^ aProcessor
 ]
 
+{ #category : 'private - logging' }
+OTSpanProcessor class >> noteInvalidEnvironmentValue: aValue forVariable: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry batch span processor configuration was invalid and has been ignored for '
+			, aString printString
+			, ': '
+			, aValue printString
+]
+
+{ #category : 'private' }
+OTSpanProcessor class >> nonNegativeIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := self strictNonNegativeIntegerFrom: rawValue.
+	parsed ifNil: [
+		self noteInvalidEnvironmentValue: rawValue forVariable: aString.
+		^ aDefaultValue ].
+	^ parsed
+]
+
 { #category : 'private' }
 OTSpanProcessor class >> positiveIntegerEnvironmentValueAt: aString default: aDefaultValue [
 
@@ -192,7 +251,10 @@ OTSpanProcessor class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 	rawValue := self environmentValueAt: aString.
 	rawValue ifNil: [ ^ aDefaultValue ].
 	parsed := self strictPositiveIntegerFrom: rawValue.
-	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+	parsed ifNil: [
+		self noteInvalidEnvironmentValue: rawValue forVariable: aString.
+		^ aDefaultValue ].
+	^ parsed
 ]
 
 { #category : 'instance creation' }
@@ -228,6 +290,18 @@ OTSpanProcessor class >> resetLifecycleState [
 		removeValueAt: #otLifecycleStateByProcessor
 		forClass: self
 		ifAbsent: [  ]
+]
+
+{ #category : 'private' }
+OTSpanProcessor class >> strictNonNegativeIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value >= 0 ifFalse: [ ^ nil ].
+	^ value
 ]
 
 { #category : 'processing' }

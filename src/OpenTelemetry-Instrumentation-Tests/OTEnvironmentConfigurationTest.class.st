@@ -23,6 +23,7 @@ OTEnvironmentConfigurationTest >> setUp [
 	OTTracerProvider current: nil.
 	OTSpanProcessor current: nil.
 	OTSpanExporter current: nil.
+	OTTextMapPropagator reset.
 	OTSpan reset
 ]
 
@@ -30,13 +31,16 @@ OTEnvironmentConfigurationTest >> setUp [
 OTEnvironmentConfigurationTest >> tearDown [
 
 	[
+		OpenTelemetry propagatorConfigurationWarningSink: nil.
 		OTTracerProvider current: nil.
 		OTTracerProvider resourceConfigurationWarningSink: nil.
 		OTTracerProvider resourceDetectors: nil.
 		OTTracerProvider samplerConfigurationWarningSink: nil.
+		OTSpanProcessor configurationWarningSink: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter warningSink: nil.
 		OTSpanExporter current: nil.
+		OTTextMapPropagator reset.
 		OTSpan reset ]
 		ensure: [ super tearDown ]
 ]
@@ -249,6 +253,22 @@ OTEnvironmentConfigurationTest >> testCurrentReadsAlwaysOffSamplerFromEnvironmen
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsConfiguredPropagatorsCaseInsensitivelyAndDeduplicates [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_PROPAGATORS' put: 'TraceContext, baggage, TRACECONTEXT';
+			yourself)
+		during: [
+			| propagator |
+			propagator := OpenTelemetry textMapPropagator.
+			self assert: propagator class identicalTo: OTCompositeTextMapPropagator.
+			self
+				assert: (propagator componentPropagators collect: [ :each | each class ]) asArray
+				equals: { OTW3CTraceContextPropagator. OTW3CBaggagePropagator } ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsBatchProcessorSizingFromEnvironment [
 
 	self
@@ -266,6 +286,22 @@ OTEnvironmentConfigurationTest >> testCurrentReadsBatchProcessorSizingFromEnviro
 			self assert: processor batchSize equals: 32.
 			self assert: processor scheduledDelayMillis equals: 200.
 			self assert: processor exportTimeoutMillis equals: 300 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsZeroValuedBatchProcessorDelayAndTimeoutFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_BSP_SCHEDULE_DELAY' put: '0';
+			at: 'OTEL_BSP_EXPORT_TIMEOUT' put: '0';
+			yourself)
+		during: [
+			| processor |
+			processor := OTSpanProcessor current.
+			self assert: processor class identicalTo: OTBatchSpanProcessor.
+			self assert: processor scheduledDelayMillis equals: 0.
+			self assert: processor exportTimeoutMillis equals: 0 ]
 ]
 
 { #category : 'tests' }
@@ -351,6 +387,17 @@ OTEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterAndSimpleProcess
 			self assert: OTSpanProcessor current class identicalTo: OTSimpleSpanProcessor.
 			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTSimpleSpanProcessor.
 			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTConsoleSpanExporter ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesNoopPropagatorWhenConfiguredAsNone [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_PROPAGATORS' put: 'none';
+			yourself)
+		during: [
+			self assert: OpenTelemetry textMapPropagator class identicalTo: OTNoopTextMapPropagator ]
 ]
 
 { #category : 'tests' }
@@ -493,6 +540,26 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownTraceExporterNameA
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownPropagatorNameAndFallsBackToDefaultPropagator [
+
+	self withPropagatorWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_PROPAGATORS' put: 'mystery';
+				yourself)
+			during: [
+				| propagator |
+				propagator := OpenTelemetry textMapPropagator.
+				self assert: propagator class identicalTo: OTCompositeTextMapPropagator.
+				self
+					assert: (propagator componentPropagators collect: [ :each | each class ]) asArray
+					equals: { OTW3CTraceContextPropagator. OTW3CBaggagePropagator } ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry propagator name was unrecognized and has been ignored: ''mystery''' ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOtherTraceExportersAndFallsBackToDefaultExporter [
 
 	self withExporterWarningsDo: [ :warnings |
@@ -505,6 +572,26 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOtherTra
 		self assert: warnings size equals: 1.
 		self assert: warnings first equals:
 			'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: ''console,none''' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOtherPropagatorsAndFallsBackToDefaultPropagator [
+
+	self withPropagatorWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_PROPAGATORS' put: 'tracecontext,none';
+				yourself)
+			during: [
+				| propagator |
+				propagator := OpenTelemetry textMapPropagator.
+				self assert: propagator class identicalTo: OTCompositeTextMapPropagator.
+				self
+					assert: (propagator componentPropagators collect: [ :each | each class ]) asArray
+					equals: { OTW3CTraceContextPropagator. OTW3CBaggagePropagator } ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry propagator configuration mixes ''none'' with other propagators and has been ignored: ''tracecontext,none''' ]
 ]
 
 { #category : 'tests' }
@@ -536,22 +623,30 @@ OTEnvironmentConfigurationTest >> testSpanProcessorCurrentClampsBatchSizeToQueue
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testSpanProcessorCurrentIgnoresInvalidEnvironmentValues [
+OTEnvironmentConfigurationTest >> testSpanProcessorCurrentWarnsAboutInvalidEnvironmentValuesAndUsesDefaults [
 
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_BSP_MAX_QUEUE_SIZE' put: 'invalid';
-			at: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE' put: '-10';
-			at: 'OTEL_BSP_SCHEDULE_DELAY' put: '0';
-			at: 'OTEL_BSP_EXPORT_TIMEOUT' put: '';
-			yourself)
-		during: [
-			| processor |
-			processor := OTSpanProcessor current.
-			self assert: processor maxQueueSize equals: OTSpanProcessor defaultBatchSpanProcessorMaxQueueSize.
-			self assert: processor batchSize equals: OTSpanProcessor defaultBatchSpanProcessorMaxExportBatchSize.
-			self assert: processor scheduledDelayMillis equals: OTSpanProcessor defaultBatchSpanProcessorScheduledDelayMillis.
-			self assert: processor exportTimeoutMillis equals: OTSpanProcessor defaultBatchSpanProcessorExportTimeoutMillis ]
+	self withSpanProcessorWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_BSP_MAX_QUEUE_SIZE' put: 'invalid';
+				at: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE' put: '-10';
+				at: 'OTEL_BSP_SCHEDULE_DELAY' put: '-1';
+				at: 'OTEL_BSP_EXPORT_TIMEOUT' put: 'not-a-number';
+				yourself)
+			during: [
+				| processor |
+				processor := OTSpanProcessor current.
+				self assert: processor maxQueueSize equals: OTSpanProcessor defaultBatchSpanProcessorMaxQueueSize.
+				self assert: processor batchSize equals: OTSpanProcessor defaultBatchSpanProcessorMaxExportBatchSize.
+				self assert: processor scheduledDelayMillis equals: OTSpanProcessor defaultBatchSpanProcessorScheduledDelayMillis.
+				self assert: processor exportTimeoutMillis equals: OTSpanProcessor defaultBatchSpanProcessorExportTimeoutMillis ].
+		self
+			assert: warnings asArray
+			equals: #(
+				'OpenTelemetry batch span processor configuration was invalid and has been ignored for ''OTEL_BSP_MAX_QUEUE_SIZE'': ''invalid'''
+				'OpenTelemetry batch span processor configuration was invalid and has been ignored for ''OTEL_BSP_MAX_EXPORT_BATCH_SIZE'': ''-10'''
+				'OpenTelemetry batch span processor configuration was invalid and has been ignored for ''OTEL_BSP_SCHEDULE_DELAY'': ''-1'''
+				'OpenTelemetry batch span processor configuration was invalid and has been ignored for ''OTEL_BSP_EXPORT_TIMEOUT'': ''not-a-number''' ) ]
 ]
 
 { #category : 'private' }
@@ -568,6 +663,7 @@ OTEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary during: aBl
 		OTTracerProvider current: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
+		OTTextMapPropagator reset.
 		^ aBlock value ]
 		ensure: [
 			snapshot keysAndValuesDo: [ :key :value |
@@ -576,7 +672,8 @@ OTEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary during: aBl
 					forKey: key ].
 			OTTracerProvider current: nil.
 			OTSpanProcessor current: nil.
-			OTSpanExporter current: nil ]
+			OTSpanExporter current: nil.
+			OTTextMapPropagator reset ]
 ]
 
 { #category : 'private' }
@@ -588,6 +685,17 @@ OTEnvironmentConfigurationTest >> withExporterWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTSpanExporter warningSink: nil ]
+]
+
+{ #category : 'private' }
+OTEnvironmentConfigurationTest >> withPropagatorWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OpenTelemetry propagatorConfigurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OpenTelemetry propagatorConfigurationWarningSink: nil ]
 ]
 
 { #category : 'private' }
@@ -610,4 +718,15 @@ OTEnvironmentConfigurationTest >> withSamplerWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTTracerProvider samplerConfigurationWarningSink: nil ]
+]
+
+{ #category : 'private' }
+OTEnvironmentConfigurationTest >> withSpanProcessorWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTSpanProcessor configurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTSpanProcessor configurationWarningSink: nil ]
 ]

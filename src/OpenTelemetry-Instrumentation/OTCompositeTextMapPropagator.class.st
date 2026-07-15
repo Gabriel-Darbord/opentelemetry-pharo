@@ -35,6 +35,12 @@ OTCompositeTextMapPropagator >> extract: aContext from: aCarrier getter: aGetter
 ]
 
 { #category : 'accessing' }
+OTCompositeTextMapPropagator >> componentPropagators [
+
+	^ propagators copy
+]
+
+{ #category : 'accessing' }
 OTCompositeTextMapPropagator >> fields [
 
 	| orderedFields seen |

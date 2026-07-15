@@ -60,6 +60,12 @@ OTTextMapPropagator >> extract: aContext from: aCarrier getter: aGetter [
 ]
 
 { #category : 'accessing' }
+OTTextMapPropagator >> componentPropagators [
+
+	^ { self }
+]
+
+{ #category : 'accessing' }
 OTTextMapPropagator >> fields [
 
 	^ #()

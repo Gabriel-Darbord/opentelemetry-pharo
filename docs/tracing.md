@@ -269,6 +269,10 @@ Or rely on environment-driven configuration:
 - `OTEL_BSP_SCHEDULE_DELAY`
 - `OTEL_BSP_EXPORT_TIMEOUT`
 
+Invalid batch-processor values are ignored with a diagnostic warning. This
+implementation also honors `0` for `OTEL_BSP_SCHEDULE_DELAY` and
+`OTEL_BSP_EXPORT_TIMEOUT`; zero timeout means "no export timeout".
+
 ## Sampling
 
 Sampling is configured through `OTTracerProvider`.
@@ -302,6 +306,10 @@ Global text-map propagation is available through `OpenTelemetry`:
 - `OpenTelemetry otTraceTextMapPropagator`
 
 The current global propagator can be configured with `OTEL_PROPAGATORS`.
+Configured names are parsed case-insensitively, deduplicated in order, and
+unknown values fall back to the default W3C composite with a diagnostic
+warning. `none` selects `OTNoopTextMapPropagator`; mixing `none` with other
+propagators is treated as invalid and falls back to the default composite.
 
 ## Practical Advice
 

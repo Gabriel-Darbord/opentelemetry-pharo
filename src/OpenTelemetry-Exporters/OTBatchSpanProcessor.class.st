@@ -104,8 +104,8 @@ OTBatchSpanProcessor >> exportTimeoutMillis [
 { #category : 'accessing' }
 OTBatchSpanProcessor >> exportTimeoutMillis: anInteger [
 
-	(anInteger isInteger and: [ anInteger >= 1 ]) ifFalse: [
-		Error signal: 'Export timeout must be superior or equal to 1 millisecond' ].
+	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [
+		Error signal: 'Export timeout must be superior or equal to 0 millisecond' ].
 	self class exportTimeoutMillisByProcessor at: self put: anInteger.
 	^ anInteger
 ]
@@ -300,8 +300,8 @@ OTBatchSpanProcessor >> scheduledDelayMillis [
 { #category : 'accessing' }
 OTBatchSpanProcessor >> scheduledDelayMillis: anInteger [
 
-	(anInteger isInteger and: [ anInteger >= 1 ]) ifFalse: [
-		Error signal: 'Scheduled delay must be superior or equal to 1 millisecond' ].
+	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [
+		Error signal: 'Scheduled delay must be superior or equal to 0 millisecond' ].
 	self class scheduledDelayMillisByProcessor at: self put: anInteger.
 	^ anInteger
 ]
@@ -353,6 +353,7 @@ OTBatchSpanProcessor >> runFlushLoop [
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> runExporterOperation: aBlock [
 
+	self exportTimeoutMillis = 0 ifTrue: [ ^ aBlock value ].
 	^ aBlock
 		valueWithinMilliseconds: self exportTimeoutMillis
 		onTimeout: [ false ]
@@ -377,6 +378,11 @@ OTBatchSpanProcessor >> synchronized: aBlock [
 OTBatchSpanProcessor >> waitUntilIdleTimeoutMillis: anInteger [
 
 	| deadline |
+	anInteger = 0 ifTrue: [
+		[
+			self isIdle ifTrue: [ ^ true ].
+			(Delay forMilliseconds: 5) wait ]
+			repeat ].
 	deadline := Time millisecondClockValue + anInteger.
 	[
 		self isIdle ifTrue: [ ^ true ].
