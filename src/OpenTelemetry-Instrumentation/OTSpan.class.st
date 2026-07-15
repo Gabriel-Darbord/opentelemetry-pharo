@@ -204,8 +204,9 @@ OTSpan class >> isZeroHexIdentifier: aString [
 { #category : 'private - logging' }
 OTSpan class >> limitWarningSink [
 
-	^ self
-		propertyAt: #otLimitWarningSink
+	^ OTClassStateStore
+		valueAt: #otLimitWarningSink
+		forClass: self
 		ifAbsent: [ self defaultLimitWarningSink ]
 ]
 
@@ -213,8 +214,16 @@ OTSpan class >> limitWarningSink [
 OTSpan class >> limitWarningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otLimitWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otLimitWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otLimitWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otLimitWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self limitWarningSink
 ]
 
@@ -295,8 +304,14 @@ OTSpan class >> reset [
 { #category : 'private - logging' }
 OTSpan class >> resetLimitWarningState [
 
-	self removeProperty: #otWarnedSpans ifAbsent: [  ].
-	self removeProperty: #otLimitWarningSink ifAbsent: [  ]
+	OTClassStateStore
+		removeValueAt: #otWarnedSpans
+		forClass: self
+		ifAbsent: [  ].
+	OTClassStateStore
+		removeValueAt: #otLimitWarningSink
+		forClass: self
+		ifAbsent: [  ]
 ]
 
 { #category : 'instance creation' }
@@ -350,12 +365,16 @@ OTSpan class >> validStatusCodes [
 { #category : 'private - logging' }
 OTSpan class >> warnedSpans [
 
-	^ self
-		propertyAt: #otWarnedSpans
+	^ OTClassStateStore
+		valueAt: #otWarnedSpans
+		forClass: self
 		ifAbsent: [
 			| warned |
 			warned := WeakSet new.
-			self propertyAt: #otWarnedSpans put: warned.
+			OTClassStateStore
+				valueAt: #otWarnedSpans
+				forClass: self
+				put: warned.
 			warned ]
 ]
 

@@ -60,8 +60,9 @@ OTSpanBuilder class >> noteInvalidParentContext: anObject [
 { #category : 'private - logging' }
 OTSpanBuilder class >> parentContextWarningSink [
 
-	^ self
-		propertyAt: #otParentContextWarningSink
+	^ OTClassStateStore
+		valueAt: #otParentContextWarningSink
+		forClass: self
 		ifAbsent: [ self defaultParentContextWarningSink ]
 ]
 
@@ -69,8 +70,16 @@ OTSpanBuilder class >> parentContextWarningSink [
 OTSpanBuilder class >> parentContextWarningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otParentContextWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otParentContextWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otParentContextWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otParentContextWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self parentContextWarningSink
 ]
 

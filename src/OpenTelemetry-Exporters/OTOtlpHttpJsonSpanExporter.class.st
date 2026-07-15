@@ -69,8 +69,9 @@ OTOtlpHttpJsonSpanExporter class >> supportedProtocol [
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter class >> warningSink [
 
-	^ self
-		propertyAt: #otWarningSink
+	^ OTClassStateStore
+		valueAt: #otWarningSink
+		forClass: self
 		ifAbsent: [ self defaultWarningSink ]
 ]
 
@@ -78,8 +79,16 @@ OTOtlpHttpJsonSpanExporter class >> warningSink [
 OTOtlpHttpJsonSpanExporter class >> warningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self warningSink
 ]
 

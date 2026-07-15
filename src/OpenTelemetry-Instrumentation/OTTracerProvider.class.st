@@ -36,8 +36,9 @@ OTTracerProvider class >> configuredResourceAttributes [
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredResourceDetectors [
 
-	^ self
-		propertyAt: #otResourceDetectors
+	^ OTClassStateStore
+		valueAt: #otResourceDetectors
+		forClass: self
 		ifAbsent: [ self defaultResourceDetectors ]
 ]
 
@@ -272,10 +273,16 @@ OTTracerProvider class >> defaultSamplerConfigurationWarningSink [
 OTTracerProvider class >> defaultServiceInstanceId [
 
 	| identifier |
-	identifier := self propertyAt: #otDefaultServiceInstanceId ifAbsent: [ nil ].
+	identifier := OTClassStateStore
+		valueAt: #otDefaultServiceInstanceId
+		forClass: self
+		ifAbsent: [ nil ].
 	identifier ifNil: [
 		identifier := UUID new asString36.
-		self propertyAt: #otDefaultServiceInstanceId put: identifier ].
+		OTClassStateStore
+			valueAt: #otDefaultServiceInstanceId
+			forClass: self
+			put: identifier ].
 	^ identifier
 ]
 
@@ -545,8 +552,9 @@ OTTracerProvider class >> resourceByProvider [
 { #category : 'private - logging' }
 OTTracerProvider class >> resourceConfigurationWarningSink [
 
-	^ self
-		propertyAt: #otResourceConfigurationWarningSink
+	^ OTClassStateStore
+		valueAt: #otResourceConfigurationWarningSink
+		forClass: self
 		ifAbsent: [ self defaultResourceConfigurationWarningSink ]
 ]
 
@@ -554,8 +562,16 @@ OTTracerProvider class >> resourceConfigurationWarningSink [
 OTTracerProvider class >> resourceConfigurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otResourceConfigurationWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otResourceConfigurationWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otResourceConfigurationWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otResourceConfigurationWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self resourceConfigurationWarningSink
 ]
 
@@ -563,8 +579,16 @@ OTTracerProvider class >> resourceConfigurationWarningSink: aBlock [
 OTTracerProvider class >> resourceDetectors: aCollection [
 
 	aCollection
-		ifNil: [ self removeProperty: #otResourceDetectors ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otResourceDetectors put: aCollection ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otResourceDetectors
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otResourceDetectors
+				forClass: self
+				put: aCollection ].
 	^ self configuredResourceDetectors
 ]
 
@@ -630,8 +654,9 @@ OTTracerProvider class >> samplerByProvider [
 { #category : 'private - logging' }
 OTTracerProvider class >> samplerConfigurationWarningSink [
 
-	^ self
-		propertyAt: #otSamplerConfigurationWarningSink
+	^ OTClassStateStore
+		valueAt: #otSamplerConfigurationWarningSink
+		forClass: self
 		ifAbsent: [ self defaultSamplerConfigurationWarningSink ]
 ]
 
@@ -639,8 +664,16 @@ OTTracerProvider class >> samplerConfigurationWarningSink [
 OTTracerProvider class >> samplerConfigurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otSamplerConfigurationWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otSamplerConfigurationWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otSamplerConfigurationWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otSamplerConfigurationWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self samplerConfigurationWarningSink
 ]
 
@@ -718,8 +751,9 @@ OTTracerProvider class >> spanLimitsByProvider [
 { #category : 'private - logging' }
 OTTracerProvider class >> spanProcessorWarningSink [
 
-	^ self
-		propertyAt: #otSpanProcessorWarningSink
+	^ OTClassStateStore
+		valueAt: #otSpanProcessorWarningSink
+		forClass: self
 		ifAbsent: [ self defaultSpanProcessorWarningSink ]
 ]
 
@@ -727,8 +761,16 @@ OTTracerProvider class >> spanProcessorWarningSink [
 OTTracerProvider class >> spanProcessorWarningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otSpanProcessorWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otSpanProcessorWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otSpanProcessorWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otSpanProcessorWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self spanProcessorWarningSink
 ]
 
@@ -742,10 +784,16 @@ OTTracerProvider class >> spanProcessorsByProvider [
 OTTracerProvider class >> stateDictionaryAt: aSymbol [
 
 	| dictionary |
-	dictionary := self propertyAt: aSymbol ifAbsent: [ nil ].
+	dictionary := OTClassStateStore
+		valueAt: aSymbol
+		forClass: self
+		ifAbsent: [ nil ].
 	dictionary ifNil: [
 		dictionary := WeakIdentityKeyDictionary new.
-		self propertyAt: aSymbol put: dictionary ].
+		OTClassStateStore
+			valueAt: aSymbol
+			forClass: self
+			put: dictionary ].
 	^ dictionary
 ]
 
@@ -801,8 +849,9 @@ OTTracerProvider class >> systemAttributeAt: anInteger [
 { #category : 'private - logging' }
 OTTracerProvider class >> tracerConfigurationWarningSink [
 
-	^ self
-		propertyAt: #otTracerConfigurationWarningSink
+	^ OTClassStateStore
+		valueAt: #otTracerConfigurationWarningSink
+		forClass: self
 		ifAbsent: [ self defaultTracerConfigurationWarningSink ]
 ]
 
@@ -810,8 +859,16 @@ OTTracerProvider class >> tracerConfigurationWarningSink [
 OTTracerProvider class >> tracerConfigurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otTracerConfigurationWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otTracerConfigurationWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otTracerConfigurationWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otTracerConfigurationWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self tracerConfigurationWarningSink
 ]
 
@@ -824,8 +881,9 @@ OTTracerProvider class >> tracerConfiguratorByProvider [
 { #category : 'private - logging' }
 OTTracerProvider class >> tracerNameWarningSink [
 
-	^ self
-		propertyAt: #otTracerNameWarningSink
+	^ OTClassStateStore
+		valueAt: #otTracerNameWarningSink
+		forClass: self
 		ifAbsent: [ self defaultTracerNameWarningSink ]
 ]
 
@@ -833,8 +891,16 @@ OTTracerProvider class >> tracerNameWarningSink [
 OTTracerProvider class >> tracerNameWarningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otTracerNameWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otTracerNameWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otTracerNameWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otTracerNameWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self tracerNameWarningSink
 ]
 

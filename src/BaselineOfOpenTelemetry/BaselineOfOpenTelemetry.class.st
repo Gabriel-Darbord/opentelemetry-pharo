@@ -11,8 +11,6 @@ BaselineOfOpenTelemetry >> baseline: spec [
 	<baseline>
 	spec for: #common do: [ self baselineCommon: spec ].
 
-	spec for: #( 'pharo11.x' ) do: [ self baselinePharo11: spec ].
-
 	spec
 		for: #( 'pharo12.x' 'pharo13.x' 'pharo14.x' )
 		do: [ self baselinePharo12Plus: spec ]
@@ -56,19 +54,6 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'Shout' with: #( 'OpenTelemetry-Agents-Shout' );
 		group: 'OpalCompiler'
 		with: #( 'OpenTelemetry-Agents-OpalCompiler' )
-]
-
-{ #category : 'baselines' }
-BaselineOfOpenTelemetry >> baselinePharo11: spec [
-	"Only MetaLinks, no MethodProxies yet"
-
-	spec package: 'OpenTelemetry-Compatibility-Pharo11'.
-
-	spec
-		group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink'
-			   'OpenTelemetry-Compatibility-Pharo11' );
-		group: 'tests'
-		with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' )
 ]
 
 { #category : 'baselines' }

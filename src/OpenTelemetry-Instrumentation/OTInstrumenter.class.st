@@ -80,8 +80,9 @@ OTInstrumenter class >> forInstrumentationNamed: aString [
 { #category : 'private - logging' }
 OTInstrumenter class >> configurationWarningSink [
 
-	^ self
-		propertyAt: #otConfigurationWarningSink
+	^ OTClassStateStore
+		valueAt: #otConfigurationWarningSink
+		forClass: self
 		ifAbsent: [ self defaultConfigurationWarningSink ]
 ]
 
@@ -89,8 +90,16 @@ OTInstrumenter class >> configurationWarningSink [
 OTInstrumenter class >> configurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otConfigurationWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otConfigurationWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otConfigurationWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otConfigurationWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self configurationWarningSink
 ]
 

@@ -120,12 +120,16 @@ OTSpanExporter class >> isShutdown: anExporter [
 { #category : 'private - lifecycle' }
 OTSpanExporter class >> lifecycleStateByExporter [
 
-	^ OTSpanExporter
-		propertyAt: #otLifecycleStateByExporter
+	^ OTClassStateStore
+		valueAt: #otLifecycleStateByExporter
+		forClass: self
 		ifAbsent: [
 			| states |
 			states := WeakIdentityKeyDictionary new.
-			OTSpanExporter propertyAt: #otLifecycleStateByExporter put: states.
+			OTClassStateStore
+				valueAt: #otLifecycleStateByExporter
+				forClass: self
+				put: states.
 			states ]
 ]
 
@@ -200,7 +204,10 @@ OTSpanExporter class >> reset [
 { #category : 'private - lifecycle' }
 OTSpanExporter class >> resetLifecycleState [
 
-	self removeProperty: #otLifecycleStateByExporter ifAbsent: [  ]
+	OTClassStateStore
+		removeValueAt: #otLifecycleStateByExporter
+		forClass: self
+		ifAbsent: [  ]
 ]
 
 { #category : 'exporting' }
@@ -241,8 +248,9 @@ OTSpanExporter class >> noteUnsupportedOtlpProtocol: aString [
 { #category : 'private - logging' }
 OTSpanExporter class >> warningSink [
 
-	^ self
-		propertyAt: #otWarningSink
+	^ OTClassStateStore
+		valueAt: #otWarningSink
+		forClass: self
 		ifAbsent: [ self defaultWarningSink ]
 ]
 
@@ -250,8 +258,16 @@ OTSpanExporter class >> warningSink [
 OTSpanExporter class >> warningSink: aBlock [
 
 	aBlock
-		ifNil: [ self removeProperty: #otWarningSink ifAbsent: [  ] ]
-		ifNotNil: [ self propertyAt: #otWarningSink put: aBlock ].
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otWarningSink
+				forClass: self
+				put: aBlock ].
 	^ self warningSink
 ]
 

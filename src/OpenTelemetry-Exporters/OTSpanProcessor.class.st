@@ -142,12 +142,16 @@ OTSpanProcessor class >> isShutdown: aProcessor [
 { #category : 'private - lifecycle' }
 OTSpanProcessor class >> lifecycleStateByProcessor [
 
-	^ OTSpanProcessor
-		propertyAt: #otLifecycleStateByProcessor
+	^ OTClassStateStore
+		valueAt: #otLifecycleStateByProcessor
+		forClass: self
 		ifAbsent: [
 			| states |
 			states := WeakIdentityKeyDictionary new.
-			OTSpanProcessor propertyAt: #otLifecycleStateByProcessor put: states.
+			OTClassStateStore
+				valueAt: #otLifecycleStateByProcessor
+				forClass: self
+				put: states.
 			states ]
 ]
 
@@ -196,7 +200,10 @@ OTSpanProcessor class >> reset [
 { #category : 'private - lifecycle' }
 OTSpanProcessor class >> resetLifecycleState [
 
-	self removeProperty: #otLifecycleStateByProcessor ifAbsent: [  ]
+	OTClassStateStore
+		removeValueAt: #otLifecycleStateByProcessor
+		forClass: self
+		ifAbsent: [  ]
 ]
 
 { #category : 'processing' }

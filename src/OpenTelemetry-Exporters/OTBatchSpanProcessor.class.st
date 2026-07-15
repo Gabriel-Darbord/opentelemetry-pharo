@@ -25,12 +25,16 @@ Class {
 { #category : 'private - configuration' }
 OTBatchSpanProcessor class >> exportTimeoutMillisByProcessor [
 
-	^ OTBatchSpanProcessor
-		propertyAt: #otExportTimeoutMillisByProcessor
+	^ OTClassStateStore
+		valueAt: #otExportTimeoutMillisByProcessor
+		forClass: self
 		ifAbsent: [
 			| values |
 			values := WeakIdentityKeyDictionary new.
-			OTBatchSpanProcessor propertyAt: #otExportTimeoutMillisByProcessor put: values.
+			OTClassStateStore
+				valueAt: #otExportTimeoutMillisByProcessor
+				forClass: self
+				put: values.
 			values ]
 ]
 
@@ -43,12 +47,16 @@ OTBatchSpanProcessor class >> initialize [
 { #category : 'private - configuration' }
 OTBatchSpanProcessor class >> scheduledDelayMillisByProcessor [
 
-	^ OTBatchSpanProcessor
-		propertyAt: #otScheduledDelayMillisByProcessor
+	^ OTClassStateStore
+		valueAt: #otScheduledDelayMillisByProcessor
+		forClass: self
 		ifAbsent: [
 			| values |
 			values := WeakIdentityKeyDictionary new.
-			OTBatchSpanProcessor propertyAt: #otScheduledDelayMillisByProcessor put: values.
+			OTClassStateStore
+				valueAt: #otScheduledDelayMillisByProcessor
+				forClass: self
+				put: values.
 			values ]
 ]
 
