@@ -33,6 +33,15 @@ OTBaggageBuilder >> build [
 ]
 
 { #category : 'building' }
+OTBaggageBuilder >> buildCurrent [
+
+	| baggage |
+	baggage := self build.
+	OTBaggage current: baggage.
+	^ baggage
+]
+
+{ #category : 'building' }
 OTBaggageBuilder >> buildInContext: aContext [
 
 	^ self build inContext: aContext
@@ -105,4 +114,10 @@ OTBaggageBuilder >> removeEntryNamed: aName [
 	name ifNil: [ ^ self ].
 	entriesByName removeKey: name ifAbsent: [  ].
 	^ self
+]
+
+{ #category : 'actions' }
+OTBaggageBuilder >> useDuring: aBlock [
+
+	^ OTBaggage use: self build during: aBlock
 ]

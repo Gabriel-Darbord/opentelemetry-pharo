@@ -30,6 +30,15 @@ OTBaggage class >> builderFromContext: aContext [
 ]
 
 { #category : 'accessing' }
+OTBaggage class >> clearCurrent [
+
+	| baggage |
+	baggage := self empty.
+	self current: baggage.
+	^ baggage
+]
+
+{ #category : 'accessing' }
 OTBaggage class >> clearFromContext: aContext [
 
 	^ self empty inContext: aContext
@@ -45,6 +54,63 @@ OTBaggage class >> current [
 OTBaggage class >> current: aBaggage [
 
 	^ OpenTelemetry currentBaggage: aBaggage
+]
+
+{ #category : 'instance creation' }
+OTBaggage class >> currentBuilder [
+
+	^ self builderFrom: self current
+]
+
+{ #category : 'accessing' }
+OTBaggage class >> currentEntryAt: aName [
+
+	^ self current entryAt: aName
+]
+
+{ #category : 'accessing' }
+OTBaggage class >> currentEntryAt: aName ifAbsent: aBlock [
+
+	^ self current entryAt: aName ifAbsent: aBlock
+]
+
+{ #category : 'accessing' }
+OTBaggage class >> currentValueAt: aName [
+
+	^ self current valueAt: aName
+]
+
+{ #category : 'accessing' }
+OTBaggage class >> currentValueAt: aName ifAbsent: aBlock [
+
+	^ self current valueAt: aName ifAbsent: aBlock
+]
+
+{ #category : 'accessing' }
+OTBaggage class >> currentWithEntryNamed: aName value: aValue [
+
+	^ self currentWithEntryNamed: aName value: aValue metadata: nil
+]
+
+{ #category : 'accessing' }
+OTBaggage class >> currentWithEntryNamed: aName value: aValue metadata: aMetadata [
+
+	| baggage |
+	baggage := self current
+		withEntryNamed: aName
+		value: aValue
+		metadata: aMetadata.
+	self current: baggage.
+	^ baggage
+]
+
+{ #category : 'accessing' }
+OTBaggage class >> currentWithoutEntryNamed: aName [
+
+	| baggage |
+	baggage := self current withoutEntryNamed: aName.
+	self current: baggage.
+	^ baggage
 ]
 
 { #category : 'instance creation' }
