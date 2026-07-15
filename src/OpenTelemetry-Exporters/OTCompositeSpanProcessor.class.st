@@ -19,6 +19,12 @@ OTCompositeSpanProcessor class >> withAll: aCollection [
 		yourself
 ]
 
+{ #category : 'accessing' }
+OTCompositeSpanProcessor >> componentProcessors [
+
+	^ processors copy
+]
+
 { #category : 'processing' }
 OTCompositeSpanProcessor >> forceFlush [
 

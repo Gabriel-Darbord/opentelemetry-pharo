@@ -349,7 +349,20 @@ OTEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterAndSimpleProcess
 		during: [
 			self assert: OTSpanExporter current class identicalTo: OTConsoleSpanExporter.
 			self assert: OTSpanProcessor current class identicalTo: OTSimpleSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTSimpleSpanProcessor ]
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTSimpleSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTConsoleSpanExporter ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpExporterWhenTraceExporterSettingIsAbsent [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpHttpProtobufSpanExporter ]
 ]
 
 { #category : 'tests' }
@@ -375,7 +388,8 @@ OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpJsonExporterWhenConfigu
 		during: [
 			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpJsonSpanExporter.
 			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpHttpJsonSpanExporter ]
 ]
 
 { #category : 'tests' }
@@ -389,7 +403,8 @@ OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenCon
 		during: [
 			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
 			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpHttpProtobufSpanExporter ]
 ]
 
 { #category : 'tests' }
@@ -402,7 +417,33 @@ OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenUsi
 		during: [
 			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
 			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpHttpProtobufSpanExporter ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesMultipleConfiguredExportersWithExporterSpecificProcessors [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'console, zipkin';
+			yourself)
+		during: [
+			| exporter provider spanProcessors |
+			exporter := OTSpanExporter current.
+			provider := OTTracerProvider current.
+			spanProcessors := provider spanProcessors.
+			self assert: exporter class identicalTo: OTCompositeSpanExporter.
+			self
+				assert: (exporter componentExporters collect: [ :each | each class ]) asArray
+				equals: { OTConsoleSpanExporter. OTZipkinSpanExporter }.
+			self assert: OTSpanProcessor current class identicalTo: OTCompositeSpanProcessor.
+			self
+				assert: (spanProcessors collect: [ :each | each class ]) asArray
+				equals: { OTSimpleSpanProcessor. OTBatchSpanProcessor }.
+			self
+				assert: (spanProcessors collect: [ :each | each exporter class ]) asArray
+				equals: { OTConsoleSpanExporter. OTZipkinSpanExporter } ]
 ]
 
 { #category : 'tests' }
@@ -415,7 +456,8 @@ OTEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterAndBatchProce
 		during: [
 			self assert: OTSpanExporter current class identicalTo: OTOtlpStdoutSpanExporter.
 			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpStdoutSpanExporter ]
 ]
 
 { #category : 'tests' }
@@ -444,10 +486,25 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownTraceExporterNameA
 				at: 'OTEL_TRACES_EXPORTER' put: 'mystery';
 				yourself)
 			during: [
-				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
+				self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter ].
 		self assert: warnings size equals: 1.
 		self assert: warnings first equals:
 			'OpenTelemetry trace exporter name was unrecognized and has been ignored: ''mystery''' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOtherTraceExportersAndFallsBackToDefaultExporter [
+
+	self withExporterWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_TRACES_EXPORTER' put: 'console,none';
+				yourself)
+			during: [
+				self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: ''console,none''' ]
 ]
 
 { #category : 'tests' }
@@ -460,7 +517,7 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsWhenOtlpProtocolIsUnsupportedA
 				at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
 				yourself)
 			during: [
-				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
+				self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter ].
 		self assert: warnings size equals: 1.
 		self assert: warnings first equals:
 			'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: ''grpc''' ]

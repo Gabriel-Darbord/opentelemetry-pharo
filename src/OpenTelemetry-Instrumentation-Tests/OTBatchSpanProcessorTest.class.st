@@ -67,6 +67,23 @@ OTBatchSpanProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExport
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testForceFlushUsesExplicitExporterInsteadOfGlobalExporter [
+
+	| globalExporter |
+	exporter := OTRecordingSpanExporter new.
+	globalExporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: globalExporter.
+	processor := OTBatchSpanProcessor new exporter: exporter.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 1000.
+	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: processor forceFlush.
+	self assert: exporter exportedBatches size equals: 1.
+	self assert: globalExporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testProcessDropsSpansWhenQueueFillsDuringBlockedExport [
 
 	exporter := OTBlockingSpanExporter new.

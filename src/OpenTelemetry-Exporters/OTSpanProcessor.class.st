@@ -55,6 +55,22 @@ OTSpanProcessor class >> batchSpanProcessorScheduledDelayMillis [
 ]
 
 { #category : 'instance creation' }
+OTSpanProcessor class >> batchSpanProcessorWithExporter: anExporter [
+	"Apply BSP env sizing to one concrete exporter instance."
+
+	| maxExportBatchSize maxQueueSize processor |
+	processor := OTBatchSpanProcessor new exporter: anExporter.
+	maxQueueSize := self batchSpanProcessorMaxQueueSize.
+	maxExportBatchSize := self batchSpanProcessorMaxExportBatchSizeForQueueSize: maxQueueSize.
+	processor
+		maxQueueSize: maxQueueSize;
+		batchSize: maxExportBatchSize;
+		scheduledDelayMillis: self batchSpanProcessorScheduledDelayMillis;
+		exportTimeoutMillis: self batchSpanProcessorExportTimeoutMillis.
+	^ processor
+]
+
+{ #category : 'instance creation' }
 OTSpanProcessor class >> beCurrent [
 
 	<script>
@@ -78,6 +94,13 @@ OTSpanProcessor class >> current [
 OTSpanProcessor class >> current: aSpanProcessor [
 
 	Current := aSpanProcessor
+]
+
+{ #category : 'instance creation' }
+OTSpanProcessor class >> configuredProcessors [
+
+	^ OTSpanExporter current componentExporters
+		collect: [ :each | self processorForExporter: each ]
 ]
 
 { #category : 'instance creation' }
@@ -173,20 +196,21 @@ OTSpanProcessor class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 ]
 
 { #category : 'instance creation' }
-OTSpanProcessor class >> readConfiguration [
-	"Use BSP env sizing where it fits the current synchronous batch processor model"
+OTSpanProcessor class >> processorForExporter: anExporter [
 
-	| processor maxQueueSize maxExportBatchSize |
-	OTSpanExporter current class == OTConsoleSpanExporter ifTrue: [ ^ OTSimpleSpanProcessor new ].
-	processor := OTBatchSpanProcessor new.
-	maxQueueSize := self batchSpanProcessorMaxQueueSize.
-	maxExportBatchSize := self batchSpanProcessorMaxExportBatchSizeForQueueSize: maxQueueSize.
-	processor
-		maxQueueSize: maxQueueSize;
-		batchSize: maxExportBatchSize;
-		scheduledDelayMillis: self batchSpanProcessorScheduledDelayMillis;
-		exportTimeoutMillis: self batchSpanProcessorExportTimeoutMillis.
-	^ processor
+	anExporter class == OTConsoleSpanExporter ifTrue: [
+		^ OTSimpleSpanProcessor new exporter: anExporter ].
+	^ self batchSpanProcessorWithExporter: anExporter
+]
+
+{ #category : 'instance creation' }
+OTSpanProcessor class >> readConfiguration [
+
+	| processors |
+	processors := self configuredProcessors.
+	^ processors size = 1
+		ifTrue: [ processors first ]
+		ifFalse: [ OTCompositeSpanProcessor withAll: processors ]
 ]
 
 { #category : 'class initialization' }
@@ -229,6 +253,12 @@ OTSpanProcessor class >> strictPositiveIntegerFrom: aString [
 OTSpanProcessor >> beCurrent [
 
 	^ Current := self
+]
+
+{ #category : 'accessing' }
+OTSpanProcessor >> componentProcessors [
+
+	^ { self }
 ]
 
 { #category : 'processing' }

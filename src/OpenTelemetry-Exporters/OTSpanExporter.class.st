@@ -37,6 +37,22 @@ OTSpanExporter class >> current: aSpanExporter [
 ]
 
 { #category : 'instance creation' }
+OTSpanExporter class >> configuredExporters [
+
+	| configuredValue exporters |
+	configuredValue := self environmentValueAt: 'OTEL_TRACES_EXPORTER'.
+	configuredValue ifNil: [ ^ { self defaultExporter } ].
+	exporters := self exportersFromConfigurationValue: configuredValue.
+	^ exporters ifEmpty: [ { self defaultExporter } ] ifNotEmpty: [ exporters ]
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> defaultExporter [
+
+	^ self configuredOtlpExporter ifNil: [ self defaultFileExporter ]
+]
+
+{ #category : 'instance creation' }
 OTSpanExporter class >> defaultFileExporter [
 
 	^ OTJSONFileSpanExporter new
@@ -91,6 +107,42 @@ OTSpanExporter class >> exporterFromEnvironmentName: aString [
 	exporterName = 'zipkin' ifTrue: [ ^ self configuredZipkinExporter ].
 	aString ifNotEmpty: [ self noteUnknownTraceExporterName: aString ].
 	^ nil
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> exporterNamesFromConfigurationValue: aString [
+
+	| names seen |
+	names := OrderedCollection new.
+	seen := Set new.
+	(aString substrings: ',') do: [ :each |
+		| exporterName normalizedName |
+		exporterName := each trimBoth.
+		exporterName ifNotEmpty: [
+			normalizedName := exporterName asLowercase.
+			(seen includes: normalizedName) ifFalse: [
+				seen add: normalizedName.
+				names add: exporterName ] ] ].
+	^ names asArray
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> exportersFromConfigurationValue: aString [
+
+	| exporterNames exporters |
+	exporterNames := self exporterNamesFromConfigurationValue: aString.
+	(exporterNames size > 1 and: [
+		 exporterNames anySatisfy: [ :each | each asLowercase = 'none' ] ]) ifTrue: [
+		self noteTraceExporterNoneConflictIn: aString.
+		^ #() ].
+	exporters := OrderedCollection new.
+	exporterNames do: [ :each |
+		| exporter |
+		exporter := self exporterFromEnvironmentName: each.
+		exporter ifNotNil: [
+			exporter class == OTNoopSpanExporter ifTrue: [ ^ { exporter } ].
+			exporters add: exporter ] ].
+	^ exporters asArray
 ]
 
 { #category : 'exporting' }
@@ -169,22 +221,18 @@ OTSpanExporter class >> configuredOtlpExporter [
 	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol
 		ifTrue: [ ^ OTOtlpHttpJsonSpanExporter configuration: configuration ].
 	self noteUnsupportedOtlpProtocol: configuration protocol.
-	^ nil
+	configuration protocol: OTOtlpExporterConfiguration defaultProtocol.
+	^ OTOtlpHttpProtobufSpanExporter configuration: configuration
 ]
 
 { #category : 'instance creation' }
 OTSpanExporter class >> readConfiguration [
 
-	| configuredValue |
-	configuredValue := self environmentValueAt: 'OTEL_TRACES_EXPORTER'.
-	configuredValue ifNil: [ ^ self defaultFileExporter ].
-	(configuredValue substrings: ',')
-		do: [ :each |
-			| exporter exporterName |
-			exporterName := each trimBoth.
-			exporter := self exporterFromEnvironmentName: exporterName.
-			exporter ifNotNil: [ ^ exporter ] ].
-	^ self defaultFileExporter
+	| exporters |
+	exporters := self configuredExporters.
+	^ exporters size = 1
+		ifTrue: [ exporters first ]
+		ifFalse: [ OTCompositeSpanExporter withAll: exporters ]
 ]
 
 { #category : 'class initialization' }
@@ -222,6 +270,14 @@ OTSpanExporter class >> strictPositiveIntegerFrom: aString [
 	stream atEnd ifFalse: [ ^ nil ].
 	value > 0 ifFalse: [ ^ nil ].
 	^ value
+]
+
+{ #category : 'private - logging' }
+OTSpanExporter class >> noteTraceExporterNoneConflictIn: aString [
+
+	self warningSink value:
+		'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: '
+			, aString printString
 ]
 
 { #category : 'private - logging' }
@@ -270,6 +326,12 @@ OTSpanExporter class >> warningSink: aBlock [
 OTSpanExporter >> beCurrent [
 
 	^ Current := self
+]
+
+{ #category : 'accessing' }
+OTSpanExporter >> componentExporters [
+
+	^ { self }
 ]
 
 { #category : 'exporting' }

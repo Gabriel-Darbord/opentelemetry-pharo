@@ -190,12 +190,12 @@ flexible here.
 
 Available built-in exporters include:
 
-- `OTJSONFileSpanExporter` (default)
+- `OTOtlpHttpProtobufSpanExporter` (default autoconfigured exporter)
 - `OTConsoleSpanExporter`
 - `OTNoopSpanExporter`
 - `OTZipkinSpanExporter`
 - `OTOtlpHttpJsonSpanExporter`
-- `OTOtlpHttpProtobufSpanExporter`
+- `OTJSONFileSpanExporter`
 - `OTOtlpStdoutSpanExporter`
 
 Set one explicitly:
@@ -208,6 +208,11 @@ Or let the library read environment configuration:
 
 - `OTEL_TRACES_EXPORTER`
 - OTLP exporter variables through `OTOtlpExporterConfiguration`
+
+`OTEL_TRACES_EXPORTER` defaults to `otlp`. This implementation also accepts a
+comma-separated list of exporters and installs exporter-specific processors for
+each configured exporter. Console export uses `OTSimpleSpanProcessor`; the
+other built-in exporters use `OTBatchSpanProcessor`.
 
 If you change exporter-related environment variables at runtime, reset the
 singleton objects before reading them again:

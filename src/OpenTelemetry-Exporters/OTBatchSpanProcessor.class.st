@@ -16,7 +16,8 @@ Class {
 		'stateLock',
 		'exportInProgress',
 		'shutdownRequested',
-		'queueBecameNonEmptyAt'
+		'queueBecameNonEmptyAt',
+		'exporter'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
@@ -126,8 +127,20 @@ OTBatchSpanProcessor >> forceFlush [
 	flushed := self flush.
 	flushed ifFalse: [ ^ false ].
 	exported := self
-		runExporterOperation: [ OTSpanExporter current forceFlush ].
+		runExporterOperation: [ self exporter forceFlush ].
 	^ flushed & exported
+]
+
+{ #category : 'accessing' }
+OTBatchSpanProcessor >> exporter [
+
+	^ exporter ifNil: [ exporter := OTSpanExporter current ]
+]
+
+{ #category : 'accessing' }
+OTBatchSpanProcessor >> exporter: aSpanExporter [
+
+	exporter := aSpanExporter
 ]
 
 { #category : 'initialization' }
@@ -218,7 +231,7 @@ OTBatchSpanProcessor >> exportSpans: spans [
 
 	^ exportLock critical: [
 		self exportInProgress: true.
-		[ self runExporterOperation: [ OTSpanExporter current export: spans ] ]
+		[ self runExporterOperation: [ self exporter export: spans ] ]
 			ensure: [ self exportInProgress: false ] ]
 ]
 
@@ -303,7 +316,7 @@ OTBatchSpanProcessor >> shutdown [
 	flushed := self flush.
 	self stopFlushProcess.
 	shutdownResult := self
-		runExporterOperation: [ OTSpanExporter current shutdown ].
+		runExporterOperation: [ self exporter shutdown ].
 	self markShutdown.
 	^ shutdownResult & flushed
 ]

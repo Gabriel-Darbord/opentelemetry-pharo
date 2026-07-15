@@ -491,7 +491,7 @@ OTTracerProvider class >> readConfiguration [
 		sampler: self configuredSampler;
 		spanLimits: self configuredSpanLimits.
 	(self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
-		ifFalse: [ provider spanProcessor: OTSpanProcessor current ].
+		ifFalse: [ provider spanProcessors: OTSpanProcessor current componentProcessors ].
 	^ provider
 ]
 
@@ -1169,10 +1169,7 @@ OTTracerProvider >> spanLimits: anOTSpanLimits [
 { #category : 'accessing' }
 OTTracerProvider >> spanProcessor: aSpanProcessor [
 
-	self ensureOpen.
-	self class spanProcessorsByProvider
-		at: self
-		put: (OrderedCollection with: aSpanProcessor).
+	self spanProcessors: { aSpanProcessor }.
 	^ aSpanProcessor
 ]
 
@@ -1182,6 +1179,18 @@ OTTracerProvider >> spanProcessors [
 	^ self class spanProcessorsByProvider
 		at: self
 		ifAbsentPut: [ OrderedCollection new ]
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> spanProcessors: aCollection [
+
+	self ensureOpen.
+	self class spanProcessorsByProvider
+		at: self
+		put: (aCollection
+			ifNil: [ OrderedCollection new ]
+			ifNotNil: [ aCollection asOrderedCollection ]).
+	^ self spanProcessors
 ]
 
 { #category : 'sampling' }

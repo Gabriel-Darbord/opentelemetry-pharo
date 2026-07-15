@@ -5,11 +5,24 @@ Class {
 	#name : 'OTSimpleSpanProcessor',
 	#superclass : 'OTSpanProcessor',
 	#instVars : [
-		'exportLock'
+		'exportLock',
+		'exporter'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
 }
+
+{ #category : 'accessing' }
+OTSimpleSpanProcessor >> exporter [
+
+	^ exporter ifNil: [ exporter := OTSpanExporter current ]
+]
+
+{ #category : 'accessing' }
+OTSimpleSpanProcessor >> exporter: aSpanExporter [
+
+	exporter := aSpanExporter
+]
 
 { #category : 'processing' }
 OTSimpleSpanProcessor >> flush [
@@ -21,7 +34,7 @@ OTSimpleSpanProcessor >> flush [
 OTSimpleSpanProcessor >> forceFlush [
 
 	self isShutdown ifTrue: [ ^ false ].
-	^ exportLock critical: [ OTSpanExporter current forceFlush ]
+	^ exportLock critical: [ self exporter forceFlush ]
 ]
 
 { #category : 'initialization' }
@@ -37,7 +50,7 @@ OTSimpleSpanProcessor >> process: span [
 
 	self isShutdown ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
-	^ exportLock critical: [ OTSpanExporter current export: { span } ]
+	^ exportLock critical: [ self exporter export: { span } ]
 ]
 
 { #category : 'processing' }
@@ -46,7 +59,7 @@ OTSimpleSpanProcessor >> shutdown [
 	| flushed shutdownResult |
 	self isShutdown ifTrue: [ ^ false ].
 	flushed := self forceFlush.
-	shutdownResult := exportLock critical: [ OTSpanExporter current shutdown ].
+	shutdownResult := exportLock critical: [ self exporter shutdown ].
 	self markShutdown.
 	^ shutdownResult & flushed
 ]

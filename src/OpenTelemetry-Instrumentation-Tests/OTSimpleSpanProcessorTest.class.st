@@ -53,6 +53,19 @@ OTSimpleSpanProcessorTest >> testProcessExportsSampledSpan [
 ]
 
 { #category : 'tests' }
+OTSimpleSpanProcessorTest >> testProcessUsesExplicitExporterInsteadOfGlobalExporter [
+
+	| globalExporter |
+	exporter := OTRecordingSpanExporter new.
+	globalExporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: globalExporter.
+	processor := OTSimpleSpanProcessor new exporter: exporter.
+	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: exporter exportedBatches size equals: 1.
+	self assert: globalExporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
 OTSimpleSpanProcessorTest >> testProcessSerializesConcurrentExports [
 
 	| secondExportFinished |
