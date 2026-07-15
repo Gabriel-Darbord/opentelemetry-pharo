@@ -25,6 +25,6 @@ OTAbstractInstrumentationTest >> setUp [
 { #category : 'running' }
 OTAbstractInstrumentationTest >> tearDown [
 
-	self instrumentation uninstall.
-	super tearDown
+	[ self instrumentation uninstall ] ensure: [ super tearDown ]
 ]
+

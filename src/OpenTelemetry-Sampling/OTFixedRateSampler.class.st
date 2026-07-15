@@ -31,7 +31,8 @@ OTFixedRateSampler >> rate [
 OTFixedRateSampler >> rate: anInteger [
 	"Should be positive"
 
-	rate := anInteger
+	rate := anInteger.
+	^ self
 ]
 
 { #category : 'asserting' }

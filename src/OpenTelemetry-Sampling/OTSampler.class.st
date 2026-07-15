@@ -12,6 +12,32 @@ Class {
 }
 
 { #category : 'instance creation' }
+OTSampler class >> alwaysRecord: aSampler [
+	"Wrap a sampler so DROP becomes RECORD_ONLY while preserving the original sampling rate"
+
+	^ OTAlwaysRecordSampler new rootSampler: aSampler
+]
+
+{ #category : 'instance creation' }
+OTSampler class >> parentBased [
+
+	^ OTParentBasedSampler default
+]
+
+{ #category : 'instance creation' }
+OTSampler class >> parentBased: aSampler [
+
+	^ OTParentBasedSampler root: aSampler
+]
+
+{ #category : 'instance creation' }
+OTSampler class >> traceIdRatioBased: aNumber [
+	"A deterministic trace-id-ratio sampler with a probability between 0 and 1"
+
+	^ OTTraceIdRatioBasedSampler new probability: aNumber
+]
+
+{ #category : 'instance creation' }
 OTSampler class >> withInterval: anInteger [
 	"A minimum time interval sampler using milliseconds"
 
@@ -19,10 +45,10 @@ OTSampler class >> withInterval: anInteger [
 ]
 
 { #category : 'instance creation' }
-OTSampler class >> withProbability: aFloat [
-	"A probabilistic sampler with a probability between 0 and 1"
+OTSampler class >> withProbability: aNumber [
+	"A deterministic trace-id-ratio sampler with a probability between 0 and 1"
 
-	^ OTProbabilisticSampler new probability: aFloat
+	^ self traceIdRatioBased: aNumber
 ]
 
 { #category : 'instance creation' }
@@ -32,8 +58,22 @@ OTSampler class >> withRate: anInteger [
 	^ OTFixedRateSampler new rate: anInteger
 ]
 
+{ #category : 'accessing' }
+OTSampler >> description [
+
+	^ self class name
+]
+
 { #category : 'asserting' }
 OTSampler >> shouldSample [
 
 	self subclassResponsibility
+]
+
+{ #category : 'sampling' }
+OTSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
+
+	^ self shouldSample
+		ifTrue: [ OTSamplingResult recordAndSample ]
+		ifFalse: [ OTSamplingResult drop ]
 ]

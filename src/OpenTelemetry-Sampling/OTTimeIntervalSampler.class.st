@@ -18,53 +18,52 @@ Class {
 	#package : 'OpenTelemetry-Sampling'
 }
 
-{ #category : 'class initialization' }
-OTTimeIntervalSampler class >> initialize [
-	"See class comment"
+{ #category : 'accessing' }
+OTTimeIntervalSampler >> description [
 
-	SessionManager default registerToolClassNamed: self name
-]
-
-{ #category : 'system startup' }
-OTTimeIntervalSampler class >> startUp: resuming [
-	"See class comment"
-
-	resuming ifTrue: [
-		self allInstancesDo: [ :instance | instance reset ] ]
+	^ 'TimeIntervalSampler{', self interval asString, 'ms}'
 ]
 
 { #category : 'initialization' }
 OTTimeIntervalSampler >> initialize [
 
 	super initialize.
-	self reset
+	interval := 0.
+	last := nil
+]
+
+{ #category : 'accessing' }
+OTTimeIntervalSampler >> interval [
+
+	^ interval
 ]
 
 { #category : 'accessing' }
 OTTimeIntervalSampler >> interval: anInteger [
-	"In milliseconds, should be >0.
-	Avoid using a 0ms interval, it works but there is no fast path for it."
 
-	interval := anInteger
+	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [
+		Error signal: 'Sampling interval must be a non-negative integer number of milliseconds' ].
+	interval := anInteger.
+	^ self
 ]
 
 { #category : 'initialization' }
 OTTimeIntervalSampler >> reset [
-	"See class comment"
 
-	last := SmallInteger maxVal
+	last := nil
 ]
 
 { #category : 'asserting' }
 OTTimeIntervalSampler >> shouldSample [
 
-	| now elapsed |
-	now := Time millisecondClockValue. "optimal(?) primitive for getting a clock input"
-	elapsed := now - last.
-
-	(elapsed >= interval or: [ "clock roll over?" elapsed < 0 ]) ifTrue: [
+	| now previous |
+	now := Time millisecondClockValue.
+	previous := last.
+	previous ifNil: [
 		last := now.
 		^ true ].
-
+	(now < previous or: [ now - previous >= self interval ]) ifTrue: [
+		last := now.
+		^ true ].
 	^ false
 ]

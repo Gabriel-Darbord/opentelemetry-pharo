@@ -12,7 +12,9 @@ Class {
 { #category : 'exporting' }
 OTSTONFileSpanExporter >> export: spans [
 
+	self isShutdown ifTrue: [ ^ false ].
 	(self directory asFileReference / DateAndTime now asString , 'ston')
 		ensureCreateFile writeStreamDo: [ :stream |
-		STON put: spans onStream: stream ]
+			STON put: spans onStream: stream ].
+	^ true
 ]

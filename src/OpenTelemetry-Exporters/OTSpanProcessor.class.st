@@ -16,6 +16,44 @@ Class {
 	#package : 'OpenTelemetry-Exporters'
 }
 
+{ #category : 'private' }
+OTSpanProcessor class >> batchSpanProcessorExportTimeoutMillis [
+
+	^ self
+		positiveIntegerEnvironmentValueAt: 'OTEL_BSP_EXPORT_TIMEOUT'
+		default: self defaultBatchSpanProcessorExportTimeoutMillis
+]
+
+{ #category : 'private' }
+OTSpanProcessor class >> batchSpanProcessorMaxExportBatchSizeForQueueSize: maxQueueSize [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE'.
+	parsed := rawValue
+		ifNil: [ self defaultBatchSpanProcessorMaxExportBatchSize ]
+		ifNotNil: [
+			(self strictPositiveIntegerFrom: rawValue)
+				ifNil: [ self defaultBatchSpanProcessorMaxExportBatchSize ]
+				ifNotNil: [ :value | value ] ].
+	^ parsed min: maxQueueSize
+]
+
+{ #category : 'private' }
+OTSpanProcessor class >> batchSpanProcessorMaxQueueSize [
+
+	^ self
+		positiveIntegerEnvironmentValueAt: 'OTEL_BSP_MAX_QUEUE_SIZE'
+		default: self defaultBatchSpanProcessorMaxQueueSize
+]
+
+{ #category : 'private' }
+OTSpanProcessor class >> batchSpanProcessorScheduledDelayMillis [
+
+	^ self
+		positiveIntegerEnvironmentValueAt: 'OTEL_BSP_SCHEDULE_DELAY'
+		default: self defaultBatchSpanProcessorScheduledDelayMillis
+]
+
 { #category : 'instance creation' }
 OTSpanProcessor class >> beCurrent [
 
@@ -26,7 +64,7 @@ OTSpanProcessor class >> beCurrent [
 			^ self == Current class
 				  ifTrue: [ Current ]
 				  ifFalse: [
-					  Current flush.
+					  Current ifNotNil: [ Current flush ].
 					  Current := self new ] ]
 ]
 
@@ -42,11 +80,51 @@ OTSpanProcessor class >> current: aSpanProcessor [
 	Current := aSpanProcessor
 ]
 
+{ #category : 'instance creation' }
+OTSpanProcessor class >> defaultBatchSpanProcessorExportTimeoutMillis [
+
+	^ 30000
+]
+
+{ #category : 'instance creation' }
+OTSpanProcessor class >> defaultBatchSpanProcessorMaxExportBatchSize [
+
+	^ 512
+]
+
+{ #category : 'instance creation' }
+OTSpanProcessor class >> defaultBatchSpanProcessorMaxQueueSize [
+
+	^ 2048
+]
+
+{ #category : 'instance creation' }
+OTSpanProcessor class >> defaultBatchSpanProcessorScheduledDelayMillis [
+
+	^ 5000
+]
+
+{ #category : 'private' }
+OTSpanProcessor class >> environmentValueAt: aString [
+
+	| value |
+	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
+	value := value asString trimBoth.
+	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
 { #category : 'processing' }
 OTSpanProcessor class >> flush [
 
 	<script>
 	^ Current ifNil: [ false ] ifNotNil: [ Current flush ]
+]
+
+{ #category : 'processing' }
+OTSpanProcessor class >> forceFlush [
+
+	<script>
+	^ Current ifNil: [ false ] ifNotNil: [ Current forceFlush ]
 ]
 
 { #category : 'testing' }
@@ -55,18 +133,96 @@ OTSpanProcessor class >> isAbstract [
 	^ self == OTSpanProcessor
 ]
 
+{ #category : 'private - lifecycle' }
+OTSpanProcessor class >> isShutdown: aProcessor [
+
+	^ (self lifecycleStateByProcessor at: aProcessor ifAbsent: [ false ]) = true
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanProcessor class >> lifecycleStateByProcessor [
+
+	^ OTClassStateStore
+		valueAt: #otLifecycleStateByProcessor
+		forClass: self
+		ifAbsent: [
+			| states |
+			states := WeakIdentityKeyDictionary new.
+			OTClassStateStore
+				valueAt: #otLifecycleStateByProcessor
+				forClass: self
+				put: states.
+			states ]
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanProcessor class >> markShutdown: aProcessor [
+
+	self lifecycleStateByProcessor at: aProcessor put: true.
+	^ aProcessor
+]
+
+{ #category : 'private' }
+OTSpanProcessor class >> positiveIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := self strictPositiveIntegerFrom: rawValue.
+	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+]
+
 { #category : 'instance creation' }
 OTSpanProcessor class >> readConfiguration [
-	"Use defaults for now, later should use properties or env vars as explained in https://opentelemetry.io/docs/instrumentation/java/automatic/agent-config/#configuring-the-agent"
+	"Use BSP env sizing where it fits the current synchronous batch processor model"
 
-	^ OTBatchSpanProcessor new
+	| processor maxQueueSize maxExportBatchSize |
+	OTSpanExporter current class == OTConsoleSpanExporter ifTrue: [ ^ OTSimpleSpanProcessor new ].
+	processor := OTBatchSpanProcessor new.
+	maxQueueSize := self batchSpanProcessorMaxQueueSize.
+	maxExportBatchSize := self batchSpanProcessorMaxExportBatchSizeForQueueSize: maxQueueSize.
+	processor
+		maxQueueSize: maxQueueSize;
+		batchSize: maxExportBatchSize;
+		scheduledDelayMillis: self batchSpanProcessorScheduledDelayMillis;
+		exportTimeoutMillis: self batchSpanProcessorExportTimeoutMillis.
+	^ processor
 ]
 
 { #category : 'class initialization' }
 OTSpanProcessor class >> reset [
 
-	self flush.
+	self shutdown.
+	self resetLifecycleState.
 	Current := nil
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanProcessor class >> resetLifecycleState [
+
+	OTClassStateStore
+		removeValueAt: #otLifecycleStateByProcessor
+		forClass: self
+		ifAbsent: [  ]
+]
+
+{ #category : 'processing' }
+OTSpanProcessor class >> shutdown [
+
+	<script>
+	^ Current ifNil: [ false ] ifNotNil: [ Current shutdown ]
+]
+
+{ #category : 'private' }
+OTSpanProcessor class >> strictPositiveIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value > 0 ifFalse: [ ^ nil ].
+	^ value
 ]
 
 { #category : 'accessing' }
@@ -81,8 +237,61 @@ OTSpanProcessor >> flush [
 ]
 
 { #category : 'processing' }
+OTSpanProcessor >> forceFlush [
+
+	self isShutdown ifTrue: [ ^ false ].
+	^ self flush
+]
+
+{ #category : 'testing' }
+OTSpanProcessor >> isShutdown [
+
+	^ self class isShutdown: self
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanProcessor >> markShutdown [
+
+	self class markShutdown: self.
+	^ self
+]
+
+{ #category : 'processing' }
+OTSpanProcessor >> onEnd: aSpan [
+	"Compatibility hook for processors that still implement completed-span processing via #process:."
+
+	^ self process: aSpan
+]
+
+{ #category : 'processing' }
+OTSpanProcessor >> onEnding: aSpan [
+	"Default no-op lifecycle callback for spans that are about to end."
+]
+
+{ #category : 'processing' }
+OTSpanProcessor >> onStart: aSpan parentContext: aContext [
+	"Default no-op lifecycle callback for started spans."
+]
+
+{ #category : 'processing' }
 OTSpanProcessor >> process: span [
 	"Export the span and return true if it was accepted"
 
 	self subclassResponsibility
+]
+
+{ #category : 'testing' }
+OTSpanProcessor >> shouldExport: aSpan [
+
+	^ aSpan spanContext isSampled
+]
+
+{ #category : 'processing' }
+OTSpanProcessor >> shutdown [
+
+	| flushed |
+	self isShutdown ifTrue: [ ^ false ].
+	flushed := self forceFlush.
+	self markShutdown.
+	^ flushed
 ]

@@ -5,19 +5,19 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'test methods' }
+{ #category : 'evaluating' }
 OTTestTarget >> answer [
 
 	^ 42
 ]
 
-{ #category : 'test methods' }
+{ #category : 'evaluating' }
 OTTestTarget >> fail [
 
 	Error signal
 ]
 
-{ #category : 'test methods' }
+{ #category : 'evaluating' }
 OTTestTarget >> handledFail [
 
 	[ self error ]
@@ -25,13 +25,13 @@ OTTestTarget >> handledFail [
 		do: [ :e |  ]
 ]
 
-{ #category : 'test methods' }
+{ #category : 'evaluating' }
 OTTestTarget >> indirectAnswer [
 
 	^ self answer
 ]
 
-{ #category : 'test methods' }
+{ #category : 'evaluating' }
 OTTestTarget >> suppressedAnswer [
 
 	^ self answer

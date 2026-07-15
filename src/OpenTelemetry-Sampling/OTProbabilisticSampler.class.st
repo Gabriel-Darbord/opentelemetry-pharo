@@ -23,7 +23,8 @@ OTProbabilisticSampler >> probability [
 OTProbabilisticSampler >> probability: aFloat [
 	"Should be between 0 and 1"
 
-	probability := aFloat
+	probability := aFloat.
+	^ self
 ]
 
 { #category : 'asserting' }
