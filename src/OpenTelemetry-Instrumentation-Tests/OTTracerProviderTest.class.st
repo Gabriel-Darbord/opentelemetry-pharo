@@ -27,6 +27,7 @@ OTTracerProviderTest >> setUp [
 OTTracerProviderTest >> tearDown [
 
 	[
+		OTDiagnosticLogger reset.
 		OTTracerProvider current: nil.
 		OTTracerProvider tracerConfigurationWarningSink: nil.
 		OTTracerProvider resourceConfigurationWarningSink: nil.
@@ -150,6 +151,25 @@ OTTracerProviderTest >> testCustomTracerProviderCanCustomizeTracerClass [
 	secondTracer := provider tracerNamed: 'demo.scope'.
 	self assert: firstTracer class identicalTo: OTCustomTracer.
 	self assert: secondTracer identicalTo: firstTracer
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testSpanProcessorFailureInvokesDiagnosticErrorHandler [
+
+	| handled provider |
+	handled := OrderedCollection new.
+	OTDiagnosticLogger current: (OTDiagnosticLogger new
+		errorHandler: [ :error :message | handled add: { error messageText. message } ];
+		yourself).
+	provider := OTTracerProvider new.
+	provider addSpanProcessor: (OTFailingSpanProcessor failingOperations: { 'onStart' }).
+
+	provider processStartedSpan: (OTSpan rootIn: OTContext new) parentContext: OTContext new.
+
+	self
+		assert: handled asArray
+		equals: {
+			{ 'processor failure'. 'OpenTelemetry span processor callback failed during onStart for OTFailingSpanProcessor: processor failure' } }
 ]
 
 { #category : 'tests' }

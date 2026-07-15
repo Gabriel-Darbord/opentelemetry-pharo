@@ -21,6 +21,7 @@ OTInstrumenterTest >> setUp [
 OTInstrumenterTest >> tearDown [
 
 	[
+		OTDiagnosticLogger reset.
 		OTTracerProvider current: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
@@ -57,6 +58,28 @@ OTInstrumenterTest >> testCurrentContextFallsBackToEmptyContextWhenContextProduc
 			self assert: span parent isNil.
 			self assert: warnings asArray equals:
 				{ 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } ]
+]
+
+{ #category : 'tests' }
+OTInstrumenterTest >> testCurrentContextFailureInvokesDiagnosticErrorHandler [
+
+	| handled instrumenter provider span |
+	handled := OrderedCollection new.
+	OTDiagnosticLogger current: (OTDiagnosticLogger new
+		errorHandler: [ :error :message | handled add: { error messageText. message } ];
+		yourself).
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
+	instrumenter
+		tracerProvider: provider;
+		contextProducer: [ Error signal: 'boom' ].
+	span := instrumenter startRequest: 'request'.
+	self assert: span parent isNil.
+	self
+		assert: handled asArray
+		equals: {
+			{ 'boom'. 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } }
 ]
 
 { #category : 'tests' }

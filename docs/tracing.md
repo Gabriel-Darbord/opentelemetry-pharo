@@ -247,6 +247,19 @@ Reset it to the default behavior with:
 OTDiagnosticLogger reset.
 ```
 
+The default logger also reads `OTEL_LOG_LEVEL` case-insensitively. Supported
+values are `NONE`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `VERBOSE`, and `ALL`.
+If the variable is absent or invalid, the logger falls back to `INFO`.
+
+For suppressed internal SDK errors, you can also install a stricter handler:
+
+```smalltalk
+OTDiagnosticLogger current:
+  (OTDiagnosticLogger default
+    errorHandler: [ :error :message | error pass ];
+    yourself).
+```
+
 ## Span Processors
 
 `OTSpanProcessor current` is the process-wide active processor.

@@ -101,11 +101,15 @@ OTInstrumenter class >> configurationWarningSink: aBlock [
 { #category : 'private - logging' }
 OTInstrumenter class >> noteConfigurationFailedDuring: anOperationName error: anError [
 
-	self configurationWarningSink value:
-		'OpenTelemetry instrumenter callback failed during '
-			, anOperationName
-			, ': '
-			, anError messageText
+	| message |
+	message := 'OpenTelemetry instrumenter callback failed during '
+		, anOperationName
+		, ': '
+		, anError messageText.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self configurationWarningSink value: message ]
 ]
 
 { #category : 'accessing' }

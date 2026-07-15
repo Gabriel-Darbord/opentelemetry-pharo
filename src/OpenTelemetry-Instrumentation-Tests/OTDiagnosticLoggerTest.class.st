@@ -5,12 +5,38 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
+{ #category : 'private' }
+OTDiagnosticLoggerTest >> setEnvironmentValue: aValue forKey: aKey [
+
+	| currentValue environment |
+	environment := Smalltalk os environment.
+	currentValue := environment at: aKey ifAbsent: [ nil ].
+	aValue
+		ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ]
+		ifNotNil: [ environment at: aKey put: aValue ]
+]
+
 { #category : 'running' }
 OTDiagnosticLoggerTest >> tearDown [
 
 	[
+		self setEnvironmentValue: nil forKey: 'OTEL_LOG_LEVEL'.
 		OTDiagnosticLogger reset ]
 		ensure: [ super tearDown ]
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testConfiguredMinimumSeverityDefaultsToInfo [
+
+	self setEnvironmentValue: nil forKey: 'OTEL_LOG_LEVEL'.
+	self assert: OTDiagnosticLogger configuredMinimumSeverity equals: OTDiagnosticLogger infoSeverity
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testConfiguredMinimumSeverityReadsEnvironmentCaseInsensitively [
+
+	self setEnvironmentValue: 'debug' forKey: 'OTEL_LOG_LEVEL'.
+	self assert: OTDiagnosticLogger configuredMinimumSeverity equals: OTDiagnosticLogger debugSeverity
 ]
 
 { #category : 'tests' }
@@ -29,6 +55,25 @@ OTDiagnosticLoggerTest >> testExporterDefaultWarningSinkUsesCurrentDiagnosticLog
 ]
 
 { #category : 'tests' }
+OTDiagnosticLoggerTest >> testHandleSuppressedErrorUsesCustomErrorHandler [
+
+	| handled logger |
+	handled := OrderedCollection new.
+	logger := OTDiagnosticLogger new.
+	logger errorHandler: [ :error :message |
+		handled add: { error messageText. message } ].
+
+	logger
+		handleSuppressedError: (Error new messageText: 'boom'; yourself)
+		message: 'suppressed failure'
+		fallback: [ self fail ].
+
+	self
+		assert: handled asArray
+		equals: { { 'boom'. 'suppressed failure' } }
+]
+
+{ #category : 'tests' }
 OTDiagnosticLoggerTest >> testInstrumentationDefaultWarningSinkUsesCurrentDiagnosticLogger [
 
 	| warnings |
@@ -42,4 +87,21 @@ OTDiagnosticLoggerTest >> testInstrumentationDefaultWarningSinkUsesCurrentDiagno
 	self
 		assert: warnings asArray
 		equals: #( 'sampler warning' 'limit warning' )
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testMinimumSeverityFiltersMessages [
+
+	| logger recorded |
+	recorded := OrderedCollection new.
+	logger := OTDiagnosticLogger onMessageDo: [ :severity :message |
+		recorded add: { severity. message } ].
+	logger minimumSeverity: OTDiagnosticLogger errorSeverity.
+
+	logger warning: 'warning'.
+	logger error: 'error'.
+
+	self
+		assert: recorded asArray
+		equals: { { OTDiagnosticLogger errorSeverity. 'error' } }
 ]

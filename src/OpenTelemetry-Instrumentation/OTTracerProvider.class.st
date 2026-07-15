@@ -403,37 +403,49 @@ OTTracerProvider class >> noteInvalidTracerName: aValue [
 { #category : 'private - logging' }
 OTTracerProvider class >> noteResourceDetector: aDetector failedDuring: anOperationName error: anError [
 
-	self resourceConfigurationWarningSink value:
-		'OpenTelemetry resource detector failed during '
-			, anOperationName
-			, ' for '
-			, aDetector class name
-			, ' ('
-			, aDetector detectorName printString
-			, '): '
-			, anError messageText
+	| message |
+	message := 'OpenTelemetry resource detector failed during '
+		, anOperationName
+		, ' for '
+		, aDetector class name
+		, ' ('
+		, aDetector detectorName printString
+		, '): '
+		, anError messageText.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self resourceConfigurationWarningSink value: message ]
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteSpanProcessor: aProcessor failedDuring: anOperationName error: anError [
 
-	self spanProcessorWarningSink value:
-		'OpenTelemetry span processor callback failed during '
-			, anOperationName
-			, ' for '
-			, aProcessor class name
-			, ': '
-			, anError messageText
+	| message |
+	message := 'OpenTelemetry span processor callback failed during '
+		, anOperationName
+		, ' for '
+		, aProcessor class name
+		, ': '
+		, anError messageText.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self spanProcessorWarningSink value: message ]
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteTracerConfigurationFailedDuring: anOperationName error: anError [
 
-	self tracerConfigurationWarningSink value:
-		'OpenTelemetry tracer configuration callback failed during '
-			, anOperationName
-			, ': '
-			, anError messageText
+	| message |
+	message := 'OpenTelemetry tracer configuration callback failed during '
+		, anOperationName
+		, ': '
+		, anError messageText.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self tracerConfigurationWarningSink value: message ]
 ]
 
 { #category : 'private - logging' }
