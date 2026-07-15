@@ -40,14 +40,6 @@ OTSpanBuilder class >> forTracer: aTracer name: aString [
 	^ builder
 ]
 
-{ #category : 'private - logging' }
-OTSpanBuilder class >> noteInvalidParentContext: anObject [
-
-	self parentContextWarningSink value:
-		'OpenTelemetry span builder ignored an invalid parent context and used a root context instead: '
-			, (anObject ifNil: [ 'nil' ] ifNotNil: [ anObject printString ])
-]
-
 { #category : 'private' }
 OTSpanBuilder class >> normalizedParentContextFrom: aContext [
 
@@ -55,6 +47,14 @@ OTSpanBuilder class >> normalizedParentContextFrom: aContext [
 	(aContext isKindOf: OTContext) ifTrue: [ ^ aContext ].
 	self noteInvalidParentContext: aContext.
 	^ OTContext new
+]
+
+{ #category : 'private - logging' }
+OTSpanBuilder class >> noteInvalidParentContext: anObject [
+
+	self parentContextWarningSink value:
+		'OpenTelemetry span builder ignored an invalid parent context and used a root context instead: '
+			, (anObject ifNil: [ 'nil' ] ifNotNil: [ anObject printString ])
 ]
 
 { #category : 'private - logging' }
@@ -84,12 +84,6 @@ OTSpanBuilder >> addLink: aSpanLink [
 ]
 
 { #category : 'configuring' }
-OTSpanBuilder >> addLinkSpanContext: aSpanContext [
-
-	^ self addLinkSpanContext: aSpanContext attributes: nil
-]
-
-{ #category : 'configuring' }
 OTSpanBuilder >> addLinkSpan: aSpan [
 
 	^ self addLinkSpan: aSpan attributes: nil
@@ -99,6 +93,12 @@ OTSpanBuilder >> addLinkSpan: aSpan [
 OTSpanBuilder >> addLinkSpan: aSpan attributes: aDictionary [
 
 	^ self addLink: (OTSpanLink span: aSpan attributes: aDictionary)
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> addLinkSpanContext: aSpanContext [
+
+	^ self addLinkSpanContext: aSpanContext attributes: nil
 ]
 
 { #category : 'configuring' }
@@ -207,21 +207,22 @@ OTSpanBuilder >> spanName: aString [
 { #category : 'starting' }
 OTSpanBuilder >> startSpan [
 
-	| baseContext effectiveTraceFlags idGenerator parentSpan samplingResult span traceId |
-	baseContext := self class normalizedParentContextFrom: parentContext.
+	| effectiveParentContext effectiveTraceFlags idGenerator parentSpan samplingResult span traceId |
+	effectiveParentContext := self class normalizedParentContextFrom: parentContext.
+	rootRequested ifTrue: [ effectiveParentContext := effectiveParentContext withSpan: nil ].
 	(tracer
 		enabledForSpanNamed: spanName
 		kind: spanKind
-		in: baseContext
+		in: effectiveParentContext
 		attributes: attributes
-		links: links) ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext ].
+		links: links) ifFalse: [ ^ tracer provider nonRecordingSpanIn: effectiveParentContext ].
 	idGenerator := tracer provider idGenerator.
-	parentSpan := rootRequested ifTrue: [ nil ] ifFalse: [ tracer parentSpanFrom: baseContext ].
+	parentSpan := rootRequested ifTrue: [ nil ] ifFalse: [ tracer parentSpanFrom: effectiveParentContext ].
 	traceId := parentSpan ifNil: [ idGenerator generateTraceIdHex ] ifNotNil: [ parentSpan traceId ].
-	samplingResult := tracer provider samplingResultIn: baseContext traceId: traceId name: spanName kind: spanKind attributes: attributes links: links.
-	samplingResult isRecording ifFalse: [ ^ tracer provider nonRecordingSpanIn: baseContext parent: parentSpan traceId: traceId samplingResult: samplingResult instrumentationScope: tracer instrumentationScope ].
+	samplingResult := tracer provider samplingResultIn: effectiveParentContext traceId: traceId name: spanName kind: spanKind attributes: attributes links: links.
+	samplingResult isRecording ifFalse: [ ^ tracer provider nonRecordingSpanIn: effectiveParentContext parent: parentSpan traceId: traceId samplingResult: samplingResult instrumentationScope: tracer instrumentationScope ].
 	span := tracer provider
-		recordingSpanIn: baseContext
+		recordingSpanIn: effectiveParentContext
 		parent: parentSpan
 		instrumentationScope: tracer instrumentationScope.
 	span
@@ -232,7 +233,7 @@ OTSpanBuilder >> startSpan [
 	span traceFlags: effectiveTraceFlags; resource: tracer provider resource.
 	samplingResult traceState ifNotNil: [ span traceState: samplingResult traceState ].
 	span
-		context: (baseContext withSpan: span);
+		context: (effectiveParentContext withSpan: span);
 		name: spanName;
 		kind: spanKind;
 		instrumentationScope: tracer instrumentationScope;
@@ -242,7 +243,7 @@ OTSpanBuilder >> startSpan [
 	attributes associationsDo: [ :each | span attributeAt: each key put: each value ].
 	span addLinks: links.
 	startTime ifNotNil: [ span startTime: startTime ].
-	tracer provider processStartedSpan: span parentContext: baseContext.
+	tracer provider processStartedSpan: span parentContext: effectiveParentContext.
 	^ span
 ]
 

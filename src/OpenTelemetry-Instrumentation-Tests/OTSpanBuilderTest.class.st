@@ -5,6 +5,17 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
+{ #category : 'private' }
+OTSpanBuilderTest >> sampledParentSpan [
+
+	^ (OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: 'rojo=1'
+		remote: false) asNonRecordingSpan
+]
+
 { #category : 'running' }
 OTSpanBuilderTest >> setUp [
 
@@ -20,6 +31,7 @@ OTSpanBuilderTest >> setUp [
 OTSpanBuilderTest >> tearDown [
 
 	[
+		OpenTelemetry resetCurrentContext.
 		OTTracerProvider current: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
@@ -28,15 +40,46 @@ OTSpanBuilderTest >> tearDown [
 		ensure: [ super tearDown ]
 ]
 
-{ #category : 'private' }
-OTSpanBuilderTest >> withParentContextWarningsDo: aBlock [
+{ #category : 'tests' }
+OTSpanBuilderTest >> testAsRootIgnoresImplicitCurrentSpan [
 
-	| warnings |
-	warnings := OrderedCollection new.
-	OTSpanBuilder parentContextWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTSpanBuilder parentContextWarningSink: nil ]
+	| currentContext parentSpan provider rootSpan tracer |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		sampler: (OTParentBasedSampler default
+			rootSampler: OTAlwaysOffSampler new;
+			yourself).
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := self sampledParentSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	OpenTelemetry
+		useContext: currentContext
+		during: [
+			rootSpan := ((tracer spanBuilderNamed: 'root')
+				inCurrentContext;
+				asRoot;
+				startSpan) ].
+	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
+	self assert: rootSpan spanContext isValid.
+	self assert: rootSpan parent isNil.
+	self deny: rootSpan traceId equals: parentSpan traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
+
+	| childSpan parentSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
+	parentSpan end.
+	childSpan := ((tracer spanBuilderNamed: 'child')
+		inContext: (parentSpan inContext: OTContext new);
+		startSpan).
+	self assert: childSpan parent identicalTo: parentSpan.
+	self assert: childSpan traceId equals: parentSpan traceId
 ]
 
 { #category : 'tests' }
@@ -130,34 +173,33 @@ OTSpanBuilderTest >> testInCurrentContextUsesImplicitCurrentSpanAsParent [
 ]
 
 { #category : 'tests' }
-OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
+OTSpanBuilderTest >> testNoParentIgnoresParentContextForSamplingAndTraceIdentity [
 
-	| firstContext provider secondContext span tracer |
+	| baggage context parentSpan provider rootSpan tracedChild tracer |
 	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		sampler: (OTParentBasedSampler default
+			rootSampler: OTAlwaysOffSampler new;
+			yourself).
 	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	firstContext := span spanContext.
-	secondContext := span spanContext.
-	self assert: secondContext identicalTo: firstContext.
-	span end.
-	self assert: span spanContext identicalTo: firstContext
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
-
-	| childSpan parentSpan provider tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
-	parentSpan end.
-	childSpan := ((tracer spanBuilderNamed: 'child')
-		inContext: (parentSpan inContext: OTContext new);
+	parentSpan := self sampledParentSpan.
+	baggage := OTBaggage empty withEntryNamed: 'tenant.id' value: 'acme'.
+	context := (OTContext new withSpan: parentSpan) withBaggage: baggage.
+	tracedChild := ((tracer spanBuilderNamed: 'child')
+		inContext: context;
 		startSpan).
-	self assert: childSpan parent identicalTo: parentSpan.
-	self assert: childSpan traceId equals: parentSpan traceId
+	rootSpan := ((tracer spanBuilderNamed: 'root')
+		inContext: context;
+		noParent;
+		startSpan).
+	self assert: tracedChild isRecording.
+	self assert: tracedChild traceId equals: parentSpan traceId.
+	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
+	self assert: rootSpan spanContext isValid.
+	self assert: rootSpan parent isNil.
+	self deny: rootSpan traceId equals: parentSpan traceId.
+	self assert: rootSpan context baggage equals: baggage
 ]
 
 { #category : 'tests' }
@@ -175,6 +217,21 @@ OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
 	self assert: span links size equals: 1.
 	self assert: span links first spanContext equals: linkedSpan spanContext.
 	self assert: (span links first attributes at: 'link.kind') equals: 'follows_from'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
+
+	| firstContext provider secondContext span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	firstContext := span spanContext.
+	secondContext := span spanContext.
+	self assert: secondContext identicalTo: firstContext.
+	span end.
+	self assert: span spanContext identicalTo: firstContext
 ]
 
 { #category : 'tests' }
@@ -214,4 +271,15 @@ OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 		during: [ span := tracer startSpanNamed: 'operation' ].
 	self assert: span parent identicalTo: parentSpan.
 	self assert: span traceId equals: parentSpan traceId
+]
+
+{ #category : 'private' }
+OTSpanBuilderTest >> withParentContextWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTSpanBuilder parentContextWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTSpanBuilder parentContextWarningSink: nil ]
 ]
