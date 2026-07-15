@@ -106,14 +106,43 @@ OTSpan class >> current [
 { #category : 'accessing' }
 OTSpan class >> currentContext [
 
-	^ Current ifNil: [ OTContext new ]
+	^ self currentContextsByProcess
+		at: Processor activeProcess
+		ifAbsent: [ OTContext new ]
 ]
 
 { #category : 'accessing' }
 OTSpan class >> currentContext: aContext [
 
-	Current := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
-	^ Current
+	| context currentProcess |
+	context := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	currentProcess := Processor activeProcess.
+	context isEmpty
+		ifTrue: [
+			self currentContextsByProcess
+				removeKey: currentProcess
+				ifAbsent: [  ] ]
+		ifFalse: [
+			self currentContextsByProcess
+				at: currentProcess
+				put: context ].
+	^ context
+]
+
+{ #category : 'private' }
+OTSpan class >> currentContextsByProcess [
+
+	^ OTClassStateStore
+		valueAt: #otCurrentContextsByProcess
+		forClass: self
+		ifAbsent: [
+			| contexts |
+			contexts := WeakIdentityKeyDictionary new.
+			OTClassStateStore
+				valueAt: #otCurrentContextsByProcess
+				forClass: self
+				put: contexts.
+			contexts ]
 ]
 
 { #category : 'private - logging' }
@@ -298,7 +327,11 @@ OTSpan class >> recordException: anException [
 { #category : 'class initialization' }
 OTSpan class >> reset [
 
-	Current := nil
+	Current := nil.
+	OTClassStateStore
+		removeValueAt: #otCurrentContextsByProcess
+		forClass: self
+		ifAbsent: [  ]
 ]
 
 { #category : 'private - logging' }
