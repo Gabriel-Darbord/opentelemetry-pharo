@@ -11,11 +11,11 @@ Class {
 { #category : 'private' }
 OTOtlpStdoutSpanExporter >> outputStream [
 
-	^ Smalltalk globals at: #Transcript ifAbsent: [ nil ]
+	^ Stdio stdout
 ]
 
 { #category : 'private' }
 OTOtlpStdoutSpanExporter >> writeJsonLine: aString [
 
-	self outputStream ifNotNil: [ :stream | stream nextPutAll: aString ]
+	self outputStream nextPutAll: aString
 ]

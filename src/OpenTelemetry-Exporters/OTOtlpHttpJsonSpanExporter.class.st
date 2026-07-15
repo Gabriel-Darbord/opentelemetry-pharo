@@ -40,12 +40,7 @@ OTOtlpHttpJsonSpanExporter class >> defaultRetryMaxDelayMillis [
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter class >> defaultWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'private - retry' }

@@ -218,6 +218,30 @@ OTSpanProcessor reset.
 OTTracerProvider reset.
 ```
 
+## Diagnostic Output
+
+Configuration warnings and other SDK diagnostic messages flow through
+`OTDiagnosticLogger`.
+
+The default logger writes to standard output. If `TinyLogger` is already loaded
+in the image, the default logger uses it automatically instead. You can install
+another backend explicitly:
+
+```smalltalk
+OTDiagnosticLogger current:
+  (OTDiagnosticLogger onWarningDo: [ :message |
+    Stdio stdout
+      nextPutAll: 'OTel: ';
+      nextPutAll: message;
+      lf ]).
+```
+
+Reset it to the default behavior with:
+
+```smalltalk
+OTDiagnosticLogger reset.
+```
+
 ## Span Processors
 
 `OTSpanProcessor current` is the process-wide active processor.

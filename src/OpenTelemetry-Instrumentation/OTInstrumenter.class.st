@@ -49,12 +49,7 @@ OTInstrumenter class >> defaultContextProducer [
 { #category : 'private - logging' }
 OTInstrumenter class >> defaultConfigurationWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'defaults' }

@@ -45,12 +45,7 @@ OTSpanExporter class >> defaultFileExporter [
 { #category : 'private - logging' }
 OTSpanExporter class >> defaultWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'instance creation' }

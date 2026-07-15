@@ -12,7 +12,7 @@ Class {
 { #category : 'private' }
 OTConsoleSpanExporter >> outputStream [
 
-	^ Smalltalk globals at: #Transcript ifAbsent: [ nil ]
+	^ Stdio stdout
 ]
 
 { #category : 'exporting' }
@@ -21,9 +21,8 @@ OTConsoleSpanExporter >> export: spans [
 	| stream |
 	self isShutdown ifTrue: [ ^ false ].
 	stream := self outputStream.
-	stream ifNotNil: [
-		stream
-			show: spans printString;
-			cr ].
+	stream
+		nextPutAll: spans printString;
+		lf.
 	^ true
 ]

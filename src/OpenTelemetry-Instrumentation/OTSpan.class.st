@@ -148,12 +148,7 @@ OTSpan class >> currentContextsByProcess [
 { #category : 'private - logging' }
 OTSpan class >> defaultLimitWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'enumeration' }

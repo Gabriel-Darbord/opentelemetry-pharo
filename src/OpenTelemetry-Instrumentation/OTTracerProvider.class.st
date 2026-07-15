@@ -232,12 +232,7 @@ OTTracerProvider class >> defaultResource [
 { #category : 'private - logging' }
 OTTracerProvider class >> defaultResourceConfigurationWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'instance creation' }
@@ -261,12 +256,7 @@ OTTracerProvider class >> defaultSampler [
 { #category : 'private - logging' }
 OTTracerProvider class >> defaultSamplerConfigurationWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'instance creation' }
@@ -299,34 +289,19 @@ OTTracerProvider class >> defaultServiceName [
 { #category : 'private - logging' }
 OTTracerProvider class >> defaultSpanProcessorWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> defaultTracerConfigurationWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> defaultTracerNameWarningSink [
 
-	^ [ :message | | transcript |
-		transcript := Smalltalk globals at: #Transcript ifAbsent: [ nil ].
-		transcript ifNotNil: [
-			transcript
-				show: message;
-				cr ] ]
+	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'private' }
