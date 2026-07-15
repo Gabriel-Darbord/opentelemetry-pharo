@@ -17,15 +17,19 @@ OTProcessResourceDetector class >> detectorName [
 { #category : 'detecting' }
 OTProcessResourceDetector >> detectResource [
 
-	| attributes commandArguments executableName executablePath imagePath |
+	| attributes commandArguments commandLine executableName executablePath imagePath processId |
 	attributes := OrderedDictionary new.
+	processId := OTTracerProvider currentProcessId.
 	executablePath := OTTracerProvider defaultProcessExecutablePath.
 	executableName := OTTracerProvider defaultProcessExecutableName.
 	imagePath := OTTracerProvider currentImagePath.
 	commandArguments := OTTracerProvider processCommandArguments.
+	commandLine := OTTracerProvider processCommandLine.
+	processId ifNotNil: [ attributes at: 'process.pid' put: processId ].
 	executablePath ifNotNil: [ attributes at: 'process.executable.path' put: executablePath ].
 	executableName ifNotNil: [ attributes at: 'process.executable.name' put: executableName ].
 	imagePath ifNotNil: [ attributes at: 'process.command' put: imagePath ].
+	commandLine ifNotNil: [ attributes at: 'process.command_line' put: commandLine ].
 	commandArguments ifNotEmpty: [ attributes at: 'process.command_args' put: commandArguments ].
 	attributes
 		at: 'process.runtime.name' put: OTTracerProvider runtimeName;

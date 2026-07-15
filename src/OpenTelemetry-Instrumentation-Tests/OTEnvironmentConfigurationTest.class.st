@@ -41,37 +41,44 @@ OTEnvironmentConfigurationTest >> tearDown [
 		ensure: [ super tearDown ]
 ]
 
-{ #category : 'private' }
-OTEnvironmentConfigurationTest >> withResourceWarningsDo: aBlock [
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentDisabledSdkPreservesExistingNonRecordingParentSpan [
 
-	| warnings |
-	warnings := OrderedCollection new.
-	OTTracerProvider resourceConfigurationWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_SDK_DISABLED' put: 'TRUE';
+			yourself)
+		during: [
+			| parentSpan provider returnedSpan |
+			provider := OTTracerProvider current.
+			parentSpan := (OTSpanContext
+				traceId: '4bf92f3577b34da6a3ce929d0e0e4736'
+				spanId: '00f067aa0ba902b7'
+				traceFlags: '01'
+				traceState: 'rojo=one'
+				remote: true) asNonRecordingSpan.
+			returnedSpan := (provider tracerNamed: 'demo.scope')
+				startSpanNamed: 'operation'
+				in: (OTContext new withSpan: parentSpan).
+			self assert: returnedSpan identicalTo: parentSpan ]
 ]
 
-{ #category : 'private' }
-OTEnvironmentConfigurationTest >> withSamplerWarningsDo: aBlock [
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentDisablesSdkWhenConfigured [
 
-	| warnings |
-	warnings := OrderedCollection new.
-	OTTracerProvider samplerConfigurationWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTTracerProvider samplerConfigurationWarningSink: nil ]
-]
-
-{ #category : 'private' }
-OTEnvironmentConfigurationTest >> withExporterWarningsDo: aBlock [
-
-	| warnings |
-	warnings := OrderedCollection new.
-	OTSpanExporter warningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTSpanExporter warningSink: nil ]
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_SDK_DISABLED' put: 'TRUE';
+			yourself)
+		during: [
+			| provider span |
+			provider := OTTracerProvider current.
+			self assert: provider spanProcessors isEmpty.
+			span := (provider tracerNamed: 'demo.scope')
+				startSpanNamed: 'operation'
+				in: OTContext new.
+			self assert: span class identicalTo: OTNonRecordingSpan.
+			self deny: span spanContext isValid ]
 ]
 
 { #category : 'tests' }
@@ -96,273 +103,6 @@ OTEnvironmentConfigurationTest >> testCurrentDiscardsMalformedResourceAttributes
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentDisablesSdkWhenConfigured [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_SDK_DISABLED' put: 'TRUE';
-			yourself)
-		during: [
-			| provider span |
-			provider := OTTracerProvider current.
-			self assert: provider spanProcessors isEmpty.
-			span := (provider tracerNamed: 'demo.scope')
-				startSpanNamed: 'operation'
-				in: OTContext new.
-			self assert: span class identicalTo: OTNonRecordingSpan.
-			self deny: span spanContext isValid ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentDisabledSdkPreservesExistingNonRecordingParentSpan [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_SDK_DISABLED' put: 'TRUE';
-			yourself)
-		during: [
-			| parentSpan provider returnedSpan |
-			provider := OTTracerProvider current.
-			parentSpan := (OTSpanContext
-				traceId: '4bf92f3577b34da6a3ce929d0e0e4736'
-				spanId: '00f067aa0ba902b7'
-				traceFlags: '01'
-				traceState: 'rojo=one'
-				remote: true) asNonRecordingSpan.
-			returnedSpan := (provider tracerNamed: 'demo.scope')
-				startSpanNamed: 'operation'
-				in: (OTContext new withSpan: parentSpan).
-			self assert: returnedSpan identicalTo: parentSpan ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsAlwaysOffSamplerFromEnvironment [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_SAMPLER' put: 'always_off';
-			yourself)
-		during: [
-			self assert: OTTracerProvider current sampler class identicalTo: OTAlwaysOffSampler ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesNoopExporterWhenTraceExportIsDisabled [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'none';
-			yourself)
-		during: [
-			self assert: OTSpanExporter current class identicalTo: OTNoopSpanExporter.
-			self assert: OTTracerProvider current spanProcessors isEmpty ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsBatchProcessorSizingFromEnvironment [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_BSP_MAX_QUEUE_SIZE' put: '64';
-			at: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE' put: '32';
-			at: 'OTEL_BSP_SCHEDULE_DELAY' put: '200';
-			at: 'OTEL_BSP_EXPORT_TIMEOUT' put: '300';
-			yourself)
-		during: [
-			| processor |
-			processor := OTSpanProcessor current.
-			self assert: processor class identicalTo: OTBatchSpanProcessor.
-			self assert: processor maxQueueSize equals: 64.
-			self assert: processor batchSize equals: 32.
-			self assert: processor scheduledDelayMillis equals: 200.
-			self assert: processor exportTimeoutMillis equals: 300 ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterAndSimpleProcessorForConsoleSelection [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'console';
-			yourself)
-		during: [
-			self assert: OTSpanExporter current class identicalTo: OTConsoleSpanExporter.
-			self assert: OTSpanProcessor current class identicalTo: OTSimpleSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTSimpleSpanProcessor ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterAndBatchProcessorForOtlpStdoutSelection [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout';
-			yourself)
-		during: [
-			self assert: OTSpanExporter current class identicalTo: OTOtlpStdoutSpanExporter.
-			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpJsonExporterWhenConfiguredProtocolIsSupported [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
-			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'http/json';
-			yourself)
-		during: [
-			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpJsonSpanExporter.
-			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownTraceExporterNameAndFallsBackToDefaultExporter [
-
-	self withExporterWarningsDo: [ :warnings |
-		self
-			withEnvironmentValues: (Dictionary new
-				at: 'OTEL_TRACES_EXPORTER' put: 'mystery';
-				yourself)
-			during: [
-				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
-		self assert: warnings size equals: 1.
-		self assert: warnings first equals:
-			'OpenTelemetry trace exporter name was unrecognized and has been ignored: ''mystery''' ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenConfiguredProtocolIsSupported [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
-			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'http/protobuf';
-			yourself)
-		during: [
-			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
-			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenUsingDefaultProtocol [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
-			yourself)
-		during: [
-			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
-			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentWarnsWhenOtlpProtocolIsUnsupportedAndFallsBackToDefaultExporter [
-
-	self withExporterWarningsDo: [ :warnings |
-		self
-			withEnvironmentValues: (Dictionary new
-				at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
-				at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
-				yourself)
-			during: [
-				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
-		self assert: warnings size equals: 1.
-		self assert: warnings first equals:
-			'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: ''grpc''' ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsResourceAttributesAndServiceNameFromEnvironment [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.name=resource,host.name=pharo,key%3Dvalue=some%2Cthing';
-			at: 'OTEL_SERVICE_NAME' put: 'override';
-			yourself)
-			during: [
-				| resource |
-				resource := OTTracerProvider current resource.
-				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
-				self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
-				self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
-				self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
-				self assert: resource serviceName equals: 'override'.
-			self assert: (resource attributeAt: 'host.name') equals: 'pharo'.
-			self assert: (resource attributeAt: 'key=value') equals: 'some,thing' ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentProvidesDefaultSdkResourceAttributes [
-
-	self
-		withEnvironmentValues: Dictionary new
-			during: [
-				| resource |
-				resource := OTTracerProvider current resource.
-				self assert: resource serviceName equals: OTTracerProvider defaultServiceName.
-				self deny: (resource attributeAt: 'service.instance.id') isEmpty.
-				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
-				self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
-				self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
-				self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentProvidesProcessRuntimeResourceAttributes [
-
-	self
-		withEnvironmentValues: Dictionary new
-			during: [
-				| resource |
-				resource := OTTracerProvider current resource.
-				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
-				self assert: (resource attributeAt: 'process.executable.name') equals: OTTracerProvider defaultProcessExecutableName.
-				self assert: (resource attributeAt: 'process.executable.path') equals: OTTracerProvider defaultProcessExecutablePath.
-				self assert: (resource attributeAt: 'process.command') equals: OTTracerProvider currentImagePath.
-			self assert: (resource attributeAt: 'process.runtime.name') equals: 'pharo'.
-			self assert: (resource attributeAt: 'process.runtime.version') equals: OTTracerProvider runtimeVersion.
-			self assert: (resource attributeAt: 'process.runtime.description') equals: OTTracerProvider runtimeDescription.
-			self assert: (resource attributeAt: 'process.command_args') equals: OTTracerProvider processCommandArguments ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentProvidesHostAndOperatingSystemResourceAttributes [
-
-	self
-		withEnvironmentValues: Dictionary new
-			during: [
-				| resource |
-				resource := OTTracerProvider current resource.
-				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
-				OTTracerProvider defaultHostName ifNotNil: [ :value |
-					self assert: (resource attributeAt: 'host.name') equals: value ].
-			OTTracerProvider defaultHostArchitecture ifNotNil: [ :value |
-				self assert: (resource attributeAt: 'host.arch') equals: value ].
-			OTTracerProvider defaultOsType ifNotNil: [ :value |
-				self assert: (resource attributeAt: 'os.type') equals: value ].
-			OTTracerProvider defaultOsName ifNotNil: [ :value |
-				self assert: (resource attributeAt: 'os.name') equals: value ].
-			OTTracerProvider defaultOsDescription ifNotNil: [ :value |
-				self assert: (resource attributeAt: 'os.description') equals: value ] ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsServiceNameFromResourceAttributesWhenDedicatedVariableIsAbsent [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.name=resource-only';
-			yourself)
-		during: [
-			self assert: OTTracerProvider current resource serviceName equals: 'resource-only' ]
-]
-
-{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentKeepsStableDefaultServiceInstanceIdAcrossProviderReset [
 
 	self
@@ -384,63 +124,6 @@ OTEnvironmentConfigurationTest >> testCurrentLetsResourceAttributesOverrideDefau
 			yourself)
 		during: [
 			self assert: (OTTracerProvider current resource attributeAt: 'service.instance.id') equals: 'instance-42' ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesZipkinExporterConfigurationFromEnvironment [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'zipkin';
-			at: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT' put: 'http://example.com:9999/custom/path';
-			at: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT' put: '1234';
-			yourself)
-		during: [
-			| exporter |
-			exporter := OTSpanExporter current.
-			self assert: exporter class identicalTo: OTZipkinSpanExporter.
-			self assert: exporter httpClient request url asString equals: 'http://example.com:9999/custom/path'.
-			self assert: exporter httpClient timeout equals: 1234 ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsZeroValuedSpanLimitsFromEnvironment [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_ATTRIBUTE_COUNT_LIMIT' put: '0';
-			at: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT' put: '0';
-			at: 'OTEL_SPAN_EVENT_COUNT_LIMIT' put: '0';
-			at: 'OTEL_SPAN_LINK_COUNT_LIMIT' put: '0';
-			at: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT' put: '0';
-			at: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT' put: '0';
-			yourself)
-		during: [
-			| limits |
-			limits := OTTracerProvider current spanLimits.
-			self assert: limits attributeCountLimit equals: 0.
-			self assert: limits attributeValueLengthLimit equals: 0.
-			self assert: limits eventCountLimit equals: 0.
-			self assert: limits linkCountLimit equals: 0.
-			self assert: limits attributePerEventCountLimit equals: 0.
-			self assert: limits attributePerLinkCountLimit equals: 0 ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsTraceIdRatioSamplerCaseInsensitivelyAndIgnoresInvalidArgument [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_SAMPLER' put: 'PARENTBASED_TRACEIDRATIO';
-			at: 'OTEL_TRACES_SAMPLER_ARG' put: 'invalid';
-			yourself)
-		during: [
-			| sampler rootSampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTParentBasedSampler.
-			rootSampler := sampler rootSampler.
-			self assert: rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
-			self assert: rootSampler probability equals: 1 ]
 ]
 
 { #category : 'tests' }
@@ -493,6 +176,294 @@ OTEnvironmentConfigurationTest >> testCurrentLogsUnsupportedJaegerRemoteSamplerN
 					self assert: warnings size equals: 1.
 					self assert: warnings first equals:
 						'OpenTelemetry sampler name is recognized but not supported by this SDK yet: ''jaeger_remote''' ] ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentProvidesDefaultSdkResourceAttributes [
+
+	self
+		withEnvironmentValues: Dictionary new
+			during: [
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource serviceName equals: OTTracerProvider defaultServiceName.
+				self deny: (resource attributeAt: 'service.instance.id') isEmpty.
+				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
+				self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
+				self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
+				self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentProvidesHostAndOperatingSystemResourceAttributes [
+
+	self
+		withEnvironmentValues: Dictionary new
+			during: [
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
+				OTTracerProvider defaultHostName ifNotNil: [ :value |
+					self assert: (resource attributeAt: 'host.name') equals: value ].
+			OTTracerProvider defaultHostArchitecture ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'host.arch') equals: value ].
+			OTTracerProvider defaultOsType ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'os.type') equals: value ].
+			OTTracerProvider defaultOsName ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'os.name') equals: value ].
+			OTTracerProvider defaultOsDescription ifNotNil: [ :value |
+				self assert: (resource attributeAt: 'os.description') equals: value ] ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentProvidesProcessRuntimeResourceAttributes [
+
+	self
+		withEnvironmentValues: Dictionary new
+			during: [
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
+				OTTracerProvider currentProcessId ifNotNil: [ :value |
+					self assert: (resource attributeAt: 'process.pid') equals: value ].
+				self assert: (resource attributeAt: 'process.executable.name') equals: OTTracerProvider defaultProcessExecutableName.
+				self assert: (resource attributeAt: 'process.executable.path') equals: OTTracerProvider defaultProcessExecutablePath.
+				self assert: (resource attributeAt: 'process.command') equals: OTTracerProvider currentImagePath.
+				OTTracerProvider processCommandLine ifNotNil: [ :value |
+					self assert: (resource attributeAt: 'process.command_line') equals: value ].
+				self assert: (resource attributeAt: 'process.runtime.name') equals: 'pharo'.
+				self assert: (resource attributeAt: 'process.runtime.version') equals: OTTracerProvider runtimeVersion.
+				self assert: (resource attributeAt: 'process.runtime.description') equals: OTTracerProvider runtimeDescription.
+				self assert: (resource attributeAt: 'process.command_args') equals: OTTracerProvider processCommandArguments ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsAlwaysOffSamplerFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_SAMPLER' put: 'always_off';
+			yourself)
+		during: [
+			self assert: OTTracerProvider current sampler class identicalTo: OTAlwaysOffSampler ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsBatchProcessorSizingFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_BSP_MAX_QUEUE_SIZE' put: '64';
+			at: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE' put: '32';
+			at: 'OTEL_BSP_SCHEDULE_DELAY' put: '200';
+			at: 'OTEL_BSP_EXPORT_TIMEOUT' put: '300';
+			yourself)
+		during: [
+			| processor |
+			processor := OTSpanProcessor current.
+			self assert: processor class identicalTo: OTBatchSpanProcessor.
+			self assert: processor maxQueueSize equals: 64.
+			self assert: processor batchSize equals: 32.
+			self assert: processor scheduledDelayMillis equals: 200.
+			self assert: processor exportTimeoutMillis equals: 300 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsResourceAttributesAndServiceNameFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.name=resource,host.name=pharo,key%3Dvalue=some%2Cthing';
+			at: 'OTEL_SERVICE_NAME' put: 'override';
+			yourself)
+			during: [
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
+				self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
+				self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
+				self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
+				self assert: resource serviceName equals: 'override'.
+			self assert: (resource attributeAt: 'host.name') equals: 'pharo'.
+			self assert: (resource attributeAt: 'key=value') equals: 'some,thing' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsServiceNameFromResourceAttributesWhenDedicatedVariableIsAbsent [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'service.name=resource-only';
+			yourself)
+		during: [
+			self assert: OTTracerProvider current resource serviceName equals: 'resource-only' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsTraceIdRatioSamplerCaseInsensitivelyAndIgnoresInvalidArgument [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_SAMPLER' put: 'PARENTBASED_TRACEIDRATIO';
+			at: 'OTEL_TRACES_SAMPLER_ARG' put: 'invalid';
+			yourself)
+		during: [
+			| sampler rootSampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTParentBasedSampler.
+			rootSampler := sampler rootSampler.
+			self assert: rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: rootSampler probability equals: 1 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsZeroValuedSpanLimitsFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_ATTRIBUTE_COUNT_LIMIT' put: '0';
+			at: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT' put: '0';
+			at: 'OTEL_SPAN_EVENT_COUNT_LIMIT' put: '0';
+			at: 'OTEL_SPAN_LINK_COUNT_LIMIT' put: '0';
+			at: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT' put: '0';
+			at: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT' put: '0';
+			yourself)
+		during: [
+			| limits |
+			limits := OTTracerProvider current spanLimits.
+			self assert: limits attributeCountLimit equals: 0.
+			self assert: limits attributeValueLengthLimit equals: 0.
+			self assert: limits eventCountLimit equals: 0.
+			self assert: limits linkCountLimit equals: 0.
+			self assert: limits attributePerEventCountLimit equals: 0.
+			self assert: limits attributePerLinkCountLimit equals: 0 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterAndSimpleProcessorForConsoleSelection [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'console';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTConsoleSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTSimpleSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTSimpleSpanProcessor ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesNoopExporterWhenTraceExportIsDisabled [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'none';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTNoopSpanExporter.
+			self assert: OTTracerProvider current spanProcessors isEmpty ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpJsonExporterWhenConfiguredProtocolIsSupported [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'http/json';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpJsonSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenConfiguredProtocolIsSupported [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'http/protobuf';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenUsingDefaultProtocol [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterAndBatchProcessorForOtlpStdoutSelection [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpStdoutSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesZipkinExporterConfigurationFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'zipkin';
+			at: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT' put: 'http://example.com:9999/custom/path';
+			at: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT' put: '1234';
+			yourself)
+		during: [
+			| exporter |
+			exporter := OTSpanExporter current.
+			self assert: exporter class identicalTo: OTZipkinSpanExporter.
+			self assert: exporter httpClient request url asString equals: 'http://example.com:9999/custom/path'.
+			self assert: exporter httpClient timeout equals: 1234 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownTraceExporterNameAndFallsBackToDefaultExporter [
+
+	self withExporterWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_TRACES_EXPORTER' put: 'mystery';
+				yourself)
+			during: [
+				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry trace exporter name was unrecognized and has been ignored: ''mystery''' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentWarnsWhenOtlpProtocolIsUnsupportedAndFallsBackToDefaultExporter [
+
+	self withExporterWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_TRACES_EXPORTER' put: 'otlp';
+				at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
+				yourself)
+			during: [
+				self assert: OTSpanExporter current class identicalTo: OTJSONFileSpanExporter ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: ''grpc''' ]
 ]
 
 { #category : 'tests' }
@@ -549,4 +520,37 @@ OTEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary during: aBl
 			OTTracerProvider current: nil.
 			OTSpanProcessor current: nil.
 			OTSpanExporter current: nil ]
+]
+
+{ #category : 'private' }
+OTEnvironmentConfigurationTest >> withExporterWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTSpanExporter warningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTSpanExporter warningSink: nil ]
+]
+
+{ #category : 'private' }
+OTEnvironmentConfigurationTest >> withResourceWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider resourceConfigurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
+]
+
+{ #category : 'private' }
+OTEnvironmentConfigurationTest >> withSamplerWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider samplerConfigurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider samplerConfigurationWarningSink: nil ]
 ]
