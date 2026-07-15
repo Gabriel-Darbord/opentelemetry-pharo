@@ -38,7 +38,8 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Matchers';
-		package: 'OpenTelemetry-Sampling';
+		package: 'OpenTelemetry-Sampling'
+		with: [ spec requires: 'OpenTelemetry-Exporters' ];
 		package: 'OpenTelemetry-Agents-SUnit'
 		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Agents-Shout' with: [

@@ -51,6 +51,12 @@ OTProtobufWriter >> writeBytes: aByteArray [
 ]
 
 { #category : 'private - writing' }
+OTProtobufWriter >> writeDouble: aNumber [
+
+	self writeFixed64: aNumber asFloat asIEEE64BitWord
+]
+
+{ #category : 'private - writing' }
 OTProtobufWriter >> writeEmbedded: aBlock [
 
 	| embedded |

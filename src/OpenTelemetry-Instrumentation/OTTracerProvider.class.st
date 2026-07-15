@@ -45,11 +45,20 @@ OTTracerProvider class >> configuredResourceDetectors [
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredSampler [
 
+	^ self configuredSamplerForResource: self configuredResource
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> configuredSamplerForResource: anOTResource [
+
 	| samplerName samplerArgument |
 	samplerName := self environmentValueAt: 'OTEL_TRACES_SAMPLER'.
 	samplerName ifNil: [ ^ self defaultSampler ].
 	samplerArgument := self environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG'.
-	^ self samplerFromEnvironmentName: samplerName argument: samplerArgument
+	^ self
+		samplerFromEnvironmentName: samplerName
+		argument: samplerArgument
+		resource: anOTResource
 ]
 
 { #category : 'private' }
@@ -393,6 +402,14 @@ OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSample
 ]
 
 { #category : 'private - logging' }
+OTTracerProvider class >> noteMissingGrpcDependencyForSampler: aSamplerName [
+
+	self samplerConfigurationWarningSink value:
+		'OpenTelemetry sampler requires grpc-pharo to be loaded and has been ignored for '
+			, aSamplerName printString
+]
+
+{ #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidTracerName: aValue [
 
 	self tracerNameWarningSink value:
@@ -495,12 +512,13 @@ OTTracerProvider class >> processCommandLine [
 { #category : 'instance creation' }
 OTTracerProvider class >> readConfiguration [
 
-	| exporter provider |
+	| exporter provider resource |
 	provider := self new.
 	exporter := OTSpanExporter current.
+	resource := self configuredResource.
 	provider
-		resource: self configuredResource;
-		sampler: self configuredSampler;
+		resource: resource;
+		sampler: (self configuredSamplerForResource: resource);
 		spanLimits: self configuredSpanLimits.
 	(self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
 		ifFalse: [ provider spanProcessors: OTSpanProcessor current componentProcessors ].
@@ -667,6 +685,15 @@ OTTracerProvider class >> samplerConfigurationWarningSink: aBlock [
 { #category : 'private' }
 OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherString [
 
+	^ self
+		samplerFromEnvironmentName: aString
+		argument: anotherString
+		resource: self configuredResource
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherString resource: anOTResource [
+
 	| samplerName probability rootSampler |
 	samplerName := aString asString trimBoth asLowercase.
 	probability := self strictProbabilityFrom: anotherString.
@@ -695,11 +722,99 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 		^ OTParentBasedSampler default
 			rootSampler: rootSampler;
 			yourself ].
-	(#('jaeger_remote' 'parentbased_jaeger_remote' 'xray') includes: samplerName) ifTrue: [
+	samplerName = 'jaeger_remote' ifTrue: [
+		^ self
+			jaegerRemoteSamplerForResource: anOTResource
+			argument: anotherString
+			parentBased: false ].
+	samplerName = 'parentbased_jaeger_remote' ifTrue: [
+		^ self
+			jaegerRemoteSamplerForResource: anOTResource
+			argument: anotherString
+			parentBased: true ].
+	samplerName = 'xray' ifTrue: [
 		self noteUnsupportedSamplerName: samplerName.
 		^ self defaultSampler ].
 	self noteUnknownSamplerName: samplerName.
 	^ self defaultSampler
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictJaegerRemoteSamplerOption: aString into: anOrderedDictionary [
+
+	| key parsedValue separator value |
+	aString isEmpty ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
+	separator := aString indexOf: $=.
+	separator <= 1 ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
+	key := (aString copyFrom: 1 to: separator - 1) trimBoth.
+	value := (aString copyFrom: separator + 1 to: aString size) trimBoth.
+	value isEmpty ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
+	key = 'endpoint' ifTrue: [
+		parsedValue := OTJaegerRemoteSampler normalizedEndpoint: value.
+		anOrderedDictionary at: key put: parsedValue.
+		^ self ].
+	key = 'pollingIntervalMs' ifTrue: [
+		parsedValue := self strictPositiveIntegerFrom: value.
+		parsedValue ifNil: [ Error signal: 'Invalid Jaeger remote polling interval' ].
+		anOrderedDictionary at: key put: parsedValue.
+		^ self ].
+	key = 'initialSamplingRate' ifTrue: [
+		parsedValue := self strictProbabilityFrom: value.
+		parsedValue ifNil: [ Error signal: 'Invalid Jaeger remote initial sampling rate' ].
+		anOrderedDictionary at: key put: parsedValue.
+		^ self ].
+	Error signal: 'Unrecognized Jaeger remote sampler option'
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictJaegerRemoteSamplerOptionsFrom: aString [
+
+	| options rawValue |
+	aString ifNil: [ ^ OrderedDictionary new ].
+	rawValue := aString asString trimBoth.
+	rawValue isEmpty ifTrue: [ ^ OrderedDictionary new ].
+	options := OrderedDictionary new.
+	[ (rawValue substrings: ',') do: [ :each |
+		self strictJaegerRemoteSamplerOption: each trimBoth into: options ] ]
+		on: Error
+		do: [ ^ nil ].
+	^ options
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> jaegerRemoteSamplerForResource: anOTResource argument: anotherString parentBased: aBoolean [
+
+	| configuredSampler options sampler samplerName serviceName value |
+	samplerName := aBoolean
+		ifTrue: [ 'parentbased_jaeger_remote' ]
+		ifFalse: [ 'jaeger_remote' ].
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [
+		self noteMissingGrpcDependencyForSampler: samplerName.
+		^ self defaultSampler ].
+	options := self strictJaegerRemoteSamplerOptionsFrom: anotherString.
+	(anotherString notNil and: [ options isNil ]) ifTrue: [
+		self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+	serviceName := anOTResource
+		ifNil: [ self defaultServiceName ]
+		ifNotNil: [
+			anOTResource serviceName
+				ifNil: [ self defaultServiceName ]
+				ifNotNil: [ anOTResource serviceName ] ].
+	sampler := OTJaegerRemoteSampler serviceName: serviceName.
+	options ifNotNil: [
+		value := options at: 'endpoint' ifAbsent: [ nil ].
+		value ifNotNil: [ sampler endpoint: value ].
+		value := options at: 'pollingIntervalMs' ifAbsent: [ nil ].
+		value ifNotNil: [ sampler pollingIntervalMillis: value ].
+		value := options at: 'initialSamplingRate' ifAbsent: [ nil ].
+		value ifNotNil: [ sampler initialSampler: (OTSampler traceIdRatioBased: value) ] ].
+	configuredSampler := aBoolean
+		ifTrue: [
+			OTParentBasedSampler default
+				rootSampler: sampler;
+				yourself ]
+		ifFalse: [ sampler ].
+	^ configuredSampler
 ]
 
 { #category : 'private' }

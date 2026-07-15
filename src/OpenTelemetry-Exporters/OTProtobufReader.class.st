@@ -57,6 +57,12 @@ OTProtobufReader >> readBytes [
 ]
 
 { #category : 'private - reading' }
+OTProtobufReader >> readDouble [
+
+	^ Float fromIEEE64Bit: self readFixed64
+]
+
+{ #category : 'private - reading' }
 OTProtobufReader >> readFixed32 [
 
 	| shift value |

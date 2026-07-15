@@ -167,19 +167,60 @@ OTEnvironmentConfigurationTest >> testCurrentLogsUnknownSamplerNameAndFallsBackT
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentLogsUnsupportedJaegerRemoteSamplerNameAndFallsBackToDefaultSampler [
+OTEnvironmentConfigurationTest >> testCurrentLogsInvalidJaegerRemoteSamplerArgumentAndUsesDefaults [
 
 	self
 		withSamplerWarningsDo: [ :warnings |
 			self
 				withEnvironmentValues: (Dictionary new
 					at: 'OTEL_TRACES_SAMPLER' put: 'jaeger_remote';
+					at: 'OTEL_TRACES_SAMPLER_ARG' put: 'endpoint=collector';
 					yourself)
 				during: [
-					self assert: OTTracerProvider current sampler class identicalTo: OTParentBasedSampler.
+					| sampler |
+					sampler := OTTracerProvider current sampler.
+					self assert: sampler class identicalTo: OTJaegerRemoteSampler.
+					self assert: sampler endpoint equals: OTJaegerRemoteSampler defaultEndpoint.
+					self assert: sampler pollingIntervalMillis equals: OTJaegerRemoteSampler defaultPollingIntervalMillis.
 					self assert: warnings size equals: 1.
 					self assert: warnings first equals:
-						'OpenTelemetry sampler name is recognized but not supported by this SDK yet: ''jaeger_remote''' ] ]
+						'OpenTelemetry sampler argument was invalid and has been ignored for ''jaeger_remote'': ''endpoint=collector''' ] ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsJaegerRemoteSamplerFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_SERVICE_NAME' put: 'checkout-service';
+			at: 'OTEL_TRACES_SAMPLER' put: 'jaeger_remote';
+			at: 'OTEL_TRACES_SAMPLER_ARG'
+				put: 'endpoint=http://jaeger.example:14250,pollingIntervalMs=5000,initialSamplingRate=0.25';
+			yourself)
+		during: [
+			| initialSampler sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTJaegerRemoteSampler.
+			self assert: sampler serviceName equals: 'checkout-service'.
+			self assert: sampler endpoint equals: 'http://jaeger.example:14250'.
+			self assert: sampler pollingIntervalMillis equals: 5000.
+			initialSampler := sampler currentSampler.
+			self assert: initialSampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: initialSampler probability equals: 0.25 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsParentBasedJaegerRemoteSamplerFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_SAMPLER' put: 'parentbased_jaeger_remote';
+			yourself)
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTParentBasedSampler.
+			self assert: sampler rootSampler class identicalTo: OTJaegerRemoteSampler ]
 ]
 
 { #category : 'tests' }

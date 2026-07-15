@@ -1,0 +1,250 @@
+Class {
+	#name : 'OTJaegerRemoteSamplerTest',
+	#superclass : 'TestCase',
+	#instVars : [
+		'currentTime',
+		'sampler'
+	],
+	#category : 'OpenTelemetry-Instrumentation-Tests',
+	#package : 'OpenTelemetry-Instrumentation-Tests'
+}
+
+{ #category : 'private' }
+OTJaegerRemoteSamplerTest >> assertReader: aReader readsField: aFieldNumber wireType: aWireType [
+
+	| tag |
+	tag := aReader readTag.
+	self assert: tag first equals: aFieldNumber.
+	self assert: tag second equals: aWireType
+]
+
+{ #category : 'private' }
+OTJaegerRemoteSamplerTest >> grpcOkResponseWithPayload: aByteArray [
+
+	^ OTFakeGRPCResponse
+		status: OTFakeGRPCStatus ok
+		payload: aByteArray
+]
+
+{ #category : 'private' }
+OTJaegerRemoteSamplerTest >> perOperationResponseBytesDefaultSamplingProbability: aNumber strategies: associations [
+
+	| writer |
+	writer := OTProtobufWriter withBytes.
+	writer
+		writeTag: 4 wireType: 2;
+		writeEmbedded: [ :perOperation |
+			perOperation
+				writeTag: 1 wireType: 1;
+				writeDouble: aNumber.
+			associations do: [ :each |
+				perOperation
+					writeTag: 3 wireType: 2;
+					writeEmbedded: [ :operation |
+						operation
+							writeTag: 1 wireType: 2;
+							writeString: each key.
+						operation
+							writeTag: 2 wireType: 2;
+							writeEmbedded: [ :probabilistic |
+								probabilistic
+									writeTag: 1 wireType: 1;
+									writeDouble: each value ] ] ] ].
+	^ writer contents
+]
+
+{ #category : 'private' }
+OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithoutExplicitStrategyTypeWithRate: aNumber [
+
+	| writer |
+	writer := OTProtobufWriter withBytes.
+	writer
+		writeTag: 2 wireType: 2;
+		writeEmbedded: [ :probabilistic |
+			probabilistic
+				writeTag: 1 wireType: 1;
+				writeDouble: aNumber ].
+	^ writer contents
+]
+
+{ #category : 'private' }
+OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithRate: aNumber [
+
+	| writer |
+	writer := OTProtobufWriter withBytes.
+	writer
+		writeTag: 1 wireType: 0;
+		writeVarint: 0;
+		writeTag: 2 wireType: 2;
+		writeEmbedded: [ :probabilistic |
+			probabilistic
+				writeTag: 1 wireType: 1;
+				writeDouble: aNumber ].
+	^ writer contents
+]
+
+{ #category : 'private' }
+OTJaegerRemoteSamplerTest >> rateLimitingResponseBytesWithMaxTracesPerSecond: anInteger [
+
+	| writer |
+	writer := OTProtobufWriter withBytes.
+	writer
+		writeTag: 1 wireType: 0;
+		writeVarint: 1;
+		writeTag: 3 wireType: 2;
+		writeEmbedded: [ :rateLimiting |
+			rateLimiting
+				writeTag: 1 wireType: 0;
+				writeVarint: anInteger ].
+	^ writer contents
+]
+
+{ #category : 'private' }
+OTJaegerRemoteSamplerTest >> samplingResultForOperationNamed: aString [
+
+	^ sampler
+		shouldSampleIn: OTContext new
+		traceId: '1234567890abcdef1234567890abcdef'
+		name: aString
+		kind: OTSpan internal
+		attributes: #()
+		links: #()
+]
+
+{ #category : 'running' }
+OTJaegerRemoteSamplerTest >> setUp [
+
+	super setUp.
+	currentTime := 1000.
+	sampler := OTJaegerRemoteSampler serviceName: 'shopping-cart'.
+	sampler
+		clockBlock: [ currentTime ];
+		initialSampler: OTAlwaysOffSampler new;
+		pollingIntervalMillis: 5000;
+		timeoutMillis: 4321
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testNonOkGrpcStatusKeepsCurrentSamplerAndWarns [
+
+	| result warnings |
+	warnings := OrderedCollection new.
+	sampler
+		warningSink: [ :message | warnings add: message ];
+		requestExecutor: [ :request |
+			OTFakeGRPCResponse
+				status: (OTFakeGRPCStatus code: 14 message: 'busy')
+				payload: nil ].
+	result := self samplingResultForOperationNamed: 'checkout'.
+	self assert: result isDrop.
+	self assert: sampler currentSampler class identicalTo: OTAlwaysOffSampler.
+	self assert: warnings size equals: 1.
+	self assert: (warnings first includesSubstring: 'UNAVAILABLE').
+	self assert: (warnings first includesSubstring: 'busy')
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testRefreshHonorsPollingInterval [
+
+	| executionCount |
+	executionCount := 0.
+	sampler requestExecutor: [ :request |
+		executionCount := executionCount + 1.
+		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+	self samplingResultForOperationNamed: 'checkout'.
+	self samplingResultForOperationNamed: 'checkout'.
+	currentTime := currentTime + 4999.
+	self samplingResultForOperationNamed: 'checkout'.
+	self assert: executionCount equals: 1.
+	currentTime := currentTime + 1.
+	self samplingResultForOperationNamed: 'checkout'.
+	self assert: executionCount equals: 2
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testRefreshUpdatesToPerOperationSampler [
+
+	| defaultResult importantResult |
+	sampler requestExecutor: [ :request |
+		self
+			grpcOkResponseWithPayload:
+				(self
+					perOperationResponseBytesDefaultSamplingProbability: 0
+					strategies: { 'important' -> 1 }) ].
+	importantResult := self samplingResultForOperationNamed: 'important'.
+	defaultResult := self samplingResultForOperationNamed: 'ordinary'.
+	self assert: sampler currentSampler class identicalTo: OTPerOperationSampler.
+	self assert: importantResult isRecordAndSample.
+	self assert: defaultResult isDrop
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testRefreshUpdatesToProbabilisticSampler [
+
+	| result |
+	sampler requestExecutor: [ :request |
+		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 1) ].
+	result := self samplingResultForOperationNamed: 'checkout'.
+	self assert: sampler currentSampler class identicalTo: OTTraceIdRatioBasedSampler.
+	self assert: result isRecordAndSample
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testRefreshUpdatesToProbabilisticSamplerWhenStrategyTypeUsesProtoDefault [
+
+	| result |
+	sampler requestExecutor: [ :request |
+		self
+			grpcOkResponseWithPayload:
+				(self probabilisticResponseBytesWithoutExplicitStrategyTypeWithRate: 1) ].
+	result := self samplingResultForOperationNamed: 'checkout'.
+	self assert: sampler currentSampler class identicalTo: OTTraceIdRatioBasedSampler.
+	self assert: result isRecordAndSample
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testRefreshUpdatesToRateLimitingSampler [
+
+	| first second |
+	sampler requestExecutor: [ :request |
+		self grpcOkResponseWithPayload: (self rateLimitingResponseBytesWithMaxTracesPerSecond: 1) ].
+	first := self samplingResultForOperationNamed: 'checkout'.
+	second := self samplingResultForOperationNamed: 'checkout'.
+	self assert: sampler currentSampler class identicalTo: OTRateLimitingSampler.
+	self assert: first isRecordAndSample.
+	self assert: second isDrop
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testRateLimitingSamplerUsesInjectedClock [
+
+	| directRateSampler first second third |
+	directRateSampler := OTRateLimitingSampler new.
+	directRateSampler
+		clockBlock: [ currentTime ];
+		maxTracesPerSecond: 1.
+	first := directRateSampler shouldSample.
+	second := directRateSampler shouldSample.
+	currentTime := currentTime + 1000.
+	third := directRateSampler shouldSample.
+	self assert: first.
+	self deny: second.
+	self assert: third
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testSamplingRequestEncodesServiceNameAndTimeout [
+
+	| capturedRequest reader |
+	sampler requestExecutor: [ :request |
+		capturedRequest := request.
+		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+	self samplingResultForOperationNamed: 'checkout'.
+	self assert: capturedRequest serviceName equals: 'jaeger.api_v2.SamplingManager'.
+	self assert: capturedRequest methodName equals: 'GetSamplingStrategy'.
+	self assert: capturedRequest timeoutNanos equals: 4321000000.
+	reader := OTProtobufReader on: capturedRequest payload.
+	self assertReader: reader readsField: 1 wireType: 2.
+	self assert: reader readString equals: 'shopping-cart'.
+	self assert: reader atEnd
+]
