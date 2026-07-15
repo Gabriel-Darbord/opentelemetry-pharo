@@ -604,10 +604,8 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsWhenOtlpProtocolIsUnsupportedA
 				at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
 				yourself)
 			during: [
-				self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter ].
-		self assert: warnings size equals: 1.
-		self assert: warnings first equals:
-			'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: ''grpc''' ]
+				self assert: OTSpanExporter current class identicalTo: OTOtlpGrpcSpanExporter ].
+		self assert: warnings isEmpty ]
 ]
 
 { #category : 'tests' }

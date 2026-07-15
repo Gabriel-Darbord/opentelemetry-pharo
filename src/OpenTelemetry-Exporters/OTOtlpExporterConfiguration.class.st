@@ -53,6 +53,12 @@ OTOtlpExporterConfiguration class >> defaultBaseHttpEndpoint [
 ]
 
 { #category : 'accessing' }
+OTOtlpExporterConfiguration class >> defaultBaseGrpcEndpoint [
+
+	^ 'http://localhost:4317'
+]
+
+{ #category : 'accessing' }
 OTOtlpExporterConfiguration class >> defaultCompression [
 
 	^ 'none'
@@ -107,15 +113,19 @@ OTOtlpExporterConfiguration class >> environmentValueAt: aString [
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> endpointFromEnvironmentForSignalNamed: aSignalName relativePath: aRelativePath [
 
-	| signalSpecificEndpoint sharedEndpoint |
+	| protocol signalSpecificEndpoint sharedEndpoint |
+	protocol := self protocolFromEnvironmentForSignalNamed: aSignalName.
 	signalSpecificEndpoint := self
 		environmentValueAt: (self signalEnvironmentNameFor: aSignalName suffix: 'ENDPOINT').
 	signalSpecificEndpoint ifNotNil: [ ^ self normalizedSignalEndpoint: signalSpecificEndpoint ].
 	sharedEndpoint := self environmentValueAt: 'OTEL_EXPORTER_OTLP_ENDPOINT'.
 	sharedEndpoint ifNotNil: [
+		protocol = 'grpc' ifTrue: [ ^ self normalizedSignalEndpoint: sharedEndpoint ].
 		^ self
 			normalizedBaseEndpoint: sharedEndpoint
 			appendingRelativePath: aRelativePath ].
+	protocol = 'grpc' ifTrue: [
+		^ self normalizedSignalEndpoint: self defaultBaseGrpcEndpoint ].
 	^ self
 		normalizedBaseEndpoint: self defaultBaseHttpEndpoint
 		appendingRelativePath: aRelativePath

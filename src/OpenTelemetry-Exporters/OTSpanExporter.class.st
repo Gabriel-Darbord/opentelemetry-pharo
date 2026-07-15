@@ -216,6 +216,8 @@ OTSpanExporter class >> configuredOtlpExporter [
 
 	| configuration |
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+	configuration protocol = OTOtlpGrpcSpanExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpGrpcSpanExporter configuration: configuration ].
 	configuration protocol = OTOtlpHttpProtobufSpanExporter supportedProtocol
 		ifTrue: [ ^ OTOtlpHttpProtobufSpanExporter configuration: configuration ].
 	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol

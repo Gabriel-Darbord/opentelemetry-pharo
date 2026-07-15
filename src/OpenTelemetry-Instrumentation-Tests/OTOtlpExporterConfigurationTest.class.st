@@ -38,6 +38,23 @@ OTOtlpExporterConfigurationTest >> testDefaultsFollowTraceHttpExporterSpec [
 ]
 
 { #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testGrpcDefaultsFollowTraceExporterSpec [
+
+	| configuration |
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
+			yourself)
+			during: [
+				configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+				self assert: configuration endpoint equals: 'http://localhost:4317/'.
+				self assert: configuration protocol equals: 'grpc'.
+				self deny: configuration usesHttpTransport.
+				self deny: configuration usesJsonEncoding.
+				self assert: configuration usesProtobufEncoding ]
+]
+
+{ #category : 'tests' }
 OTOtlpExporterConfigurationTest >> testSharedEndpointAppendsTracePath [
 
 	self
@@ -48,6 +65,20 @@ OTOtlpExporterConfigurationTest >> testSharedEndpointAppendsTracePath [
 			self assert:
 				(OTOtlpExporterConfiguration forSignalNamed: 'TRACES') endpoint
 				equals: 'http://collector:4318/mycollector/v1/traces' ]
+]
+
+{ #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testGrpcSharedEndpointIsUsedAsIs [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
+			at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'http://collector:4317/mycollector';
+			yourself)
+			during: [
+				self assert:
+					(OTOtlpExporterConfiguration forSignalNamed: 'TRACES') endpoint
+					equals: 'http://collector:4317/mycollector' ]
 ]
 
 { #category : 'tests' }
