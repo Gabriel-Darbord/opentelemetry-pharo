@@ -136,6 +136,20 @@ OTZipkinSpanExporter >> endpointValueFromAddressAttribute: addressAttributeName 
 ]
 
 { #category : 'private - utilities' }
+OTZipkinSpanExporter >> addAddressDetailsFrom: attributes toEndpoint: endpoint [
+
+	| addressAndPort address port |
+	addressAndPort := self remoteEndpointAddressAndPortFrom: attributes.
+	addressAndPort ifNil: [ ^ endpoint ].
+	address := addressAndPort first.
+	port := addressAndPort second.
+	(self isProbablyIpv4Address: address) ifTrue: [ endpoint at: 'ipv4' put: address ].
+	(self isProbablyIpv6Address: address) ifTrue: [ endpoint at: 'ipv6' put: address ].
+	port ifNotNil: [ endpoint at: 'port' put: port ].
+	^ endpoint
+]
+
+{ #category : 'private - utilities' }
 OTZipkinSpanExporter >> firstRemoteEndpointValueFrom: attributes [
 
 	^ {
@@ -176,19 +190,39 @@ OTZipkinSpanExporter >> httpClient [
 OTZipkinSpanExporter >> serviceNameFor: aSpan [
 
 	^ aSpan resource serviceName
-		ifNil: [ aSpan instrumentationName ]
+		ifNil: [ OTTracerProvider defaultResource serviceName ]
 ]
 
 { #category : 'private - utilities' }
 OTZipkinSpanExporter >> remoteEndpointFor: aSpan [
 
-	| endpointValue |
+	| endpoint endpointValue |
 	((aSpan kind = OTSpan client) or: [ aSpan kind = OTSpan producer ]) ifFalse: [ ^ nil ].
 	endpointValue := self firstRemoteEndpointValueFrom: aSpan attributes.
 	endpointValue ifNil: [ ^ nil ].
-	^ Dictionary new
+	endpoint := Dictionary new
 		at: 'serviceName' put: endpointValue;
-		yourself
+		yourself.
+	^ self addAddressDetailsFrom: aSpan attributes toEndpoint: endpoint
+]
+
+{ #category : 'private - utilities' }
+OTZipkinSpanExporter >> remoteEndpointAddressAndPortFrom: attributes [
+
+	| address port |
+	address := self stringAttributeNamed: 'network.peer.address' in: attributes.
+	address ifNotNil: [
+		port := self integerAttributeNamed: 'network.peer.port' in: attributes.
+		^ { address. port } ].
+	address := self stringAttributeNamed: 'server.socket.address' in: attributes.
+	address ifNotNil: [
+		port := self integerAttributeNamed: 'server.socket.port' in: attributes.
+		^ { address. port } ].
+	address := self stringAttributeNamed: 'net.sock.peer.addr' in: attributes.
+	address ifNotNil: [
+		port := self integerAttributeNamed: 'net.sock.peer.port' in: attributes.
+		^ { address. port } ].
+	^ nil
 ]
 
 { #category : 'private - utilities' }
@@ -199,6 +233,41 @@ OTZipkinSpanExporter >> stringAttributeNamed: aString in: attributes [
 	value := attributes at: aString ifAbsent: [ ^ nil ].
 	value := value asString trimBoth.
 	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
+{ #category : 'private - utilities' }
+OTZipkinSpanExporter >> integerAttributeNamed: aString in: attributes [
+
+	| value |
+	attributes ifNil: [ ^ nil ].
+	value := attributes at: aString ifAbsent: [ ^ nil ].
+	value isInteger ifTrue: [ ^ value ].
+	value := value asString trimBoth.
+	value isEmpty ifTrue: [ ^ nil ].
+	^ [ Integer readFrom: value readStream ]
+		on: Error
+		do: [ nil ]
+]
+
+{ #category : 'private - utilities' }
+OTZipkinSpanExporter >> isProbablyIpv4Address: aString [
+
+	aString ifNil: [ ^ false ].
+	(aString includes: $:) ifTrue: [ ^ false ].
+	^ aString isEmpty not and: [
+		aString allSatisfy: [ :each | each isDigit or: [ each = $. ] ] ]
+]
+
+{ #category : 'private - utilities' }
+OTZipkinSpanExporter >> isProbablyIpv6Address: aString [
+
+	aString ifNil: [ ^ false ].
+	(aString includes: $:) ifFalse: [ ^ false ].
+	^ aString isEmpty not and: [
+		aString allSatisfy: [ :each |
+			each isDigit
+				or: [ 'abcdefABCDEF' includes: each
+				or: [ each = $: ] ] ] ]
 ]
 
 { #category : 'private - utilities' }
