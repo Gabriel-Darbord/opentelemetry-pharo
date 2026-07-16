@@ -41,6 +41,7 @@ The current metrics implementation provides:
 - reader-scoped asynchronous callback timeout and failure isolation
 - `OTNoopMetricExporter`, `OTConsoleMetricExporter`, `OTOtlpStdoutMetricExporter`
 - OTLP metric exporters over HTTP JSON, HTTP protobuf, and gRPC
+- Prometheus pull export over HTTP on `/metrics`
 - OTLP metric auto-configuration through `OTEL_METRICS_EXPORTER`,
   `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`, `OTEL_METRIC_EXPORT_INTERVAL`, and
   `OTEL_METRIC_EXPORT_TIMEOUT`, plus `OTEL_METRICS_EXEMPLAR_FILTER`
@@ -49,7 +50,8 @@ The current metrics implementation provides:
 
 The current metrics implementation does not yet provide:
 
-- Prometheus export
+- Prometheus content negotiation beyond the Prometheus 0.0.4 text format
+- Prometheus native histogram output, so exponential histograms are currently dropped from Prometheus text scrapes
 
 ## Getting A Meter
 
@@ -113,6 +115,17 @@ Smalltalk os environment
 meter := OpenTelemetry meterNamed: 'MyApp'.
 ```
 
+To expose a Prometheus scrape endpoint instead:
+
+```smalltalk
+Smalltalk os environment
+	at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+	at: 'OTEL_EXPORTER_PROMETHEUS_HOST' put: 'localhost';
+	at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '9464'.
+
+meter := OpenTelemetry meterNamed: 'MyApp'.
+```
+
 Meters are cached by the full instrumentation-scope tuple
 `(name, version, schemaUrl, attributes)`. Repeating the same request returns
 the same meter object, while changing any of those values returns a distinct
@@ -165,6 +178,7 @@ Current metric behavior:
 - `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters and shuts down registered readers
 - `OTMeterProvider>>forceFlush` delegates to registered readers
 - OTLP metric exporters accept gzip compression, signal-specific headers, and per-reader temporality
+- the Prometheus reader serves cumulative metric snapshots over HTTP and uses cumulative temporality for every instrument kind
 
 Meters do already preserve instrument registration identity:
 

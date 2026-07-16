@@ -349,22 +349,23 @@ OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidOtlpTemporal
 ]
 
 { #category : 'tests' }
-OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutPrometheusExporterAndFallsBackToDefaultExporter [
+OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusMetricReader [
 
 	self withWarningsDo: [ :warnings |
 		self
 			withEnvironmentValues: (Dictionary new
 				at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+				at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
 				yourself)
 			during: [
-				| reader |
-				reader := OTMeterProvider current metricReaders first.
+				| metricReader |
+				metricReader := OTMeterProvider current metricReaders first.
 				self
-					assert: reader exporter class
-					identicalTo: OTOtlpHttpProtobufMetricExporter ].
-		self assert: warnings size equals: 1.
-		self assert: warnings first equals:
-			'OpenTelemetry metrics exporter name is recognized but not supported by this SDK yet and has been ignored: ''prometheus''' ]
+					assert: metricReader class
+					identicalTo: OTPrometheusMetricReader.
+				self assert: metricReader host equals: 'localhost'.
+				self assert: metricReader port > 0 ].
+		self assert: warnings isEmpty ]
 ]
 
 { #category : 'tests' }

@@ -12,7 +12,7 @@ Start here:
 - [Logging API](logging.md): create loggers, emit log records, and configure
   processors and exporters.
 - [Metrics API](metrics.md): get meters, create instruments, and understand the
-  current no-op metrics foundation.
+  current metrics SDK, OTLP exporters, and Prometheus pull endpoint.
 - [Instrumentation API](instrumentation.md): build reusable Pharo
   instrumentations and choose an installation backend.
 
@@ -21,7 +21,7 @@ Current scope:
 - traces: supported
 - logs: API, batch processing, OTLP export, and stdout export supported; bridges to external logging libraries still missing
 - baggage and text-map propagation: supported
-- metrics: no-op API foundation implemented; SDK/export pipeline still missing
+- metrics: synchronous/asynchronous instruments, views, OTLP export, and Prometheus pull export supported
 
 Supported Pharo range in the baseline:
 

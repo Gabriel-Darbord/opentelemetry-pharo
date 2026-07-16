@@ -44,11 +44,14 @@ OTMeterProvider class >> readConfiguration [
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	exporterNames := self configuredExporterNames.
 	exporterNames do: [ :each |
-		| exporter |
-		exporter := self exporterNamed: each.
-		exporter ifNotNil: [
-			exporter class = OTNoopMetricExporter ifFalse: [
-				provider addMetricReader: (self readerForExporter: exporter) ] ] ].
+		each = 'prometheus'
+			ifTrue: [ provider addMetricReader: self configuredPrometheusReader ]
+			ifFalse: [
+				| exporter |
+				exporter := self exporterNamed: each.
+				exporter ifNotNil: [
+					exporter class = OTNoopMetricExporter ifFalse: [
+						provider addMetricReader: (self readerForExporter: exporter) ] ] ] ].
 	^ provider
 ]
 
@@ -149,9 +152,6 @@ OTMeterProvider class >> exporterNamesFromConfigurationValue: aString [
 					ifFalse: [
 						self noteUnknownExporterName: exporterName.
 						^ nil ].
-				normalizedName = 'prometheus' ifTrue: [
-					self noteUnsupportedExporterName: exporterName.
-					^ nil ].
 				seen add: normalizedName.
 				names add: normalizedName ] ] ].
 	names isEmpty ifTrue: [ ^ nil ].
@@ -159,6 +159,15 @@ OTMeterProvider class >> exporterNamesFromConfigurationValue: aString [
 		self noteExporterNoneConflictIn: aString.
 		^ nil ].
 	^ names asArray
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> configuredPrometheusReader [
+
+	^ OTPrometheusMetricReader new
+		host: self prometheusHost;
+		port: self prometheusPort;
+		yourself
 ]
 
 { #category : 'private - configuration' }
@@ -223,6 +232,16 @@ OTMeterProvider class >> noteInvalidPeriodicMetricReaderEnvironmentValue: aValue
 ]
 
 { #category : 'private - logging' }
+OTMeterProvider class >> noteInvalidPrometheusEnvironmentValue: aValue forVariable: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry Prometheus exporter configuration was invalid and has been ignored for '
+			, aString printString
+			, ': '
+			, aValue printString
+]
+
+{ #category : 'private - logging' }
 OTMeterProvider class >> noteUnsupportedExporterName: aString [
 
 	self configurationWarningSink value:
@@ -257,6 +276,38 @@ OTMeterProvider class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 		self noteInvalidPeriodicMetricReaderEnvironmentValue: rawValue forVariable: aString.
 		^ aDefaultValue ].
 	^ parsed
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> prometheusHost [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_HOST'.
+	^ rawValue ifNil: [ 'localhost' ] ifNotNil: [ rawValue ]
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> prometheusPort [
+
+	^ self
+		nonNegativeIntegerEnvironmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_PORT'
+		default: 9464
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| parsed rawValue stream |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	stream := rawValue trimBoth readStream.
+	stream atEnd ifTrue: [
+		self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: aString.
+		^ aDefaultValue ].
+	parsed := [ Integer readFrom: stream ] on: Error do: [ nil ].
+	((parsed isInteger and: [ parsed >= 0 ]) and: [ stream atEnd ]) ifTrue: [ ^ parsed ].
+	self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: aString.
+	^ aDefaultValue
 ]
 
 { #category : 'private - configuration' }
