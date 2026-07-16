@@ -216,6 +216,26 @@ OTMeterProviderTest >> testBoundWrapperAcceptsAdditionalAttributes [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testCurrentProviderUsesConfiguredResourceDefaults [
+
+	| resource |
+	resource := OTMeterProvider current resource.
+	self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterDelegatesResourceToProvider [
+
+	| meter provider resource |
+	resource := OTResource
+		attributes: { 'service.name' -> 'metrics-service'. 'service.version' -> '1.2.3' }.
+	provider := OTMeterProvider new.
+	provider resource: resource.
+	meter := provider meterNamed: 'demo.metrics'.
+	self assert: meter resource equals: resource
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterConfiguratorCanDisableExistingMeterInstruments [
 
 	| instrument meter provider |
@@ -253,6 +273,12 @@ OTMeterProviderTest >> testMeterConfiguratorNilResultFallsBackToDefaultEnabled [
 	instrument := (provider meterNamed: 'demo.metrics')
 		counterNamed: 'requests.total'.
 	self assert: instrument enabled
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNewProviderDefaultsResourceToEmpty [
+
+	self assert: OTMeterProvider new resource equals: OTResource empty
 ]
 
 { #category : 'tests' }

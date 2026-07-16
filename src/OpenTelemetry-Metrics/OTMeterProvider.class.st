@@ -9,7 +9,8 @@ Class {
 	#instVars : [
 		'meters',
 		'shutdown',
-		'meterConfigurator'
+		'meterConfigurator',
+		'resource'
 	],
 	#classVars : [
 		'Current'
@@ -21,7 +22,7 @@ Class {
 { #category : 'accessing' }
 OTMeterProvider class >> current [
 
-	^ Current ifNil: [ Current := self new ]
+	^ Current ifNil: [ Current := self readConfiguration ]
 ]
 
 { #category : 'accessing' }
@@ -34,6 +35,14 @@ OTMeterProvider class >> current: anOTMeterProvider [
 OTMeterProvider class >> reset [
 
 	Current := nil
+]
+
+{ #category : 'instance creation' }
+OTMeterProvider class >> readConfiguration [
+
+	^ self new
+		resource: OTTracerProvider configuredResource;
+		yourself
 ]
 
 { #category : 'private - logging' }
@@ -127,7 +136,8 @@ OTMeterProvider >> initialize [
 	super initialize.
 	meters := OrderedDictionary new.
 	shutdown := false.
-	meterConfigurator := nil
+	meterConfigurator := nil.
+	resource := OTResource empty
 ]
 
 { #category : 'testing' }
@@ -140,6 +150,19 @@ OTMeterProvider >> isShutdown [
 OTMeterProvider >> meters [
 
 	^ meters ifNil: [ meters := OrderedDictionary new ]
+]
+
+{ #category : 'accessing' }
+OTMeterProvider >> resource [
+
+	^ resource ifNil: [ OTResource empty ]
+]
+
+{ #category : 'accessing' }
+OTMeterProvider >> resource: anOTResource [
+
+	resource := anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ].
+	^ self resource
 ]
 
 { #category : 'configuration' }

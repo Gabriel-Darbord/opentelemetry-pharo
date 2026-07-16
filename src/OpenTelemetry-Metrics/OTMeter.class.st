@@ -326,6 +326,14 @@ OTMeter >> scopeAttributes [
 	^ self instrumentationScope allAttributes
 ]
 
+{ #category : 'accessing' }
+OTMeter >> resource [
+
+	^ provider
+		ifNil: [ OTResource empty ]
+		ifNotNil: [ provider resource ]
+]
+
 { #category : 'private' }
 OTMeter >> canonicalInstrumentNameFrom: aString [
 

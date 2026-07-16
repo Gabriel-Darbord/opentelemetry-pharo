@@ -27,6 +27,7 @@ The current metrics implementation provides:
 - duplicate registration warnings for case-only name conflicts, conflicting metadata, and conflicting advisory parameters
 - bound synchronous instrument wrappers via `bind:`
 - `OTMeterConfig` plus provider-side `meterConfigurator` enablement hooks
+- provider-owned `OTResource` values with meter-side delegation
 - invalid meter-name normalization with diagnostic warnings
 - provider lifecycle behavior for `shutdown` and `forceFlush`
 
@@ -63,7 +64,20 @@ Meter enablement can already be controlled per scope:
 provider meterConfigurator: [ :scope |
 	scope name = 'disabled.scope'
 		ifTrue: [ OTMeterConfig enabled: false ]
-		ifFalse: [ OTMeterConfig enabled: true ] ].
+			ifFalse: [ OTMeterConfig enabled: true ] ].
+```
+
+The global provider path also carries a configured resource:
+
+```smalltalk
+resource := OpenTelemetry meterProvider resource.
+```
+
+Explicit providers default to `OTResource empty`, and you can inject a resource
+directly:
+
+```smalltalk
+provider resource: (OTResource attributes: { 'service.name' -> 'metrics-service' }).
 ```
 
 Meters are cached by the full instrumentation-scope tuple
