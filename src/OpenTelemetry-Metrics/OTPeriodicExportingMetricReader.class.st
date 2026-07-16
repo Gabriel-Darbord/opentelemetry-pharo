@@ -38,6 +38,12 @@ OTPeriodicExportingMetricReader >> didRegisterWithProvider [
 ]
 
 { #category : 'accessing' }
+OTPeriodicExportingMetricReader >> defaultTemporalitySelector [
+
+	^ self exporter temporalitySelector
+]
+
+{ #category : 'accessing' }
 OTPeriodicExportingMetricReader >> exporter [
 
 	^ exporter ifNil: [ exporter := OTNoopMetricExporter new ]

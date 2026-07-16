@@ -424,6 +424,24 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectExportsSnapshot [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderDefaultsTemporalityFromExporter [
+
+	| exporter metric provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	exporter temporalitySelector: [ :instrument | #delta ].
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1.
+	snapshot := reader collect.
+	metric := snapshot metrics first.
+	self assert: metric temporality equals: #delta
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushDelegatesToExporter [
 
 	| exporter provider reader |
@@ -438,6 +456,26 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushDelegatesToExp
 	self assert: reader forceFlush.
 	self assert: exporter exports size equals: 1.
 	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderOverrideWinsOverExporterTemporality [
+
+	| exporter metric provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	exporter temporalitySelector: [ :instrument | #delta ].
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		temporalitySelector: [ :instrument | #cumulative ].
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1.
+	snapshot := reader collect.
+	metric := snapshot metrics first.
+	self assert: metric temporality equals: #cumulative
 ]
 
 { #category : 'tests' }

@@ -56,6 +56,12 @@ OTMetricReader >> didRegisterWithProvider [
 	self
 ]
 
+{ #category : 'accessing' }
+OTMetricReader >> defaultTemporalitySelector [
+
+	^ [ :instrument | #cumulative ]
+]
+
 { #category : 'lifecycle' }
 OTMetricReader >> forceFlush [
 
@@ -68,7 +74,7 @@ OTMetricReader >> initialize [
 	super initialize.
 	shutdown := false.
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.
-	temporalitySelector := [ :instrument | #cumulative ]
+	temporalitySelector := nil
 ]
 
 { #category : 'testing' }
@@ -174,15 +180,13 @@ OTMetricReader >> temporalityFor: anOTMetricInstrument [
 OTMetricReader >> temporalitySelector [
 
 	^ temporalitySelector
-		ifNil: [ temporalitySelector := [ :instrument | #cumulative ] ]
+		ifNil: [ self defaultTemporalitySelector ]
 ]
 
 { #category : 'accessing' }
 OTMetricReader >> temporalitySelector: aBlockOrNil [
 
 	temporalitySelector := aBlockOrNil
-		ifNil: [ [ :instrument | #cumulative ] ]
-		ifNotNil: [ aBlockOrNil ]
 ]
 
 { #category : 'lifecycle' }
