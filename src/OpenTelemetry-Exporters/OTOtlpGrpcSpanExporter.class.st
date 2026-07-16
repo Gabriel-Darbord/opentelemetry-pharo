@@ -13,14 +13,6 @@ Class {
 	#package : 'OpenTelemetry-Exporters'
 }
 
-{ #category : 'instance creation' }
-OTOtlpGrpcSpanExporter class >> configuration: anOtlpConfiguration [
-
-	^ self new
-		configuration: anOtlpConfiguration;
-		yourself
-]
-
 { #category : 'private - retry' }
 OTOtlpGrpcSpanExporter class >> retryableStatusCodes [
 
