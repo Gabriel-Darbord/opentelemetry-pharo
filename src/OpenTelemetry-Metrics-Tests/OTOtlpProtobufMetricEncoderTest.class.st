@@ -85,3 +85,37 @@ OTOtlpProtobufMetricEncoderTest >> testWriteNumberDataPointEncodesExemplar [
 	self assertReader: attributeReader readsField: 1 wireType: 2.
 	self assert: attributeReader readString equals: 'user'
 ]
+
+{ #category : 'tests' }
+OTOtlpProtobufMetricEncoderTest >> testWriteSummaryDataPointEncodesCountSumAndQuantiles [
+
+	| point quantileReader reader writer |
+	point := OTSummaryDataPoint
+		attributes: { 'method' -> 'GET' }
+		count: 2
+		sum: 3.0
+		quantileValues:
+			{ (OTSummaryQuantileValue quantile: 0.5 value: 1.5).
+			(OTSummaryQuantileValue quantile: 0.9 value: 2.5) }
+		startTimestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 1))
+		timestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 2)).
+	writer := OTProtobufWriter withBytes.
+	encoder writeSummaryDataPoint: point on: writer.
+	reader := OTProtobufReader on: writer contents.
+	self assertReader: reader readsField: 7 wireType: 2.
+	reader readBytes.
+	self assertReader: reader readsField: 2 wireType: 1.
+	self assert: reader readFixed64 equals: 1.
+	self assertReader: reader readsField: 3 wireType: 1.
+	self assert: reader readFixed64 equals: 2.
+	self assertReader: reader readsField: 4 wireType: 1.
+	self assert: reader readFixed64 equals: 2.
+	self assertReader: reader readsField: 5 wireType: 1.
+	self assert: reader readDouble equals: 3.0.
+	quantileReader := OTProtobufReader
+		on: (self bytesForFieldNumber: 6 fromReader: reader).
+	self assertReader: quantileReader readsField: 1 wireType: 1.
+	self assert: quantileReader readDouble equals: 0.5.
+	self assertReader: quantileReader readsField: 2 wireType: 1.
+	self assert: quantileReader readDouble equals: 1.5
+]

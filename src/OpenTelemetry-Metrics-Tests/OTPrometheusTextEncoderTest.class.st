@@ -276,3 +276,38 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesHistogramBucketsCumulativ
 	self assert: (text includesSubstring: 'request_duration_milliseconds_count{').
 	self assert: (text includesSubstring: '} 10')
 ]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesSummaryQuantilesCountAndSum [
+
+	| metric point snapshot text |
+	point := OTSummaryDataPoint
+		attributes: { 'http.method' -> 'GET' }
+		count: 2
+		sum: 3.0
+		quantileValues:
+			{ (OTSummaryQuantileValue quantile: 0.5 value: 1.5).
+			(OTSummaryQuantileValue quantile: 0.9 value: 2.5) }
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	metric := OTSummaryMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'request.duration';
+		description: 'Request duration summary';
+		unit: 'ms';
+		points: { point }.
+	snapshot := OTMetricSnapshot
+		resource: OTResource empty
+		measurements: #()
+		metrics: { metric }
+		collectedAt: DateAndTime unixEpoch.
+	text := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (text includesSubstring: '# TYPE request_duration_milliseconds summary').
+	self assert: (text includesSubstring: '# UNIT request_duration_milliseconds milliseconds').
+	self assert: (text includesSubstring: 'request_duration_milliseconds{').
+	self assert: (text includesSubstring: 'quantile="0.5"} 1.5').
+	self assert: (text includesSubstring: 'quantile="0.9"} 2.5').
+	self assert: (text includesSubstring: 'request_duration_milliseconds_sum{').
+	self assert: (text includesSubstring: 'request_duration_milliseconds_count{')
+]

@@ -139,6 +139,7 @@ OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData [
 			ifTrue: [ #counter ]
 			ifFalse: [ #gauge ] ].
 	anOTMetricData class = OTHistogramMetricData ifTrue: [ ^ #histogram ].
+	anOTMetricData class = OTSummaryMetricData ifTrue: [ ^ #summary ].
 	^ #drop
 ]
 
@@ -147,6 +148,7 @@ OTPrometheusTextEncoder >> prometheusMetricTypeStringFor: aTypeSymbol [
 
 	aTypeSymbol = #counter ifTrue: [ ^ 'counter' ].
 	aTypeSymbol = #histogram ifTrue: [ ^ 'histogram' ].
+	aTypeSymbol = #summary ifTrue: [ ^ 'summary' ].
 	^ 'gauge'
 ]
 
@@ -554,8 +556,41 @@ OTPrometheusTextEncoder >> writeMetric: anOTMetricData on: aStream [
 		^ self writeSum: anOTMetricData on: aStream ].
 	anOTMetricData class = OTHistogramMetricData ifTrue: [
 		^ self writeHistogram: anOTMetricData on: aStream ].
+	anOTMetricData class = OTSummaryMetricData ifTrue: [
+		^ self writeSummary: anOTMetricData on: aStream ].
 	anOTMetricData class = OTExponentialHistogramMetricData ifTrue: [ ^ self ].
 	^ self
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeSummary: anOTSummaryMetricData on: aStream [
+
+	| metricName |
+	metricName := self prometheusMetricNameFor: anOTSummaryMetricData type: #summary.
+	anOTSummaryMetricData points do: [ :eachPoint |
+		| baseLabels |
+		baseLabels := self
+			pointLabels: eachPoint attributes
+			scope: anOTSummaryMetricData instrumentationScope.
+		eachPoint quantileValues do: [ :eachQuantile |
+			self
+				writeSampleNamed: metricName
+				labels: (self
+					labelsByAdding: 'quantile'
+					value: (self prometheusValueStringFor: eachQuantile quantile)
+					to: baseLabels)
+				value: eachQuantile value
+				on: aStream ].
+		self
+			writeSampleNamed: metricName , '_sum'
+			labels: baseLabels
+			value: eachPoint sum
+			on: aStream.
+		self
+			writeSampleNamed: metricName , '_count'
+			labels: baseLabels
+			value: eachPoint count
+			on: aStream ]
 ]
 
 { #category : 'private - writing' }

@@ -221,6 +221,46 @@ OTOtlpJsonMetricEncoder >> resourceMetricsDataFor: anOTMetricSnapshot [
 ]
 
 { #category : 'private - encoding' }
+OTOtlpJsonMetricEncoder >> summaryDataFor: anOTSummaryMetricData [
+
+	^ OrderedDictionary new
+		at: 'dataPoints'
+			put: (anOTSummaryMetricData points collect: [ :each | self summaryDataPointDataFor: each ]) asArray;
+		yourself
+]
+
+{ #category : 'private - encoding' }
+OTOtlpJsonMetricEncoder >> summaryDataPointDataFor: anOTSummaryDataPoint [
+
+	| data |
+	data := OrderedDictionary new.
+	anOTSummaryDataPoint startTimestamp ifNotNil: [
+		data
+			at: 'startTimeUnixNano'
+			put: (self unixNanosecondsStringFor: anOTSummaryDataPoint startTimestamp) ].
+	data
+		at: 'timeUnixNano'
+			put: (self unixNanosecondsStringFor: anOTSummaryDataPoint timestamp);
+		at: 'count' put: anOTSummaryDataPoint count asString;
+		at: 'sum' put: anOTSummaryDataPoint sum asFloat;
+		at: 'attributes' put: (self keyValueDataFrom: anOTSummaryDataPoint attributes);
+		at: 'quantileValues'
+			put:
+				(anOTSummaryDataPoint quantileValues
+					collect: [ :each | self summaryValueAtQuantileDataFor: each ]) asArray.
+	^ data
+]
+
+{ #category : 'private - encoding' }
+OTOtlpJsonMetricEncoder >> summaryValueAtQuantileDataFor: anOTSummaryQuantileValue [
+
+	^ OrderedDictionary new
+		at: 'quantile' put: anOTSummaryQuantileValue quantile asFloat;
+		at: 'value' put: anOTSummaryQuantileValue value asFloat;
+		yourself
+]
+
+{ #category : 'private - encoding' }
 OTOtlpJsonMetricEncoder >> scopeMetricsDataForScope: anOTInstrumentationScope metrics: someMetrics [
 
 	| data |

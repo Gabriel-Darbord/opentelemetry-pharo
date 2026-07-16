@@ -122,6 +122,41 @@ OTOtlpJsonMetricEncoderTest >> sampleExponentialHistogramSnapshot [
 		collectedAt: (DateAndTime unixEpoch + (Duration nanoSeconds: 5))
 ]
 
+{ #category : 'private' }
+OTOtlpJsonMetricEncoderTest >> sampleSummarySnapshot [
+
+	| point metric resource scope |
+	resource := OTResource
+		attributes: { 'service.name' -> 'demo' }
+		schemaUrl: 'https://resource.example/schema'.
+	scope := OTInstrumentationScope
+		named: 'instrumentation'
+		version: '1.0.0'
+		schemaUrl: 'https://scope.example/schema'
+		attributes: { 'scope-key' -> 'scope-value' }.
+	point := OTSummaryDataPoint
+		attributes: { 'route' -> '/checkout' }
+		count: 2
+		sum: 3.0
+		quantileValues:
+			{ (OTSummaryQuantileValue quantile: 0.5 value: 1.5).
+			(OTSummaryQuantileValue quantile: 0.9 value: 2.5) }
+		startTimestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 4))
+		timestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 5)).
+	metric := OTSummaryMetricData new.
+	metric
+		instrumentationScope: scope;
+		name: 'request.summary';
+		description: 'Request summary';
+		unit: 'ms';
+		points: { point }.
+	^ OTMetricSnapshot
+		resource: resource
+		measurements: #()
+		metrics: { metric }
+		collectedAt: (DateAndTime unixEpoch + (Duration nanoSeconds: 5))
+]
+
 { #category : 'running' }
 OTOtlpJsonMetricEncoderTest >> setUp [
 
@@ -177,6 +212,24 @@ OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotProducesExponentialHistogramJso
 	self assert: ((dataPoint at: 'negative') at: 'offset') equals: -2.
 	self assert: ((dataPoint at: 'negative') at: 'bucketCounts') equals: #( '1' ).
 	self assert: (dataPoint at: 'zeroThreshold') equals: 0.25
+]
+
+{ #category : 'tests' }
+OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotProducesSummaryJsonPayload [
+
+	| dataPoint payload quantiles resourceMetrics scopeMetrics |
+	payload := encoder encodeSnapshot: self sampleSummarySnapshot.
+	resourceMetrics := (payload at: 'resourceMetrics') first.
+	scopeMetrics := (resourceMetrics at: 'scopeMetrics') first.
+	dataPoint := (((scopeMetrics at: 'metrics') first at: 'summary') at: 'dataPoints') first.
+	self assert: (dataPoint at: 'count') equals: '2'.
+	self assert: (dataPoint at: 'sum') equals: 3.0.
+	quantiles := dataPoint at: 'quantileValues'.
+	self assert: quantiles size equals: 2.
+	self assert: (quantiles first at: 'quantile') equals: 0.5.
+	self assert: (quantiles first at: 'value') equals: 1.5.
+	self assert: (quantiles second at: 'quantile') equals: 0.9.
+	self assert: (quantiles second at: 'value') equals: 2.5
 ]
 
 { #category : 'tests' }

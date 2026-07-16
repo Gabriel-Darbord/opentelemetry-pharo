@@ -41,6 +41,8 @@ The current metrics implementation provides:
 - reader-scoped asynchronous callback timeout and failure isolation
 - `OTNoopMetricExporter`, `OTConsoleMetricExporter`, `OTOtlpStdoutMetricExporter`
 - OTLP metric exporters over HTTP JSON, HTTP protobuf, and gRPC
+- legacy summary metric data objects for compatibility surfaces:
+  `OTSummaryMetricData`, `OTSummaryDataPoint`, and `OTSummaryQuantileValue`
 - Prometheus pull export over HTTP on `/metrics`
 - OTLP metric auto-configuration through `OTEL_METRICS_EXPORTER`,
   `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`, `OTEL_METRIC_EXPORT_INTERVAL`, and
@@ -177,9 +179,11 @@ Current metric behavior:
 - `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters and shuts down registered readers
 - `OTMeterProvider>>forceFlush` delegates to registered readers
 - OTLP metric exporters accept gzip compression, signal-specific headers, and per-reader temporality
+- OTLP metric exporters can encode legacy summary data points for compatibility-oriented pipelines
 - the Prometheus reader serves cumulative metric snapshots over HTTP and uses cumulative temporality for every instrument kind
 - Prometheus-exported metric family names include translated unit suffixes when the OpenTelemetry unit maps cleanly to Prometheus unit words
 - Prometheus 1.0 and OpenMetrics 1.0 scrapes include `# UNIT` metadata when a translated unit is available
+- Prometheus scrapes export summary quantiles on the base metric name plus `_sum` and `_count` companion samples
 - conflicting Prometheus family `TYPE` metadata drops the whole exported family with a diagnostic warning, while conflicting `HELP` or `UNIT` metadata keeps the samples and emits only one metadata line
 
 Meters do already preserve instrument registration identity:

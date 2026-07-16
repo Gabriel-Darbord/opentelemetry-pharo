@@ -307,6 +307,50 @@ OTOtlpProtobufMetricEncoder >> writeNumberDataPoint: anOTNumberDataPoint on: aWr
 ]
 
 { #category : 'private - encoding' }
+OTOtlpProtobufMetricEncoder >> writeSummary: anOTSummaryMetricData on: aWriter [
+
+	anOTSummaryMetricData points do: [ :point |
+		aWriter
+			writeTag: 1 wireType: 2;
+			writeEmbedded: [ :embedded |
+				self writeSummaryDataPoint: point on: embedded ] ]
+]
+
+{ #category : 'private - encoding' }
+OTOtlpProtobufMetricEncoder >> writeSummaryDataPoint: anOTSummaryDataPoint on: aWriter [
+
+	self
+		writeAttributes: anOTSummaryDataPoint attributes
+		fieldNumber: 7
+		on: aWriter.
+	anOTSummaryDataPoint startTimestamp ifNotNil: [
+		aWriter
+			writeTag: 2 wireType: 1;
+			writeFixed64: (self unixNanosecondsFor: anOTSummaryDataPoint startTimestamp) ].
+	aWriter
+		writeTag: 3 wireType: 1;
+		writeFixed64: (self unixNanosecondsFor: anOTSummaryDataPoint timestamp);
+		writeTag: 4 wireType: 1;
+		writeFixed64: anOTSummaryDataPoint count;
+		writeTag: 5 wireType: 1;
+		writeDouble: anOTSummaryDataPoint sum.
+	anOTSummaryDataPoint quantileValues do: [ :each |
+		aWriter
+			writeTag: 6 wireType: 2;
+			writeEmbedded: [ :embedded | self writeSummaryValueAtQuantile: each on: embedded ] ]
+]
+
+{ #category : 'private - encoding' }
+OTOtlpProtobufMetricEncoder >> writeSummaryValueAtQuantile: anOTSummaryQuantileValue on: aWriter [
+
+	aWriter
+		writeTag: 1 wireType: 1;
+		writeDouble: anOTSummaryQuantileValue quantile;
+		writeTag: 2 wireType: 1;
+		writeDouble: anOTSummaryQuantileValue value
+]
+
+{ #category : 'private - encoding' }
 OTOtlpProtobufMetricEncoder >> writeSum: anOTSumMetricData on: aWriter [
 
 	anOTSumMetricData points do: [ :point |
