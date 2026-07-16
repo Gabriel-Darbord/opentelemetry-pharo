@@ -105,6 +105,12 @@ OTMetricInstrument >> metricDataFromMeasurements: someMeasurements using: anOTMe
 	self subclassResponsibility
 ]
 
+{ #category : 'collecting' }
+OTMetricInstrument >> preparedMeasurementsFrom: someMeasurements forReader: anOTMetricReader using: anOTMetricAggregationContext [
+
+	^ someMeasurements
+]
+
 { #category : 'accessing' }
 OTMetricInstrument >> description [
 
@@ -167,6 +173,14 @@ OTMetricInstrument >> retainedAttributeKeys [
 	^ self advice
 		at: 'Attributes'
 		ifAbsent: [ self advice at: 'attributes' ifAbsent: [ nil ] ]
+]
+
+{ #category : 'collecting' }
+OTMetricInstrument >> startTimestampForPreviousCollection: aDateAndTime temporality: aTemporalitySymbol [
+
+	^ aTemporalitySymbol = #delta
+		ifTrue: [ aDateAndTime ifNil: [ self creationTimestamp ] ]
+		ifFalse: [ nil ]
 ]
 
 { #category : 'accessing' }

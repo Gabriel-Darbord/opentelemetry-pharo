@@ -5,7 +5,8 @@ Class {
 		'provider',
 		'shutdown',
 		'temporalitySelector',
-		'lastCollectionTimestampByInstrument'
+		'lastCollectionTimestampByInstrument',
+		'lastAsynchronousValuesByInstrument'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -74,6 +75,7 @@ OTMetricReader >> initialize [
 	super initialize.
 	shutdown := false.
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.
+	lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new.
 	temporalitySelector := nil
 ]
 
@@ -111,6 +113,21 @@ OTMetricReader >> lastCollectionTimestampFor: anOTMetricInstrument [
 ]
 
 { #category : 'collecting' }
+OTMetricReader >> lastAsynchronousValuesByInstrument [
+
+	^ lastAsynchronousValuesByInstrument
+		ifNil: [ lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> lastAsynchronousValuesFor: anOTMetricInstrument [
+
+	^ self lastAsynchronousValuesByInstrument
+		at: anOTMetricInstrument
+		ifAbsentPut: [ Dictionary new ]
+]
+
+{ #category : 'collecting' }
 OTMetricReader >> markCollectedAt: aDateAndTime forInstruments: someInstruments [
 
 	someInstruments do: [ :each |
@@ -123,9 +140,9 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument collectedAt:
 	| previousCollection startTimestamp temporality |
 	temporality := self temporalityFor: anOTMetricInstrument.
 	previousCollection := self lastCollectionTimestampFor: anOTMetricInstrument.
-	startTimestamp := temporality = #delta
-		ifTrue: [ previousCollection ifNil: [ anOTMetricInstrument creationTimestamp ] ]
-		ifFalse: [ nil ].
+	startTimestamp := anOTMetricInstrument
+		startTimestampForPreviousCollection: previousCollection
+		temporality: temporality.
 	^ OTMetricAggregationContext
 		collectedAt: aDateAndTime
 		startTimestamp: startTimestamp
@@ -142,13 +159,17 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 			add: each ].
 	metrics := OrderedCollection new.
 	someInstruments do: [ :each |
-		| context instrumentMeasurements selectedMeasurements |
+		| context instrumentMeasurements preparedMeasurements selectedMeasurements |
 		instrumentMeasurements := grouped at: each ifAbsent: [ #() ].
 		context := self
 			metricAggregationContextFor: each
 			collectedAt: aDateAndTime.
+		preparedMeasurements := each
+			preparedMeasurementsFrom: instrumentMeasurements
+			forReader: self
+			using: context.
 		selectedMeasurements := self
-			selectedMeasurementsFrom: instrumentMeasurements
+			selectedMeasurementsFrom: preparedMeasurements
 			for: each
 			using: context.
 		selectedMeasurements ifNotEmpty: [

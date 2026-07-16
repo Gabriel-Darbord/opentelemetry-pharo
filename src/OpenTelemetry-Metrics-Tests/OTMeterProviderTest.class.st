@@ -95,6 +95,73 @@ OTMeterProviderTest >> testAsynchronousInstrumentCollectsMeasurementsPerReader [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObservableCounterCumulativeSnapshotKeepsStableStartTimestamp [
+
+	| callbackValue firstPoint provider reader secondPoint |
+	callbackValue := 5.
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableCounterNamed: 'runtime.page_faults'
+		callbacks: { [ :observer | observer observe: callbackValue attributes: { 'pid' -> '1001' } ] }
+		unit: '1'
+		description: 'Page faults'
+		advice: Dictionary new.
+	firstPoint := reader collectSnapshot metrics first points first.
+	callbackValue := 8.
+	secondPoint := reader collectSnapshot metrics first points first.
+	self assert: firstPoint value equals: 5.
+	self assert: secondPoint value equals: 8.
+	self assert: secondPoint startTimestamp equals: firstPoint startTimestamp
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObservableCounterDeltaSnapshotConvertsCumulativeValues [
+
+	| callbackValue firstPoint provider reader secondPoint |
+	callbackValue := 5.
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader temporalitySelector: [ :instrument | #delta ].
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableCounterNamed: 'runtime.page_faults'
+		callbacks: { [ :observer | observer observe: callbackValue attributes: { 'pid' -> '1001' } ] }
+		unit: '1'
+		description: 'Page faults'
+		advice: Dictionary new.
+	firstPoint := reader collectSnapshot metrics first points first.
+	callbackValue := 8.
+	secondPoint := reader collectSnapshot metrics first points first.
+	self assert: firstPoint value equals: 5.
+	self assert: secondPoint value equals: 3.
+	self assert: secondPoint startTimestamp equals: firstPoint timestamp
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObservableUpDownCounterDeltaSnapshotSupportsSignedDifferences [
+
+	| callbackValue firstPoint provider reader secondPoint |
+	callbackValue := 5.
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader temporalitySelector: [ :instrument | #delta ].
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableUpDownCounterNamed: 'runtime.workers'
+		callbacks: { [ :observer | observer observe: callbackValue attributes: { 'pool' -> 'default' } ] }
+		unit: '1'
+		description: 'Workers'
+		advice: Dictionary new.
+	firstPoint := reader collectSnapshot metrics first points first.
+	callbackValue := 2.
+	secondPoint := reader collectSnapshot metrics first points first.
+	self assert: firstPoint value equals: 5.
+	self assert: secondPoint value equals: -3
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousNoopInstrumentOperationsAreSafe [
 
 	| instrument |

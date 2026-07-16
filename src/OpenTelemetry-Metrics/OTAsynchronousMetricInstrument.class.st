@@ -85,6 +85,14 @@ OTAsynchronousMetricInstrument >> newObserverOn: aCollection [
 		measurements: aCollection
 ]
 
+{ #category : 'collecting' }
+OTAsynchronousMetricInstrument >> startTimestampForPreviousCollection: aDateAndTime temporality: aTemporalitySymbol [
+
+	^ aTemporalitySymbol = #delta
+		ifTrue: [ aDateAndTime ifNil: [ self creationTimestamp ] ]
+		ifFalse: [ self creationTimestamp ]
+]
+
 { #category : 'recording' }
 OTAsynchronousMetricInstrument >> observe: aNumber [
 
