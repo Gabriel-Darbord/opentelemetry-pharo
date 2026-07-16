@@ -17,5 +17,12 @@ OTCounter >> add: aNumber [
 { #category : 'recording' }
 OTCounter >> add: aNumber attributes: aCollection [
 
+	meter ifNil: [ ^ self ].
+	meter provider
+		ifNotNil: [
+			meter provider
+				recordMeasurementFor: self
+				value: aNumber
+				attributes: aCollection ].
 	self
 ]

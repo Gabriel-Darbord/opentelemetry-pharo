@@ -17,5 +17,12 @@ OTHistogram >> record: aNumber [
 { #category : 'recording' }
 OTHistogram >> record: aNumber attributes: aCollection [
 
+	meter ifNil: [ ^ self ].
+	meter provider
+		ifNotNil: [
+			meter provider
+				recordMeasurementFor: self
+				value: aNumber
+				attributes: aCollection ].
 	self
 ]

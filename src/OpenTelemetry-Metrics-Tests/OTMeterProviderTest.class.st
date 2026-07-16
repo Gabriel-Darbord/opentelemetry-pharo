@@ -236,6 +236,18 @@ OTMeterProviderTest >> testMeterDelegatesResourceToProvider [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testDisabledInstrumentDoesNotRecordMeasurements [
+
+	| instrument provider |
+	provider := OTMeterProvider new.
+	provider meterConfigurator: [ :scope | false ].
+	instrument := (provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total'.
+	instrument add: 1 attributes: { 'method' -> 'GET' }.
+	self assert: provider measurements isEmpty
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterConfiguratorCanDisableExistingMeterInstruments [
 
 	| instrument meter provider |
@@ -273,6 +285,39 @@ OTMeterProviderTest >> testMeterConfiguratorNilResultFallsBackToDefaultEnabled [
 	instrument := (provider meterNamed: 'demo.metrics')
 		counterNamed: 'requests.total'.
 	self assert: instrument enabled
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testProviderBackedCounterRecordsMeasurements [
+
+	| counter measurement provider |
+	provider := OTMeterProvider new.
+	counter := (provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total'
+		unit: '1'
+		description: 'Request count'
+		advice: Dictionary new.
+	counter add: 1 attributes: { 'method' -> 'GET' }.
+	self assert: provider measurements size equals: 1.
+	measurement := provider measurements first.
+	self assert: measurement instrument name equals: 'requests.total'.
+	self assert: measurement value equals: 1.
+	self assert: (measurement attributes at: 'method') equals: 'GET'
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testBoundWrapperRecordsMergedMeasurements [
+
+	| bound measurement provider |
+	provider := OTMeterProvider new.
+	bound := ((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		bind: { 'method' -> 'GET' }.
+	bound add: 1 attributes: { 'status' -> 200 }.
+	self assert: provider measurements size equals: 1.
+	measurement := provider measurements first.
+	self assert: (measurement attributes at: 'method') equals: 'GET'.
+	self assert: (measurement attributes at: 'status') equals: 200
 ]
 
 { #category : 'tests' }

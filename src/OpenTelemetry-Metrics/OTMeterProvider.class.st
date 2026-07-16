@@ -10,7 +10,8 @@ Class {
 		'meters',
 		'shutdown',
 		'meterConfigurator',
-		'resource'
+		'resource',
+		'measurements'
 	],
 	#classVars : [
 		'Current'
@@ -135,6 +136,7 @@ OTMeterProvider >> initialize [
 
 	super initialize.
 	meters := OrderedDictionary new.
+	measurements := OrderedCollection new.
 	shutdown := false.
 	meterConfigurator := nil.
 	resource := OTResource empty
@@ -153,6 +155,12 @@ OTMeterProvider >> meters [
 ]
 
 { #category : 'accessing' }
+OTMeterProvider >> measurements [
+
+	^ measurements ifNil: [ measurements := OrderedCollection new ]
+]
+
+{ #category : 'accessing' }
 OTMeterProvider >> resource [
 
 	^ resource ifNil: [ OTResource empty ]
@@ -163,6 +171,18 @@ OTMeterProvider >> resource: anOTResource [
 
 	resource := anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ].
 	^ self resource
+]
+
+{ #category : 'recording' }
+OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber attributes: aCollection [
+
+	anOTMetricInstrument enabled ifFalse: [ ^ false ].
+	self measurements add:
+		(OTMetricMeasurement
+			instrument: anOTMetricInstrument
+			value: aNumber
+			attributes: aCollection).
+	^ true
 ]
 
 { #category : 'configuration' }
