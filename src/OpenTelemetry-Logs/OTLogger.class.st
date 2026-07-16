@@ -23,6 +23,12 @@ OTLogger class >> forProvider: anOTLoggerProvider instrumentationScope: anInstru
 	^ logger
 ]
 
+{ #category : 'adapting' }
+OTLogger >> asTinyLoggerBridge [
+
+	^ OTTinyLoggerBridge forLogger: self
+]
+
 { #category : 'logging' }
 OTLogger >> emitBody: anObject [
 

@@ -16,10 +16,11 @@ The current logging implementation provides:
 - `OTLogRecord`: readable/writeable SDK log record
 - `OTSimpleLogRecordProcessor`, `OTBatchLogRecordProcessor`, and `OTCompositeLogRecordProcessor`
 - `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, `OTOtlpStdoutLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
+- `OTTinyLoggerBridge` for forwarding TinyLogger records into OpenTelemetry loggers
 
 The current logging implementation does not yet provide:
 
-- bridges to existing Pharo logging libraries
+- bridges to Pharo logging libraries beyond TinyLogger
 
 ## Getting A Logger
 
@@ -133,6 +134,33 @@ is accepted as the console-exporter alias.
 
 `OTEL_LOGS_EXPORTER=otlp/stdout` is also supported and writes one OTLP JSON
 payload per line to standard output.
+
+## TinyLogger Bridge
+
+If TinyLogger is loaded in the image, you can attach an OpenTelemetry logger as
+one of its sinks:
+
+```smalltalk
+otelLogger := OpenTelemetry loggerNamed: 'MyApp'.
+tinyLogger := TinyLogger new.
+tinyLogger addLogger: otelLogger asTinyLoggerBridge.
+
+tinyLogger record: 'Started job'.
+```
+
+The bridge emits `INFO` log records by default. You can customize the emitted
+OpenTelemetry record shape when needed:
+
+```smalltalk
+bridge := otelLogger asTinyLoggerBridge.
+bridge
+	severityNumber: OTSeverity warn;
+	bodyBlock: [ :message | 'tiny:' , message ];
+	attributesBlock: [ :message | { 'tiny.message' -> message } ];
+	eventNameBlock: [ :message | 'tiny.record' ].
+
+tinyLogger addLogger: bridge.
+```
 
 ## Lifecycle
 
