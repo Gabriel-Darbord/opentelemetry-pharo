@@ -64,6 +64,8 @@ OTMeterProvider class >> configuredOtlpExporter [
 
 	| configuration |
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'METRICS'.
+	configuration protocol = OTOtlpGrpcMetricExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpGrpcMetricExporter configuration: configuration ].
 	configuration protocol = OTOtlpHttpJsonMetricExporter supportedProtocol
 		ifTrue: [ ^ OTOtlpHttpJsonMetricExporter configuration: configuration ].
 	configuration protocol = OTOtlpHttpProtobufMetricExporter supportedProtocol

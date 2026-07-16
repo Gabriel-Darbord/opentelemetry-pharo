@@ -207,23 +207,17 @@ OTMetricEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOt
 ]
 
 { #category : 'tests' }
-OTMetricEnvironmentConfigurationTest >> testCurrentWarnsWhenOtlpMetricsProtocolIsUnsupportedAndFallsBackToHttpProtobuf [
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesOtlpGrpcMetricExporterWhenConfigured [
 
-	self withWarningsDo: [ :warnings |
-		self
-			withEnvironmentValues: (Dictionary new
-				at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
-				at: 'OTEL_EXPORTER_OTLP_METRICS_PROTOCOL' put: 'grpc';
-				yourself)
-			during: [
-				| reader |
-				reader := OTMeterProvider current metricReaders first.
-				self
-					assert: reader exporter class
-					identicalTo: OTOtlpHttpProtobufMetricExporter ].
-		self assert: warnings size equals: 1.
-		self assert: warnings first equals:
-			'OpenTelemetry OTLP metrics exporter protocol was unsupported and defaulted to http/protobuf: ''grpc''' ]
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_METRICS_PROTOCOL' put: 'grpc';
+			yourself)
+		during: [
+			| reader |
+			reader := OTMeterProvider current metricReaders first.
+			self assert: reader exporter class identicalTo: OTOtlpGrpcMetricExporter ]
 ]
 
 { #category : 'private' }
