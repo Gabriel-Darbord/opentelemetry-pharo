@@ -15,7 +15,6 @@ The current logging implementation provides:
 - `OTLoggerConfig`: per-logger filtering configuration
 - `OTLogRecord`: readable/writeable SDK log record
 - `OTSimpleLogRecordProcessor`, `OTBatchLogRecordProcessor`, and `OTCompositeLogRecordProcessor`
-- `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
 - `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, `OTOtlpStdoutLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
 
 The current logging implementation does not yet provide:
