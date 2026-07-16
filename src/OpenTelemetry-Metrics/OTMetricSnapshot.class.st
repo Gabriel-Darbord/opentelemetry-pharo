@@ -35,6 +35,18 @@ OTMetricSnapshot >> measurements [
 ]
 
 { #category : 'accessing' }
+OTMetricSnapshot >> metrics [
+
+	| grouped |
+	grouped := OrderedDictionary new.
+	self measurements do: [ :each |
+		(grouped at: each instrument ifAbsentPut: [ OrderedCollection new ])
+			add: each ].
+	^ grouped associations
+		collect: [ :each | each key metricDataFromMeasurements: each value ]
+]
+
+{ #category : 'accessing' }
 OTMetricSnapshot >> measurements: aCollection [
 
 	measurements := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]

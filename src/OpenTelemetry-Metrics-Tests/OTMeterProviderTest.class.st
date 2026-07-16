@@ -555,6 +555,106 @@ OTMeterProviderTest >> testMetricReaderCollectSnapshotIncludesResourceAndMeasure
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMetricSnapshotAggregatesCounterMeasurementsAsMonotonicSums [
+
+	| metric point provider reader snapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1 attributes: { 'method' -> 'GET' }.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 2 attributes: { 'method' -> 'GET' }.
+	snapshot := reader collectSnapshot.
+	self assert: snapshot metrics size equals: 1.
+	metric := snapshot metrics first.
+	self assert: metric class identicalTo: OTSumMetricData.
+	self assert: metric monotonic.
+	point := metric points first.
+	self assert: point value equals: 3.
+	self assert: (point attributes at: 'method') equals: 'GET'
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMetricSnapshotAggregatesGaugeMeasurementsAsLastValue [
+
+	| gaugeMetric point provider reader snapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		gaugeNamed: 'queue.depth')
+		record: 3 attributes: { 'queue' -> 'main' }.
+	((provider meterNamed: 'demo.metrics')
+		gaugeNamed: 'queue.depth')
+		record: 7 attributes: { 'queue' -> 'main' }.
+	snapshot := reader collectSnapshot.
+	gaugeMetric := snapshot metrics first.
+	self assert: gaugeMetric class identicalTo: OTGaugeMetricData.
+	point := gaugeMetric points first.
+	self assert: point value equals: 7
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMetricSnapshotAggregatesHistogramMeasurementsWithExplicitBucketBoundaries [
+
+	| histogramMetric point provider reader snapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		histogramNamed: 'request.duration'
+		unit: 'ms'
+		description: 'Request duration'
+		advice: { 'ExplicitBucketBoundaries' -> #( 10 20 ) } asDictionary)
+		record: 5.
+	((provider meterNamed: 'demo.metrics')
+		histogramNamed: 'request.duration'
+		unit: 'ms'
+		description: 'Request duration'
+		advice: { 'ExplicitBucketBoundaries' -> #( 10 20 ) } asDictionary)
+		record: 15.
+	((provider meterNamed: 'demo.metrics')
+		histogramNamed: 'request.duration'
+		unit: 'ms'
+		description: 'Request duration'
+		advice: { 'ExplicitBucketBoundaries' -> #( 10 20 ) } asDictionary)
+		record: 25.
+	snapshot := reader collectSnapshot.
+	histogramMetric := snapshot metrics first.
+	self assert: histogramMetric class identicalTo: OTHistogramMetricData.
+	point := histogramMetric points first.
+	self assert: point count equals: 3.
+	self assert: point sum equals: 45.
+	self assert: point min equals: 5.
+	self assert: point max equals: 25.
+	self assert: point explicitBounds equals: #( 10.0 20.0 ).
+	self assert: point bucketCounts equals: #( 1 1 1 )
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMetricSnapshotUsesAdvisedAttributeSubsetWhenAggregating [
+
+	| metric point provider reader snapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total'
+		unit: '1'
+		description: 'Request count'
+		advice: { 'Attributes' -> #( 'method' ) } asDictionary)
+		add: 1 attributes: { 'method' -> 'GET'. 'status' -> 200 }.
+	snapshot := reader collectSnapshot.
+	metric := snapshot metrics first.
+	point := metric points first.
+	self assert: point attributes size equals: 1.
+	self assert: (point attributes at: 'method') equals: 'GET'
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMetricReaderRejectsRegistrationWithDifferentProvider [
 
 	| firstProvider secondProvider reader |

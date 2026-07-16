@@ -26,3 +26,15 @@ OTGauge >> record: aNumber attributes: aCollection [
 				attributes: aCollection ].
 	self
 ]
+
+{ #category : 'aggregating' }
+OTGauge >> metricDataFromMeasurements: someMeasurements [
+
+	| points |
+	points := (self groupedMeasurementsByAttributes: someMeasurements) associations
+		collect: [ :each |
+			OTNumberDataPoint
+				attributes: each key
+				value: each value last value ].
+	^ OTGaugeMetricData instrument: self points: points
+]

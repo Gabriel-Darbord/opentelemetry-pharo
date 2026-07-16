@@ -53,6 +53,33 @@ OTMetricInstrument >> collectFor: anOTMetricReader into: aCollection [
 	self
 ]
 
+{ #category : 'aggregating' }
+OTMetricInstrument >> groupedMeasurementsByAttributes: someMeasurements [
+
+	| grouped |
+	grouped := OrderedDictionary new.
+	someMeasurements do: [ :each |
+		(grouped
+			at: (self normalizedAttributesForMeasurement: each)
+			ifAbsentPut: [ OrderedCollection new ])
+			add: each ].
+	^ grouped
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> instrumentationScope [
+
+	^ self meter
+		ifNil: [ OTInstrumentationScope named: '' ]
+		ifNotNil: [ :aMeter | aMeter instrumentationScope ]
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> metricDataFromMeasurements: someMeasurements [
+
+	self subclassResponsibility
+]
+
 { #category : 'accessing' }
 OTMetricInstrument >> description [
 
@@ -93,6 +120,28 @@ OTMetricInstrument >> name [
 OTMetricInstrument >> name: aString [
 
 	name := aString
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement [
+
+	| normalized retainedKeys |
+	normalized := OTAttributeNormalizer normalizeAttributes: anOTMetricMeasurement attributes.
+	retainedKeys := self retainedAttributeKeys.
+	retainedKeys ifNil: [ ^ normalized ].
+	^ retainedKeys inject: OrderedDictionary new into: [ :selected :each |
+		normalized
+			at: each asString
+			ifPresent: [ :value | selected at: each asString put: value ].
+		selected ]
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> retainedAttributeKeys [
+
+	^ self advice
+		at: 'Attributes'
+		ifAbsent: [ self advice at: 'attributes' ifAbsent: [ nil ] ]
 ]
 
 { #category : 'accessing' }
