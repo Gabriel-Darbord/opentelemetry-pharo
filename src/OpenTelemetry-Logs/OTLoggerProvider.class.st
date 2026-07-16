@@ -30,6 +30,64 @@ OTLoggerProvider class >> configuredExporterNames [
 		ifNotNil: [ :names | names ]
 ]
 
+{ #category : 'private - configuration' }
+OTLoggerProvider class >> batchLogRecordProcessorExportTimeoutMillis [
+
+	^ self
+		nonNegativeIntegerEnvironmentValueAt: 'OTEL_BLRP_EXPORT_TIMEOUT'
+		default: OTBatchLogRecordProcessor new exportTimeoutMillis
+]
+
+{ #category : 'private - configuration' }
+OTLoggerProvider class >> batchLogRecordProcessorMaxExportBatchSizeForQueueSize: maxQueueSize [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: 'OTEL_BLRP_MAX_EXPORT_BATCH_SIZE'.
+	parsed := rawValue
+		ifNil: [ OTBatchLogRecordProcessor new maxExportBatchSize ]
+		ifNotNil: [
+			(self strictPositiveIntegerFrom: rawValue)
+				ifNil: [
+					self
+						noteInvalidBatchProcessorEnvironmentValue: rawValue
+						forVariable: 'OTEL_BLRP_MAX_EXPORT_BATCH_SIZE'.
+					OTBatchLogRecordProcessor new maxExportBatchSize ]
+				ifNotNil: [ :value | value ] ].
+	^ parsed min: maxQueueSize
+]
+
+{ #category : 'private - configuration' }
+OTLoggerProvider class >> batchLogRecordProcessorMaxQueueSize [
+
+	^ self
+		positiveIntegerEnvironmentValueAt: 'OTEL_BLRP_MAX_QUEUE_SIZE'
+		default: OTBatchLogRecordProcessor new maxQueueSize
+]
+
+{ #category : 'private - configuration' }
+OTLoggerProvider class >> batchLogRecordProcessorScheduledDelayMillis [
+
+	^ self
+		nonNegativeIntegerEnvironmentValueAt: 'OTEL_BLRP_SCHEDULE_DELAY'
+		default: OTBatchLogRecordProcessor new scheduledDelayMillis
+]
+
+{ #category : 'private - configuration' }
+OTLoggerProvider class >> batchLogRecordProcessorWithExporter: anExporter [
+
+	| maxExportBatchSize maxQueueSize processor |
+	processor := OTBatchLogRecordProcessor new exporter: anExporter; yourself.
+	maxQueueSize := self batchLogRecordProcessorMaxQueueSize.
+	maxExportBatchSize := self
+		batchLogRecordProcessorMaxExportBatchSizeForQueueSize: maxQueueSize.
+	processor
+		maxQueueSize: maxQueueSize;
+		maxExportBatchSize: maxExportBatchSize;
+		scheduledDelayMillis: self batchLogRecordProcessorScheduledDelayMillis;
+		exportTimeoutMillis: self batchLogRecordProcessorExportTimeoutMillis.
+	^ processor
+]
+
 { #category : 'instance creation' }
 OTLoggerProvider class >> configuredLogRecordLimits [
 
@@ -97,7 +155,7 @@ OTLoggerProvider class >> exporterNamesFromConfigurationValue: aString [
 		exporterName isEmpty ifFalse: [
 			normalizedName := exporterName asLowercase.
 			(seen includes: normalizedName) ifFalse: [
-				(#( 'otlp' 'console' 'none' ) includes: normalizedName)
+				(#( 'otlp' 'console' 'logging' 'none' ) includes: normalizedName)
 					ifFalse: [
 						self noteUnknownExporterName: exporterName.
 						^ nil ].
@@ -114,12 +172,27 @@ OTLoggerProvider class >> exporterNamesFromConfigurationValue: aString [
 OTLoggerProvider class >> exporterNamed: aString [
 
 	aString = 'console' ifTrue: [ ^ OTConsoleLogRecordExporter new ].
+	aString = 'logging' ifTrue: [ ^ OTConsoleLogRecordExporter new ].
 	aString = 'none' ifTrue: [ ^ OTNoopLogRecordExporter new ].
-	aString = 'otlp' ifTrue: [
-		self noteUnsupportedExporterName: aString.
-		^ nil ].
+	aString = 'otlp' ifTrue: [ ^ self configuredOtlpExporter ].
 	self noteUnknownExporterName: aString.
 	^ nil
+]
+
+{ #category : 'instance creation' }
+OTLoggerProvider class >> configuredOtlpExporter [
+
+	| configuration |
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'LOGS'.
+	configuration protocol = OTOtlpGrpcLogRecordExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpGrpcLogRecordExporter configuration: configuration ].
+	configuration protocol = OTOtlpHttpJsonLogRecordExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpHttpJsonLogRecordExporter configuration: configuration ].
+	configuration protocol
+		= OTOtlpHttpProtobufLogRecordExporter supportedProtocol ifTrue: [
+		^ OTOtlpHttpProtobufLogRecordExporter configuration: configuration ].
+	self noteUnsupportedOtlpProtocol: configuration protocol.
+	^ OTOtlpHttpProtobufLogRecordExporter configuration: configuration
 ]
 
 { #category : 'private - logging' }
@@ -128,6 +201,16 @@ OTLoggerProvider class >> noteExporterNoneConflictIn: aString [
 	self configurationWarningSink value:
 		'OpenTelemetry logs exporter configuration mixes ''none'' with other exporters and has been ignored: '
 			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTLoggerProvider class >> noteInvalidBatchProcessorEnvironmentValue: aValue forVariable: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry batch log record processor configuration was invalid and has been ignored for '
+			, aString printString
+			, ': '
+			, aValue printString
 ]
 
 { #category : 'private - logging' }
@@ -151,6 +234,14 @@ OTLoggerProvider class >> noteLogRecordProcessor: aProcessor failedDuring: anOpe
 ]
 
 { #category : 'private - logging' }
+OTLoggerProvider class >> noteUnsupportedOtlpProtocol: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry OTLP logs exporter protocol was unsupported and defaulted to http/protobuf: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
 OTLoggerProvider class >> noteUnknownExporterName: aString [
 
 	self configurationWarningSink value:
@@ -158,26 +249,18 @@ OTLoggerProvider class >> noteUnknownExporterName: aString [
 			, aString printString
 ]
 
-{ #category : 'private - logging' }
-OTLoggerProvider class >> noteUnsupportedExporterName: aString [
-
-	self configurationWarningSink value:
-		'OpenTelemetry logs exporter is not implemented yet and has been ignored: '
-			, aString printString
-]
-
 { #category : 'private' }
 OTLoggerProvider class >> normalizedLoggerNameFrom: aValue [
 
-	| name |
+	| loggerName |
 	aValue ifNil: [
 		self noteInvalidLoggerName: aValue.
 		^ '' ].
-	name := aValue asString.
-	name trimBoth isEmpty ifTrue: [
+	loggerName := aValue asString.
+	loggerName trimBoth isEmpty ifTrue: [
 		self noteInvalidLoggerName: aValue.
 		^ '' ].
-	^ name
+	^ loggerName
 ]
 
 { #category : 'instance creation' }
@@ -195,8 +278,21 @@ OTLoggerProvider class >> readConfiguration [
 		exporter := self exporterNamed: each.
 		exporter ifNotNil: [
 			exporter class = OTNoopLogRecordExporter ifFalse: [
-				provider addLogRecordProcessor: (OTSimpleLogRecordProcessor new exporter: exporter; yourself) ] ] ].
+				provider addLogRecordProcessor: (self processorForExporter: exporter) ] ] ].
 	^ provider
+]
+
+{ #category : 'private' }
+OTLoggerProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := self strictNonNegativeIntegerFrom: rawValue.
+	parsed ifNil: [
+		self noteInvalidBatchProcessorEnvironmentValue: rawValue forVariable: aString.
+		^ aDefaultValue ].
+	^ parsed
 ]
 
 { #category : 'class initialization' }
@@ -204,6 +300,51 @@ OTLoggerProvider class >> reset [
 
 	Current ifNotNil: [ Current shutdown ].
 	Current := nil
+]
+
+{ #category : 'private' }
+OTLoggerProvider class >> positiveIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := self strictPositiveIntegerFrom: rawValue.
+	parsed ifNil: [
+		self noteInvalidBatchProcessorEnvironmentValue: rawValue forVariable: aString.
+		^ aDefaultValue ].
+	^ parsed
+]
+
+{ #category : 'private' }
+OTLoggerProvider class >> processorForExporter: anExporter [
+
+	anExporter class == OTConsoleLogRecordExporter ifTrue: [
+		^ OTSimpleLogRecordProcessor new exporter: anExporter; yourself ].
+	^ self batchLogRecordProcessorWithExporter: anExporter
+]
+
+{ #category : 'private' }
+OTLoggerProvider class >> strictNonNegativeIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value >= 0 ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private' }
+OTLoggerProvider class >> strictPositiveIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value > 0 ifFalse: [ ^ nil ].
+	^ value
 ]
 
 { #category : 'private - logging' }

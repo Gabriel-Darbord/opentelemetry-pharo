@@ -15,11 +15,10 @@ The current logging implementation provides:
 - `OTLoggerConfig`: per-logger filtering configuration
 - `OTLogRecord`: readable/writeable SDK log record
 - `OTSimpleLogRecordProcessor`, `OTBatchLogRecordProcessor`, and `OTCompositeLogRecordProcessor`
-- `OTConsoleLogRecordExporter` and `OTNoopLogRecordExporter`
+- `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
 
 The current logging implementation does not yet provide:
 
-- OTLP log export
 - bridges to existing Pharo logging libraries
 
 ## Getting A Logger
@@ -113,6 +112,24 @@ provider addLogRecordProcessor:
 
 `OTConsoleLogRecordExporter` is intended for debugging and learning. Its output
 format is intentionally unspecified and may change.
+
+To use OTLP explicitly:
+
+```smalltalk
+configuration := OTOtlpExporterConfiguration forSignalNamed: 'LOGS'.
+configuration
+	endpoint: 'http://collector:4318/v1/logs';
+	protocol: 'http/protobuf'.
+
+provider addLogRecordProcessor:
+	(OTBatchLogRecordProcessor new
+		exporter: (OTOtlpHttpProtobufLogRecordExporter configuration: configuration);
+		yourself).
+```
+
+When using `OTLoggerProvider current`, `OTEL_LOGS_EXPORTER=otlp` now selects an
+OTLP exporter and wraps it in a batch processor. `OTEL_LOGS_EXPORTER=logging`
+is accepted as the console-exporter alias.
 
 ## Lifecycle
 
