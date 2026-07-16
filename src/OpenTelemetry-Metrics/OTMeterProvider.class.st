@@ -11,7 +11,8 @@ Class {
 		'shutdown',
 		'meterConfigurator',
 		'resource',
-		'measurements'
+		'measurements',
+		'metricReaders'
 	],
 	#classVars : [
 		'Current'
@@ -128,7 +129,7 @@ OTMeterProvider >> meterNamed: aString version: aVersionString schemaUrl: aSchem
 { #category : 'lifecycle' }
 OTMeterProvider >> forceFlush [
 
-	^ true
+	^ self metricReaders allSatisfy: [ :each | each forceFlush ]
 ]
 
 { #category : 'initialization' }
@@ -137,6 +138,7 @@ OTMeterProvider >> initialize [
 	super initialize.
 	meters := OrderedDictionary new.
 	measurements := OrderedCollection new.
+	metricReaders := OrderedCollection new.
 	shutdown := false.
 	meterConfigurator := nil.
 	resource := OTResource empty
@@ -158,6 +160,12 @@ OTMeterProvider >> meters [
 OTMeterProvider >> measurements [
 
 	^ measurements ifNil: [ measurements := OrderedCollection new ]
+]
+
+{ #category : 'accessing' }
+OTMeterProvider >> metricReaders [
+
+	^ metricReaders ifNil: [ metricReaders := OrderedCollection new ]
 ]
 
 { #category : 'accessing' }
@@ -183,6 +191,15 @@ OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber att
 			value: aNumber
 			attributes: aCollection).
 	^ true
+]
+
+{ #category : 'accessing' }
+OTMeterProvider >> addMetricReader: anOTMetricReader [
+
+	anOTMetricReader ifNil: [ ^ self metricReaders ].
+	anOTMetricReader provider: self.
+	self metricReaders add: anOTMetricReader.
+	^ self metricReaders
 ]
 
 { #category : 'configuration' }
@@ -213,6 +230,7 @@ OTMeterProvider >> meterConfigurator: aBlockOrNil [
 { #category : 'lifecycle' }
 OTMeterProvider >> shutdown [
 
+	self metricReaders do: [ :each | each shutdown ].
 	shutdown := true.
 	^ true
 ]

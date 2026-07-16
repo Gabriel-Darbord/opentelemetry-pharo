@@ -110,6 +110,23 @@ OTMeterProviderTest >> testForceFlushAnswersSuccess [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testInMemoryMetricReaderCollectsRecordedMeasurements [
+
+	| counter measurement provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total'.
+	counter add: 1 attributes: { 'method' -> 'GET' }.
+	self assert: reader collect size equals: 1.
+	measurement := reader collect first.
+	self assert: measurement instrument identicalTo: counter.
+	self assert: measurement value equals: 1.
+	self assert: (measurement attributes at: 'method') equals: 'GET'
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterCreationReturnsNoopInstruments [
 
 	| meter |
@@ -306,6 +323,18 @@ OTMeterProviderTest >> testProviderBackedCounterRecordsMeasurements [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testProviderShutdownShutsDownMetricReaders [
+
+	| provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	self assert: provider shutdown.
+	self assert: reader isShutdown.
+	self assert: reader collect isEmpty
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testBoundWrapperRecordsMergedMeasurements [
 
 	| bound measurement provider |
@@ -360,6 +389,17 @@ OTMeterProviderTest >> testMeterProviderAcceptsRichMeterParametersWithoutValidat
 		schemaUrl: Object new
 		attributes: { 'scope.answer' -> 42. #component -> 'worker' }.
 	self deny: meter isNoop
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testProviderAddMetricReaderAssignsProvider [
+
+	| provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	self assert: reader provider identicalTo: provider.
+	self assert: provider metricReaders size equals: 1
 ]
 
 { #category : 'tests' }
