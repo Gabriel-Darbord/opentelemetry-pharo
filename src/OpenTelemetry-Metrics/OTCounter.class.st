@@ -47,6 +47,12 @@ OTCounter >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggre
 		yourself
 ]
 
+{ #category : 'accessing' }
+OTCounter >> instrumentType [
+
+	^ #counter
+]
+
 { #category : 'aggregating' }
 OTCounter >> otlpTemporalityForDeltaPreference [
 
@@ -57,4 +63,11 @@ OTCounter >> otlpTemporalityForDeltaPreference [
 OTCounter >> otlpTemporalityForLowMemoryPreference [
 
 	^ #delta
+]
+
+{ #category : 'aggregating' }
+OTCounter >> supportsAggregation: aSymbol [
+
+	^ (super supportsAggregation: aSymbol)
+		or: [ aSymbol = #sum ]
 ]

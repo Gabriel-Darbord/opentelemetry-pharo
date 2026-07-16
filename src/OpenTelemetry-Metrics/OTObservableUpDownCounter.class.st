@@ -28,6 +28,12 @@ OTObservableUpDownCounter >> metricDataFromMeasurements: someMeasurements using:
 		yourself
 ]
 
+{ #category : 'accessing' }
+OTObservableUpDownCounter >> instrumentType [
+
+	^ #observableUpDownCounter
+]
+
 { #category : 'collecting' }
 OTObservableUpDownCounter >> preparedMeasurementsFrom: someMeasurements forReader: anOTMetricReader using: anOTMetricAggregationContext [
 
@@ -52,4 +58,11 @@ OTObservableUpDownCounter >> preparedMeasurementsFrom: someMeasurements forReade
 			yourself).
 		previousValues at: each key put: currentValue ].
 	^ deltaMeasurements asArray
+]
+
+{ #category : 'aggregating' }
+OTObservableUpDownCounter >> supportsAggregation: aSymbol [
+
+	^ (super supportsAggregation: aSymbol)
+		or: [ aSymbol = #sum ]
 ]

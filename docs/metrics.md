@@ -5,7 +5,7 @@ This guide covers the current Pharo-facing metrics API.
 The current implementation is an early SDK foundation. It gives you the global
 entry points, meters, instrument objects, provider-owned measurements,
 reader-owned metric aggregation, OTLP metric exporters, and callback-driven
-asynchronous collection, but it does not yet include views.
+asynchronous collection, plus a first view layer for reshaping metric streams.
 
 ## Current Scope
 
@@ -33,6 +33,8 @@ The current metrics implementation provides:
 - `OTMetricReader`, `OTInMemoryMetricReader`, and `OTPeriodicExportingMetricReader`
 - reader-scoped asynchronous callback collection
 - reader-scoped temporality selection for synchronous and asynchronous instruments
+- provider-scoped metric views with instrument-name, type, unit, and meter-scope selection
+- view stream overrides for metric name, description, attribute allow-lists, aggregation, and aggregation cardinality limits
 - reader-scoped cardinality limits with synthetic overflow points
 - reader-scoped asynchronous callback timeout and failure isolation
 - `OTNoopMetricExporter`, `OTConsoleMetricExporter`, `OTOtlpStdoutMetricExporter`
@@ -45,8 +47,9 @@ The current metrics implementation provides:
 
 The current metrics implementation does not yet provide:
 
-- views or aggregations
 - Prometheus export
+- exemplar reservoirs and exemplar-facing view controls
+- view conflict diagnostics for duplicated metric identities
 
 ## Getting A Meter
 
@@ -74,6 +77,16 @@ provider meterConfigurator: [ :scope |
 	scope name = 'disabled.scope'
 		ifTrue: [ OTMeterConfig enabled: false ]
 			ifFalse: [ OTMeterConfig enabled: true ] ].
+```
+
+Views can also be registered on the provider:
+
+```smalltalk
+provider addView:
+	((OTMetricView named: 'http.server.duration')
+		aggregation: #base2ExponentialBucketHistogram;
+		attributeKeys: #( 'http.request.method' 'http.response.status_code' );
+		yourself).
 ```
 
 The global provider path also carries a configured resource:
@@ -135,8 +148,11 @@ Current metric behavior:
 - synchronous recording messages append `OTMetricMeasurement` entries to the provider-owned measurement store
 - `OTInMemoryMetricReader>>collect` returns recorded synchronous measurements plus fresh asynchronous callback observations for that reader
 - `OTMetricReader>>collectSnapshot` answers aggregated `OTMetricSnapshot` metric data grouped per instrument
+- matching views are applied independently, so a single instrument may emit multiple streams
 - `OTPeriodicExportingMetricReader` exports those snapshots through its configured exporter on collection and background intervals
 - `OTMetricReader` applies a default per-instrument cardinality limit of `2000`, and you can override it with `cardinalityLimitSelector:`
+- matching views can override the reader default cardinality limit per stream
+- matching views take precedence over instrument attribute advice for `attribute_keys`
 - asynchronous callback blocks may accept either zero arguments or one observer argument
 - observer-driven asynchronous observations are collected only during reader collection
 - timed-out or failing asynchronous callbacks are isolated from the rest of collection and emit diagnostic warnings
@@ -157,6 +173,57 @@ Meters do already preserve instrument registration identity:
 That means you can start writing Pharo code against the metrics API now, and we
 can evolve the implementation underneath it without redesigning the public
 surface.
+
+## Views
+
+`OTMetricView` is the current provider-facing way to customize metric streams.
+Selection criteria are additive: if you set more than one selector, all of them
+must match for the view to apply.
+
+Supported selectors:
+
+- `namePattern:` with exact matches, `*`, and `?` wildcard matching
+- `instrumentType:`
+- `unit:`
+- `meterName:`
+- `meterVersion:`
+- `meterSchemaUrl:`
+
+Supported stream overrides:
+
+- `streamName:`
+- `streamDescription:`
+- `attributeKeys:`
+- `aggregation:`
+- `aggregationCardinalityLimit:`
+
+Supported aggregation symbols are:
+
+- `#drop`
+- `#default`
+- `#sum`
+- `#lastValue`
+- `#explicitBucketHistogram`
+- `#base2ExponentialBucketHistogram`
+
+Example: keep only one metric, drop everything else by default, and trim the
+exported attributes:
+
+```smalltalk
+provider
+	addView: (OTMetricView named: 'requests.total');
+	addView: (OTMetricView all
+		aggregation: #drop;
+		yourself).
+
+provider addView:
+	((OTMetricView named: 'http.server.duration')
+		streamName: 'http.server.duration.by_status';
+		attributeKeys: #( 'http.response.status_code' );
+		aggregation: #sum;
+		aggregationCardinalityLimit: 50;
+		yourself).
+```
 
 ## Explicit Exporters
 

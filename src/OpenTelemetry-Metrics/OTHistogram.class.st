@@ -61,6 +61,10 @@ OTHistogram >> bucketCountsForMeasurements: someMeasurements boundaries: someBou
 { #category : 'aggregating' }
 OTHistogram >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
+	anOTMetricAggregationContext aggregation = #sum ifTrue: [
+		^ self
+			sumMetricDataFromMeasurements: someMeasurements
+			using: anOTMetricAggregationContext ].
 	anOTMetricAggregationContext aggregation = #base2ExponentialBucketHistogram ifTrue: [
 		^ self
 			exponentialHistogramMetricDataFromMeasurements: someMeasurements
@@ -93,6 +97,12 @@ OTHistogram >> explicitHistogramMetricDataFromMeasurements: someMeasurements usi
 	^ (OTHistogramMetricData instrument: self points: points)
 		temporality: anOTMetricAggregationContext temporality;
 		yourself
+]
+
+{ #category : 'accessing' }
+OTHistogram >> instrumentType [
+
+	^ #histogram
 ]
 
 { #category : 'aggregating' }
@@ -243,4 +253,33 @@ OTHistogram >> otlpTemporalityForDeltaPreference [
 OTHistogram >> otlpTemporalityForLowMemoryPreference [
 
 	^ #delta
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> sumMetricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
+
+	| points |
+	points := (self groupedMeasurementsByAttributes: someMeasurements) associations
+		collect: [ :each |
+			OTNumberDataPoint
+				attributes: each key
+				value: (each value inject: 0 into: [ :sum :measurement | sum + measurement value ])
+				startTimestamp: (anOTMetricAggregationContext startTimestamp
+					ifNil: [ each value first timestamp ])
+				timestamp: anOTMetricAggregationContext collectedAt ].
+	^ (OTSumMetricData
+		instrument: self
+		points: points
+		monotonic: true)
+		temporality: anOTMetricAggregationContext temporality;
+		yourself
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> supportsAggregation: aSymbol [
+
+	^ (super supportsAggregation: aSymbol)
+		or: [
+			#( sum explicitBucketHistogram base2ExponentialBucketHistogram )
+				includes: aSymbol ]
 ]

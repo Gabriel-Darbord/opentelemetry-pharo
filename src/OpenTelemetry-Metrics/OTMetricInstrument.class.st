@@ -189,10 +189,19 @@ OTMetricInstrument >> name: aString [
 OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement [
 
 	| normalized retainedKeys |
+	normalized := self
+		normalizedAttributesForMeasurement: anOTMetricMeasurement
+		retainingKeys: self retainedAttributeKeys.
+	^ normalized
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement retainingKeys: someKeys [
+
+	| normalized |
 	normalized := OTAttributeNormalizer normalizeAttributes: anOTMetricMeasurement attributes.
-	retainedKeys := self retainedAttributeKeys.
-	retainedKeys ifNil: [ ^ normalized ].
-	^ retainedKeys inject: OrderedDictionary new into: [ :selected :each |
+	someKeys ifNil: [ ^ normalized ].
+	^ someKeys inject: OrderedDictionary new into: [ :selected :each |
 		normalized
 			at: each asString
 			ifPresent: [ :value | selected at: each asString put: value ].
@@ -205,6 +214,18 @@ OTMetricInstrument >> retainedAttributeKeys [
 	^ self advice
 		at: 'Attributes'
 		ifAbsent: [ self advice at: 'attributes' ifAbsent: [ nil ] ]
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> instrumentType [
+
+	self subclassResponsibility
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> supportsAggregation: aSymbol [
+
+	^ aSymbol = #default or: [ aSymbol = #drop ]
 ]
 
 { #category : 'collecting' }

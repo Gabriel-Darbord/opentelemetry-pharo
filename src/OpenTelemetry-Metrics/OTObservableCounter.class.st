@@ -28,6 +28,12 @@ OTObservableCounter >> metricDataFromMeasurements: someMeasurements using: anOTM
 		yourself
 ]
 
+{ #category : 'accessing' }
+OTObservableCounter >> instrumentType [
+
+	^ #observableCounter
+]
+
 { #category : 'collecting' }
 OTObservableCounter >> preparedMeasurementsFrom: someMeasurements forReader: anOTMetricReader using: anOTMetricAggregationContext [
 
@@ -64,4 +70,11 @@ OTObservableCounter >> preparedMeasurementsFrom: someMeasurements forReader: anO
 OTObservableCounter >> otlpTemporalityForDeltaPreference [
 
 	^ #delta
+]
+
+{ #category : 'aggregating' }
+OTObservableCounter >> supportsAggregation: aSymbol [
+
+	^ (super supportsAggregation: aSymbol)
+		or: [ aSymbol = #sum ]
 ]

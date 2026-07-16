@@ -46,3 +46,16 @@ OTUpDownCounter >> metricDataFromMeasurements: someMeasurements using: anOTMetri
 		temporality: anOTMetricAggregationContext temporality;
 		yourself
 ]
+
+{ #category : 'accessing' }
+OTUpDownCounter >> instrumentType [
+
+	^ #upDownCounter
+]
+
+{ #category : 'aggregating' }
+OTUpDownCounter >> supportsAggregation: aSymbol [
+
+	^ (super supportsAggregation: aSymbol)
+		or: [ aSymbol = #sum ]
+]

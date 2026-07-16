@@ -8,7 +8,7 @@ Class {
 		'aggregationSelector',
 		'cardinalityLimitSelector',
 		'callbackTimeoutMillis',
-		'selectedAttributeSetsByInstrument',
+		'selectedAttributeSetsByStream',
 		'lastCollectionTimestampByInstrument',
 		'lastAsynchronousValuesByInstrument'
 	],
@@ -52,10 +52,14 @@ OTMetricReader class >> defaultCallbackWarningSink [
 OTMetricReader >> aggregationFor: anOTMetricInstrument [
 
 	| selected |
-	selected := self aggregationSelector value: anOTMetricInstrument.
-	^ selected = #base2ExponentialBucketHistogram
-		ifTrue: [ #base2ExponentialBucketHistogram ]
-		ifFalse: [ #default ]
+	selected := self normalizedAggregationSymbolFrom:
+		(self aggregationSelector value: anOTMetricInstrument).
+	selected = #explicitBucketHistogram ifTrue: [ ^ #default ].
+	(anOTMetricInstrument supportsAggregation: selected) ifTrue: [ ^ selected ].
+	self
+		noteIncompatibleAggregation: selected
+		for: anOTMetricInstrument.
+	^ #default
 ]
 
 { #category : 'accessing' }
@@ -72,17 +76,19 @@ OTMetricReader >> aggregationSelector: aBlockOrNil [
 ]
 
 { #category : 'collecting' }
-OTMetricReader >> cardinalityLimitedMeasurementsFrom: someMeasurements for: anOTMetricInstrument [
+OTMetricReader >> cardinalityLimitedMeasurementsFrom: someMeasurements for: anOTMetricInstrument using: anOTMetricAggregationContext stateKey: aStateKey [
 
-	| limit limitedMeasurements overflowAttributes selectedAttributeSets |
-	limit := self cardinalityLimitFor: anOTMetricInstrument.
+	| limit limitedMeasurements overflowAttributes retainedKeys selectedAttributeSets |
+	limit := anOTMetricAggregationContext cardinalityLimit.
 	limitedMeasurements := OrderedCollection new: someMeasurements size.
 	overflowAttributes := self overflowAttributes.
-	selectedAttributeSets := self selectedAttributeSetsFor: anOTMetricInstrument.
+	retainedKeys := anOTMetricAggregationContext retainedAttributeKeys.
+	selectedAttributeSets := self selectedAttributeSetsForStateKey: aStateKey.
 	someMeasurements do: [ :each |
 		| knownAttributes normalizedAttributes |
 		normalizedAttributes := anOTMetricInstrument
-			normalizedAttributesForMeasurement: each.
+			normalizedAttributesForMeasurement: each
+			retainingKeys: retainedKeys.
 		knownAttributes := self
 			selectedAttributeSetMatching: normalizedAttributes
 			within: selectedAttributeSets.
@@ -106,6 +112,13 @@ OTMetricReader >> cardinalityLimitFor: anOTMetricInstrument [
 	selected := self cardinalityLimitSelector value: anOTMetricInstrument.
 	(selected isInteger and: [ selected > 0 ]) ifTrue: [ ^ selected ].
 	^ 2000
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> cardinalityStateKeyFor: anOTMetricInstrument view: anOTMetricViewOrNil [
+
+	anOTMetricViewOrNil ifNil: [ ^ anOTMetricInstrument ].
+	^ { anOTMetricInstrument. anOTMetricViewOrNil }
 ]
 
 { #category : 'accessing' }
@@ -234,7 +247,7 @@ OTMetricReader >> initialize [
 	aggregationSelector := nil.
 	cardinalityLimitSelector := nil.
 	callbackTimeoutMillis := 30000.
-	selectedAttributeSetsByInstrument := WeakIdentityKeyDictionary new
+	selectedAttributeSetsByStream := Dictionary new
 ]
 
 { #category : 'collecting' }
@@ -350,17 +363,40 @@ OTMetricReader >> overflowAttributes [
 { #category : 'collecting' }
 OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument collectedAt: aDateAndTime [
 
-	| previousCollection startTimestamp temporality |
+	^ self
+		metricAggregationContextFor: anOTMetricInstrument
+		view: nil
+		collectedAt: aDateAndTime
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMetricViewOrNil collectedAt: aDateAndTime [
+
+	| aggregation previousCollection retainedAttributeKeys startTimestamp temporality |
 	temporality := self temporalityFor: anOTMetricInstrument.
 	previousCollection := self lastCollectionTimestampFor: anOTMetricInstrument.
 	startTimestamp := anOTMetricInstrument
 		startTimestampForPreviousCollection: previousCollection
 		temporality: temporality.
+	aggregation := anOTMetricViewOrNil
+		ifNil: [ self aggregationFor: anOTMetricInstrument ]
+		ifNotNil: [ anOTMetricViewOrNil resolvedAggregationFor: anOTMetricInstrument reader: self ].
+	(anOTMetricInstrument supportsAggregation: aggregation) ifFalse: [ ^ nil ].
+	retainedAttributeKeys := anOTMetricViewOrNil
+		ifNil: [ anOTMetricInstrument retainedAttributeKeys ]
+		ifNotNil: [ anOTMetricViewOrNil resolvedRetainedAttributeKeysFor: anOTMetricInstrument ].
 	^ OTMetricAggregationContext
 		collectedAt: aDateAndTime
 		startTimestamp: startTimestamp
 		temporality: temporality
-		aggregation: (self aggregationFor: anOTMetricInstrument)
+		aggregation: aggregation
+		retainedAttributeKeys: retainedAttributeKeys
+		cardinalityLimit: (anOTMetricViewOrNil
+				ifNil: [ self cardinalityLimitFor: anOTMetricInstrument ]
+				ifNotNil: [
+					anOTMetricViewOrNil
+						resolvedCardinalityLimitFor: anOTMetricInstrument
+						reader: self ])
 ]
 
 { #category : 'collecting' }
@@ -373,25 +409,91 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 			add: each ].
 	metrics := OrderedCollection new.
 	someInstruments do: [ :each |
-		| context instrumentMeasurements preparedMeasurements selectedMeasurements |
+		| instrumentMeasurements views |
 		instrumentMeasurements := grouped at: each ifAbsent: [ #() ].
-		context := self
-			metricAggregationContextFor: each
-			collectedAt: aDateAndTime.
-		preparedMeasurements := each
-			preparedMeasurementsFrom: instrumentMeasurements
-			forReader: self
-			using: context.
-		selectedMeasurements := self
-			selectedMeasurementsFrom: preparedMeasurements
-			for: each
-			using: context.
-		selectedMeasurements := self
-			cardinalityLimitedMeasurementsFrom: selectedMeasurements
-			for: each.
-		selectedMeasurements ifNotEmpty: [
-			metrics add: (each metricDataFromMeasurements: selectedMeasurements using: context) ] ].
+		views := self matchingViewsFor: each.
+		views ifEmpty: [ views := { nil } ].
+		views do: [ :view |
+			| context metric preparedMeasurements selectedMeasurements |
+			context := self
+				metricAggregationContextFor: each
+				view: view
+				collectedAt: aDateAndTime.
+			context ifNotNil: [
+				context aggregation = #drop ifFalse: [
+					preparedMeasurements := each
+						preparedMeasurementsFrom: instrumentMeasurements
+						forReader: self
+						using: context.
+					selectedMeasurements := self
+						selectedMeasurementsFrom: preparedMeasurements
+						for: each
+						using: context.
+					selectedMeasurements := self
+						cardinalityLimitedMeasurementsFrom: selectedMeasurements
+						for: each
+						using: context
+						stateKey: (self cardinalityStateKeyFor: each view: view).
+					selectedMeasurements ifNotEmpty: [
+						metric := each
+							metricDataFromMeasurements: selectedMeasurements
+							using: context.
+						view ifNotNil: [ view applyToMetricData: metric ].
+						metrics add: metric ] ] ] ] ].
 	^ metrics asArray
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> matchingViewsFor: anOTMetricInstrument [
+
+	| matchingViews validViews |
+	self provider ifNil: [ ^ #() ].
+	matchingViews := self provider matchingViewsFor: anOTMetricInstrument.
+	matchingViews ifEmpty: [ ^ #() ].
+	validViews := OrderedCollection new.
+	matchingViews do: [ :each |
+		| aggregation |
+		aggregation := each resolvedAggregationFor: anOTMetricInstrument reader: self.
+		(anOTMetricInstrument supportsAggregation: aggregation)
+			ifTrue: [ validViews add: each ]
+			ifFalse: [
+				self
+					noteIncompatibleViewAggregation: aggregation
+					view: each
+					for: anOTMetricInstrument ] ].
+	^ validViews asArray
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> noteIncompatibleAggregation: anAggregationSymbol for: anOTMetricInstrument [
+
+	OTDiagnosticLogger defaultWarningSink value:
+		'OpenTelemetry metric reader aggregation '
+			, anAggregationSymbol printString
+			, ' is incompatible with instrument '
+			, anOTMetricInstrument name printString
+			, ' of type '
+			, anOTMetricInstrument instrumentType printString
+			, ' and has fallen back to #default'
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> noteIncompatibleViewAggregation: anAggregationSymbol view: anOTMetricView for: anOTMetricInstrument [
+
+	OTDiagnosticLogger defaultWarningSink value:
+		'OpenTelemetry metric view aggregation '
+			, anAggregationSymbol printString
+			, ' is incompatible with instrument '
+			, anOTMetricInstrument name printString
+			, ' of type '
+			, anOTMetricInstrument instrumentType printString
+			, ' and the view has been ignored'
+]
+
+{ #category : 'accessing' }
+OTMetricReader >> normalizedAggregationSymbolFrom: anObject [
+
+	^ OTMetricView normalizedAggregationFrom: anObject
 ]
 
 { #category : 'collecting' }
@@ -415,17 +517,17 @@ OTMetricReader >> selectedAttributeSetMatching: someAttributes within: selectedA
 ]
 
 { #category : 'collecting' }
-OTMetricReader >> selectedAttributeSetsByInstrument [
+OTMetricReader >> selectedAttributeSetsByStream [
 
-	^ selectedAttributeSetsByInstrument
-		ifNil: [ selectedAttributeSetsByInstrument := WeakIdentityKeyDictionary new ]
+	^ selectedAttributeSetsByStream
+		ifNil: [ selectedAttributeSetsByStream := Dictionary new ]
 ]
 
 { #category : 'collecting' }
-OTMetricReader >> selectedAttributeSetsFor: anOTMetricInstrument [
+OTMetricReader >> selectedAttributeSetsForStateKey: aStateKey [
 
-	^ self selectedAttributeSetsByInstrument
-		at: anOTMetricInstrument
+	^ self selectedAttributeSetsByStream
+		at: aStateKey
 		ifAbsentPut: [ OrderedCollection new ]
 ]
 

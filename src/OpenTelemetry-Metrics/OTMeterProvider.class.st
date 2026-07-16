@@ -10,7 +10,8 @@ Class {
 		'meterConfigurator',
 		'resource',
 		'measurements',
-		'metricReaders'
+		'metricReaders',
+		'views'
 	],
 	#classVars : [
 		'Current'
@@ -354,6 +355,7 @@ OTMeterProvider >> initialize [
 	meters := OrderedDictionary new.
 	measurements := OrderedCollection new.
 	metricReaders := OrderedCollection new.
+	views := OrderedCollection new.
 	shutdown := false.
 	meterConfigurator := nil.
 	resource := OTResource empty
@@ -381,6 +383,12 @@ OTMeterProvider >> measurements [
 OTMeterProvider >> metricReaders [
 
 	^ metricReaders ifNil: [ metricReaders := OrderedCollection new ]
+]
+
+{ #category : 'accessing' }
+OTMeterProvider >> views [
+
+	^ views ifNil: [ views := OrderedCollection new ]
 ]
 
 { #category : 'accessing' }
@@ -429,6 +437,14 @@ OTMeterProvider >> addMetricReader: anOTMetricReader [
 ]
 
 { #category : 'configuration' }
+OTMeterProvider >> addView: anOTMetricView [
+
+	anOTMetricView ifNil: [ ^ self views ].
+	self views add: anOTMetricView.
+	^ self views
+]
+
+{ #category : 'configuration' }
 OTMeterProvider >> meterConfigFor: anOTInstrumentationScope [
 
 	| configured |
@@ -439,6 +455,13 @@ OTMeterProvider >> meterConfigFor: anOTInstrumentationScope [
 	((configured == true) or: [ configured == false ]) ifTrue: [
 		^ OTMeterConfig enabled: configured ].
 	^ OTMeterConfig default
+]
+
+{ #category : 'configuration' }
+OTMeterProvider >> matchingViewsFor: anOTMetricInstrument [
+
+	^ self views
+		select: [ :each | each matchesInstrument: anOTMetricInstrument ]
 ]
 
 { #category : 'configuration' }

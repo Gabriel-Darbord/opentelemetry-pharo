@@ -24,3 +24,16 @@ OTObservableGauge >> metricDataFromMeasurements: someMeasurements using: anOTMet
 				timestamp: lastMeasurement timestamp ].
 	^ OTGaugeMetricData instrument: self points: points
 ]
+
+{ #category : 'accessing' }
+OTObservableGauge >> instrumentType [
+
+	^ #observableGauge
+]
+
+{ #category : 'aggregating' }
+OTObservableGauge >> supportsAggregation: aSymbol [
+
+	^ (super supportsAggregation: aSymbol)
+		or: [ aSymbol = #lastValue ]
+]
