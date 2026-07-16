@@ -374,6 +374,14 @@ OTMeter >> duplicateCandidateForCanonicalName: aCanonicalName [
 ]
 
 { #category : 'private - logging' }
+OTMeter >> hasViewCorrectingDescriptionConflictFor: anOTMetricInstrument [
+
+	provider ifNil: [ ^ false ].
+	^ (provider matchingViewsFor: anOTMetricInstrument)
+		anySatisfy: [ :each | each streamDescription notNil ]
+]
+
+{ #category : 'private - logging' }
 OTMeter >> duplicateRegistrationResolutionHintFor: anExistingInstrument requestedInstrumentClass: anInstrumentClass name: aString unit: aUnitString description: aDescriptionString [
 
 	| requestedType |
@@ -537,12 +545,23 @@ OTMeter >> registerInstrumentKeyedByClass: anInstrumentClass named: aValue unit:
 		^ instrument ].
 	candidate := self duplicateCandidateForCanonicalName: canonicalName.
 	candidate ifNotNil: [
-		self
-			noteDuplicateInstrumentRegistrationBetween: candidate
-			requestedInstrumentClass: anInstrumentClass
-			requestedName: instrumentName
-			unit: unitString
-			description: descriptionString ].
+		((candidate class = anInstrumentClass
+			and: [ candidate unit = unitString ])
+			and: [ candidate description ~= descriptionString ]) ifTrue: [
+			(self hasViewCorrectingDescriptionConflictFor: candidate) ifFalse: [
+				self
+					noteDuplicateInstrumentRegistrationBetween: candidate
+					requestedInstrumentClass: anInstrumentClass
+					requestedName: instrumentName
+					unit: unitString
+					description: descriptionString ] ]
+		ifFalse: [
+			self
+				noteDuplicateInstrumentRegistrationBetween: candidate
+				requestedInstrumentClass: anInstrumentClass
+				requestedName: instrumentName
+				unit: unitString
+				description: descriptionString ] ].
 	instrument := anInstrumentBlock
 		value: instrumentName
 		value: unitString

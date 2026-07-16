@@ -69,3 +69,26 @@ OTMetricDuplicateRegistrationTest >> testMeterWarnsOnDescriptionConflictWithView
 		self assert: (warnings first includesSubstring: 'streamDescription:').
 		self assert: (warnings first includesSubstring: '''Second''') ]
 ]
+
+{ #category : 'tests' }
+OTMetricDuplicateRegistrationTest >> testMatchingViewDescriptionOverrideSuppressesDescriptionConflictWarning [
+
+	self withInstrumentWarningsDo: [ :warnings |
+		| first second provider |
+		provider := OTMeterProvider new.
+		provider addView: ((OTMetricView named: 'requests.total')
+				streamDescription: 'Requests';
+				yourself).
+		first := (provider meterNamed: 'demo.metrics')
+			counterNamed: 'requests.total'
+			unit: '1'
+			description: 'First'
+			advice: Dictionary new.
+		second := (provider meterNamed: 'demo.metrics')
+			counterNamed: 'requests.total'
+			unit: '1'
+			description: 'Second'
+			advice: Dictionary new.
+		self deny: second identicalTo: first.
+		self assert: warnings isEmpty ]
+]
