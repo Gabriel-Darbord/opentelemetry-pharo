@@ -197,6 +197,7 @@ Supported stream overrides:
 - `streamDescription:`
 - `attributeKeys:`
 - `aggregation:`
+- `aggregationParameters:`
 - `aggregationCardinalityLimit:`
 
 Supported aggregation symbols are:
@@ -207,6 +208,11 @@ Supported aggregation symbols are:
 - `#lastValue`
 - `#explicitBucketHistogram`
 - `#base2ExponentialBucketHistogram`
+
+Supported aggregation parameters currently include:
+
+- explicit histogram: `Boundaries`, `RecordMinMax`
+- exponential histogram: `MaxSize`, `MaxScale`, `RecordMinMax`
 
 Example: keep only one metric, drop everything else by default, and trim the
 exported attributes:

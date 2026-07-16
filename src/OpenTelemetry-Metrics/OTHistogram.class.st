@@ -44,6 +44,17 @@ OTHistogram >> explicitBucketBoundaries [
 ]
 
 { #category : 'aggregating' }
+OTHistogram >> explicitBucketBoundariesForAggregationContext: anOTMetricAggregationContext [
+
+	| boundaries |
+	boundaries := anOTMetricAggregationContext
+		aggregationParameterAt: #boundaries
+		ifAbsent: [ nil ].
+	boundaries ifNil: [ ^ self explicitBucketBoundaries ].
+	^ boundaries asArray collect: [ :each | each asFloat ]
+]
+
+{ #category : 'aggregating' }
 OTHistogram >> bucketCountsForMeasurements: someMeasurements boundaries: someBoundaries [
 
 	| counts |
@@ -77,8 +88,9 @@ OTHistogram >> metricDataFromMeasurements: someMeasurements using: anOTMetricAgg
 { #category : 'aggregating' }
 OTHistogram >> explicitHistogramMetricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
-	| boundaries points |
-	boundaries := self explicitBucketBoundaries.
+	| boundaries points recordMinMax |
+	boundaries := self explicitBucketBoundariesForAggregationContext: anOTMetricAggregationContext.
+	recordMinMax := self recordMinMaxForAggregationContext: anOTMetricAggregationContext.
 	points := (self groupedMeasurementsByAttributes: someMeasurements) associations
 		collect: [ :each |
 			| values |
@@ -87,8 +99,8 @@ OTHistogram >> explicitHistogramMetricDataFromMeasurements: someMeasurements usi
 				attributes: each key
 				count: values size
 				sum: (values inject: 0 into: [ :sum :value | sum + value ])
-				min: values min
-				max: values max
+				min: (recordMinMax ifTrue: [ values min ] ifFalse: [ nil ])
+				max: (recordMinMax ifTrue: [ values max ] ifFalse: [ nil ])
 				explicitBounds: boundaries
 				bucketCounts: (self bucketCountsForMeasurements: each value boundaries: boundaries)
 				startTimestamp: (anOTMetricAggregationContext startTimestamp
@@ -128,9 +140,12 @@ OTHistogram >> exponentialBucketRangeFromCountsByIndex: countsByIndex [
 { #category : 'aggregating' }
 OTHistogram >> exponentialHistogramDataPointForMeasurements: someMeasurements attributes: someAttributes using: anOTMetricAggregationContext [
 
-	| negativeCounts point positiveCounts scale values zeroCount |
+	| negativeCounts point positiveCounts recordMinMax scale values zeroCount |
 	values := someMeasurements collect: [ :each | each value asFloat ].
-	scale := self exponentialHistogramScaleForMeasurements: someMeasurements.
+	scale := self
+		exponentialHistogramScaleForMeasurements: someMeasurements
+		using: anOTMetricAggregationContext.
+	recordMinMax := self recordMinMaxForAggregationContext: anOTMetricAggregationContext.
 	positiveCounts := Dictionary new.
 	negativeCounts := Dictionary new.
 	zeroCount := 0.
@@ -158,8 +173,8 @@ OTHistogram >> exponentialHistogramDataPointForMeasurements: someMeasurements at
 		zeroCount: zeroCount;
 		positiveBuckets: (self exponentialBucketRangeFromCountsByIndex: positiveCounts);
 		negativeBuckets: (self exponentialBucketRangeFromCountsByIndex: negativeCounts);
-		min: values min;
-		max: values max;
+		min: (recordMinMax ifTrue: [ values min ] ifFalse: [ nil ]);
+		max: (recordMinMax ifTrue: [ values max ] ifFalse: [ nil ]);
 		startTimestamp: (anOTMetricAggregationContext startTimestamp
 			ifNil: [ someMeasurements first timestamp ]);
 		timestamp: anOTMetricAggregationContext collectedAt;
@@ -189,9 +204,32 @@ OTHistogram >> exponentialHistogramMaxScale [
 ]
 
 { #category : 'aggregating' }
+OTHistogram >> exponentialHistogramMaxScaleForAggregationContext: anOTMetricAggregationContext [
+
+	| maxScale |
+	maxScale := anOTMetricAggregationContext
+		aggregationParameterAt: #maxScale
+		ifAbsent: [ nil ].
+	(maxScale isInteger and: [ maxScale >= self exponentialHistogramMinScale ]) ifTrue: [
+		^ maxScale ].
+	^ self exponentialHistogramMaxScale
+]
+
+{ #category : 'aggregating' }
 OTHistogram >> exponentialHistogramMaxSize [
 
 	^ 160
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> exponentialHistogramMaxSizeForAggregationContext: anOTMetricAggregationContext [
+
+	| maxSize |
+	maxSize := anOTMetricAggregationContext
+		aggregationParameterAt: #maxSize
+		ifAbsent: [ nil ].
+	(maxSize isInteger and: [ maxSize > 0 ]) ifTrue: [ ^ maxSize ].
+	^ self exponentialHistogramMaxSize
 ]
 
 { #category : 'aggregating' }
@@ -213,24 +251,39 @@ OTHistogram >> exponentialHistogramRangeWidthAtScale: anInteger forAbsoluteValue
 { #category : 'aggregating' }
 OTHistogram >> exponentialHistogramScaleForMeasurements: someMeasurements [
 
-	| negativeValues positiveValues |
+	^ self
+		exponentialHistogramScaleForMeasurements: someMeasurements
+		using: (OTMetricAggregationContext
+				collectedAt: DateAndTime now asUTC
+				startTimestamp: nil
+				temporality: #cumulative)
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> exponentialHistogramScaleForMeasurements: someMeasurements using: anOTMetricAggregationContext [
+
+	| maxScale maxSize negativeValues positiveValues |
 	positiveValues := someMeasurements
 		select: [ :each | each value > 0 ]
 		thenCollect: [ :each | each value asFloat ].
 	negativeValues := someMeasurements
 		select: [ :each | each value < 0 ]
 		thenCollect: [ :each | each value abs asFloat ].
-	self exponentialHistogramMaxScale
+	maxScale := self exponentialHistogramMaxScaleForAggregationContext: anOTMetricAggregationContext.
+	maxSize := self exponentialHistogramMaxSizeForAggregationContext: anOTMetricAggregationContext.
+	(positiveValues size <= 1 and: [ negativeValues size <= 1 ]) ifTrue: [
+		^ maxScale ].
+	maxScale
 		to: self exponentialHistogramMinScale
 		by: -1
 		do: [ :scale |
 			((self
 				exponentialHistogramRangeWidthAtScale: scale
-				forAbsoluteValues: positiveValues) <= self exponentialHistogramMaxSize
+				forAbsoluteValues: positiveValues) <= maxSize
 				and: [
 					(self
 						exponentialHistogramRangeWidthAtScale: scale
-						forAbsoluteValues: negativeValues) <= self exponentialHistogramMaxSize ]) ifTrue: [
+						forAbsoluteValues: negativeValues) <= maxSize ]) ifTrue: [
 				^ scale ] ].
 	^ self exponentialHistogramMinScale
 ]
@@ -253,6 +306,17 @@ OTHistogram >> otlpTemporalityForDeltaPreference [
 OTHistogram >> otlpTemporalityForLowMemoryPreference [
 
 	^ #delta
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> recordMinMaxForAggregationContext: anOTMetricAggregationContext [
+
+	| recordMinMax |
+	recordMinMax := anOTMetricAggregationContext
+		aggregationParameterAt: #recordMinMax
+		ifAbsent: [ nil ].
+	(recordMinMax == true or: [ recordMinMax == false ]) ifTrue: [ ^ recordMinMax ].
+	^ true
 ]
 
 { #category : 'aggregating' }

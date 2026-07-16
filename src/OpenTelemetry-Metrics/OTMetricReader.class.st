@@ -431,6 +431,10 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMe
 					anOTMetricViewOrNil
 						resolvedCardinalityLimitFor: anOTMetricInstrument
 						reader: self ])
+		aggregationParameters: (anOTMetricViewOrNil ifNotNil: [
+					anOTMetricViewOrNil
+						resolvedAggregationParametersFor: anOTMetricInstrument
+						reader: self ])
 ]
 
 { #category : 'collecting' }

@@ -81,6 +81,33 @@ OTMetricViewTest >> testViewCanAggregateHistogramAsSum [
 ]
 
 { #category : 'tests' }
+OTMetricViewTest >> testViewCanConfigureExponentialHistogramAggregationParameters [
+
+	| metric point provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider
+		addMetricReader: reader;
+		addView: ((OTMetricView named: 'request.duration')
+				aggregation: #base2ExponentialBucketHistogram;
+				aggregationParameters: {
+					'max_scale' -> 3.
+					'record_min_max' -> false } asDictionary;
+				yourself).
+	((provider meterNamed: 'demo.metrics')
+		histogramNamed: 'request.duration'
+		unit: 'ms'
+		description: 'Request duration')
+		record: 42.
+	metric := reader collectSnapshot metrics first.
+	point := metric points first.
+	self assert: metric class identicalTo: OTExponentialHistogramMetricData.
+	self assert: point scale equals: 3.
+	self assert: point min isNil.
+	self assert: point max isNil
+]
+
+{ #category : 'tests' }
 OTMetricViewTest >> testViewConflictWarningsAreEmittedOncePerMetricIdentity [
 
 	self withMetricWarningsDo: [ :warnings |
@@ -124,6 +151,47 @@ OTMetricViewTest >> testViewCanDropAllInstrumentsByDefault [
 		record: 2.
 	snapshot := reader collectSnapshot.
 	self assert: snapshot metrics isEmpty
+]
+
+{ #category : 'tests' }
+OTMetricViewTest >> testViewCanOverrideExplicitHistogramBoundariesAndMinMax [
+
+	| metric point provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider
+		addMetricReader: reader;
+		addView: ((OTMetricView named: 'request.duration')
+				aggregation: #explicitBucketHistogram;
+				aggregationParameters: {
+					'Boundaries' -> #( 1 10 ).
+					'RecordMinMax' -> false } asDictionary;
+				yourself).
+	((provider meterNamed: 'demo.metrics')
+		histogramNamed: 'request.duration'
+		unit: 'ms'
+		description: 'Request duration'
+		advice: { 'ExplicitBucketBoundaries' -> #( 100 ) } asDictionary)
+		record: 0.
+	((provider meterNamed: 'demo.metrics')
+		histogramNamed: 'request.duration'
+		unit: 'ms'
+		description: 'Request duration'
+		advice: { 'ExplicitBucketBoundaries' -> #( 100 ) } asDictionary)
+		record: 5.
+	((provider meterNamed: 'demo.metrics')
+		histogramNamed: 'request.duration'
+		unit: 'ms'
+		description: 'Request duration'
+		advice: { 'ExplicitBucketBoundaries' -> #( 100 ) } asDictionary)
+		record: 15.
+	metric := reader collectSnapshot metrics first.
+	point := metric points first.
+	self assert: metric class identicalTo: OTHistogramMetricData.
+	self assert: point explicitBounds equals: #( 1.0 10.0 ).
+	self assert: point bucketCounts equals: #( 1 1 1 ).
+	self assert: point min isNil.
+	self assert: point max isNil
 ]
 
 { #category : 'tests' }

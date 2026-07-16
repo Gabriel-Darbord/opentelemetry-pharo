@@ -12,7 +12,8 @@ Class {
 		'streamDescription',
 		'attributeKeys',
 		'aggregation',
-		'cardinalityLimit'
+		'cardinalityLimit',
+		'aggregationParameters'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -51,6 +52,35 @@ OTMetricView class >> normalizedAggregationFrom: anObject [
 	normalized = 'base2exponentialbuckethistogramaggregation'
 		ifTrue: [ ^ #base2ExponentialBucketHistogram ].
 	^ #default
+]
+
+{ #category : 'normalization' }
+OTMetricView class >> normalizedAggregationParameterKeyFrom: anObject [
+
+	| normalized |
+	anObject ifNil: [ ^ nil ].
+	anObject isSymbol ifTrue: [ normalized := anObject asString ].
+	anObject isString ifTrue: [ normalized := anObject ].
+	normalized ifNil: [ ^ nil ].
+	normalized := (normalized select: [ :each | each isAlphaNumeric ]) asLowercase.
+	normalized = 'boundaries' ifTrue: [ ^ #boundaries ].
+	normalized = 'recordminmax' ifTrue: [ ^ #recordMinMax ].
+	normalized = 'maxsize' ifTrue: [ ^ #maxSize ].
+	normalized = 'maxscale' ifTrue: [ ^ #maxScale ].
+	^ nil
+]
+
+{ #category : 'normalization' }
+OTMetricView class >> normalizedAggregationParametersFrom: aCollection [
+
+	| normalized |
+	aCollection ifNil: [ ^ nil ].
+	normalized := OrderedDictionary new.
+	aCollection associationsDo: [ :each |
+		| key |
+		key := self normalizedAggregationParameterKeyFrom: each key.
+		key ifNotNil: [ normalized at: key put: each value ] ].
+	^ normalized
 ]
 
 { #category : 'normalization' }
@@ -122,6 +152,18 @@ OTMetricView >> aggregationCardinalityLimit: anInteger [
 	cardinalityLimit := (anInteger isInteger and: [ anInteger > 0 ])
 		ifTrue: [ anInteger ]
 		ifFalse: [ nil ]
+]
+
+{ #category : 'accessing' }
+OTMetricView >> aggregationParameters [
+
+	^ aggregationParameters
+]
+
+{ #category : 'accessing' }
+OTMetricView >> aggregationParameters: aCollection [
+
+	aggregationParameters := self class normalizedAggregationParametersFrom: aCollection
 ]
 
 { #category : 'accessing' }
@@ -275,6 +317,12 @@ OTMetricView >> resolvedAggregationFor: anOTMetricInstrument reader: anOTMetricR
 
 	aggregation ifNil: [ ^ anOTMetricReader aggregationFor: anOTMetricInstrument ].
 	^ aggregation
+]
+
+{ #category : 'resolving' }
+OTMetricView >> resolvedAggregationParametersFor: anOTMetricInstrument reader: anOTMetricReader [
+
+	^ aggregationParameters
 ]
 
 { #category : 'resolving' }

@@ -7,7 +7,8 @@ Class {
 		'temporality',
 		'aggregation',
 		'retainedAttributeKeys',
-		'cardinalityLimit'
+		'cardinalityLimit',
+		'aggregationParameters'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -23,6 +24,7 @@ OTMetricAggregationContext class >> collectedAt: aCollectedAt startTimestamp: aS
 		aggregation: #default
 		retainedAttributeKeys: nil
 		cardinalityLimit: 2000
+		aggregationParameters: nil
 ]
 
 { #category : 'instance creation' }
@@ -35,10 +37,24 @@ OTMetricAggregationContext class >> collectedAt: aCollectedAt startTimestamp: aS
 		aggregation: anAggregationSymbol
 		retainedAttributeKeys: nil
 		cardinalityLimit: 2000
+		aggregationParameters: nil
 ]
 
 { #category : 'instance creation' }
 OTMetricAggregationContext class >> collectedAt: aCollectedAt startTimestamp: aStartTimestamp temporality: aTemporalitySymbol aggregation: anAggregationSymbol retainedAttributeKeys: someAttributeKeys cardinalityLimit: anInteger [
+
+	^ self
+		collectedAt: aCollectedAt
+		startTimestamp: aStartTimestamp
+		temporality: aTemporalitySymbol
+		aggregation: anAggregationSymbol
+		retainedAttributeKeys: someAttributeKeys
+		cardinalityLimit: anInteger
+		aggregationParameters: nil
+]
+
+{ #category : 'instance creation' }
+OTMetricAggregationContext class >> collectedAt: aCollectedAt startTimestamp: aStartTimestamp temporality: aTemporalitySymbol aggregation: anAggregationSymbol retainedAttributeKeys: someAttributeKeys cardinalityLimit: anInteger aggregationParameters: someAggregationParameters [
 
 	| context |
 	context := self new.
@@ -48,7 +64,8 @@ OTMetricAggregationContext class >> collectedAt: aCollectedAt startTimestamp: aS
 		temporality: aTemporalitySymbol;
 		aggregation: anAggregationSymbol;
 		retainedAttributeKeys: someAttributeKeys;
-		cardinalityLimit: anInteger.
+		cardinalityLimit: anInteger;
+		aggregationParameters: someAggregationParameters.
 	^ context
 ]
 
@@ -62,6 +79,28 @@ OTMetricAggregationContext >> aggregation [
 OTMetricAggregationContext >> aggregation: aSymbol [
 
 	aggregation := aSymbol ifNil: [ #default ] ifNotNil: [ aSymbol ]
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> aggregationParameterAt: aSymbol ifAbsent: aBlock [
+
+	^ self aggregationParameters
+		at: aSymbol
+		ifAbsent: aBlock
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> aggregationParameters [
+
+	^ aggregationParameters ifNil: [ OrderedDictionary new ]
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> aggregationParameters: aCollection [
+
+	aggregationParameters := aCollection
+		ifNil: [ OrderedDictionary new ]
+		ifNotNil: [ aCollection asOrderedDictionary ]
 ]
 
 { #category : 'accessing' }
