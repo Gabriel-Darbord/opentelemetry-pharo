@@ -1,7 +1,5 @@
 "
 A backend-agnostic entry point to the metrics API.
-
-The current implementation is a spec-shaped no-op foundation.
 "
 Class {
 	#name : 'OTMeterProvider',
@@ -33,18 +31,245 @@ OTMeterProvider class >> current: anOTMeterProvider [
 	Current := anOTMeterProvider
 ]
 
-{ #category : 'class initialization' }
-OTMeterProvider class >> reset [
-
-	Current := nil
-]
-
 { #category : 'instance creation' }
 OTMeterProvider class >> readConfiguration [
 
-	^ self new
-		resource: OTTracerProvider configuredResource;
-		yourself
+	| exporterNames provider |
+	provider := self new.
+	provider resource: OTTracerProvider configuredResource.
+	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
+	exporterNames := self configuredExporterNames.
+	exporterNames do: [ :each |
+		| exporter |
+		exporter := self exporterNamed: each.
+		exporter ifNotNil: [
+			exporter class = OTNoopMetricExporter ifFalse: [
+				provider addMetricReader: (self readerForExporter: exporter) ] ] ].
+	^ provider
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> configuredExporterNames [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_METRICS_EXPORTER'.
+	rawValue ifNil: [ ^ #( 'otlp' ) ].
+	^ (self exporterNamesFromConfigurationValue: rawValue)
+		ifNil: [ #( 'otlp' ) ]
+		ifNotNil: [ :names | names ]
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> configuredOtlpExporter [
+
+	| configuration |
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'METRICS'.
+	configuration protocol = OTOtlpHttpJsonMetricExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpHttpJsonMetricExporter configuration: configuration ].
+	configuration protocol = OTOtlpHttpProtobufMetricExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpHttpProtobufMetricExporter configuration: configuration ].
+	self noteUnsupportedOtlpProtocol: configuration protocol.
+	^ OTOtlpHttpProtobufMetricExporter configuration: configuration
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> configurationWarningSink [
+
+	^ OTClassStateStore
+		valueAt: #otMetricConfigurationWarningSink
+		forClass: self
+		ifAbsent: [ self defaultConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> configurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otMetricConfigurationWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otMetricConfigurationWarningSink
+				forClass: self
+				put: aBlock ].
+	^ self configurationWarningSink
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> defaultConfigurationWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> environmentValueAt: aString [
+
+	| value |
+	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
+	value := value asString trimBoth.
+	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> exporterNamesFromConfigurationValue: aString [
+
+	| names seen |
+	names := OrderedCollection new.
+	seen := Set new.
+	(aString substrings: ',') do: [ :each |
+		| exporterName normalizedName |
+		exporterName := each trimBoth.
+		exporterName isEmpty ifFalse: [
+			normalizedName := exporterName asLowercase.
+			(seen includes: normalizedName) ifFalse: [
+				(#( 'otlp' 'prometheus' 'otlp/stdout' 'console' 'logging' 'none' )
+					includes: normalizedName)
+					ifFalse: [
+						self noteUnknownExporterName: exporterName.
+						^ nil ].
+				normalizedName = 'prometheus' ifTrue: [
+					self noteUnsupportedExporterName: exporterName.
+					^ nil ].
+				seen add: normalizedName.
+				names add: normalizedName ] ] ].
+	names isEmpty ifTrue: [ ^ nil ].
+	((names includes: 'none') and: [ names size > 1 ]) ifTrue: [
+		self noteExporterNoneConflictIn: aString.
+		^ nil ].
+	^ names asArray
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> exporterNamed: aString [
+
+	aString = 'console' ifTrue: [ ^ OTConsoleMetricExporter new ].
+	aString = 'logging' ifTrue: [ ^ OTConsoleMetricExporter new ].
+	aString = 'none' ifTrue: [ ^ OTNoopMetricExporter new ].
+	aString = 'otlp' ifTrue: [ ^ self configuredOtlpExporter ].
+	aString = 'otlp/stdout' ifTrue: [ ^ OTOtlpStdoutMetricExporter new ].
+	self noteUnknownExporterName: aString.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> metricExportIntervalDefaultForExporter: anExporter [
+
+	anExporter class = OTConsoleMetricExporter ifTrue: [ ^ 10000 ].
+	^ OTPeriodicExportingMetricReader new exportIntervalMillis
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> metricExportIntervalMillisForExporter: anExporter [
+
+	^ self
+		positiveIntegerEnvironmentValueAt: 'OTEL_METRIC_EXPORT_INTERVAL'
+		default: (self metricExportIntervalDefaultForExporter: anExporter)
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> metricExportTimeoutMillis [
+
+	^ self
+		positiveIntegerEnvironmentValueAt: 'OTEL_METRIC_EXPORT_TIMEOUT'
+		default: OTPeriodicExportingMetricReader new exportTimeoutMillis
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> noteExporterNoneConflictIn: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry metrics exporter configuration mixes ''none'' with other exporters and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> noteInvalidPeriodicMetricReaderEnvironmentValue: aValue forVariable: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for '
+			, aString printString
+			, ': '
+			, aValue printString
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> noteUnsupportedExporterName: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry metrics exporter name is recognized but not supported by this SDK yet and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> noteUnsupportedOtlpProtocol: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry OTLP metrics exporter protocol was unsupported and defaulted to http/protobuf: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> noteUnknownExporterName: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry metrics exporter name was unrecognized and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> positiveIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := OTSpanExporter strictPositiveIntegerFrom: rawValue.
+	parsed ifNil: [
+		self noteInvalidPeriodicMetricReaderEnvironmentValue: rawValue forVariable: aString.
+		^ aDefaultValue ].
+	^ parsed
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> readerForExporter: anExporter [
+
+	| reader |
+	reader := OTPeriodicExportingMetricReader exporter: anExporter.
+	reader
+		exportIntervalMillis: (self metricExportIntervalMillisForExporter: anExporter);
+		exportTimeoutMillis: self metricExportTimeoutMillis.
+	^ reader
+]
+
+{ #category : 'accessing' }
+OTMeterProvider class >> reset [
+
+	Current ifNotNil: [ Current shutdown ].
+	Current := nil
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> noteInvalidMeterName: aValue [
+
+	self meterNameWarningSink value:
+		'OpenTelemetry meter name was invalid and has been normalized to an empty string: '
+			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> normalizedMeterNameFrom: aValue [
+
+	| meterName |
+	aValue ifNil: [
+		self noteInvalidMeterName: aValue.
+		^ '' ].
+	meterName := aValue asString.
+	meterName trimBoth isEmpty ifTrue: [
+		self noteInvalidMeterName: aValue.
+		^ '' ].
+	^ meterName
 ]
 
 { #category : 'private - logging' }
@@ -77,28 +302,6 @@ OTMeterProvider class >> meterNameWarningSink: aBlock [
 				forClass: self
 				put: aBlock ].
 	^ self meterNameWarningSink
-]
-
-{ #category : 'private - logging' }
-OTMeterProvider class >> noteInvalidMeterName: aValue [
-
-	self meterNameWarningSink value:
-		'OpenTelemetry meter name was invalid and has been normalized to an empty string: '
-			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
-]
-
-{ #category : 'private' }
-OTMeterProvider class >> normalizedMeterNameFrom: aValue [
-
-	| meterName |
-	aValue ifNil: [
-		self noteInvalidMeterName: aValue.
-		^ '' ].
-	meterName := aValue asString.
-	meterName trimBoth isEmpty ifTrue: [
-		self noteInvalidMeterName: aValue.
-		^ '' ].
-	^ meterName
 ]
 
 { #category : 'accessing' }
