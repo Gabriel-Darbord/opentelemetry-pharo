@@ -14,13 +14,12 @@ The current logging implementation provides:
 - `OTLogRecordBuilder`: ergonomic emit builder
 - `OTLoggerConfig`: per-logger filtering configuration
 - `OTLogRecord`: readable/writeable SDK log record
-- `OTSimpleLogRecordProcessor` and `OTCompositeLogRecordProcessor`
+- `OTSimpleLogRecordProcessor`, `OTBatchLogRecordProcessor`, and `OTCompositeLogRecordProcessor`
 - `OTConsoleLogRecordExporter` and `OTNoopLogRecordExporter`
 
 The current logging implementation does not yet provide:
 
 - OTLP log export
-- batch log-record processing
 - bridges to existing Pharo logging libraries
 
 ## Getting A Logger
@@ -97,6 +96,18 @@ The built-in synchronous path is:
 provider addLogRecordProcessor:
 	(OTSimpleLogRecordProcessor new
 		exporter: OTConsoleLogRecordExporter new;
+		yourself).
+```
+
+For asynchronous export, use the batch processor:
+
+```smalltalk
+provider addLogRecordProcessor:
+	(OTBatchLogRecordProcessor new
+		exporter: OTConsoleLogRecordExporter new;
+		maxExportBatchSize: 512;
+		maxQueueSize: 2048;
+		scheduledDelayMillis: 1000;
 		yourself).
 ```
 
