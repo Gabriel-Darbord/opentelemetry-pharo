@@ -33,6 +33,7 @@ The current metrics implementation provides:
 - `OTMetricReader`, `OTInMemoryMetricReader`, and `OTPeriodicExportingMetricReader`
 - reader-scoped asynchronous callback collection
 - reader-scoped temporality selection for synchronous and asynchronous instruments
+- reader-scoped cardinality limits with synthetic overflow points
 - reader-scoped asynchronous callback timeout and failure isolation
 - `OTNoopMetricExporter`, `OTConsoleMetricExporter`, `OTOtlpStdoutMetricExporter`
 - OTLP metric exporters over HTTP JSON, HTTP protobuf, and gRPC
@@ -135,6 +136,7 @@ Current metric behavior:
 - `OTInMemoryMetricReader>>collect` returns recorded synchronous measurements plus fresh asynchronous callback observations for that reader
 - `OTMetricReader>>collectSnapshot` answers aggregated `OTMetricSnapshot` metric data grouped per instrument
 - `OTPeriodicExportingMetricReader` exports those snapshots through its configured exporter on collection and background intervals
+- `OTMetricReader` applies a default per-instrument cardinality limit of `2000`, and you can override it with `cardinalityLimitSelector:`
 - asynchronous callback blocks may accept either zero arguments or one observer argument
 - observer-driven asynchronous observations are collected only during reader collection
 - timed-out or failing asynchronous callbacks are isolated from the rest of collection and emit diagnostic warnings

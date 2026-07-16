@@ -61,7 +61,7 @@ OTMetricMeasurement >> timestamp [
 OTMetricMeasurement >> timestamp: aDateAndTime [
 
 	timestamp := aDateAndTime ifNil: [ DateAndTime now asUTC ] ifNotNil: [ aDateAndTime ]
-}
+]
 
 { #category : 'accessing' }
 OTMetricMeasurement >> value [
@@ -73,4 +73,17 @@ OTMetricMeasurement >> value [
 OTMetricMeasurement >> value: aNumber [
 
 	value := aNumber
+]
+
+{ #category : 'copying' }
+OTMetricMeasurement >> withAttributes: aCollection [
+
+	| measurement |
+	measurement := self class new.
+	measurement
+		instrument: self instrument;
+		value: self value;
+		attributes: aCollection;
+		timestamp: self timestamp.
+	^ measurement
 ]

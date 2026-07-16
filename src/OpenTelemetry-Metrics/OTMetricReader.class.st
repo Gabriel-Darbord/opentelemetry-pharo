@@ -6,7 +6,9 @@ Class {
 		'shutdown',
 		'temporalitySelector',
 		'aggregationSelector',
+		'cardinalityLimitSelector',
 		'callbackTimeoutMillis',
+		'selectedAttributeSetsByInstrument',
 		'lastCollectionTimestampByInstrument',
 		'lastAsynchronousValuesByInstrument'
 	],
@@ -67,6 +69,56 @@ OTMetricReader >> aggregationSelector [
 OTMetricReader >> aggregationSelector: aBlockOrNil [
 
 	aggregationSelector := aBlockOrNil
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> cardinalityLimitedMeasurementsFrom: someMeasurements for: anOTMetricInstrument [
+
+	| limit limitedMeasurements overflowAttributes selectedAttributeSets |
+	limit := self cardinalityLimitFor: anOTMetricInstrument.
+	limitedMeasurements := OrderedCollection new: someMeasurements size.
+	overflowAttributes := self overflowAttributes.
+	selectedAttributeSets := self selectedAttributeSetsFor: anOTMetricInstrument.
+	someMeasurements do: [ :each |
+		| knownAttributes normalizedAttributes |
+		normalizedAttributes := anOTMetricInstrument
+			normalizedAttributesForMeasurement: each.
+		knownAttributes := self
+			selectedAttributeSetMatching: normalizedAttributes
+			within: selectedAttributeSets.
+		knownAttributes ifNotNil: [
+			limitedMeasurements add: (each withAttributes: knownAttributes) ]
+		ifNil: [
+			selectedAttributeSets size < limit
+				ifTrue: [
+					selectedAttributeSets add: normalizedAttributes.
+					limitedMeasurements add: (each withAttributes: normalizedAttributes) ]
+				ifFalse: [
+					limitedMeasurements
+						add: (each withAttributes: overflowAttributes) ] ] ].
+	^ limitedMeasurements asArray
+]
+
+{ #category : 'accessing' }
+OTMetricReader >> cardinalityLimitFor: anOTMetricInstrument [
+
+	| selected |
+	selected := self cardinalityLimitSelector value: anOTMetricInstrument.
+	(selected isInteger and: [ selected > 0 ]) ifTrue: [ ^ selected ].
+	^ 2000
+]
+
+{ #category : 'accessing' }
+OTMetricReader >> cardinalityLimitSelector [
+
+	^ cardinalityLimitSelector
+		ifNil: [ self defaultCardinalityLimitSelector ]
+]
+
+{ #category : 'accessing' }
+OTMetricReader >> cardinalityLimitSelector: aBlockOrNil [
+
+	cardinalityLimitSelector := aBlockOrNil
 ]
 
 { #category : 'collecting' }
@@ -139,6 +191,12 @@ OTMetricReader >> defaultAggregationSelector [
 ]
 
 { #category : 'accessing' }
+OTMetricReader >> defaultCardinalityLimitSelector [
+
+	^ [ :instrument | 2000 ]
+]
+
+{ #category : 'accessing' }
 OTMetricReader >> callbackTimeoutMillis [
 
 	^ callbackTimeoutMillis ifNil: [ 30000 ]
@@ -174,7 +232,9 @@ OTMetricReader >> initialize [
 	lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new.
 	temporalitySelector := nil.
 	aggregationSelector := nil.
-	callbackTimeoutMillis := 30000
+	cardinalityLimitSelector := nil.
+	callbackTimeoutMillis := 30000.
+	selectedAttributeSetsByInstrument := WeakIdentityKeyDictionary new
 ]
 
 { #category : 'collecting' }
@@ -281,6 +341,13 @@ OTMetricReader >> noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInst
 ]
 
 { #category : 'collecting' }
+OTMetricReader >> overflowAttributes [
+
+	^ OTAttributeNormalizer normalizeAttributes:
+		{ 'otel.metric.overflow' -> true }
+]
+
+{ #category : 'collecting' }
 OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument collectedAt: aDateAndTime [
 
 	| previousCollection startTimestamp temporality |
@@ -319,6 +386,9 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 			selectedMeasurementsFrom: preparedMeasurements
 			for: each
 			using: context.
+		selectedMeasurements := self
+			cardinalityLimitedMeasurementsFrom: selectedMeasurements
+			for: each.
 		selectedMeasurements ifNotEmpty: [
 			metrics add: (each metricDataFromMeasurements: selectedMeasurements using: context) ] ].
 	^ metrics asArray
@@ -334,6 +404,29 @@ OTMetricReader >> selectedMeasurementsFrom: someMeasurements for: anOTMetricInst
 	^ someMeasurements select: [ :each |
 		each timestamp > startTimestamp
 			and: [ each timestamp <= anOTMetricAggregationContext collectedAt ] ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> selectedAttributeSetMatching: someAttributes within: selectedAttributeSets [
+
+	^ selectedAttributeSets
+		detect: [ :each | each = someAttributes ]
+		ifNone: [ nil ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> selectedAttributeSetsByInstrument [
+
+	^ selectedAttributeSetsByInstrument
+		ifNil: [ selectedAttributeSetsByInstrument := WeakIdentityKeyDictionary new ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> selectedAttributeSetsFor: anOTMetricInstrument [
+
+	^ self selectedAttributeSetsByInstrument
+		at: anOTMetricInstrument
+		ifAbsentPut: [ OrderedCollection new ]
 ]
 
 { #category : 'collecting' }
