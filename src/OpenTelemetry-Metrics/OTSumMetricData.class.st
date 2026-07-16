@@ -42,3 +42,18 @@ OTSumMetricData >> temporality: aSymbol [
 
 	temporality := aSymbol ifNil: [ #cumulative ] ifNotNil: [ aSymbol ]
 ]
+
+{ #category : 'otlp - encoding' }
+OTSumMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
+
+	aDictionary at: 'sum' put: (anEncoder sumDataFor: self)
+]
+
+{ #category : 'otlp - encoding' }
+OTSumMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
+
+	aWriter
+		writeTag: 7 wireType: 2;
+		writeEmbedded: [ :sum |
+			anEncoder writeSum: self on: sum ]
+]

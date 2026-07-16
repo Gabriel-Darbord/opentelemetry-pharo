@@ -28,3 +28,18 @@ OTHistogramMetricData >> temporality: aSymbol [
 
 	temporality := aSymbol ifNil: [ #cumulative ] ifNotNil: [ aSymbol ]
 ]
+
+{ #category : 'otlp - encoding' }
+OTHistogramMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
+
+	aDictionary at: 'histogram' put: (anEncoder histogramDataFor: self)
+]
+
+{ #category : 'otlp - encoding' }
+OTHistogramMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
+
+	aWriter
+		writeTag: 9 wireType: 2;
+		writeEmbedded: [ :histogram |
+			anEncoder writeHistogram: self on: histogram ]
+]

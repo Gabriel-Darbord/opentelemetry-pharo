@@ -81,16 +81,8 @@ OTOtlpJsonMetricEncoder >> metricDataFor: anOTMetricData [
 		at: 'name' put: anOTMetricData name;
 		at: 'description' put: anOTMetricData description;
 		at: 'unit' put: anOTMetricData unit.
-	anOTMetricData class = OTGaugeMetricData ifTrue: [
-		data at: 'gauge' put: (self gaugeDataFor: anOTMetricData).
-		^ data ].
-	anOTMetricData class = OTSumMetricData ifTrue: [
-		data at: 'sum' put: (self sumDataFor: anOTMetricData).
-		^ data ].
-	anOTMetricData class = OTHistogramMetricData ifTrue: [
-		data at: 'histogram' put: (self histogramDataFor: anOTMetricData).
-		^ data ].
-	Error signal: 'Unsupported OTLP metric data: ' , anOTMetricData class name
+	anOTMetricData addOtlpJsonDataTo: data encoder: self.
+	^ data
 ]
 
 { #category : 'private - encoding' }

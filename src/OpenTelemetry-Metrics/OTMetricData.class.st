@@ -87,3 +87,15 @@ OTMetricData >> unit: aString [
 
 	unit := aString ifNil: [ '' ] ifNotNil: [ aString ]
 ]
+
+{ #category : 'otlp - encoding' }
+OTMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
+
+	self subclassResponsibility
+]
+
+{ #category : 'otlp - encoding' }
+OTMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
+
+	self subclassResponsibility
+]
