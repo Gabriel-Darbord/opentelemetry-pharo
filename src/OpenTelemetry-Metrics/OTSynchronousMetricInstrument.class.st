@@ -23,3 +23,16 @@ OTSynchronousMetricInstrument class >> noop [
 				put: instrument.
 			instrument ]
 ]
+
+{ #category : 'binding' }
+OTSynchronousMetricInstrument >> bind: aCollection [
+
+	meter ifNil: [ ^ self ].
+	^ OTBoundMetricInstrument instrument: self attributes: aCollection
+]
+
+{ #category : 'testing' }
+OTSynchronousMetricInstrument >> enabled [
+
+	^ meter notNil and: [ meter enablesSynchronousInstruments ]
+]

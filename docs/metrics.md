@@ -25,6 +25,7 @@ The current metrics implementation provides:
 - meter caching by full instrumentation scope
 - instrument caching by identifying fields `(name, kind, unit, description)`
 - duplicate registration warnings for case-only name conflicts, conflicting metadata, and conflicting advisory parameters
+- bound synchronous instrument wrappers via `bind:`
 - invalid meter-name normalization with diagnostic warnings
 - provider lifecycle behavior for `shutdown` and `forceFlush`
 
@@ -85,10 +86,12 @@ memoryGauge := meter
 
 All current metric instruments are no-op instruments:
 
-- `enabled` answers `false`
+- provider-backed synchronous instruments answer `true` for `enabled`
+- no-op instruments and asynchronous instruments answer `false` for `enabled`
 - synchronous recording messages such as `add:` and `record:` are accepted and ignored
 - asynchronous observation messages such as `observe:` are accepted and ignored
 - asynchronous creation accepts callback blocks, retains them on the instrument object, but does not execute them yet
+- synchronous `bind:` returns an `OTBoundMetricInstrument` that retains pre-bound attributes
 - `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters
 - `OTMeterProvider>>forceFlush` currently answers success without work because no readers/exporters exist yet
 

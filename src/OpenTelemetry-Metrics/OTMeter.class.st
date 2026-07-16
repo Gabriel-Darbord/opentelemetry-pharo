@@ -332,6 +332,12 @@ OTMeter >> canonicalInstrumentNameFrom: aString [
 	^ aString asLowercase
 ]
 
+{ #category : 'testing' }
+OTMeter >> enablesSynchronousInstruments [
+
+	^ provider notNil
+]
+
 { #category : 'private' }
 OTMeter >> duplicateCandidateForClass: anInstrumentClass canonicalName: aCanonicalName [
 

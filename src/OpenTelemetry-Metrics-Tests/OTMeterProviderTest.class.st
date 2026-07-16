@@ -168,6 +168,15 @@ OTMeterProviderTest >> testMeterReturnsRealInstrumentMetadata [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testProviderBackedSynchronousInstrumentIsEnabled [
+
+	| instrument meter |
+	meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+	instrument := meter counterNamed: 'requests.total'.
+	self assert: instrument enabled
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterExposesInstrumentationScopeMetadata [
 
 	| meter |
@@ -180,6 +189,30 @@ OTMeterProviderTest >> testMeterExposesInstrumentationScopeMetadata [
 	self assert: meter instrumentationVersion equals: '1.2.3'.
 	self assert: meter schemaUrl equals: 'https://opentelemetry.io/schemas/1.0.0'.
 	self assert: (meter scopeAttributes at: 'scope.answer') equals: 42
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testProviderBackedSynchronousInstrumentBindReturnsBoundWrapper [
+
+	| bound counter meter |
+	meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+	counter := meter counterNamed: 'requests.total'.
+	bound := counter bind: { 'method' -> 'GET' }.
+	self assert: bound class identicalTo: OTBoundMetricInstrument.
+	self assert: bound instrument identicalTo: counter.
+	self assert: (bound attributes at: 'method') equals: 'GET'.
+	self assert: bound enabled
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testBoundWrapperAcceptsAdditionalAttributes [
+
+	| bound counter meter |
+	meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+	counter := meter counterNamed: 'requests.total'.
+	bound := counter bind: { 'method' -> 'GET' }.
+	self shouldnt: [ bound add: 1 ] raise: Error.
+	self shouldnt: [ bound add: 1 attributes: { 'status' -> 200 } ] raise: Error
 ]
 
 { #category : 'tests' }
