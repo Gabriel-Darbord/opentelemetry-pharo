@@ -178,6 +178,9 @@ Current metric behavior:
 - `OTMeterProvider>>forceFlush` delegates to registered readers
 - OTLP metric exporters accept gzip compression, signal-specific headers, and per-reader temporality
 - the Prometheus reader serves cumulative metric snapshots over HTTP and uses cumulative temporality for every instrument kind
+- Prometheus-exported metric family names include translated unit suffixes when the OpenTelemetry unit maps cleanly to Prometheus unit words
+- Prometheus 1.0 and OpenMetrics 1.0 scrapes include `# UNIT` metadata when a translated unit is available
+- conflicting Prometheus family `TYPE` metadata drops the whole exported family with a diagnostic warning, while conflicting `HELP` or `UNIT` metadata keeps the samples and emits only one metadata line
 
 Meters do already preserve instrument registration identity:
 

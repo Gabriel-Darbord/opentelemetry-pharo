@@ -27,11 +27,57 @@ OTPrometheusTextEncoderTest >> sampleScope [
 		attributes: { 'scope.key' -> 'scope-value' }
 ]
 
+{ #category : 'private' }
+OTPrometheusTextEncoderTest >> occurrencesOfSubstring: aSubstring in: aString [
+
+	| count index |
+	count := 0.
+	index := 1.
+	[
+		index := aString findString: aSubstring startingAt: index.
+		index > 0 ]
+		whileTrue: [
+			count := count + 1.
+			index := index + aSubstring size ].
+	^ count
+]
+
 { #category : 'running' }
 OTPrometheusTextEncoderTest >> setUp [
 
 	super setUp.
 	encoder := OTPrometheusTextEncoder new
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotAddsUnitSuffixAndUnitMetadataForOpenMetrics [
+
+	| metric point snapshot text |
+	point := OTNumberDataPoint
+		attributes: { 'method' -> 'GET' }
+		value: 4
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	metric := OTSumMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'response.size';
+		description: 'Response size';
+		unit: 'By';
+		points: { point };
+		monotonic: true;
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		resource: self sampleResource
+		measurements: #()
+		metrics: { metric }
+		collectedAt: DateAndTime unixEpoch.
+	text := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (text includesSubstring: '# TYPE response_size_bytes_total counter').
+	self assert: (text includesSubstring: '# UNIT response_size_bytes_total bytes').
+	self assert: (text includesSubstring: 'response_size_bytes_total{').
+	text := encoder encodeSnapshot: snapshot.
+	self deny: (text includesSubstring: '# UNIT response_size_bytes_total bytes')
 ]
 
 { #category : 'tests' }
@@ -61,6 +107,50 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsExponentialHistogramsFromT
 	text := encoder encodeSnapshot: snapshot.
 	self deny: (text includesSubstring: 'request_duration').
 	self assert: (text includesSubstring: 'target_info')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsMetricFamilyWhenPrometheusTypesConflict [
+
+	| counterMetric gaugeMetric counterPoint gaugePoint snapshot text warnings |
+	counterPoint := OTNumberDataPoint
+		attributes: { 'source' -> 'counter' }
+		value: 4
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	gaugePoint := OTNumberDataPoint
+		attributes: { 'source' -> 'gauge' }
+		value: 2
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	counterMetric := OTSumMetricData new.
+	counterMetric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Counter form';
+		unit: '1';
+		points: { counterPoint };
+		monotonic: true;
+		temporality: #cumulative.
+	gaugeMetric := OTGaugeMetricData new.
+	gaugeMetric
+		instrumentationScope: self sampleScope;
+		name: 'requests.total';
+		description: 'Gauge form';
+		unit: '1';
+		points: { gaugePoint }.
+	snapshot := OTMetricSnapshot
+		resource: OTResource empty
+		measurements: #()
+		metrics: { counterMetric. gaugeMetric }
+		collectedAt: DateAndTime unixEpoch.
+	warnings := OrderedCollection new.
+	encoder warningSink: [ :message | warnings add: message ].
+	text := encoder encodeSnapshot: snapshot format: #prometheusText100.
+	self deny: (text includesSubstring: '# TYPE requests_total').
+	self deny: (text includesSubstring: 'requests_total{').
+	self assert: warnings size equals: 1.
+	self assert: (warnings first includesSubstring: 'conflicting types')
 ]
 
 { #category : 'tests' }
@@ -100,6 +190,55 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesCountersScopeLabelsAndTar
 ]
 
 { #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesSingleHelpLineWhenDescriptionsConflict [
+
+	| firstMetric secondMetric firstPoint secondPoint snapshot text warnings |
+	firstPoint := OTNumberDataPoint
+		attributes: { 'source' -> 'one' }
+		value: 1
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	secondPoint := OTNumberDataPoint
+		attributes: { 'source' -> 'two' }
+		value: 2
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	firstMetric := OTSumMetricData new.
+	firstMetric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'First description';
+		unit: '1';
+		points: { firstPoint };
+		monotonic: true;
+		temporality: #cumulative.
+	secondMetric := OTSumMetricData new.
+	secondMetric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Second description';
+		unit: '1';
+		points: { secondPoint };
+		monotonic: true;
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		resource: OTResource empty
+		measurements: #()
+		metrics: { firstMetric. secondMetric }
+		collectedAt: DateAndTime unixEpoch.
+	warnings := OrderedCollection new.
+	encoder warningSink: [ :message | warnings add: message ].
+	text := encoder encodeSnapshot: snapshot format: #prometheusText100.
+	self
+		assert: (self occurrencesOfSubstring: '# HELP requests_total ' in: text)
+		equals: 1.
+	self assert: (text includesSubstring: 'source="one"').
+	self assert: (text includesSubstring: 'source="two"').
+	self assert: warnings size equals: 1.
+	self assert: (warnings first includesSubstring: 'HELP')
+]
+
+{ #category : 'tests' }
 OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesHistogramBucketsCumulatively [
 
 	| metric point snapshot text |
@@ -127,13 +266,13 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesHistogramBucketsCumulativ
 		metrics: { metric }
 		collectedAt: DateAndTime unixEpoch.
 	text := encoder encodeSnapshot: snapshot.
-	self assert: (text includesSubstring: '# TYPE request_duration histogram').
-	self assert: (text includesSubstring: 'request_duration_bucket{').
+	self assert: (text includesSubstring: '# TYPE request_duration_milliseconds histogram').
+	self assert: (text includesSubstring: 'request_duration_milliseconds_bucket{').
 	self assert: (text includesSubstring: 'le="10"} 2').
 	self assert: (text includesSubstring: 'le="20"} 5').
 	self assert: (text includesSubstring: 'le="+Inf"} 10').
-	self assert: (text includesSubstring: 'request_duration_sum{').
+	self assert: (text includesSubstring: 'request_duration_milliseconds_sum{').
 	self assert: (text includesSubstring: '} 42').
-	self assert: (text includesSubstring: 'request_duration_count{').
+	self assert: (text includesSubstring: 'request_duration_milliseconds_count{').
 	self assert: (text includesSubstring: '} 10')
 ]

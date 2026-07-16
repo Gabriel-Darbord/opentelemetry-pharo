@@ -1,5 +1,8 @@
 Class {
 	#name : 'OTPrometheusTextEncoder',
+	#instVars : [
+		'warningSink'
+	],
 	#superclass : 'Object',
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
@@ -19,6 +22,19 @@ OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot format: aFormatSym
 			writeSnapshot: anOTMetricSnapshot
 			format: aFormatSymbol
 			on: stream ]
+]
+
+{ #category : 'private - logging' }
+OTPrometheusTextEncoder >> defaultWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'initialization' }
+OTPrometheusTextEncoder >> initialize [
+
+	super initialize.
+	warningSink := self defaultWarningSink
 ]
 
 { #category : 'private - testing' }
@@ -83,17 +99,55 @@ OTPrometheusTextEncoder >> normalizedPrometheusNameFrom: aString allowingColon: 
 { #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusMetricNameFor: anOTMetricData type: aTypeSymbol [
 
-	| metricName |
-	metricName := self normalizedPrometheusNameFrom: anOTMetricData name allowingColon: true.
-	(aTypeSymbol = #counter and: [ (metricName endsWith: '_total') not ])
-		ifTrue: [ ^ metricName , '_total' ].
-	^ metricName
+	| suffix stem unitWord |
+	stem := self prometheusMetricStemFor: anOTMetricData type: aTypeSymbol.
+	unitWord := self prometheusUnitWordFrom: anOTMetricData unit.
+	(unitWord notNil and: [
+		((stem endsWith: '_' , unitWord) not)
+			and: [ stem ~= unitWord ] ])
+		ifTrue: [ stem := stem , '_' , unitWord ].
+	suffix := aTypeSymbol = #counter
+		ifTrue: [ '_total' ]
+		ifFalse: [ '' ].
+	^ stem , suffix
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusMetricStemFor: anOTMetricData type: aTypeSymbol [
+
+	| normalizedName |
+	normalizedName := self
+		normalizedPrometheusNameFrom: anOTMetricData name
+		allowingColon: true.
+	(aTypeSymbol = #counter and: [ normalizedName endsWith: '_total' ])
+		ifTrue: [ ^ normalizedName allButLast: '_total' size ].
+	^ normalizedName
 ]
 
 { #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusLabelNameFor: aString [
 
 	^ self normalizedPrometheusNameFrom: aString allowingColon: false
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData [
+
+	anOTMetricData class = OTGaugeMetricData ifTrue: [ ^ #gauge ].
+	anOTMetricData class = OTSumMetricData ifTrue: [
+		^ anOTMetricData monotonic
+			ifTrue: [ #counter ]
+			ifFalse: [ #gauge ] ].
+	anOTMetricData class = OTHistogramMetricData ifTrue: [ ^ #histogram ].
+	^ #drop
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusMetricTypeStringFor: aTypeSymbol [
+
+	aTypeSymbol = #counter ifTrue: [ ^ 'counter' ].
+	aTypeSymbol = #histogram ifTrue: [ ^ 'histogram' ].
+	^ 'gauge'
 ]
 
 { #category : 'private - formatting' }
@@ -127,7 +181,81 @@ OTPrometheusTextEncoder >> prometheusHelpStringFor: aString [
 			each = Character lf ifTrue: [ stream nextPutAll: '\n' ].
 			each = Character cr ifTrue: [ stream nextPutAll: '\n' ].
 			((each ~= $\) and: [ each ~= Character lf and: [ each ~= Character cr ] ])
-				ifTrue: [ stream nextPut: each ] ] ]
+								ifTrue: [ stream nextPut: each ] ] ]
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusUnitPartWordFrom: aString [
+
+	| normalized |
+	normalized := aString trimBoth.
+	normalized isEmpty ifTrue: [ ^ nil ].
+	normalized = '1' ifTrue: [ ^ nil ].
+	normalized = 'd' ifTrue: [ ^ 'days' ].
+	normalized = 'h' ifTrue: [ ^ 'hours' ].
+	normalized = 'min' ifTrue: [ ^ 'minutes' ].
+	normalized = 's' ifTrue: [ ^ 'seconds' ].
+	normalized = 'ms' ifTrue: [ ^ 'milliseconds' ].
+	normalized = 'us' ifTrue: [ ^ 'microseconds' ].
+	normalized = 'ns' ifTrue: [ ^ 'nanoseconds' ].
+	normalized = 'By' ifTrue: [ ^ 'bytes' ].
+	normalized = 'KiBy' ifTrue: [ ^ 'kibibytes' ].
+	normalized = 'MiBy' ifTrue: [ ^ 'mebibytes' ].
+	normalized = 'GiBy' ifTrue: [ ^ 'gibibytes' ].
+	normalized = 'TiBy' ifTrue: [ ^ 'tebibytes' ].
+	normalized = 'kBy' ifTrue: [ ^ 'kilobytes' ].
+	normalized = 'MBy' ifTrue: [ ^ 'megabytes' ].
+	normalized = 'GBy' ifTrue: [ ^ 'gigabytes' ].
+	normalized = 'TBy' ifTrue: [ ^ 'terabytes' ].
+	normalized = 'm' ifTrue: [ ^ 'meters' ].
+	normalized = 'V' ifTrue: [ ^ 'volts' ].
+	normalized = 'A' ifTrue: [ ^ 'amperes' ].
+	normalized = 'J' ifTrue: [ ^ 'joules' ].
+	normalized = 'W' ifTrue: [ ^ 'watts' ].
+	normalized = 'g' ifTrue: [ ^ 'grams' ].
+	normalized = 'Cel' ifTrue: [ ^ 'celsius' ].
+	normalized = 'Hz' ifTrue: [ ^ 'hertz' ].
+	normalized = '%' ifTrue: [ ^ 'percent' ].
+	^ self normalizedPrometheusNameFrom: normalized allowingColon: false
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusUnitWordFrom: aString [
+
+	| cleaned denominator numerator partWord parts slashIndex |
+	cleaned := String streamContents: [ :stream |
+		| depth |
+		depth := 0.
+		aString asString do: [ :each |
+			each = ${ ifTrue: [
+				depth := depth + 1 ] ifFalse: [
+					each = $} ifTrue: [
+						depth := (depth - 1) max: 0 ] ifFalse: [
+							depth = 0 ifTrue: [ stream nextPut: each ] ] ] ] ].
+	cleaned := cleaned trimBoth.
+	cleaned isEmpty ifTrue: [ ^ nil ].
+	cleaned = '1' ifTrue: [ ^ nil ].
+	slashIndex := cleaned indexOf: $/ ifAbsent: [ 0 ].
+	slashIndex > 0 ifTrue: [
+		numerator := (cleaned copyFrom: 1 to: slashIndex - 1) trimBoth.
+		denominator := (cleaned copyFrom: slashIndex + 1 to: cleaned size) trimBoth.
+		((numerator isEmpty) or: [ denominator isEmpty ]) ifTrue: [
+			^ self prometheusUnitPartWordFrom: cleaned ].
+		((self prometheusUnitPartWordFrom: numerator) isNil
+			or: [ (self prometheusUnitPartWordFrom: denominator) isNil ]) ifTrue: [
+			^ nil ].
+		^ String streamContents: [ :stream |
+			stream nextPutAll: (self prometheusUnitPartWordFrom: numerator).
+			stream nextPutAll: '_per_'.
+			stream nextPutAll: (self prometheusUnitPartWordFrom: denominator) ] ].
+	parts := cleaned findTokens: ' .'.
+	parts isEmpty ifTrue: [ ^ nil ].
+	^ String streamContents: [ :stream |
+		parts doWithIndex: [ :each :index |
+			partWord := self prometheusUnitPartWordFrom: each.
+			partWord ifNotNil: [
+				stream position > 0 ifTrue: [ stream nextPut: $_ ].
+				stream nextPutAll: partWord ] ] ]
 ]
 
 { #category : 'private - formatting' }
@@ -142,7 +270,37 @@ OTPrometheusTextEncoder >> quotedPrometheusValueFor: aString [
 			((each ~= $\)
 				and: [ each ~= $"
 				and: [ each ~= Character lf and: [ each ~= Character cr ] ] ])
-				ifTrue: [ stream nextPut: each ] ] ]
+								ifTrue: [ stream nextPut: each ] ] ]
+]
+
+{ #category : 'private - logging' }
+OTPrometheusTextEncoder >> noteDroppedMetricFamilyNamed: aMetricName dueToConflictingTypes: someTypes [
+
+	self warningSink value:
+		'OpenTelemetry dropped Prometheus metric family due to conflicting types for '
+			, aMetricName printString
+			, ': '
+			, (String streamContents: [ :stream |
+				(someTypes asArray sort)
+					doWithIndex: [ :each :index |
+						index > 1 ifTrue: [ stream nextPutAll: ', ' ].
+						stream nextPutAll: each asString ] ])
+]
+
+{ #category : 'private - logging' }
+OTPrometheusTextEncoder >> noteIgnoredConflictingMetadataNamed: aMetadataName forMetricFamily: aMetricName values: someValues [
+
+	self warningSink value:
+		'OpenTelemetry ignored conflicting Prometheus '
+			, aMetadataName
+			, ' metadata for '
+			, aMetricName printString
+			, ': '
+			, (String streamContents: [ :stream |
+				(someValues asArray sort)
+					doWithIndex: [ :each :index |
+						index > 1 ifTrue: [ stream nextPutAll: ', ' ].
+						stream nextPutAll: each printString ] ])
 ]
 
 { #category : 'private - formatting' }
@@ -233,6 +391,33 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 ]
 
 { #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString unit: aUnitString type: aTypeString format: aFormatSymbol on: aStream [
+
+	aHelpString isNotEmpty ifTrue: [
+		aStream
+			nextPutAll: '# HELP ';
+			nextPutAll: aMetricName;
+			space;
+			nextPutAll: (self prometheusHelpStringFor: aHelpString);
+			lf ].
+	aStream
+		nextPutAll: '# TYPE ';
+		nextPutAll: aMetricName;
+		space;
+		nextPutAll: aTypeString;
+		lf.
+	((self supportsUnitMetadataInFormat: aFormatSymbol)
+		and: [ aUnitString ifNil: [ false ] ifNotNil: [ aUnitString isNotEmpty ] ])
+		ifTrue: [
+			aStream
+				nextPutAll: '# UNIT ';
+				nextPutAll: aMetricName;
+				space;
+				nextPutAll: aUnitString;
+				lf ]
+]
+
+{ #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeLabels: someLabels on: aStream [
 
 	| associations |
@@ -264,11 +449,6 @@ OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData on: aStream [
 
 	| metricName |
 	metricName := self prometheusMetricNameFor: anOTGaugeMetricData type: #gauge.
-	self
-		writeMetricHeaderNamed: metricName
-		help: anOTGaugeMetricData description
-		type: 'gauge'
-		on: aStream.
 	anOTGaugeMetricData points do: [ :each |
 		self
 			writeSampleNamed: metricName
@@ -282,19 +462,9 @@ OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData on: aStream [
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeSum: anOTSumMetricData on: aStream [
 
-	| metricName metricType metricSymbol |
-	metricType := anOTSumMetricData monotonic
-		ifTrue: [ 'counter' ]
-		ifFalse: [ 'gauge' ].
-	metricSymbol := anOTSumMetricData monotonic
-		ifTrue: [ #counter ]
-		ifFalse: [ #gauge ].
+	| metricName metricSymbol |
+	metricSymbol := anOTSumMetricData monotonic ifTrue: [ #counter ] ifFalse: [ #gauge ].
 	metricName := self prometheusMetricNameFor: anOTSumMetricData type: metricSymbol.
-	self
-		writeMetricHeaderNamed: metricName
-		help: anOTSumMetricData description
-		type: metricType
-		on: aStream.
 	anOTSumMetricData points do: [ :each |
 		self
 			writeSampleNamed: metricName
@@ -310,11 +480,6 @@ OTPrometheusTextEncoder >> writeHistogram: anOTHistogramMetricData on: aStream [
 
 	| metricName |
 	metricName := self prometheusMetricNameFor: anOTHistogramMetricData type: #histogram.
-	self
-		writeMetricHeaderNamed: metricName
-		help: anOTHistogramMetricData description
-		type: 'histogram'
-		on: aStream.
 	anOTHistogramMetricData points do: [ :eachPoint |
 		| baseLabels cumulative |
 		baseLabels := self
@@ -394,13 +559,99 @@ OTPrometheusTextEncoder >> writeMetric: anOTMetricData on: aStream [
 ]
 
 { #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetrics format: aFormatSymbol on: aStream [
+
+	| descriptions typeSymbols types unitValues chosenDescription chosenType chosenUnit |
+	typeSymbols := OrderedCollection new.
+	someMetrics do: [ :each |
+		| type |
+		type := self prometheusMetricTypeFor: each.
+		type ~= #drop ifTrue: [ typeSymbols add: type ] ].
+	typeSymbols isEmpty ifTrue: [ ^ self ].
+	types := typeSymbols asSet.
+	types size > 1 ifTrue: [
+		self noteDroppedMetricFamilyNamed: aMetricName dueToConflictingTypes: types.
+		^ self ].
+	descriptions := Set new.
+	unitValues := Set new.
+	someMetrics do: [ :each |
+		| unitWord |
+		each description isNotEmpty ifTrue: [ descriptions add: each description ].
+		unitWord := self prometheusUnitWordFrom: each unit.
+		(unitWord notNil and: [ unitWord isNotEmpty ]) ifTrue: [
+			unitValues add: unitWord ] ].
+	descriptions size > 1 ifTrue: [
+		self
+			noteIgnoredConflictingMetadataNamed: 'HELP'
+			forMetricFamily: aMetricName
+			values: descriptions ].
+	unitValues size > 1 ifTrue: [
+		self
+			noteIgnoredConflictingMetadataNamed: 'UNIT'
+			forMetricFamily: aMetricName
+			values: unitValues ].
+	chosenType := self prometheusMetricTypeStringFor: typeSymbols first.
+	chosenDescription := ''.
+	someMetrics do: [ :each |
+		(chosenDescription isEmpty and: [ each description isNotEmpty ]) ifTrue: [
+			chosenDescription := each description ] ].
+	chosenUnit := nil.
+	someMetrics do: [ :each |
+		| unitWord |
+		unitWord := self prometheusUnitWordFrom: each unit.
+		(chosenUnit isNil and: [ unitWord notNil and: [ unitWord isNotEmpty ] ]) ifTrue: [
+			chosenUnit := unitWord ] ].
+	self
+		writeMetricHeaderNamed: aMetricName
+		help: chosenDescription
+		unit: chosenUnit
+		type: chosenType
+		format: aFormatSymbol
+		on: aStream.
+	someMetrics do: [ :each | self writeMetric: each on: aStream ]
+]
+
+{ #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: aStream [
 
+	| metricFamilies |
 	self writeTargetInfoFor: anOTMetricSnapshot resource on: aStream.
+	metricFamilies := OrderedDictionary new.
 	anOTMetricSnapshot metrics do: [ :each |
-		self writeMetric: each on: aStream ].
+		| type familyName |
+		type := self prometheusMetricTypeFor: each.
+		type = #drop ifFalse: [
+			familyName := self prometheusMetricNameFor: each type: type.
+			(metricFamilies
+				at: familyName
+				ifAbsentPut: [ OrderedCollection new ]) add: each ] ].
+	metricFamilies associationsDo: [ :each |
+		self
+			writeMetricFamilyNamed: each key
+			metrics: each value
+			format: aFormatSymbol
+			on: aStream ].
 	aFormatSymbol = #openMetricsText100 ifTrue: [
 		aStream
 			nextPutAll: '# EOF';
 			lf ]
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> supportsUnitMetadataInFormat: aFormatSymbol [
+
+	^ aFormatSymbol ~= #prometheusText004
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> warningSink [
+
+	^ warningSink ifNil: [ warningSink := self defaultWarningSink ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> warningSink: aBlockClosure [
+
+	warningSink := aBlockClosure ifNil: [ self defaultWarningSink ] ifNotNil: [ aBlockClosure ].
+	^ self warningSink
 ]
