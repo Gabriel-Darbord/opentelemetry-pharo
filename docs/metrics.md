@@ -49,7 +49,6 @@ The current metrics implementation does not yet provide:
 
 - Prometheus export
 - exemplar reservoirs and exemplar-facing view controls
-- view conflict diagnostics for duplicated metric identities
 
 ## Getting A Meter
 
@@ -149,6 +148,7 @@ Current metric behavior:
 - `OTInMemoryMetricReader>>collect` returns recorded synchronous measurements plus fresh asynchronous callback observations for that reader
 - `OTMetricReader>>collectSnapshot` answers aggregated `OTMetricSnapshot` metric data grouped per instrument
 - matching views are applied independently, so a single instrument may emit multiple streams
+- overlapping views that produce the same metric identity emit a diagnostic warning once per reader
 - `OTPeriodicExportingMetricReader` exports those snapshots through its configured exporter on collection and background intervals
 - `OTMetricReader` applies a default per-instrument cardinality limit of `2000`, and you can override it with `cardinalityLimitSelector:`
 - matching views can override the reader default cardinality limit per stream

@@ -22,6 +22,17 @@ OTMetricViewTest >> pointWithAttribute: aValue named: aKey in: somePoints [
 		ifNone: [ self fail: 'Expected a point for ', aKey printString, '=', aValue printString ]
 ]
 
+{ #category : 'private' }
+OTMetricViewTest >> withMetricWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTMetricReader metricWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTMetricReader metricWarningSink: nil ]
+]
+
 { #category : 'tests' }
 OTMetricViewTest >> testIncompatibleViewAggregationFallsBackToDefaultMetric [
 
@@ -67,6 +78,31 @@ OTMetricViewTest >> testViewCanAggregateHistogramAsSum [
 	self assert: metric class identicalTo: OTSumMetricData.
 	self assert: metric points first value equals: 5.
 	self assert: metric temporality equals: #cumulative
+]
+
+{ #category : 'tests' }
+OTMetricViewTest >> testViewConflictWarningsAreEmittedOncePerMetricIdentity [
+
+	self withMetricWarningsDo: [ :warnings |
+		| metrics provider reader |
+		provider := OTMeterProvider new.
+		reader := OTInMemoryMetricReader new.
+		provider
+			addMetricReader: reader;
+			addView: (OTMetricView named: 'requests.total');
+			addView: (OTMetricView all
+					attributeKeys: #( 'status' );
+					yourself).
+		((provider meterNamed: 'demo.metrics')
+			counterNamed: 'requests.total')
+			add: 2
+			attributes: { 'status' -> '200'. 'method' -> 'GET' }.
+		metrics := reader collectSnapshot metrics.
+		self assert: metrics size equals: 2.
+		self assert: warnings size equals: 1.
+		self assert: (warnings first includesSubstring: 'conflicting metric identities').
+		reader collectSnapshot.
+		self assert: warnings size equals: 1 ]
 ]
 
 { #category : 'tests' }

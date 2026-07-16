@@ -9,6 +9,7 @@ Class {
 		'cardinalityLimitSelector',
 		'callbackTimeoutMillis',
 		'selectedAttributeSetsByStream',
+		'warnedMetricIdentityConflicts',
 		'lastCollectionTimestampByInstrument',
 		'lastAsynchronousValuesByInstrument'
 	],
@@ -23,6 +24,32 @@ OTMetricReader class >> callbackWarningSink [
 		valueAt: #otMetricCallbackWarningSink
 		forClass: self
 		ifAbsent: [ self defaultCallbackWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTMetricReader class >> metricWarningSink [
+
+	^ OTClassStateStore
+		valueAt: #otMetricReaderWarningSink
+		forClass: self
+		ifAbsent: [ self defaultMetricWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTMetricReader class >> metricWarningSink: aBlock [
+
+	aBlock
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otMetricReaderWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otMetricReaderWarningSink
+				forClass: self
+				put: aBlock ].
+	^ self metricWarningSink
 ]
 
 { #category : 'private - logging' }
@@ -44,6 +71,12 @@ OTMetricReader class >> callbackWarningSink: aBlock [
 
 { #category : 'private - logging' }
 OTMetricReader class >> defaultCallbackWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private - logging' }
+OTMetricReader class >> defaultMetricWarningSink [
 
 	^ OTDiagnosticLogger defaultWarningSink
 ]
@@ -247,7 +280,8 @@ OTMetricReader >> initialize [
 	aggregationSelector := nil.
 	cardinalityLimitSelector := nil.
 	callbackTimeoutMillis := 30000.
-	selectedAttributeSetsByStream := Dictionary new
+	selectedAttributeSetsByStream := Dictionary new.
+	warnedMetricIdentityConflicts := Set new
 ]
 
 { #category : 'collecting' }
@@ -440,6 +474,7 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 							using: context.
 						view ifNotNil: [ view applyToMetricData: metric ].
 						metrics add: metric ] ] ] ] ].
+	self noteConflictingMetricIdentitiesIn: metrics.
 	^ metrics asArray
 ]
 
@@ -465,9 +500,20 @@ OTMetricReader >> matchingViewsFor: anOTMetricInstrument [
 ]
 
 { #category : 'private - logging' }
+OTMetricReader >> metricIdentityKeyFor: anOTMetricData [
+
+	^ {
+		anOTMetricData instrumentationScope.
+		anOTMetricData class.
+		anOTMetricData name.
+		anOTMetricData description.
+		anOTMetricData unit }
+]
+
+{ #category : 'private - logging' }
 OTMetricReader >> noteIncompatibleAggregation: anAggregationSymbol for: anOTMetricInstrument [
 
-	OTDiagnosticLogger defaultWarningSink value:
+	self metricWarningSink value:
 		'OpenTelemetry metric reader aggregation '
 			, anAggregationSymbol printString
 			, ' is incompatible with instrument '
@@ -480,7 +526,7 @@ OTMetricReader >> noteIncompatibleAggregation: anAggregationSymbol for: anOTMetr
 { #category : 'private - logging' }
 OTMetricReader >> noteIncompatibleViewAggregation: anAggregationSymbol view: anOTMetricView for: anOTMetricInstrument [
 
-	OTDiagnosticLogger defaultWarningSink value:
+	self metricWarningSink value:
 		'OpenTelemetry metric view aggregation '
 			, anAggregationSymbol printString
 			, ' is incompatible with instrument '
@@ -488,6 +534,36 @@ OTMetricReader >> noteIncompatibleViewAggregation: anAggregationSymbol view: anO
 			, ' of type '
 			, anOTMetricInstrument instrumentType printString
 			, ' and the view has been ignored'
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> noteConflictingMetricIdentitiesIn: someMetrics [
+
+	| groupedMetrics |
+	groupedMetrics := OrderedDictionary new.
+	someMetrics do: [ :each |
+		(groupedMetrics
+			at: (self metricIdentityKeyFor: each)
+			ifAbsentPut: [ OrderedCollection new ])
+			add: each ].
+	groupedMetrics associationsDo: [ :each |
+		(each value size > 1 and: [
+			(warnedMetricIdentityConflicts includes: each key) not ]) ifTrue: [
+			warnedMetricIdentityConflicts add: each key.
+			self noteMetricIdentityConflictFor: each value ] ]
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> noteMetricIdentityConflictFor: someMetrics [
+
+	| firstMetric |
+	firstMetric := someMetrics first.
+	self metricWarningSink value:
+		'OpenTelemetry metric views produced conflicting metric identities for '
+			, firstMetric name printString
+			, ' in meter '
+			, firstMetric instrumentationScope name printString
+			, '. Multiple streams with the same name, description, unit, and metric type will be exported.'
 ]
 
 { #category : 'accessing' }
@@ -550,6 +626,12 @@ OTMetricReader >> temporalitySelector [
 OTMetricReader >> temporalitySelector: aBlockOrNil [
 
 	temporalitySelector := aBlockOrNil
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> metricWarningSink [
+
+	^ OTMetricReader metricWarningSink
 ]
 
 { #category : 'lifecycle' }
