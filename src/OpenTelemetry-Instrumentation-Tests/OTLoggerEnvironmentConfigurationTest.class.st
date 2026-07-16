@@ -50,6 +50,22 @@ OTLoggerEnvironmentConfigurationTest >> testCurrentUsesBatchOtlpGrpcExporterWhen
 ]
 
 { #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpHttpProtobufExporterWhenSettingIsAbsent [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			| provider processor |
+			provider := OTLoggerProvider current.
+			self assert: provider logRecordProcessors size equals: 1.
+			processor := provider logRecordProcessors first.
+			self assert: processor class identicalTo: OTBatchLogRecordProcessor.
+			self
+				assert: processor exporter class
+				identicalTo: OTOtlpHttpProtobufLogRecordExporter ]
+]
+
+{ #category : 'tests' }
 OTLoggerEnvironmentConfigurationTest >> testCurrentUsesBatchOtlpHttpJsonExporterWhenConfigured [
 
 	self
@@ -81,6 +97,28 @@ OTLoggerEnvironmentConfigurationTest >> testCurrentUsesBatchOtlpHttpProtobufExpo
 			self assert: processor class identicalTo: OTBatchLogRecordProcessor.
 			self
 				assert: processor exporter class
+				identicalTo: OTOtlpHttpProtobufLogRecordExporter ]
+]
+
+{ #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentUsesMultipleConfiguredLogExportersWithExporterSpecificProcessors [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_LOGS_EXPORTER' put: 'console,otlp';
+			yourself)
+		during: [
+			| provider processors |
+			provider := OTLoggerProvider current.
+			processors := provider logRecordProcessors.
+			self assert: processors size equals: 2.
+			self assert: processors first class identicalTo: OTSimpleLogRecordProcessor.
+			self assert: processors second class identicalTo: OTBatchLogRecordProcessor.
+			self
+				assert: processors first exporter class
+				identicalTo: OTConsoleLogRecordExporter.
+			self
+				assert: processors second exporter class
 				identicalTo: OTOtlpHttpProtobufLogRecordExporter ]
 ]
 
@@ -152,6 +190,62 @@ OTLoggerEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidBatchProcess
 				'OpenTelemetry batch log record processor configuration was invalid and has been ignored for ''OTEL_BLRP_MAX_EXPORT_BATCH_SIZE'': ''-10'''
 				'OpenTelemetry batch log record processor configuration was invalid and has been ignored for ''OTEL_BLRP_SCHEDULE_DELAY'': ''-1'''
 				'OpenTelemetry batch log record processor configuration was invalid and has been ignored for ''OTEL_BLRP_EXPORT_TIMEOUT'': ''not-a-number''' ) ]
+]
+
+{ #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownLogExporterNameAndFallsBackToDefaultExporter [
+
+	self withWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_LOGS_EXPORTER' put: 'mystery';
+				yourself)
+			during: [
+				| processor |
+				processor := OTLoggerProvider current logRecordProcessors first.
+				self
+					assert: processor exporter class
+					identicalTo: OTOtlpHttpProtobufLogRecordExporter ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry logs exporter name was unrecognized and has been ignored: ''mystery''' ]
+]
+
+{ #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOtherLogExportersAndFallsBackToDefaultExporter [
+
+	self withWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_LOGS_EXPORTER' put: 'console,none';
+				yourself)
+			during: [
+				| processor |
+				processor := OTLoggerProvider current logRecordProcessors first.
+				self
+					assert: processor exporter class
+					identicalTo: OTOtlpHttpProtobufLogRecordExporter ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry logs exporter configuration mixes ''none'' with other exporters and has been ignored: ''console,none''' ]
+]
+
+{ #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentFallsBackToHttpProtobufWhenOtlpLogsProtocolIsInvalid [
+
+	self withWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_LOGS_EXPORTER' put: 'otlp';
+				at: 'OTEL_EXPORTER_OTLP_LOGS_PROTOCOL' put: 'udp';
+				yourself)
+			during: [
+				| processor |
+				processor := OTLoggerProvider current logRecordProcessors first.
+				self
+					assert: processor exporter class
+					identicalTo: OTOtlpHttpProtobufLogRecordExporter ].
+		self assert: warnings isEmpty ]
 ]
 
 { #category : 'private' }
