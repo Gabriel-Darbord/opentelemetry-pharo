@@ -8,7 +8,11 @@ Class {
 		'instrument',
 		'value',
 		'attributes',
-		'timestamp'
+		'timestamp',
+		'exemplarEligible',
+		'exemplarAttributes',
+		'exemplarTraceId',
+		'exemplarSpanId'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -23,6 +27,7 @@ OTMetricMeasurement class >> instrument: anOTMetricInstrument value: aNumber att
 		instrument: anOTMetricInstrument;
 		value: aNumber;
 		attributes: aCollection;
+		exemplarAttributes: aCollection;
 		timestamp: DateAndTime now asUTC.
 	^ measurement
 ]
@@ -37,6 +42,54 @@ OTMetricMeasurement >> attributes [
 OTMetricMeasurement >> attributes: aCollection [
 
 	attributes := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarEligible [
+
+	^ exemplarEligible = true
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarEligible: aBoolean [
+
+	exemplarEligible := aBoolean = true
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarAttributes [
+
+	^ exemplarAttributes ifNil: [ self attributes ]
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarAttributes: aCollection [
+
+	exemplarAttributes := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarSpanId [
+
+	^ exemplarSpanId
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarSpanId: aString [
+
+	exemplarSpanId := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarTraceId [
+
+	^ exemplarTraceId
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarTraceId: aString [
+
+	exemplarTraceId := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -84,6 +137,10 @@ OTMetricMeasurement >> withAttributes: aCollection [
 		instrument: self instrument;
 		value: self value;
 		attributes: aCollection;
+		exemplarEligible: self exemplarEligible;
+		exemplarAttributes: self exemplarAttributes;
+		exemplarTraceId: self exemplarTraceId;
+		exemplarSpanId: self exemplarSpanId;
 		timestamp: self timestamp.
 	^ measurement
 ]

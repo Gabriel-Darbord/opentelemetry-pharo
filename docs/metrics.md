@@ -36,19 +36,20 @@ The current metrics implementation provides:
 - provider-scoped metric views with instrument-name, type, unit, and meter-scope selection
 - view stream overrides for metric name, description, attribute allow-lists, aggregation, and aggregation cardinality limits
 - reader-scoped cardinality limits with synthetic overflow points
+- exemplar sampling with `always_on`, `always_off`, and `trace_based` filters
+- default exemplar reservoirs for sums, gauges, explicit histograms, and exponential histograms
 - reader-scoped asynchronous callback timeout and failure isolation
 - `OTNoopMetricExporter`, `OTConsoleMetricExporter`, `OTOtlpStdoutMetricExporter`
 - OTLP metric exporters over HTTP JSON, HTTP protobuf, and gRPC
 - OTLP metric auto-configuration through `OTEL_METRICS_EXPORTER`,
   `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`, `OTEL_METRIC_EXPORT_INTERVAL`, and
-  `OTEL_METRIC_EXPORT_TIMEOUT`
+  `OTEL_METRIC_EXPORT_TIMEOUT`, plus `OTEL_METRICS_EXEMPLAR_FILTER`
 - invalid meter-name normalization with diagnostic warnings
 - provider lifecycle behavior for `shutdown` and `forceFlush`
 
 The current metrics implementation does not yet provide:
 
 - Prometheus export
-- exemplar reservoirs and exemplar-facing view controls
 
 ## Getting A Meter
 
@@ -153,6 +154,9 @@ Current metric behavior:
 - `OTMetricReader` applies a default per-instrument cardinality limit of `2000`, and you can override it with `cardinalityLimitSelector:`
 - matching views can override the reader default cardinality limit per stream
 - matching views take precedence over instrument attribute advice for `attribute_keys`
+- exemplar sampling preserves measurement attributes dropped by view filtering
+- `OTEL_METRICS_EXEMPLAR_FILTER` accepts `always_on`, `always_off`, and `trace_based`
+- matching views can override the exemplar reservoir factory per stream
 - asynchronous callback blocks may accept either zero arguments or one observer argument
 - observer-driven asynchronous observations are collected only during reader collection
 - timed-out or failing asynchronous callbacks are isolated from the rest of collection and emit diagnostic warnings
@@ -199,6 +203,7 @@ Supported stream overrides:
 - `aggregation:`
 - `aggregationParameters:`
 - `aggregationCardinalityLimit:`
+- `exemplarReservoirFactory:`
 
 Supported aggregation symbols are:
 
@@ -230,6 +235,31 @@ provider addView:
 		attributeKeys: #( 'http.response.status_code' );
 		aggregation: #sum;
 		aggregationCardinalityLimit: 50;
+		yourself).
+```
+
+Exemplars are enabled by default through the `trace_based` filter. You can
+change that provider-wide:
+
+```smalltalk
+provider exemplarFilter: OTMetricExemplarFilter alwaysOn.
+```
+
+Or through environment configuration for `OTMeterProvider current`:
+
+```smalltalk
+Smalltalk os environment
+	at: 'OTEL_METRICS_EXEMPLAR_FILTER' put: 'always_off'.
+```
+
+For custom instrumentation backends, a matching view can also supply a
+stream-local exemplar reservoir factory:
+
+```smalltalk
+provider addView:
+	((OTMetricView named: 'http.server.duration')
+		exemplarReservoirFactory: [ :context :instrument :pointAttributes |
+			OTSimpleFixedSizeMetricExemplarReservoir size: 4 ];
 		yourself).
 ```
 

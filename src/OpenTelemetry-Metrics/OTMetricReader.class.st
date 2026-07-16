@@ -435,6 +435,11 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMe
 					anOTMetricViewOrNil
 						resolvedAggregationParametersFor: anOTMetricInstrument
 						reader: self ])
+		exemplarFilter: self provider exemplarFilter
+		exemplarReservoirFactory: (anOTMetricViewOrNil ifNotNil: [
+					anOTMetricViewOrNil
+						resolvedExemplarReservoirFactoryFor: anOTMetricInstrument
+						reader: self ])
 ]
 
 { #category : 'collecting' }

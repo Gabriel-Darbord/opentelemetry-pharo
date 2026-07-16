@@ -106,6 +106,35 @@ OTOtlpProtobufMetricEncoder >> writeExponentialBucketRange: anOTExponentialBucke
 ]
 
 { #category : 'private - encoding' }
+OTOtlpProtobufMetricEncoder >> writeExemplar: anOTMetricExemplar on: aWriter [
+
+	aWriter
+		writeTag: 2 wireType: 1;
+		writeFixed64: (self unixNanosecondsFor: anOTMetricExemplar timestamp).
+	anOTMetricExemplar value isInteger
+		ifTrue: [
+			aWriter
+				writeTag: 6 wireType: 1;
+				writeFixed64: anOTMetricExemplar value ]
+		ifFalse: [
+			aWriter
+				writeTag: 3 wireType: 1;
+				writeDouble: anOTMetricExemplar value ].
+	anOTMetricExemplar spanId ifNotNil: [
+		aWriter
+			writeTag: 4 wireType: 2;
+			writeBytes: (OTSpanContext byteArrayFromHex: anOTMetricExemplar spanId size: 8) ].
+	anOTMetricExemplar traceId ifNotNil: [
+		aWriter
+			writeTag: 5 wireType: 2;
+			writeBytes: (OTSpanContext byteArrayFromHex: anOTMetricExemplar traceId size: 16) ].
+	self
+		writeAttributes: anOTMetricExemplar filteredAttributes
+		fieldNumber: 7
+		on: aWriter
+]
+
+{ #category : 'private - encoding' }
 OTOtlpProtobufMetricEncoder >> writeExponentialHistogram: anOTExponentialHistogramMetricData on: aWriter [
 
 	anOTExponentialHistogramMetricData points do: [ :point |
@@ -171,7 +200,11 @@ OTOtlpProtobufMetricEncoder >> writeExponentialHistogramDataPoint: anOTExponenti
 	anOTExponentialHistogramDataPoint zeroThreshold = 0 ifFalse: [
 		aWriter
 			writeTag: 14 wireType: 1;
-			writeDouble: anOTExponentialHistogramDataPoint zeroThreshold ]
+			writeDouble: anOTExponentialHistogramDataPoint zeroThreshold ].
+	anOTExponentialHistogramDataPoint exemplars do: [ :each |
+		aWriter
+			writeTag: 11 wireType: 2;
+			writeEmbedded: [ :embedded | self writeExemplar: each on: embedded ] ]
 ]
 
 { #category : 'private - encoding' }
@@ -237,7 +270,11 @@ OTOtlpProtobufMetricEncoder >> writeHistogramDataPoint: anOTHistogramDataPoint o
 	anOTHistogramDataPoint max ifNotNil: [
 		aWriter
 			writeTag: 12 wireType: 1;
-			writeDouble: anOTHistogramDataPoint max ]
+			writeDouble: anOTHistogramDataPoint max ].
+	anOTHistogramDataPoint exemplars do: [ :each |
+		aWriter
+			writeTag: 8 wireType: 2;
+			writeEmbedded: [ :embedded | self writeExemplar: each on: embedded ] ]
 ]
 
 { #category : 'private - encoding' }
@@ -262,7 +299,11 @@ OTOtlpProtobufMetricEncoder >> writeNumberDataPoint: anOTNumberDataPoint on: aWr
 		ifFalse: [
 			aWriter
 				writeTag: 4 wireType: 1;
-				writeDouble: anOTNumberDataPoint value ]
+				writeDouble: anOTNumberDataPoint value ].
+	anOTNumberDataPoint exemplars do: [ :each |
+		aWriter
+			writeTag: 5 wireType: 2;
+			writeEmbedded: [ :embedded | self writeExemplar: each on: embedded ] ]
 ]
 
 { #category : 'private - encoding' }

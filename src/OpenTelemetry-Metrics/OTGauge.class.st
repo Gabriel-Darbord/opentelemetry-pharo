@@ -33,14 +33,21 @@ OTGauge >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggrega
 	| points |
 	points := (self groupedMeasurementsByAttributes: someMeasurements) associations
 		collect: [ :each |
-			| lastMeasurement |
+			| lastMeasurement point |
 			lastMeasurement := each value last.
-			OTNumberDataPoint
+			point := OTNumberDataPoint
 				attributes: each key
 				value: lastMeasurement value
 				startTimestamp: (anOTMetricAggregationContext startTimestamp
 					ifNil: [ each value first timestamp ])
-				timestamp: lastMeasurement timestamp ].
+				timestamp: lastMeasurement timestamp.
+			point
+				exemplars:
+					(self
+						exemplarsFromMeasurements: each value
+						pointAttributes: each key
+						using: anOTMetricAggregationContext);
+				yourself ].
 	^ OTGaugeMetricData instrument: self points: points
 ]
 

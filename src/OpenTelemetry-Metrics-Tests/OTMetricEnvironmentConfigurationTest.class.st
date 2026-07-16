@@ -174,6 +174,30 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggre
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesTraceBasedExemplarFilterByDefault [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			self
+				assert: OTMeterProvider current exemplarFilter class
+				identicalTo: OTTraceBasedMetricExemplarFilter ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredExemplarFilter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXEMPLAR_FILTER' put: 'always_off';
+			yourself)
+		during: [
+			self
+				assert: OTMeterProvider current exemplarFilter class
+				identicalTo: OTAlwaysOffMetricExemplarFilter ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesLowMemoryTemporalityPreferenceForOtlpExporter [
 
 	self

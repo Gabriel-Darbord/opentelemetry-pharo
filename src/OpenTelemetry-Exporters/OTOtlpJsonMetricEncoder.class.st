@@ -49,6 +49,24 @@ OTOtlpJsonMetricEncoder >> exponentialBucketRangeDataFor: anOTExponentialBucketR
 ]
 
 { #category : 'private - encoding' }
+OTOtlpJsonMetricEncoder >> exemplarDataFor: anOTMetricExemplar [
+
+	| data |
+	data := OrderedDictionary new.
+	data
+		at: 'timeUnixNano'
+			put: (self unixNanosecondsStringFor: anOTMetricExemplar timestamp);
+		at: 'filteredAttributes'
+			put: (self keyValueDataFrom: anOTMetricExemplar filteredAttributes).
+	anOTMetricExemplar value isInteger
+		ifTrue: [ data at: 'asInt' put: anOTMetricExemplar value asString ]
+		ifFalse: [ data at: 'asDouble' put: anOTMetricExemplar value asFloat ].
+	anOTMetricExemplar spanId ifNotNil: [ data at: 'spanId' put: anOTMetricExemplar spanId ].
+	anOTMetricExemplar traceId ifNotNil: [ data at: 'traceId' put: anOTMetricExemplar traceId ].
+	^ data
+]
+
+{ #category : 'private - encoding' }
 OTOtlpJsonMetricEncoder >> exponentialHistogramDataFor: anOTExponentialHistogramMetricData [
 
 	| data |
@@ -96,6 +114,12 @@ OTOtlpJsonMetricEncoder >> exponentialHistogramDataPointDataFor: anOTExponential
 		data
 			at: 'zeroThreshold'
 			put: anOTExponentialHistogramDataPoint zeroThreshold asFloat ].
+	anOTExponentialHistogramDataPoint exemplars ifNotEmpty: [
+		data
+			at: 'exemplars'
+			put:
+				(anOTExponentialHistogramDataPoint exemplars
+					collect: [ :each | self exemplarDataFor: each ]) asArray ].
 	^ data
 ]
 
@@ -131,6 +155,12 @@ OTOtlpJsonMetricEncoder >> histogramDataPointDataFor: anOTHistogramDataPoint [
 		at: 'explicitBounds' put: (anOTHistogramDataPoint explicitBounds collect: [ :each | each asFloat ]) asArray.
 	anOTHistogramDataPoint min ifNotNil: [ data at: 'min' put: anOTHistogramDataPoint min asFloat ].
 	anOTHistogramDataPoint max ifNotNil: [ data at: 'max' put: anOTHistogramDataPoint max asFloat ].
+	anOTHistogramDataPoint exemplars ifNotEmpty: [
+		data
+			at: 'exemplars'
+			put:
+				(anOTHistogramDataPoint exemplars
+					collect: [ :each | self exemplarDataFor: each ]) asArray ].
 	^ data
 ]
 
@@ -163,6 +193,12 @@ OTOtlpJsonMetricEncoder >> numberDataPointDataFor: anOTNumberDataPoint [
 	anOTNumberDataPoint value isInteger
 		ifTrue: [ data at: 'asInt' put: anOTNumberDataPoint value asString ]
 		ifFalse: [ data at: 'asDouble' put: anOTNumberDataPoint value asFloat ].
+	anOTNumberDataPoint exemplars ifNotEmpty: [
+		data
+			at: 'exemplars'
+			put:
+				(anOTNumberDataPoint exemplars
+					collect: [ :each | self exemplarDataFor: each ]) asArray ].
 	^ data
 ]
 

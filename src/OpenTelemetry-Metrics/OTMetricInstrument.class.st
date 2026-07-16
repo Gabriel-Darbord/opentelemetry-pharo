@@ -143,6 +143,17 @@ OTMetricInstrument >> preparedMeasurementsFrom: someMeasurements forReader: anOT
 	^ someMeasurements
 ]
 
+{ #category : 'aggregating' }
+OTMetricInstrument >> exemplarsFromMeasurements: someMeasurements pointAttributes: aCollection using: anOTMetricAggregationContext [
+
+	| reservoir |
+	reservoir := anOTMetricAggregationContext
+		newExemplarReservoirForInstrument: self
+		pointAttributes: aCollection.
+	someMeasurements do: [ :each | reservoir offerMeasurement: each ].
+	^ reservoir collectForPointAttributes: aCollection
+]
+
 { #category : 'accessing' }
 OTMetricInstrument >> description [
 

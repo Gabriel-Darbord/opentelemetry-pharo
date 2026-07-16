@@ -5,7 +5,8 @@ Class {
 		'attributes',
 		'value',
 		'startTimestamp',
-		'timestamp'
+		'timestamp',
+		'exemplars'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -34,6 +35,18 @@ OTNumberDataPoint >> attributes [
 OTNumberDataPoint >> attributes: aCollection [
 
 	attributes := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'accessing' }
+OTNumberDataPoint >> exemplars [
+
+	^ exemplars ifNil: [ #() ]
+]
+
+{ #category : 'accessing' }
+OTNumberDataPoint >> exemplars: aCollection [
+
+	exemplars := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }

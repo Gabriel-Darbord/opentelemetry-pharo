@@ -13,7 +13,8 @@ Class {
 		'max',
 		'startTimestamp',
 		'timestamp',
-		'zeroThreshold'
+		'zeroThreshold',
+		'exemplars'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -29,6 +30,18 @@ OTExponentialHistogramDataPoint >> attributes [
 OTExponentialHistogramDataPoint >> attributes: aCollection [
 
 	attributes := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'accessing' }
+OTExponentialHistogramDataPoint >> exemplars [
+
+	^ exemplars ifNil: [ #() ]
+]
+
+{ #category : 'accessing' }
+OTExponentialHistogramDataPoint >> exemplars: aCollection [
+
+	exemplars := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }

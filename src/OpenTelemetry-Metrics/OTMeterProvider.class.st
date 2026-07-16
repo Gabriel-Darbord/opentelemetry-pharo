@@ -11,7 +11,8 @@ Class {
 		'resource',
 		'measurements',
 		'metricReaders',
-		'views'
+		'views',
+		'exemplarFilter'
 	],
 	#classVars : [
 		'Current'
@@ -37,7 +38,9 @@ OTMeterProvider class >> readConfiguration [
 
 	| exporterNames provider |
 	provider := self new.
-	provider resource: OTTracerProvider configuredResource.
+	provider
+		resource: OTTracerProvider configuredResource;
+		exemplarFilter: self configuredExemplarFilter.
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	exporterNames := self configuredExporterNames.
 	exporterNames do: [ :each |
@@ -58,6 +61,19 @@ OTMeterProvider class >> configuredExporterNames [
 	^ (self exporterNamesFromConfigurationValue: rawValue)
 		ifNil: [ #( 'otlp' ) ]
 		ifNotNil: [ :names | names ]
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> configuredExemplarFilter [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_METRICS_EXEMPLAR_FILTER'.
+	rawValue ifNil: [ ^ OTMetricExemplarFilter traceBased ].
+	(rawValue sameAs: 'always_on') ifTrue: [ ^ OTMetricExemplarFilter alwaysOn ].
+	(rawValue sameAs: 'always_off') ifTrue: [ ^ OTMetricExemplarFilter alwaysOff ].
+	(rawValue sameAs: 'trace_based') ifTrue: [ ^ OTMetricExemplarFilter traceBased ].
+	self noteInvalidExemplarFilterName: rawValue.
+	^ OTMetricExemplarFilter traceBased
 ]
 
 { #category : 'private - configuration' }
@@ -185,6 +201,14 @@ OTMeterProvider class >> noteExporterNoneConflictIn: aString [
 
 	self configurationWarningSink value:
 		'OpenTelemetry metrics exporter configuration mixes ''none'' with other exporters and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> noteInvalidExemplarFilterName: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry metrics exemplar filter was invalid and defaulted to trace_based: '
 			, aString printString
 ]
 
@@ -356,6 +380,7 @@ OTMeterProvider >> initialize [
 	measurements := OrderedCollection new.
 	metricReaders := OrderedCollection new.
 	views := OrderedCollection new.
+	exemplarFilter := OTMetricExemplarFilter traceBased.
 	shutdown := false.
 	meterConfigurator := nil.
 	resource := OTResource empty
@@ -383,6 +408,40 @@ OTMeterProvider >> measurements [
 OTMeterProvider >> metricReaders [
 
 	^ metricReaders ifNil: [ metricReaders := OrderedCollection new ]
+]
+
+{ #category : 'accessing' }
+OTMeterProvider >> exemplarFilter [
+
+	^ exemplarFilter ifNil: [ exemplarFilter := OTMetricExemplarFilter traceBased ]
+]
+
+{ #category : 'accessing' }
+OTMeterProvider >> exemplarFilter: anOTMetricExemplarFilter [
+
+	exemplarFilter := anOTMetricExemplarFilter
+		ifNil: [ OTMetricExemplarFilter traceBased ]
+		ifNotNil: [ anOTMetricExemplarFilter ].
+	^ self exemplarFilter
+]
+
+{ #category : 'recording' }
+OTMeterProvider >> measurementFor: anOTMetricInstrument value: aNumber attributes: aCollection [
+
+	| measurement span spanContext |
+	measurement := OTMetricMeasurement
+		instrument: anOTMetricInstrument
+		value: aNumber
+		attributes: aCollection.
+	self exemplarFilter capturesMeasurements ifFalse: [ ^ measurement ].
+	span := OpenTelemetry currentSpan.
+	spanContext := span ifNil: [ nil ] ifNotNil: [ span spanContext ].
+	measurement
+		exemplarEligible:
+			(self exemplarFilter isMeasurementEligibleWithSpanContext: spanContext);
+		exemplarTraceId: (spanContext ifNil: [ nil ] ifNotNil: [ spanContext traceId ]);
+		exemplarSpanId: (spanContext ifNil: [ nil ] ifNotNil: [ spanContext spanId ]).
+	^ measurement
 ]
 
 { #category : 'accessing' }
@@ -419,8 +478,8 @@ OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber att
 
 	anOTMetricInstrument enabled ifFalse: [ ^ false ].
 	self measurements add:
-		(OTMetricMeasurement
-			instrument: anOTMetricInstrument
+		(self
+			measurementFor: anOTMetricInstrument
 			value: aNumber
 			attributes: aCollection).
 	^ true

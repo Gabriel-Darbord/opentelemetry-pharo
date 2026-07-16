@@ -93,9 +93,9 @@ OTHistogram >> explicitHistogramMetricDataFromMeasurements: someMeasurements usi
 	recordMinMax := self recordMinMaxForAggregationContext: anOTMetricAggregationContext.
 	points := (self groupedMeasurementsByAttributes: someMeasurements) associations
 		collect: [ :each |
-			| values |
+			| point values |
 			values := each value collect: [ :measurement | measurement value ].
-			OTHistogramDataPoint
+			point := OTHistogramDataPoint
 				attributes: each key
 				count: values size
 				sum: (values inject: 0 into: [ :sum :value | sum + value ])
@@ -105,7 +105,14 @@ OTHistogram >> explicitHistogramMetricDataFromMeasurements: someMeasurements usi
 				bucketCounts: (self bucketCountsForMeasurements: each value boundaries: boundaries)
 				startTimestamp: (anOTMetricAggregationContext startTimestamp
 					ifNil: [ each value first timestamp ])
-				timestamp: anOTMetricAggregationContext collectedAt ].
+				timestamp: anOTMetricAggregationContext collectedAt.
+			point
+				exemplars:
+					(self
+						exemplarsFromMeasurements: each value
+						pointAttributes: each key
+						using: anOTMetricAggregationContext);
+				yourself ].
 	^ (OTHistogramMetricData instrument: self points: points)
 		temporality: anOTMetricAggregationContext temporality;
 		yourself
@@ -178,7 +185,12 @@ OTHistogram >> exponentialHistogramDataPointForMeasurements: someMeasurements at
 		startTimestamp: (anOTMetricAggregationContext startTimestamp
 			ifNil: [ someMeasurements first timestamp ]);
 		timestamp: anOTMetricAggregationContext collectedAt;
-		zeroThreshold: 0.0.
+		zeroThreshold: 0.0;
+		exemplars:
+			(self
+				exemplarsFromMeasurements: someMeasurements
+				pointAttributes: someAttributes
+				using: anOTMetricAggregationContext).
 	^ point
 ]
 

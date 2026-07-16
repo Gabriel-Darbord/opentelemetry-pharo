@@ -13,7 +13,8 @@ Class {
 		'attributeKeys',
 		'aggregation',
 		'cardinalityLimit',
-		'aggregationParameters'
+		'aggregationParameters',
+		'exemplarReservoirFactory'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -164,6 +165,18 @@ OTMetricView >> aggregationParameters [
 OTMetricView >> aggregationParameters: aCollection [
 
 	aggregationParameters := self class normalizedAggregationParametersFrom: aCollection
+]
+
+{ #category : 'accessing' }
+OTMetricView >> exemplarReservoirFactory [
+
+	^ exemplarReservoirFactory
+]
+
+{ #category : 'accessing' }
+OTMetricView >> exemplarReservoirFactory: aBlockClosure [
+
+	exemplarReservoirFactory := aBlockClosure
 ]
 
 { #category : 'accessing' }
@@ -323,6 +336,12 @@ OTMetricView >> resolvedAggregationFor: anOTMetricInstrument reader: anOTMetricR
 OTMetricView >> resolvedAggregationParametersFor: anOTMetricInstrument reader: anOTMetricReader [
 
 	^ aggregationParameters
+]
+
+{ #category : 'resolving' }
+OTMetricView >> resolvedExemplarReservoirFactoryFor: anOTMetricInstrument reader: anOTMetricReader [
+
+	^ exemplarReservoirFactory
 ]
 
 { #category : 'resolving' }

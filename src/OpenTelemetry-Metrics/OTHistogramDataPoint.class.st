@@ -10,7 +10,8 @@ Class {
 		'explicitBounds',
 		'bucketCounts',
 		'startTimestamp',
-		'timestamp'
+		'timestamp',
+		'exemplars'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -44,6 +45,18 @@ OTHistogramDataPoint >> attributes [
 OTHistogramDataPoint >> attributes: aCollection [
 
 	attributes := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> exemplars [
+
+	^ exemplars ifNil: [ #() ]
+]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> exemplars: aCollection [
+
+	exemplars := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }
@@ -140,4 +153,4 @@ OTHistogramDataPoint >> timestamp [
 OTHistogramDataPoint >> timestamp: aDateAndTime [
 
 	timestamp := aDateAndTime
-}
+]

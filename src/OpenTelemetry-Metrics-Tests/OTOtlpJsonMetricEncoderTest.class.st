@@ -178,3 +178,22 @@ OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotProducesExponentialHistogramJso
 	self assert: ((dataPoint at: 'negative') at: 'bucketCounts') equals: #( '1' ).
 	self assert: (dataPoint at: 'zeroThreshold') equals: 0.25
 ]
+
+{ #category : 'tests' }
+OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotIncludesExemplars [
+
+	| data exemplar point |
+	exemplar := OTMetricExemplar new.
+	exemplar
+		value: 3;
+		timestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 6));
+		filteredAttributes: { 'user' -> 'alice' };
+		traceId: '1234567890abcdef1234567890abcdef';
+		spanId: '1234567890abcdef'.
+	data := encoder exemplarDataFor: exemplar.
+	point := ((data at: 'filteredAttributes') first at: 'value').
+	self assert: (data at: 'asInt') equals: '3'.
+	self assert: (data at: 'traceId') equals: '1234567890abcdef1234567890abcdef'.
+	self assert: (data at: 'spanId') equals: '1234567890abcdef'.
+	self assert: (point at: 'stringValue') equals: 'alice'
+]
