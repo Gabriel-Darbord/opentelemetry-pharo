@@ -8,7 +8,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'meters',
-		'shutdown'
+		'shutdown',
+		'meterConfigurator'
 	],
 	#classVars : [
 		'Current'
@@ -125,7 +126,8 @@ OTMeterProvider >> initialize [
 
 	super initialize.
 	meters := OrderedDictionary new.
-	shutdown := false
+	shutdown := false.
+	meterConfigurator := nil
 ]
 
 { #category : 'testing' }
@@ -138,6 +140,31 @@ OTMeterProvider >> isShutdown [
 OTMeterProvider >> meters [
 
 	^ meters ifNil: [ meters := OrderedDictionary new ]
+]
+
+{ #category : 'configuration' }
+OTMeterProvider >> meterConfigFor: anOTInstrumentationScope [
+
+	| configured |
+	meterConfigurator ifNil: [ ^ OTMeterConfig default ].
+	configured := meterConfigurator value: anOTInstrumentationScope.
+	configured ifNil: [ ^ OTMeterConfig default ].
+	configured class = OTMeterConfig ifTrue: [ ^ configured copy ].
+	((configured == true) or: [ configured == false ]) ifTrue: [
+		^ OTMeterConfig enabled: configured ].
+	^ OTMeterConfig default
+]
+
+{ #category : 'configuration' }
+OTMeterProvider >> meterConfigurator [
+
+	^ meterConfigurator
+]
+
+{ #category : 'configuration' }
+OTMeterProvider >> meterConfigurator: aBlockOrNil [
+
+	meterConfigurator := aBlockOrNil
 ]
 
 { #category : 'lifecycle' }

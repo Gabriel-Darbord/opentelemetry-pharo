@@ -216,6 +216,46 @@ OTMeterProviderTest >> testBoundWrapperAcceptsAdditionalAttributes [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMeterConfiguratorCanDisableExistingMeterInstruments [
+
+	| instrument meter provider |
+	provider := OTMeterProvider new.
+	meter := provider meterNamed: 'demo.metrics'.
+	instrument := meter counterNamed: 'requests.total'.
+	self assert: instrument enabled.
+	provider meterConfigurator: [ :scope | false ].
+	self deny: instrument enabled
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterConfiguratorCanDisableSpecificMeters [
+
+	| disabled enabled provider |
+	provider := OTMeterProvider new.
+	provider meterConfigurator: [ :scope |
+		scope name = 'disabled.scope'
+			ifTrue: [ OTMeterConfig enabled: false ]
+			ifFalse: [ OTMeterConfig enabled: true ] ].
+	disabled := (provider meterNamed: 'disabled.scope')
+		counterNamed: 'requests.total'.
+	enabled := (provider meterNamed: 'enabled.scope')
+		counterNamed: 'requests.total'.
+	self deny: disabled enabled.
+	self assert: enabled enabled
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterConfiguratorNilResultFallsBackToDefaultEnabled [
+
+	| instrument provider |
+	provider := OTMeterProvider new.
+	provider meterConfigurator: [ :scope | nil ].
+	instrument := (provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total'.
+	self assert: instrument enabled
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterWarnsAndReusesFirstSeenAdviceForIdenticalInstrument [
 
 	self withInstrumentWarningsDo: [ :warnings |

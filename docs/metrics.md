@@ -26,6 +26,7 @@ The current metrics implementation provides:
 - instrument caching by identifying fields `(name, kind, unit, description)`
 - duplicate registration warnings for case-only name conflicts, conflicting metadata, and conflicting advisory parameters
 - bound synchronous instrument wrappers via `bind:`
+- `OTMeterConfig` plus provider-side `meterConfigurator` enablement hooks
 - invalid meter-name normalization with diagnostic warnings
 - provider lifecycle behavior for `shutdown` and `forceFlush`
 
@@ -54,6 +55,15 @@ meter := provider
 	version: '1.0.0'
 	schemaUrl: ''
 	attributes: { 'component' -> 'worker' }.
+```
+
+Meter enablement can already be controlled per scope:
+
+```smalltalk
+provider meterConfigurator: [ :scope |
+	scope name = 'disabled.scope'
+		ifTrue: [ OTMeterConfig enabled: false ]
+		ifFalse: [ OTMeterConfig enabled: true ] ].
 ```
 
 Meters are cached by the full instrumentation-scope tuple
@@ -101,6 +111,7 @@ Meters do already preserve instrument registration identity:
 - creating the same instrument name with different casing returns the first-seen instrument and emits a warning
 - creating the same instrument name/kind with different `unit` or `description` returns a distinct instrument and emits a warning
 - creating identical instruments with different advisory parameters reuses the first-seen advisory parameters and emits a warning
+- existing synchronous instruments reflect later `meterConfigurator` changes through `enabled`
 
 That means you can start writing Pharo code against the metrics API now, and we
 can evolve the implementation underneath it without redesigning the public

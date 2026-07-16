@@ -335,7 +335,7 @@ OTMeter >> canonicalInstrumentNameFrom: aString [
 { #category : 'testing' }
 OTMeter >> enablesSynchronousInstruments [
 
-	^ provider notNil
+	^ provider notNil and: [ (provider meterConfigFor: self instrumentationScope) enabled ]
 ]
 
 { #category : 'private' }
