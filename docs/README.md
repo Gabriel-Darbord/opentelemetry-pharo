@@ -17,7 +17,7 @@ Start here:
 Current scope:
 
 - traces: supported
-- logs: foundation implemented, OTLP export and bridges still missing
+- logs: API, batch processing, OTLP export, and stdout export supported; bridges to external logging libraries still missing
 - baggage and text-map propagation: supported
 - metrics: not implemented yet
 
