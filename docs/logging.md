@@ -16,6 +16,7 @@ The current logging implementation provides:
 - `OTLogRecord`: readable/writeable SDK log record
 - `OTSimpleLogRecordProcessor`, `OTBatchLogRecordProcessor`, and `OTCompositeLogRecordProcessor`
 - `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
+- `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, `OTOtlpStdoutLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
 
 The current logging implementation does not yet provide:
 
@@ -130,6 +131,9 @@ provider addLogRecordProcessor:
 When using `OTLoggerProvider current`, `OTEL_LOGS_EXPORTER=otlp` now selects an
 OTLP exporter and wraps it in a batch processor. `OTEL_LOGS_EXPORTER=logging`
 is accepted as the console-exporter alias.
+
+`OTEL_LOGS_EXPORTER=otlp/stdout` is also supported and writes one OTLP JSON
+payload per line to standard output.
 
 ## Lifecycle
 

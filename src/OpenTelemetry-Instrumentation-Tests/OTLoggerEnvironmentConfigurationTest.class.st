@@ -66,6 +66,22 @@ OTLoggerEnvironmentConfigurationTest >> testCurrentUsesConsoleAliasWithSimplePro
 ]
 
 { #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterWithBatchProcessor [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_LOGS_EXPORTER' put: 'otlp/stdout';
+			yourself)
+		during: [
+			| provider processor |
+			provider := OTLoggerProvider current.
+			self assert: provider logRecordProcessors size equals: 1.
+			processor := provider logRecordProcessors first.
+			self assert: processor class identicalTo: OTBatchLogRecordProcessor.
+			self assert: processor exporter class identicalTo: OTOtlpStdoutLogRecordExporter ]
+]
+
+{ #category : 'tests' }
 OTLoggerEnvironmentConfigurationTest >> testCurrentUsesNoProcessorsWhenLogExportIsDisabled [
 
 	self

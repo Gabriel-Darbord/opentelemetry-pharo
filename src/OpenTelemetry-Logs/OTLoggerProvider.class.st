@@ -155,7 +155,7 @@ OTLoggerProvider class >> exporterNamesFromConfigurationValue: aString [
 		exporterName isEmpty ifFalse: [
 			normalizedName := exporterName asLowercase.
 			(seen includes: normalizedName) ifFalse: [
-				(#( 'otlp' 'console' 'logging' 'none' ) includes: normalizedName)
+				(#( 'otlp' 'otlp/stdout' 'console' 'logging' 'none' ) includes: normalizedName)
 					ifFalse: [
 						self noteUnknownExporterName: exporterName.
 						^ nil ].
@@ -175,6 +175,7 @@ OTLoggerProvider class >> exporterNamed: aString [
 	aString = 'logging' ifTrue: [ ^ OTConsoleLogRecordExporter new ].
 	aString = 'none' ifTrue: [ ^ OTNoopLogRecordExporter new ].
 	aString = 'otlp' ifTrue: [ ^ self configuredOtlpExporter ].
+	aString = 'otlp/stdout' ifTrue: [ ^ OTOtlpStdoutLogRecordExporter new ].
 	self noteUnknownExporterName: aString.
 	^ nil
 ]
