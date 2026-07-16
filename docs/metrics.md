@@ -50,8 +50,7 @@ The current metrics implementation provides:
 
 The current metrics implementation does not yet provide:
 
-- Prometheus content negotiation beyond the Prometheus 0.0.4 text format
-- Prometheus native histogram output, so exponential histograms are currently dropped from Prometheus text scrapes
+- Prometheus native histogram output, so exponential histograms are currently dropped from Prometheus scrapes
 
 ## Getting A Meter
 

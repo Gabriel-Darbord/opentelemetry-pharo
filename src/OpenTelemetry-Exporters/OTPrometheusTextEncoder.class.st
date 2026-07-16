@@ -8,7 +8,17 @@ Class {
 { #category : 'encoding' }
 OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot [
 
-	^ String streamContents: [ :stream | self writeSnapshot: anOTMetricSnapshot on: stream ]
+	^ self encodeSnapshot: anOTMetricSnapshot format: #prometheusText004
+]
+
+{ #category : 'encoding' }
+OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot format: aFormatSymbol [
+
+	^ String streamContents: [ :stream |
+		self
+			writeSnapshot: anOTMetricSnapshot
+			format: aFormatSymbol
+			on: stream ]
 ]
 
 { #category : 'private - testing' }
@@ -384,9 +394,13 @@ OTPrometheusTextEncoder >> writeMetric: anOTMetricData on: aStream [
 ]
 
 { #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeSnapshot: anOTMetricSnapshot on: aStream [
+OTPrometheusTextEncoder >> writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: aStream [
 
 	self writeTargetInfoFor: anOTMetricSnapshot resource on: aStream.
 	anOTMetricSnapshot metrics do: [ :each |
-		self writeMetric: each on: aStream ]
+		self writeMetric: each on: aStream ].
+	aFormatSymbol = #openMetricsText100 ifTrue: [
+		aStream
+			nextPutAll: '# EOF';
+			lf ]
 ]
