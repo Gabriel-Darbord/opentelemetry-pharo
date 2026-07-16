@@ -9,15 +9,17 @@ Start here:
 
 - [Tracing API](tracing.md): create spans, configure providers, work with
   current context and baggage, and choose exporters/processors.
+- [Logging API](logging.md): create loggers, emit log records, and configure
+  processors and exporters.
 - [Instrumentation API](instrumentation.md): build reusable Pharo
   instrumentations and choose an installation backend.
 
 Current scope:
 
 - traces: supported
+- logs: foundation implemented, OTLP export and bridges still missing
 - baggage and text-map propagation: supported
 - metrics: not implemented yet
-- logs: not implemented yet
 
 Supported Pharo range in the baseline:
 
