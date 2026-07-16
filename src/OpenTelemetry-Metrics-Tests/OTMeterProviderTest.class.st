@@ -454,6 +454,40 @@ OTMeterProviderTest >> testMeterConfiguratorNilResultFallsBackToDefaultEnabled [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testSynchronousInstrumentIsDisabledWhenAllMatchingViewsDrop [
+
+	| instrument provider |
+	provider := OTMeterProvider new.
+	provider addView: ((OTMetricView named: 'requests.total')
+			aggregation: #drop;
+			yourself).
+	instrument := (provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total'.
+	self deny: instrument enabled.
+	instrument add: 1 attributes: { 'method' -> 'GET' }.
+	self assert: provider measurements isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testSynchronousInstrumentStaysEnabledWhenAnyMatchingViewExports [
+
+	| instrument provider |
+	provider := OTMeterProvider new.
+	provider
+		addView: ((OTMetricView named: 'requests.total')
+				aggregation: #sum;
+				yourself);
+		addView: ((OTMetricView all)
+				aggregation: #drop;
+				yourself).
+	instrument := (provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total'.
+	self assert: instrument enabled.
+	instrument add: 1 attributes: { 'method' -> 'GET' }.
+	self assert: provider measurements size equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testProviderBackedCounterRecordsMeasurements [
 
 	| counter measurement provider |

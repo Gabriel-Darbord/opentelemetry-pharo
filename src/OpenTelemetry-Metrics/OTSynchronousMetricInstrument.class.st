@@ -34,5 +34,5 @@ OTSynchronousMetricInstrument >> bind: aCollection [
 { #category : 'testing' }
 OTSynchronousMetricInstrument >> enabled [
 
-	^ meter notNil and: [ meter enablesSynchronousInstruments ]
+	^ meter notNil and: [ meter enablesSynchronousInstrument: self ]
 ]

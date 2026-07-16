@@ -364,6 +364,20 @@ OTMeter >> enablesMetricCollection [
 	^ provider notNil and: [ (provider meterConfigFor: self instrumentationScope) enabled ]
 ]
 
+{ #category : 'testing' }
+OTMeter >> enablesSynchronousInstrument: anOTMetricInstrument [
+
+	| matchingViews resolvedViews |
+	self enablesMetricCollection ifFalse: [ ^ false ].
+	provider ifNil: [ ^ false ].
+	matchingViews := provider matchingViewsFor: anOTMetricInstrument.
+	matchingViews ifEmpty: [ ^ true ].
+	resolvedViews := matchingViews select: [ :each |
+		anOTMetricInstrument supportsAggregation: each aggregation ].
+	resolvedViews ifEmpty: [ ^ true ].
+	^ resolvedViews anySatisfy: [ :each | each aggregation ~= #drop ]
+]
+
 { #category : 'private' }
 OTMeter >> duplicateCandidateForCanonicalName: aCanonicalName [
 

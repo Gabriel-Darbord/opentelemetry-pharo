@@ -142,7 +142,7 @@ memoryGauge := meter
 
 Current metric behavior:
 
-- provider-backed synchronous instruments answer `true` for `enabled`
+- provider-backed synchronous instruments answer `true` for `enabled`, unless all resolved matching views are `#drop`
 - no-op instruments and asynchronous instruments answer `false` for `enabled`
 - synchronous recording messages append `OTMetricMeasurement` entries to the provider-owned measurement store
 - `OTInMemoryMetricReader>>collect` returns recorded synchronous measurements plus fresh asynchronous callback observations for that reader
