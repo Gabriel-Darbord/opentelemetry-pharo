@@ -166,6 +166,7 @@ Meters do already preserve instrument registration identity:
 
 - creating the same instrument twice with identical identifying fields returns the same instrument object
 - creating the same instrument name with different casing returns the first-seen instrument and emits a warning
+- creating the same instrument name with a different kind emits a warning and includes a view-based renaming hint
 - creating the same instrument name/kind with different `unit` or `description` returns a distinct instrument and emits a warning
 - creating identical instruments with different advisory parameters reuses the first-seen advisory parameters and emits a warning
 - existing synchronous instruments reflect later `meterConfigurator` changes through `enabled`

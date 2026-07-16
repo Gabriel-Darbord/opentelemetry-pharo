@@ -365,35 +365,75 @@ OTMeter >> enablesMetricCollection [
 ]
 
 { #category : 'private' }
-OTMeter >> duplicateCandidateForClass: anInstrumentClass canonicalName: aCanonicalName [
+OTMeter >> duplicateCandidateForCanonicalName: aCanonicalName [
 
 	^ self instruments values
 		detect: [ :each |
-			each class = anInstrumentClass and: [
-				(self canonicalInstrumentNameFrom: each name) = aCanonicalName ] ]
+			(self canonicalInstrumentNameFrom: each name) = aCanonicalName ]
 		ifNone: [ nil ]
 ]
 
 { #category : 'private - logging' }
-OTMeter >> noteDuplicateInstrumentRegistrationBetween: anExistingInstrument requestedName: aString unit: aUnitString description: aDescriptionString [
+OTMeter >> duplicateRegistrationResolutionHintFor: anExistingInstrument requestedInstrumentClass: anInstrumentClass name: aString unit: aUnitString description: aDescriptionString [
 
-	self class instrumentWarningSink value:
-		'OpenTelemetry metric instrument registration conflicted for meter '
-			, self instrumentationName printString
-			, '. Existing instrument: '
-			, anExistingInstrument class name
-			, ' name='
-			, anExistingInstrument name printString
-			, ' unit='
-			, anExistingInstrument unit printString
-			, ' description='
-			, anExistingInstrument description printString
-			, '. Requested instrument: name='
-			, aString printString
-			, ' unit='
-			, aUnitString printString
-			, ' description='
-			, aDescriptionString printString
+	| requestedType |
+	anExistingInstrument class ~= anInstrumentClass ifTrue: [
+		requestedType := OTMetricView normalizedInstrumentTypeFrom: anInstrumentClass.
+		^ String streamContents: [ :stream |
+			stream
+				nextPutAll: '. A renaming view can resolve this, for example: ';
+				nextPutAll: '((OTMetricView named: ';
+				print: aString;
+				nextPutAll: ') instrumentType: ';
+				print: requestedType;
+				nextPutAll: '; streamName: ';
+				print: aString , '.' , requestedType asString;
+				nextPutAll: '; yourself)' ] ].
+	(anExistingInstrument unit = aUnitString
+		and: [ anExistingInstrument description ~= aDescriptionString ]) ifTrue: [
+		^ String streamContents: [ :stream |
+			stream
+				nextPutAll: '. A view can align descriptions, for example: ';
+				nextPutAll: '((OTMetricView named: ';
+				print: aString;
+				nextPutAll: ') streamDescription: ';
+				print: aDescriptionString;
+				nextPutAll: '; yourself)' ] ].
+	^ ''
+]
+
+{ #category : 'private - logging' }
+OTMeter >> noteDuplicateInstrumentRegistrationBetween: anExistingInstrument requestedInstrumentClass: anInstrumentClass requestedName: aString unit: aUnitString description: aDescriptionString [
+
+	| warning |
+	warning := String streamContents: [ :stream |
+		stream
+			nextPutAll: 'OpenTelemetry metric instrument registration conflicted for meter ';
+			print: self instrumentationName;
+			nextPutAll: '. Existing instrument: ';
+			nextPutAll: anExistingInstrument class name;
+			nextPutAll: ' name=';
+			print: anExistingInstrument name;
+			nextPutAll: ' unit=';
+			print: anExistingInstrument unit;
+			nextPutAll: ' description=';
+			print: anExistingInstrument description;
+			nextPutAll: '. Requested instrument: class=';
+			nextPutAll: anInstrumentClass name;
+			nextPutAll: ' name=';
+			print: aString;
+			nextPutAll: ' unit=';
+			print: aUnitString;
+			nextPutAll: ' description=';
+			print: aDescriptionString;
+			nextPutAll:
+				(self
+					duplicateRegistrationResolutionHintFor: anExistingInstrument
+					requestedInstrumentClass: anInstrumentClass
+					name: aString
+					unit: aUnitString
+					description: aDescriptionString) ].
+	self class instrumentWarningSink value: warning
 ]
 
 { #category : 'private - logging' }
@@ -486,6 +526,7 @@ OTMeter >> registerInstrumentKeyedByClass: anInstrumentClass named: aValue unit:
 			(self canonicalInstrumentNameFrom: instrument name) = canonicalName ]) ifTrue: [
 			self
 				noteDuplicateInstrumentRegistrationBetween: instrument
+				requestedInstrumentClass: anInstrumentClass
 				requestedName: instrumentName
 				unit: unitString
 				description: descriptionString ].
@@ -494,12 +535,11 @@ OTMeter >> registerInstrumentKeyedByClass: anInstrumentClass named: aValue unit:
 				noteDuplicateInstrumentRegistrationFor: instrument
 				conflictingAdvice: adviceByIdentity ].
 		^ instrument ].
-	candidate := self
-		duplicateCandidateForClass: anInstrumentClass
-		canonicalName: canonicalName.
+	candidate := self duplicateCandidateForCanonicalName: canonicalName.
 	candidate ifNotNil: [
 		self
 			noteDuplicateInstrumentRegistrationBetween: candidate
+			requestedInstrumentClass: anInstrumentClass
 			requestedName: instrumentName
 			unit: unitString
 			description: descriptionString ].
