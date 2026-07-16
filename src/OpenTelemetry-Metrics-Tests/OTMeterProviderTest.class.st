@@ -405,6 +405,58 @@ OTMeterProviderTest >> testProviderBackedCounterRecordsMeasurements [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectExportsSnapshot [
+
+	| exporter provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1 attributes: { 'method' -> 'GET' }.
+	snapshot := reader collect.
+	self assert: exporter exports size equals: 1.
+	self assert: exporter exports first identicalTo: snapshot.
+	self assert: snapshot measurements size equals: 1.
+	self assert: snapshot resource equals: provider resource
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushDelegatesToExporter [
+
+	| exporter provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1 attributes: { 'method' -> 'GET' }.
+	self assert: reader forceFlush.
+	self assert: exporter exports size equals: 1.
+	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownShutsDownExporter [
+
+	| exporter provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	self assert: reader exportProcess notNil.
+	self assert: reader shutdown.
+	self assert: exporter isShutdown.
+	self assert: reader isShutdown.
+	self assert: reader exportProcess isNil
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testProviderShutdownShutsDownMetricReaders [
 
 	| provider reader |
@@ -482,6 +534,37 @@ OTMeterProviderTest >> testProviderAddMetricReaderAssignsProvider [
 	provider addMetricReader: reader.
 	self assert: reader provider identicalTo: provider.
 	self assert: provider metricReaders size equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMetricReaderCollectSnapshotIncludesResourceAndMeasurements [
+
+	| provider reader resource snapshot |
+	resource := OTResource
+		attributes: { 'service.name' -> 'metrics-service'. 'service.version' -> '1.2.3' }.
+	provider := OTMeterProvider new.
+	provider resource: resource.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1 attributes: { 'method' -> 'GET' }.
+	snapshot := reader collectSnapshot.
+	self assert: snapshot resource equals: resource.
+	self assert: snapshot measurements size equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMetricReaderRejectsRegistrationWithDifferentProvider [
+
+	| firstProvider secondProvider reader |
+	firstProvider := OTMeterProvider new.
+	secondProvider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	firstProvider addMetricReader: reader.
+	self
+		should: [ secondProvider addMetricReader: reader ]
+		raise: Error
 ]
 
 { #category : 'tests' }

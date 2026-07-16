@@ -8,8 +8,5 @@ Class {
 { #category : 'collecting' }
 OTInMemoryMetricReader >> collect [
 
-	self isShutdown ifTrue: [ ^ #() ].
-	^ self provider
-		ifNil: [ #() ]
-		ifNotNil: [ :aProvider | aProvider collectMeasurementsFor: self ]
+	^ self collectSnapshot measurements
 ]

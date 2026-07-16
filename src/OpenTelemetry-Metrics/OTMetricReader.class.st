@@ -15,6 +15,34 @@ OTMetricReader >> collect [
 	self subclassResponsibility
 ]
 
+{ #category : 'accessing' }
+OTMetricReader >> attachToProvider: anOTMeterProvider [
+
+	provider ifNil: [
+		provider := anOTMeterProvider.
+		^ provider ].
+	provider == anOTMeterProvider ifTrue: [ ^ provider ].
+	Error signal: 'OpenTelemetry metric readers cannot be registered on multiple meter providers'
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> collectSnapshot [
+
+	self isShutdown ifTrue: [ ^ OTMetricSnapshot empty ].
+	^ self provider
+		ifNil: [ OTMetricSnapshot empty ]
+		ifNotNil: [ :aProvider |
+			OTMetricSnapshot
+				resource: aProvider resource
+				measurements: (aProvider collectMeasurementsFor: self) ]
+]
+
+{ #category : 'callbacks' }
+OTMetricReader >> didRegisterWithProvider [
+
+	self
+]
+
 { #category : 'lifecycle' }
 OTMetricReader >> forceFlush [
 

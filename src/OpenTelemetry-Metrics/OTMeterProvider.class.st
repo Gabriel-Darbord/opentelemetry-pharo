@@ -207,7 +207,8 @@ OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber att
 OTMeterProvider >> addMetricReader: anOTMetricReader [
 
 	anOTMetricReader ifNil: [ ^ self metricReaders ].
-	anOTMetricReader provider: self.
+	anOTMetricReader attachToProvider: self.
+	anOTMetricReader didRegisterWithProvider.
 	self metricReaders add: anOTMetricReader.
 	^ self metricReaders
 ]
