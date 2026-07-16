@@ -200,6 +200,12 @@ OTMeter >> instruments [
 	^ instruments ifNil: [ instruments := OrderedDictionary new ]
 ]
 
+{ #category : 'collecting' }
+OTMeter >> collectMeasurementsFor: anOTMetricReader into: aCollection [
+
+	self instruments valuesDo: [ :each | each collectFor: anOTMetricReader into: aCollection ]
+]
+
 { #category : 'accessing' }
 OTMeter >> observableCounterNamed: aString [
 
@@ -342,6 +348,12 @@ OTMeter >> canonicalInstrumentNameFrom: aString [
 
 { #category : 'testing' }
 OTMeter >> enablesSynchronousInstruments [
+
+	^ self enablesMetricCollection
+]
+
+{ #category : 'testing' }
+OTMeter >> enablesMetricCollection [
 
 	^ provider notNil and: [ (provider meterConfigFor: self instrumentationScope) enabled ]
 ]

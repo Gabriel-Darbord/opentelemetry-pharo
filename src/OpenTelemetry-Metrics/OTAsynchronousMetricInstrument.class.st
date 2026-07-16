@@ -53,6 +53,38 @@ OTAsynchronousMetricInstrument >> callbacks: someCallbacks [
 	callbacks := someCallbacks ifNil: [ #() ] ifNotNil: [ someCallbacks asArray ]
 ]
 
+{ #category : 'collecting' }
+OTAsynchronousMetricInstrument >> collectFor: anOTMetricReader into: aCollection [
+
+	self collectsMeasurements ifFalse: [ ^ self ].
+	self callbacks do: [ :each |
+		self
+			invokeCallback: each
+			with: (self newObserverOn: aCollection) ].
+]
+
+{ #category : 'collecting' }
+OTAsynchronousMetricInstrument >> collectsMeasurements [
+
+	^ meter notNil and: [ meter enablesMetricCollection ]
+]
+
+{ #category : 'collecting' }
+OTAsynchronousMetricInstrument >> invokeCallback: aBlock with: anOTAsynchronousMetricObserver [
+
+	aBlock numArgs = 0
+		ifTrue: [ aBlock value ]
+		ifFalse: [ aBlock value: anOTAsynchronousMetricObserver ]
+]
+
+{ #category : 'collecting' }
+OTAsynchronousMetricInstrument >> newObserverOn: aCollection [
+
+	^ OTAsynchronousMetricObserver
+		instrument: self
+		measurements: aCollection
+]
+
 { #category : 'recording' }
 OTAsynchronousMetricInstrument >> observe: aNumber [
 

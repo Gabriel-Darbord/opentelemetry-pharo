@@ -132,6 +132,16 @@ OTMeterProvider >> forceFlush [
 	^ self metricReaders allSatisfy: [ :each | each forceFlush ]
 ]
 
+{ #category : 'collecting' }
+OTMeterProvider >> collectMeasurementsFor: anOTMetricReader [
+
+	| collected |
+	collected := self measurements copy.
+	self meters valuesDo: [ :each |
+		each collectMeasurementsFor: anOTMetricReader into: collected ].
+	^ collected
+]
+
 { #category : 'initialization' }
 OTMeterProvider >> initialize [
 

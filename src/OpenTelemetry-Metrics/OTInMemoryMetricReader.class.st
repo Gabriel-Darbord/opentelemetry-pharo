@@ -11,5 +11,5 @@ OTInMemoryMetricReader >> collect [
 	self isShutdown ifTrue: [ ^ #() ].
 	^ self provider
 		ifNil: [ #() ]
-		ifNotNil: [ :aProvider | aProvider measurements copy ]
+		ifNotNil: [ :aProvider | aProvider collectMeasurementsFor: self ]
 ]

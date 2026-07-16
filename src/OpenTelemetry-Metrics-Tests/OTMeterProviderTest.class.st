@@ -69,6 +69,32 @@ OTMeterProviderTest >> testAsynchronousInstrumentCreationAcceptsCallbacksWithout
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousInstrumentCollectsMeasurementsPerReader [
+
+	| callbackCount measurement provider reader |
+	callbackCount := 0.
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableGaugeNamed: 'runtime.memory'
+		callbacks: {
+			[ :observer |
+			callbackCount := callbackCount + 1.
+			observer observe: 42 attributes: { 'state' -> 'used' } ] }
+		unit: 'By'
+		description: 'Runtime memory'
+		advice: Dictionary new.
+	self assert: reader collect size equals: 1.
+	self assert: callbackCount equals: 1.
+	measurement := reader collect first.
+	self assert: callbackCount equals: 2.
+	self assert: measurement instrument name equals: 'runtime.memory'.
+	self assert: measurement value equals: 42.
+	self assert: (measurement attributes at: 'state') equals: 'used'
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousNoopInstrumentOperationsAreSafe [
 
 	| instrument |
@@ -78,6 +104,23 @@ OTMeterProviderTest >> testAsynchronousNoopInstrumentOperationsAreSafe [
 	self shouldnt: [ instrument observe: 42 ] raise: Error.
 	self shouldnt: [ instrument observe: 42 attributes: { 'key' -> 'value' } ]
 		raise: Error
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObservationOutsideCallbacksIsIgnored [
+
+	| instrument provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics')
+		observableCounterNamed: 'runtime.cpu'
+		callbacks: #()
+		unit: '1'
+		description: 'CPU'
+		advice: Dictionary new.
+	instrument observe: 42 attributes: { 'state' -> 'manual' }.
+	self assert: reader collect isEmpty
 ]
 
 { #category : 'tests' }
@@ -124,6 +167,28 @@ OTMeterProviderTest >> testInMemoryMetricReaderCollectsRecordedMeasurements [
 	self assert: measurement instrument identicalTo: counter.
 	self assert: measurement value equals: 1.
 	self assert: (measurement attributes at: 'method') equals: 'GET'
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testInMemoryMetricReaderCollectsSynchronousAndAsynchronousMeasurements [
+
+	| measurements provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1 attributes: { 'method' -> 'GET' }.
+	(provider meterNamed: 'demo.metrics')
+		observableGaugeNamed: 'runtime.memory'
+		callbacks: { [ :observer | observer observe: 42 attributes: { 'state' -> 'used' } ] }
+		unit: 'By'
+		description: 'Runtime memory'
+		advice: Dictionary new.
+	measurements := reader collect.
+	self assert: measurements size equals: 2.
+	self assert: (measurements anySatisfy: [ :each | each instrument name = 'requests.total' ]).
+	self assert: (measurements anySatisfy: [ :each | each instrument name = 'runtime.memory' ])
 ]
 
 { #category : 'tests' }
@@ -262,6 +327,23 @@ OTMeterProviderTest >> testDisabledInstrumentDoesNotRecordMeasurements [
 		counterNamed: 'requests.total'.
 	instrument add: 1 attributes: { 'method' -> 'GET' }.
 	self assert: provider measurements isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testDisabledObservableInstrumentDoesNotCollectMeasurements [
+
+	| provider reader |
+	provider := OTMeterProvider new.
+	provider meterConfigurator: [ :scope | false ].
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableGaugeNamed: 'runtime.memory'
+		callbacks: { [ :observer | observer observe: 42 ] }
+		unit: 'By'
+		description: 'Runtime memory'
+		advice: Dictionary new.
+	self assert: reader collect isEmpty
 ]
 
 { #category : 'tests' }

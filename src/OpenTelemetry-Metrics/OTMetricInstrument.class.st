@@ -47,6 +47,12 @@ OTMetricInstrument >> bind: aCollection [
 	self
 ]
 
+{ #category : 'collecting' }
+OTMetricInstrument >> collectFor: anOTMetricReader into: aCollection [
+
+	self
+]
+
 { #category : 'accessing' }
 OTMetricInstrument >> description [
 

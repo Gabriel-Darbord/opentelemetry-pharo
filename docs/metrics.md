@@ -2,9 +2,10 @@
 
 This guide covers the current Pharo-facing metrics API.
 
-The current implementation is a spec-shaped no-op foundation. It gives you the
-global entry points, meters, and instrument objects, but it does not yet
-include a recording SDK, readers, views, aggregations, or exporters.
+The current implementation is an early SDK foundation. It gives you the global
+entry points, meters, instrument objects, provider-owned measurements, a simple
+in-memory reader, and callback-driven asynchronous collection, but it does not
+yet include views, aggregations, or exporters.
 
 ## Current Scope
 
@@ -28,16 +29,17 @@ The current metrics implementation provides:
 - bound synchronous instrument wrappers via `bind:`
 - `OTMeterConfig` plus provider-side `meterConfigurator` enablement hooks
 - provider-owned `OTResource` values with meter-side delegation
+- provider-owned synchronous measurement recording
+- `OTMetricReader` and `OTInMemoryMetricReader`
+- reader-scoped asynchronous callback collection
 - invalid meter-name normalization with diagnostic warnings
 - provider lifecycle behavior for `shutdown` and `forceFlush`
 
 The current metrics implementation does not yet provide:
 
-- a metrics SDK
-- metric readers
 - views or aggregations
 - OTLP, Prometheus, or stdout metric exporters
-- callback collection for asynchronous instruments
+- callback timeouts or isolation policies
 
 ## Getting A Meter
 
@@ -108,16 +110,18 @@ memoryGauge := meter
 
 ## Current Behavior
 
-All current metric instruments are no-op instruments:
+Current metric behavior:
 
 - provider-backed synchronous instruments answer `true` for `enabled`
 - no-op instruments and asynchronous instruments answer `false` for `enabled`
-- synchronous recording messages such as `add:` and `record:` are accepted and ignored
-- asynchronous observation messages such as `observe:` are accepted and ignored
-- asynchronous creation accepts callback blocks, retains them on the instrument object, but does not execute them yet
+- synchronous recording messages append `OTMetricMeasurement` entries to the provider-owned measurement store
+- `OTInMemoryMetricReader>>collect` returns recorded synchronous measurements plus fresh asynchronous callback observations for that reader
+- asynchronous callback blocks may accept either zero arguments or one observer argument
+- observer-driven asynchronous observations are collected only during reader collection
+- direct asynchronous `observe:` sends outside registered callbacks are ignored
 - synchronous `bind:` returns an `OTBoundMetricInstrument` that retains pre-bound attributes
-- `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters
-- `OTMeterProvider>>forceFlush` currently answers success without work because no readers/exporters exist yet
+- `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters and shuts down registered readers
+- `OTMeterProvider>>forceFlush` delegates to registered readers
 
 Meters do already preserve instrument registration identity:
 
