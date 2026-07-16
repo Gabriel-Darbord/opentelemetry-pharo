@@ -34,6 +34,22 @@ OTMetricEnvironmentConfigurationTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredMetricReaderIntervalAndTimeout [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+			at: 'OTEL_METRIC_EXPORT_INTERVAL' put: '12345';
+			at: 'OTEL_METRIC_EXPORT_TIMEOUT' put: '54321';
+			yourself)
+		during: [
+			| reader |
+			reader := OTMeterProvider current metricReaders first.
+			self assert: reader exportIntervalMillis equals: 12345.
+			self assert: reader exportTimeoutMillis equals: 54321 ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterWithShorterDefaultInterval [
 
 	self
@@ -52,6 +68,28 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterWithShorte
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesCumulativeTemporalityPreferenceByDefaultForOtlpExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+			yourself)
+		during: [
+			| counter histogram provider reader upDownCounter |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			counter := (provider meterNamed: 'demo.metrics')
+				counterNamed: 'requests.total'.
+			upDownCounter := (provider meterNamed: 'demo.metrics')
+				upDownCounterNamed: 'requests.active'.
+			histogram := (provider meterNamed: 'demo.metrics')
+				histogramNamed: 'request.duration'.
+			self assert: (reader temporalityFor: counter) equals: #cumulative.
+			self assert: (reader temporalityFor: upDownCounter) equals: #cumulative.
+			self assert: (reader temporalityFor: histogram) equals: #cumulative ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpHttpProtobufExporterWhenSettingIsAbsent [
 
 	self
@@ -67,6 +105,66 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpHttpProtobufEx
 				identicalTo: OTOtlpHttpProtobufMetricExporter.
 			self assert: reader exportIntervalMillis equals: 60000.
 			self assert: reader exportTimeoutMillis equals: 30000 ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesDeltaTemporalityPreferenceForOtlpExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE' put: 'delta';
+			yourself)
+		during: [
+			| asyncCounter counter histogram provider reader upDownCounter |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			counter := (provider meterNamed: 'demo.metrics')
+				counterNamed: 'requests.total'.
+			upDownCounter := (provider meterNamed: 'demo.metrics')
+				upDownCounterNamed: 'requests.active'.
+			histogram := (provider meterNamed: 'demo.metrics')
+				histogramNamed: 'request.duration'.
+			asyncCounter := (provider meterNamed: 'demo.metrics')
+				observableCounterNamed: 'runtime.page_faults'
+				callbacks: #()
+				unit: '1'
+				description: ''
+				advice: Dictionary new.
+			self assert: (reader temporalityFor: counter) equals: #delta.
+			self assert: (reader temporalityFor: histogram) equals: #delta.
+			self assert: (reader temporalityFor: asyncCounter) equals: #delta.
+			self assert: (reader temporalityFor: upDownCounter) equals: #cumulative ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesLowMemoryTemporalityPreferenceForOtlpExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE' put: 'lowmemory';
+			yourself)
+		during: [
+			| asyncCounter counter histogram provider reader upDownCounter |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			counter := (provider meterNamed: 'demo.metrics')
+				counterNamed: 'requests.total'.
+			upDownCounter := (provider meterNamed: 'demo.metrics')
+				upDownCounterNamed: 'requests.active'.
+			histogram := (provider meterNamed: 'demo.metrics')
+				histogramNamed: 'request.duration'.
+			asyncCounter := (provider meterNamed: 'demo.metrics')
+				observableCounterNamed: 'runtime.page_faults'
+				callbacks: #()
+				unit: '1'
+				description: ''
+				advice: Dictionary new.
+			self assert: (reader temporalityFor: counter) equals: #delta.
+			self assert: (reader temporalityFor: histogram) equals: #delta.
+			self assert: (reader temporalityFor: asyncCounter) equals: #cumulative.
+			self assert: (reader temporalityFor: upDownCounter) equals: #cumulative ]
 ]
 
 { #category : 'tests' }
@@ -98,6 +196,20 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesNoReadersWhenMetricExport
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesOtlpGrpcMetricExporterWhenConfigured [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_METRICS_PROTOCOL' put: 'grpc';
+			yourself)
+		during: [
+			| reader |
+			reader := OTMeterProvider current metricReaders first.
+			self assert: reader exporter class identicalTo: OTOtlpGrpcMetricExporter ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterWhenConfigured [
 
 	self
@@ -109,22 +221,6 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterWhenCon
 			provider := OTMeterProvider current.
 			reader := provider metricReaders first.
 			self assert: reader exporter class identicalTo: OTOtlpStdoutMetricExporter ]
-]
-
-{ #category : 'tests' }
-OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredMetricReaderIntervalAndTimeout [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
-			at: 'OTEL_METRIC_EXPORT_INTERVAL' put: '12345';
-			at: 'OTEL_METRIC_EXPORT_TIMEOUT' put: '54321';
-			yourself)
-		during: [
-			| reader |
-			reader := OTMeterProvider current metricReaders first.
-			self assert: reader exportIntervalMillis equals: 12345.
-			self assert: reader exportTimeoutMillis equals: 54321 ]
 ]
 
 { #category : 'tests' }
@@ -147,6 +243,27 @@ OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidMetricReader
 			equals: #(
 				'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for ''OTEL_METRIC_EXPORT_INTERVAL'': ''invalid'''
 				'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for ''OTEL_METRIC_EXPORT_TIMEOUT'': ''-1''' ) ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidOtlpTemporalityPreferenceAndFallsBackToCumulative [
+
+	self withWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+				at: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE' put: 'sideways';
+				yourself)
+			during: [
+				| counter provider reader |
+				provider := OTMeterProvider current.
+				reader := provider metricReaders first.
+				counter := (provider meterNamed: 'demo.metrics')
+					counterNamed: 'requests.total'.
+				self assert: (reader temporalityFor: counter) equals: #cumulative ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry OTLP metrics temporality preference was invalid and has been ignored: ''sideways''' ]
 ]
 
 { #category : 'tests' }
@@ -204,20 +321,6 @@ OTMetricEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOt
 		self assert: warnings size equals: 1.
 		self assert: warnings first equals:
 			'OpenTelemetry metrics exporter configuration mixes ''none'' with other exporters and has been ignored: ''console,none''' ]
-]
-
-{ #category : 'tests' }
-OTMetricEnvironmentConfigurationTest >> testCurrentUsesOtlpGrpcMetricExporterWhenConfigured [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
-			at: 'OTEL_EXPORTER_OTLP_METRICS_PROTOCOL' put: 'grpc';
-			yourself)
-		during: [
-			| reader |
-			reader := OTMeterProvider current metricReaders first.
-			self assert: reader exporter class identicalTo: OTOtlpGrpcMetricExporter ]
 ]
 
 { #category : 'private' }

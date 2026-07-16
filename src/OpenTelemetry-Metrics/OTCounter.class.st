@@ -46,3 +46,15 @@ OTCounter >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggre
 		temporality: anOTMetricAggregationContext temporality;
 		yourself
 ]
+
+{ #category : 'aggregating' }
+OTCounter >> otlpTemporalityForDeltaPreference [
+
+	^ #delta
+]
+
+{ #category : 'aggregating' }
+OTCounter >> otlpTemporalityForLowMemoryPreference [
+
+	^ #delta
+]

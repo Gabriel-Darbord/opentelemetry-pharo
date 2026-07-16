@@ -105,6 +105,32 @@ OTMetricInstrument >> metricDataFromMeasurements: someMeasurements using: anOTMe
 	self subclassResponsibility
 ]
 
+{ #category : 'aggregating' }
+OTMetricInstrument >> otlpTemporalityForCumulativePreference [
+
+	^ #cumulative
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> otlpTemporalityForDeltaPreference [
+
+	^ #cumulative
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> otlpTemporalityForLowMemoryPreference [
+
+	^ self otlpTemporalityForCumulativePreference
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> otlpTemporalityForPreference: aSymbol [
+
+	aSymbol = #delta ifTrue: [ ^ self otlpTemporalityForDeltaPreference ].
+	aSymbol = #lowMemory ifTrue: [ ^ self otlpTemporalityForLowMemoryPreference ].
+	^ self otlpTemporalityForCumulativePreference
+]
+
 { #category : 'collecting' }
 OTMetricInstrument >> preparedMeasurementsFrom: someMeasurements forReader: anOTMetricReader using: anOTMetricAggregationContext [
 

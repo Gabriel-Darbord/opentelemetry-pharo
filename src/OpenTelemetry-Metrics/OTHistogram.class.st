@@ -82,3 +82,15 @@ OTHistogram >> metricDataFromMeasurements: someMeasurements using: anOTMetricAgg
 		temporality: anOTMetricAggregationContext temporality;
 		yourself
 ]
+
+{ #category : 'aggregating' }
+OTHistogram >> otlpTemporalityForDeltaPreference [
+
+	^ #delta
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> otlpTemporalityForLowMemoryPreference [
+
+	^ #delta
+]

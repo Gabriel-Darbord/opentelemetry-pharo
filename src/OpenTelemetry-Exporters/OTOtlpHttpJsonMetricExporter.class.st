@@ -22,7 +22,31 @@ OTOtlpHttpJsonMetricExporter class >> configuration: anOtlpConfiguration [
 
 	^ self new
 		configuration: anOtlpConfiguration;
+		temporalitySelector: self configuredTemporalitySelector;
 		yourself
+]
+
+{ #category : 'private - configuration' }
+OTOtlpHttpJsonMetricExporter class >> configuredTemporalityPreference [
+
+	| rawValue |
+	rawValue := OTOtlpExporterConfiguration
+		environmentValueAt: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'.
+	rawValue ifNil: [ ^ #cumulative ].
+	rawValue := rawValue asLowercase.
+	rawValue = 'cumulative' ifTrue: [ ^ #cumulative ].
+	rawValue = 'delta' ifTrue: [ ^ #delta ].
+	rawValue = 'lowmemory' ifTrue: [ ^ #lowMemory ].
+	self noteInvalidTemporalityPreference: rawValue.
+	^ #cumulative
+]
+
+{ #category : 'private - configuration' }
+OTOtlpHttpJsonMetricExporter class >> configuredTemporalitySelector [
+
+	| preference |
+	preference := self configuredTemporalityPreference.
+	^ [ :instrument | instrument otlpTemporalityForPreference: preference ]
 ]
 
 { #category : 'private - retry' }
@@ -47,6 +71,14 @@ OTOtlpHttpJsonMetricExporter class >> defaultWarningSink [
 OTOtlpHttpJsonMetricExporter class >> maxExportAttempts [
 
 	^ 6
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonMetricExporter class >> noteInvalidTemporalityPreference: aString [
+
+	OTMeterProvider configurationWarningSink value:
+		'OpenTelemetry OTLP metrics temporality preference was invalid and has been ignored: '
+			, aString printString
 ]
 
 { #category : 'private - retry' }

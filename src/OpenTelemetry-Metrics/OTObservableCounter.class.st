@@ -59,3 +59,9 @@ OTObservableCounter >> preparedMeasurementsFrom: someMeasurements forReader: anO
 		previousValues at: each key put: currentValue ].
 	^ deltaMeasurements asArray
 ]
+
+{ #category : 'aggregating' }
+OTObservableCounter >> otlpTemporalityForDeltaPreference [
+
+	^ #delta
+]
