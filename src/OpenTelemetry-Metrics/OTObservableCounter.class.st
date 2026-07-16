@@ -9,7 +9,7 @@ Class {
 }
 
 { #category : 'aggregating' }
-OTObservableCounter >> metricDataFromMeasurements: someMeasurements collectedAt: aDateAndTime [
+OTObservableCounter >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
 	| points |
 	points := (self groupedMeasurementsByAttributes: someMeasurements) associations
@@ -17,10 +17,13 @@ OTObservableCounter >> metricDataFromMeasurements: someMeasurements collectedAt:
 			OTNumberDataPoint
 				attributes: each key
 				value: (each value inject: 0 into: [ :sum :measurement | sum + measurement value ])
-				startTimestamp: (each value first timestamp)
-				timestamp: aDateAndTime ].
-	^ OTSumMetricData
+				startTimestamp: (anOTMetricAggregationContext startTimestamp
+					ifNil: [ each value first timestamp ])
+				timestamp: anOTMetricAggregationContext collectedAt ].
+	^ (OTSumMetricData
 		instrument: self
 		points: points
-		monotonic: true
+		monotonic: true)
+		temporality: anOTMetricAggregationContext temporality;
+		yourself
 ]

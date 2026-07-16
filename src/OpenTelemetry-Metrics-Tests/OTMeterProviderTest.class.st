@@ -581,6 +581,47 @@ OTMeterProviderTest >> testMetricSnapshotAggregatesCounterMeasurementsAsMonotoni
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testDeltaMetricReaderCollectsOnlyNewCounterMeasurements [
+
+	| firstMetric firstPoint provider reader secondMetric secondPoint secondSnapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader temporalitySelector: [ :instrument | #delta ].
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1 attributes: { 'method' -> 'GET' }.
+	firstMetric := reader collectSnapshot metrics first.
+	firstPoint := firstMetric points first.
+	self assert: firstMetric temporality equals: #delta.
+	self assert: firstPoint value equals: 1.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 2 attributes: { 'method' -> 'GET' }.
+	secondSnapshot := reader collectSnapshot.
+	secondMetric := secondSnapshot metrics first.
+	secondPoint := secondMetric points first.
+	self assert: secondMetric temporality equals: #delta.
+	self assert: secondPoint value equals: 2.
+	self assert: secondPoint startTimestamp equals: firstPoint timestamp
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testDeltaMetricReaderSkipsUnchangedSeries [
+
+	| provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader temporalitySelector: [ :instrument | #delta ].
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1.
+	self assert: reader collectSnapshot metrics size equals: 1.
+	self assert: reader collectSnapshot metrics isEmpty
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMetricSnapshotAggregatesGaugeMeasurementsAsLastValue [
 
 	| gaugeMetric point provider reader snapshot |
@@ -637,6 +678,38 @@ OTMeterProviderTest >> testMetricSnapshotAggregatesHistogramMeasurementsWithExpl
 	self assert: point timestamp equals: snapshot collectedAt.
 	self assert: point explicitBounds equals: #( 10.0 20.0 ).
 	self assert: point bucketCounts equals: #( 1 1 1 )
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testIndependentDeltaReadersDoNotShareCollectionState [
+
+	| firstDeltaReader provider secondDeltaReader |
+	provider := OTMeterProvider new.
+	firstDeltaReader := OTInMemoryMetricReader new.
+	firstDeltaReader temporalitySelector: [ :instrument | #delta ].
+	secondDeltaReader := OTInMemoryMetricReader new.
+	secondDeltaReader temporalitySelector: [ :instrument | #delta ].
+	provider
+		addMetricReader: firstDeltaReader;
+		addMetricReader: secondDeltaReader.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 1.
+	self
+		assert: (firstDeltaReader collectSnapshot metrics first points first value)
+		equals: 1.
+	self
+		assert: (secondDeltaReader collectSnapshot metrics first points first value)
+		equals: 1.
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 2.
+	self
+		assert: (firstDeltaReader collectSnapshot metrics first points first value)
+		equals: 2.
+	self
+		assert: (secondDeltaReader collectSnapshot metrics first points first value)
+		equals: 2
 ]
 
 { #category : 'tests' }

@@ -4,7 +4,8 @@ Class {
 	#instVars : [
 		'resource',
 		'measurements',
-		'collectedAt'
+		'collectedAt',
+		'metrics'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -16,6 +17,7 @@ OTMetricSnapshot class >> empty [
 	^ self
 		resource: OTResource empty
 		measurements: #()
+		metrics: #()
 		collectedAt: DateAndTime now asUTC
 ]
 
@@ -25,17 +27,29 @@ OTMetricSnapshot class >> resource: anOTResource measurements: aCollection [
 	^ self
 		resource: anOTResource
 		measurements: aCollection
+		metrics: #()
 		collectedAt: DateAndTime now asUTC
 ]
 
 { #category : 'instance creation' }
 OTMetricSnapshot class >> resource: anOTResource measurements: aCollection collectedAt: aDateAndTime [
 
+	^ self
+		resource: anOTResource
+		measurements: aCollection
+		metrics: #()
+		collectedAt: aDateAndTime
+]
+
+{ #category : 'instance creation' }
+OTMetricSnapshot class >> resource: anOTResource measurements: aCollection metrics: someMetrics collectedAt: aDateAndTime [
+
 	| snapshot |
 	snapshot := self new.
 	snapshot
 		resource: anOTResource;
 		measurements: aCollection;
+		metrics: someMetrics;
 		collectedAt: aDateAndTime.
 	^ snapshot
 ]
@@ -61,16 +75,13 @@ OTMetricSnapshot >> collectedAt: aDateAndTime [
 { #category : 'accessing' }
 OTMetricSnapshot >> metrics [
 
-	| grouped |
-	grouped := OrderedDictionary new.
-	self measurements do: [ :each |
-		(grouped at: each instrument ifAbsentPut: [ OrderedCollection new ])
-			add: each ].
-	^ grouped associations
-		collect: [ :each |
-			each key
-				metricDataFromMeasurements: each value
-				collectedAt: self collectedAt ]
+	^ metrics ifNil: [ #() ]
+]
+
+{ #category : 'accessing' }
+OTMetricSnapshot >> metrics: aCollection [
+
+	metrics := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }

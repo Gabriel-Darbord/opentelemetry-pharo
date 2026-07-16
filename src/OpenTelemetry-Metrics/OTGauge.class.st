@@ -28,7 +28,7 @@ OTGauge >> record: aNumber attributes: aCollection [
 ]
 
 { #category : 'aggregating' }
-OTGauge >> metricDataFromMeasurements: someMeasurements collectedAt: aDateAndTime [
+OTGauge >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
 	| points |
 	points := (self groupedMeasurementsByAttributes: someMeasurements) associations
@@ -38,7 +38,8 @@ OTGauge >> metricDataFromMeasurements: someMeasurements collectedAt: aDateAndTim
 			OTNumberDataPoint
 				attributes: each key
 				value: lastMeasurement value
-				startTimestamp: (each value first timestamp)
+				startTimestamp: (anOTMetricAggregationContext startTimestamp
+					ifNil: [ each value first timestamp ])
 				timestamp: lastMeasurement timestamp ].
 	^ OTGaugeMetricData instrument: self points: points
 ]

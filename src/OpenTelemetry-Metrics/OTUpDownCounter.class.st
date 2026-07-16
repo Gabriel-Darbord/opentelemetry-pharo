@@ -28,7 +28,7 @@ OTUpDownCounter >> add: aNumber attributes: aCollection [
 ]
 
 { #category : 'aggregating' }
-OTUpDownCounter >> metricDataFromMeasurements: someMeasurements collectedAt: aDateAndTime [
+OTUpDownCounter >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
 	| points |
 	points := (self groupedMeasurementsByAttributes: someMeasurements) associations
@@ -36,10 +36,13 @@ OTUpDownCounter >> metricDataFromMeasurements: someMeasurements collectedAt: aDa
 			OTNumberDataPoint
 				attributes: each key
 				value: (each value inject: 0 into: [ :sum :measurement | sum + measurement value ])
-				startTimestamp: (each value first timestamp)
-				timestamp: aDateAndTime ].
-	^ OTSumMetricData
+				startTimestamp: (anOTMetricAggregationContext startTimestamp
+					ifNil: [ each value first timestamp ])
+				timestamp: anOTMetricAggregationContext collectedAt ].
+	^ (OTSumMetricData
 		instrument: self
 		points: points
-		monotonic: false
+		monotonic: false)
+		temporality: anOTMetricAggregationContext temporality;
+		yourself
 ]

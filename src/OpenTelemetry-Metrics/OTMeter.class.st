@@ -200,6 +200,12 @@ OTMeter >> instruments [
 	^ instruments ifNil: [ instruments := OrderedDictionary new ]
 ]
 
+{ #category : 'accessing' }
+OTMeter >> registeredMetricInstruments [
+
+	^ self instruments values asArray
+]
+
 { #category : 'collecting' }
 OTMeter >> collectMeasurementsFor: anOTMetricReader into: aCollection [
 

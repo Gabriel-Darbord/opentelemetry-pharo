@@ -9,7 +9,8 @@ Class {
 		'name',
 		'unit',
 		'description',
-		'advice'
+		'advice',
+		'creationTimestamp'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -25,7 +26,8 @@ OTMetricInstrument class >> forMeter: anOTMeter name: aString unit: aUnitString 
 		name: aString;
 		unit: aUnitString;
 		description: aDescriptionString;
-		advice: aDictionary.
+		advice: aDictionary;
+		creationTimestamp: DateAndTime now asUTC.
 	^ instrument
 ]
 
@@ -51,6 +53,18 @@ OTMetricInstrument >> bind: aCollection [
 OTMetricInstrument >> collectFor: anOTMetricReader into: aCollection [
 
 	self
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> creationTimestamp [
+
+	^ creationTimestamp ifNil: [ DateAndTime now asUTC ]
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> creationTimestamp: aDateAndTime [
+
+	creationTimestamp := aDateAndTime ifNil: [ DateAndTime now asUTC ] ifNotNil: [ aDateAndTime ]
 ]
 
 { #category : 'aggregating' }
@@ -79,11 +93,14 @@ OTMetricInstrument >> metricDataFromMeasurements: someMeasurements [
 
 	^ self
 		metricDataFromMeasurements: someMeasurements
-		collectedAt: DateAndTime now asUTC
+		using: (OTMetricAggregationContext
+			collectedAt: DateAndTime now asUTC
+			startTimestamp: (someMeasurements ifEmpty: [ nil ] ifNotEmpty: [ someMeasurements first timestamp ])
+			temporality: #cumulative)
 ]
 
 { #category : 'aggregating' }
-OTMetricInstrument >> metricDataFromMeasurements: someMeasurements collectedAt: aDateAndTime [
+OTMetricInstrument >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
 	self subclassResponsibility
 ]

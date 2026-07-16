@@ -191,6 +191,16 @@ OTMeterProvider >> resource: anOTResource [
 	^ self resource
 ]
 
+{ #category : 'accessing' }
+OTMeterProvider >> registeredMetricInstruments [
+
+	| instruments |
+	instruments := OrderedCollection new.
+	self meters valuesDo: [ :each |
+		instruments addAll: each registeredMetricInstruments ].
+	^ instruments asArray
+]
+
 { #category : 'recording' }
 OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber attributes: aCollection [
 
