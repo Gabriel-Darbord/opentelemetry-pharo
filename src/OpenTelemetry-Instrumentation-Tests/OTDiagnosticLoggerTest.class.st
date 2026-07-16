@@ -21,8 +21,24 @@ OTDiagnosticLoggerTest >> tearDown [
 
 	[
 		self setEnvironmentValue: nil forKey: 'OTEL_LOG_LEVEL'.
+		OTFakeTinyLogger reset.
 		OTDiagnosticLogger reset ]
 		ensure: [ super tearDown ]
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testBuildDefaultLoggerUsesConfigurableTinyLoggerResolver [
+
+	| logger tinyLogger |
+	OTDiagnosticLogger tinyLoggerClassResolver: [ OTFakeTinyLogger ].
+	logger := OTDiagnosticLogger buildDefaultLogger.
+	logger warning: 'resolver warning'.
+	tinyLogger := OTFakeTinyLogger lastInstance.
+	self assert: tinyLogger notNil.
+	self assert: tinyLogger ensureStdoutLoggerCount equals: 1.
+	self
+		assert: tinyLogger recordedMessages asArray
+		equals: #( 'OpenTelemetry warning: resolver warning' )
 ]
 
 { #category : 'tests' }
@@ -52,6 +68,19 @@ OTDiagnosticLoggerTest >> testExporterDefaultWarningSinkUsesCurrentDiagnosticLog
 	self
 		assert: warnings asArray
 		equals: #( 'exporter warning' )
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testLoggerFactoryOverridesDefaultBackendSelection [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTDiagnosticLogger loggerFactory: [
+		(OTDiagnosticLogger onWarningDo: [ :message | warnings add: message ])
+			minimumSeverity: OTDiagnosticLogger warningSeverity;
+			yourself ].
+	OTDiagnosticLogger current warning: 'factory warning'.
+	self assert: warnings asArray equals: #( 'factory warning' )
 ]
 
 { #category : 'tests' }
