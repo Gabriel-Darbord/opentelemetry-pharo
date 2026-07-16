@@ -30,6 +30,7 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		package: 'OpenTelemetry-Instrumentation' with: [
 				spec requires:
 						#( 'OpenTelemetry-Exporters' 'OpenTelemetry-Logs'
+						   'OpenTelemetry-Metrics'
 						   'OpenTelemetry-Matchers'
 						   'OpenTelemetry-Sampling' ) ];
 		package: 'OpenTelemetry-Instrumentation-MetaLink-Tests' with: [
@@ -42,6 +43,10 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 				   'OpenTelemetry-Instrumentation' ) ];
 		package: 'OpenTelemetry-Logs-Tests'
 		with: [ spec requires: 'OpenTelemetry-Logs' ];
+		package: 'OpenTelemetry-Metrics'
+		with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Metrics-Tests'
+		with: [ spec requires: 'OpenTelemetry-Metrics' ];
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Matchers';
 		package: 'OpenTelemetry-Sampling'
@@ -82,11 +87,13 @@ BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
 
 	spec
 		group: 'core' with: #( 'OpenTelemetry-Instrumentation-MetaLink'
+			   'OpenTelemetry-Metrics'
 			   'OpenTelemetry-Logs'
 			   'OpenTelemetry-Instrumentation-MethodProxy'
 			   'OpenTelemetry-Compatibility-Pharo12Plus' );
 		group: 'tests'
-		with: #( 'OpenTelemetry-Logs-Tests'
+		with: #( 'OpenTelemetry-Metrics-Tests'
+			   'OpenTelemetry-Logs-Tests'
 			   'OpenTelemetry-Instrumentation-MetaLink-Tests'
 			   'OpenTelemetry-Instrumentation-MethodProxy-Tests' )
 ]

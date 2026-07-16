@@ -1,0 +1,85 @@
+# Metrics API
+
+This guide covers the current Pharo-facing metrics API.
+
+The current implementation is a spec-shaped no-op foundation. It gives you the
+global entry points, meters, and instrument objects, but it does not yet
+include a recording SDK, readers, views, aggregations, or exporters.
+
+## Current Scope
+
+The current metrics implementation provides:
+
+- `OTMeterProvider`
+- `OTMeter`
+- synchronous instruments:
+  - `OTCounter`
+  - `OTUpDownCounter`
+  - `OTHistogram`
+  - `OTGauge`
+- asynchronous instruments:
+  - `OTObservableCounter`
+  - `OTObservableUpDownCounter`
+  - `OTObservableGauge`
+- `OpenTelemetry` entry points for the global meter provider
+
+The current metrics implementation does not yet provide:
+
+- a metrics SDK
+- metric readers
+- views or aggregations
+- OTLP, Prometheus, or stdout metric exporters
+- callback collection for asynchronous instruments
+
+## Getting A Meter
+
+Use the global provider:
+
+```smalltalk
+meter := OpenTelemetry meterNamed: 'MyApp'.
+```
+
+Or configure and use an explicit provider:
+
+```smalltalk
+provider := OTMeterProvider new.
+meter := provider
+	meterNamed: 'MyApp'
+	version: '1.0.0'
+	schemaUrl: ''
+	attributes: { 'component' -> 'worker' }.
+```
+
+## Creating Instruments
+
+Synchronous instruments:
+
+```smalltalk
+counter := meter counterNamed: 'requests.total' unit: '1' description: 'Request count'.
+histogram := meter histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration'.
+gauge := meter gaugeNamed: 'queue.depth' unit: '1' description: 'Queue depth'.
+```
+
+Asynchronous instruments:
+
+```smalltalk
+memoryGauge := meter
+	observableGaugeNamed: 'runtime.memory'
+	callbacks: { [ "future SDK callback work will live here" ] }
+	unit: 'By'
+	description: 'Runtime memory'
+	advice: Dictionary new.
+```
+
+## Current Behavior
+
+All current metric instruments are no-op instruments:
+
+- `enabled` answers `false`
+- synchronous recording messages such as `add:` and `record:` are accepted and ignored
+- asynchronous observation messages such as `observe:` are accepted and ignored
+- asynchronous creation accepts callback blocks but does not retain or execute them yet
+
+That means you can start writing Pharo code against the metrics API now, and we
+can evolve the implementation underneath it without redesigning the public
+surface.
