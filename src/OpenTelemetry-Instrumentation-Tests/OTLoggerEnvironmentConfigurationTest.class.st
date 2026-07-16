@@ -50,6 +50,41 @@ OTLoggerEnvironmentConfigurationTest >> testCurrentUsesBatchOtlpGrpcExporterWhen
 ]
 
 { #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentUsesBatchOtlpHttpJsonExporterWhenConfigured [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_LOGS_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_LOGS_PROTOCOL' put: 'http/json';
+			yourself)
+		during: [
+			| provider processor |
+			provider := OTLoggerProvider current.
+			self assert: provider logRecordProcessors size equals: 1.
+			processor := provider logRecordProcessors first.
+			self assert: processor class identicalTo: OTBatchLogRecordProcessor.
+			self assert: processor exporter class identicalTo: OTOtlpHttpJsonLogRecordExporter ]
+]
+
+{ #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentUsesBatchOtlpHttpProtobufExporterByDefault [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_LOGS_EXPORTER' put: 'otlp';
+			yourself)
+		during: [
+			| provider processor |
+			provider := OTLoggerProvider current.
+			self assert: provider logRecordProcessors size equals: 1.
+			processor := provider logRecordProcessors first.
+			self assert: processor class identicalTo: OTBatchLogRecordProcessor.
+			self
+				assert: processor exporter class
+				identicalTo: OTOtlpHttpProtobufLogRecordExporter ]
+]
+
+{ #category : 'tests' }
 OTLoggerEnvironmentConfigurationTest >> testCurrentUsesConsoleAliasWithSimpleProcessor [
 
 	self
