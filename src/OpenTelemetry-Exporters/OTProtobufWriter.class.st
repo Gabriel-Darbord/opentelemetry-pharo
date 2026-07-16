@@ -92,6 +92,16 @@ OTProtobufWriter >> writeString: aString [
 ]
 
 { #category : 'private - writing' }
+OTProtobufWriter >> writeSInt32: anInteger [
+
+	^ self
+		writeVarint:
+			(anInteger >= 0
+				ifTrue: [ anInteger * 2 ]
+				ifFalse: [ (anInteger negated * 2) - 1 ])
+]
+
+{ #category : 'private - writing' }
 OTProtobufWriter >> writeTag: aFieldNumber wireType: aWireTypeInteger [
 
 	self writeVarint: ((aFieldNumber bitShift: 3) bitOr: aWireTypeInteger)

@@ -38,6 +38,68 @@ OTOtlpJsonMetricEncoder >> groupedMetricsFrom: someMetrics [
 ]
 
 { #category : 'private - encoding' }
+OTOtlpJsonMetricEncoder >> exponentialBucketRangeDataFor: anOTExponentialBucketRange [
+
+	^ OrderedDictionary new
+		at: 'offset' put: anOTExponentialBucketRange offset;
+		at: 'bucketCounts'
+			put: (anOTExponentialBucketRange bucketCounts collect: [ :each | each asString ])
+				asArray;
+		yourself
+]
+
+{ #category : 'private - encoding' }
+OTOtlpJsonMetricEncoder >> exponentialHistogramDataFor: anOTExponentialHistogramMetricData [
+
+	| data |
+	data := OrderedDictionary new.
+	data
+		at: 'dataPoints'
+			put:
+				(anOTExponentialHistogramMetricData points
+					collect: [ :each | self exponentialHistogramDataPointDataFor: each ])
+					asArray;
+		at: 'aggregationTemporality'
+			put: (self temporalityCodeFor: anOTExponentialHistogramMetricData temporality).
+	^ data
+]
+
+{ #category : 'private - encoding' }
+OTOtlpJsonMetricEncoder >> exponentialHistogramDataPointDataFor: anOTExponentialHistogramDataPoint [
+
+	| data |
+	data := OrderedDictionary new.
+	anOTExponentialHistogramDataPoint startTimestamp ifNotNil: [
+		data
+			at: 'startTimeUnixNano'
+			put:
+				(self
+					unixNanosecondsStringFor: anOTExponentialHistogramDataPoint startTimestamp) ].
+	data
+		at: 'timeUnixNano'
+			put: (self unixNanosecondsStringFor: anOTExponentialHistogramDataPoint timestamp);
+		at: 'count' put: anOTExponentialHistogramDataPoint count asString;
+		at: 'sum' put: anOTExponentialHistogramDataPoint sum asFloat;
+		at: 'scale' put: anOTExponentialHistogramDataPoint scale;
+		at: 'zeroCount' put: anOTExponentialHistogramDataPoint zeroCount asString;
+		at: 'positive'
+			put: (self exponentialBucketRangeDataFor: anOTExponentialHistogramDataPoint positiveBuckets);
+		at: 'negative'
+			put: (self exponentialBucketRangeDataFor: anOTExponentialHistogramDataPoint negativeBuckets);
+		at: 'attributes'
+			put: (self keyValueDataFrom: anOTExponentialHistogramDataPoint attributes).
+	anOTExponentialHistogramDataPoint min ifNotNil: [
+		data at: 'min' put: anOTExponentialHistogramDataPoint min asFloat ].
+	anOTExponentialHistogramDataPoint max ifNotNil: [
+		data at: 'max' put: anOTExponentialHistogramDataPoint max asFloat ].
+	anOTExponentialHistogramDataPoint zeroThreshold = 0 ifFalse: [
+		data
+			at: 'zeroThreshold'
+			put: anOTExponentialHistogramDataPoint zeroThreshold asFloat ].
+	^ data
+]
+
+{ #category : 'private - encoding' }
 OTOtlpJsonMetricEncoder >> histogramDataFor: anOTHistogramMetricData [
 
 	| data |

@@ -22,8 +22,32 @@ OTOtlpHttpJsonMetricExporter class >> configuration: anOtlpConfiguration [
 
 	^ self new
 		configuration: anOtlpConfiguration;
+		aggregationSelector: self configuredAggregationSelector;
 		temporalitySelector: self configuredTemporalitySelector;
 		yourself
+]
+
+{ #category : 'private - configuration' }
+OTOtlpHttpJsonMetricExporter class >> configuredAggregationPreference [
+
+	| rawValue |
+	rawValue := OTOtlpExporterConfiguration
+		environmentValueAt: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION'.
+	rawValue ifNil: [ ^ #explicitBucketHistogram ].
+	rawValue := rawValue asLowercase.
+	rawValue = 'explicit_bucket_histogram' ifTrue: [ ^ #explicitBucketHistogram ].
+	rawValue = 'base2_exponential_bucket_histogram' ifTrue: [
+		^ #base2ExponentialBucketHistogram ].
+	self noteInvalidHistogramAggregationPreference: rawValue.
+	^ #explicitBucketHistogram
+]
+
+{ #category : 'private - configuration' }
+OTOtlpHttpJsonMetricExporter class >> configuredAggregationSelector [
+
+	| preference |
+	preference := self configuredAggregationPreference.
+	^ [ :instrument | instrument otlpAggregationForPreference: preference ]
 ]
 
 { #category : 'private - configuration' }
@@ -78,6 +102,14 @@ OTOtlpHttpJsonMetricExporter class >> noteInvalidTemporalityPreference: aString 
 
 	OTMeterProvider configurationWarningSink value:
 		'OpenTelemetry OTLP metrics temporality preference was invalid and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonMetricExporter class >> noteInvalidHistogramAggregationPreference: aString [
+
+	OTMeterProvider configurationWarningSink value:
+		'OpenTelemetry OTLP metrics default histogram aggregation was invalid and has been ignored: '
 			, aString printString
 ]
 

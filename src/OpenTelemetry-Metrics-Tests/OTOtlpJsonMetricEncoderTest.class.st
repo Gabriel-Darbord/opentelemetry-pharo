@@ -81,6 +81,47 @@ OTOtlpJsonMetricEncoderTest >> sampleSnapshot [
 		collectedAt: (DateAndTime unixEpoch + (Duration nanoSeconds: 5))
 ]
 
+{ #category : 'private' }
+OTOtlpJsonMetricEncoderTest >> sampleExponentialHistogramSnapshot [
+
+	| histogramMetric histogramPoint resource scope |
+	resource := OTResource
+		attributes: { 'service.name' -> 'demo'. 'resource-attr' -> 'resource-value' }
+		schemaUrl: 'https://resource.example/schema'.
+	scope := OTInstrumentationScope
+		named: 'instrumentation'
+		version: '1.0.0'
+		schemaUrl: 'https://scope.example/schema'
+		attributes: { 'scope-key' -> 'scope-value' }.
+	histogramPoint := OTExponentialHistogramDataPoint new.
+	histogramPoint
+		attributes: { 'route' -> '/checkout' };
+		count: 8;
+		sum: 120.0;
+		scale: 3;
+		zeroCount: 1;
+		positiveBuckets: (OTExponentialBucketRange offset: 1 bucketCounts: #( 2 0 4 ));
+		negativeBuckets: (OTExponentialBucketRange offset: -2 bucketCounts: #( 1 ));
+		min: -3.0;
+		max: 55.0;
+		startTimestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 4));
+		timestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 5));
+		zeroThreshold: 0.25.
+	histogramMetric := OTExponentialHistogramMetricData new.
+	histogramMetric
+		instrumentationScope: scope;
+		name: 'request.duration';
+		description: 'Request duration';
+		unit: 'ms';
+		points: { histogramPoint };
+		temporality: #cumulative.
+	^ OTMetricSnapshot
+		resource: resource
+		measurements: #()
+		metrics: { histogramMetric }
+		collectedAt: (DateAndTime unixEpoch + (Duration nanoSeconds: 5))
+]
+
 { #category : 'running' }
 OTOtlpJsonMetricEncoderTest >> setUp [
 
@@ -114,4 +155,26 @@ OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotProducesSpecShapedOtlpJsonPaylo
 	self assert: (((histogram at: 'histogram') at: 'aggregationTemporality')) equals: 1.
 	self assert: ((((histogram at: 'histogram') at: 'dataPoints') first at: 'count')) equals: '3'.
 	self assert: ((((histogram at: 'histogram') at: 'dataPoints') first at: 'bucketCounts')) equals: #( '1' '1' '1' )
+]
+
+{ #category : 'tests' }
+OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotProducesExponentialHistogramJsonPayload [
+
+	| dataPoint histogram payload resourceMetrics scopeMetrics |
+	payload := encoder encodeSnapshot: self sampleExponentialHistogramSnapshot.
+	resourceMetrics := (payload at: 'resourceMetrics') first.
+	scopeMetrics := (resourceMetrics at: 'scopeMetrics') first.
+	histogram := ((scopeMetrics at: 'metrics') first at: 'exponentialHistogram').
+	self assert: (histogram at: 'aggregationTemporality') equals: 2.
+	dataPoint := (histogram at: 'dataPoints') first.
+	self assert: (dataPoint at: 'count') equals: '8'.
+	self assert: (dataPoint at: 'scale') equals: 3.
+	self assert: (dataPoint at: 'zeroCount') equals: '1'.
+	self assert: ((dataPoint at: 'positive') at: 'offset') equals: 1.
+	self
+		assert: ((dataPoint at: 'positive') at: 'bucketCounts')
+		equals: #( '2' '0' '4' ).
+	self assert: ((dataPoint at: 'negative') at: 'offset') equals: -2.
+	self assert: ((dataPoint at: 'negative') at: 'bucketCounts') equals: #( '1' ).
+	self assert: (dataPoint at: 'zeroThreshold') equals: 0.25
 ]

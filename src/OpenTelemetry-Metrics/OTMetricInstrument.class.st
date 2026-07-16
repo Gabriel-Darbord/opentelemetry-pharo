@@ -106,6 +106,12 @@ OTMetricInstrument >> metricDataFromMeasurements: someMeasurements using: anOTMe
 ]
 
 { #category : 'aggregating' }
+OTMetricInstrument >> otlpAggregationForPreference: aSymbol [
+
+	^ #default
+]
+
+{ #category : 'aggregating' }
 OTMetricInstrument >> otlpTemporalityForCumulativePreference [
 
 	^ #cumulative

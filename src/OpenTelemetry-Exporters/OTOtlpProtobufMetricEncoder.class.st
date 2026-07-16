@@ -93,6 +93,88 @@ OTOtlpProtobufMetricEncoder >> groupedMetricsFrom: someMetrics [
 ]
 
 { #category : 'private - encoding' }
+OTOtlpProtobufMetricEncoder >> writeExponentialBucketRange: anOTExponentialBucketRange on: aWriter [
+
+	anOTExponentialBucketRange bucketCounts ifEmpty: [ ^ self ].
+	aWriter
+		writeTag: 1 wireType: 0;
+		writeSInt32: anOTExponentialBucketRange offset.
+	anOTExponentialBucketRange bucketCounts do: [ :each |
+		aWriter
+			writeTag: 2 wireType: 0;
+			writeVarint: each ]
+]
+
+{ #category : 'private - encoding' }
+OTOtlpProtobufMetricEncoder >> writeExponentialHistogram: anOTExponentialHistogramMetricData on: aWriter [
+
+	anOTExponentialHistogramMetricData points do: [ :point |
+		aWriter
+			writeTag: 1 wireType: 2;
+			writeEmbedded: [ :embedded |
+				self writeExponentialHistogramDataPoint: point on: embedded ] ].
+	aWriter
+		writeTag: 2 wireType: 0;
+		writeVarint:
+			(self temporalityCodeFor: anOTExponentialHistogramMetricData temporality)
+]
+
+{ #category : 'private - encoding' }
+OTOtlpProtobufMetricEncoder >> writeExponentialHistogramDataPoint: anOTExponentialHistogramDataPoint on: aWriter [
+
+	self
+		writeAttributes: anOTExponentialHistogramDataPoint attributes
+		fieldNumber: 1
+		on: aWriter.
+	anOTExponentialHistogramDataPoint startTimestamp ifNotNil: [
+		aWriter
+			writeTag: 2 wireType: 1;
+			writeFixed64:
+				(self
+					unixNanosecondsFor: anOTExponentialHistogramDataPoint startTimestamp) ].
+	aWriter
+		writeTag: 3 wireType: 1;
+		writeFixed64:
+			(self unixNanosecondsFor: anOTExponentialHistogramDataPoint timestamp);
+		writeTag: 4 wireType: 1;
+		writeFixed64: anOTExponentialHistogramDataPoint count;
+		writeTag: 5 wireType: 1;
+		writeDouble: anOTExponentialHistogramDataPoint sum;
+		writeTag: 6 wireType: 0;
+		writeSInt32: anOTExponentialHistogramDataPoint scale;
+		writeTag: 7 wireType: 1;
+		writeFixed64: anOTExponentialHistogramDataPoint zeroCount.
+	anOTExponentialHistogramDataPoint positiveBuckets bucketCounts ifNotEmpty: [
+		aWriter
+			writeTag: 8 wireType: 2;
+			writeEmbedded: [ :positive |
+				self
+					writeExponentialBucketRange:
+						anOTExponentialHistogramDataPoint positiveBuckets
+					on: positive ] ].
+	anOTExponentialHistogramDataPoint negativeBuckets bucketCounts ifNotEmpty: [
+		aWriter
+			writeTag: 9 wireType: 2;
+			writeEmbedded: [ :negative |
+				self
+					writeExponentialBucketRange:
+						anOTExponentialHistogramDataPoint negativeBuckets
+					on: negative ] ].
+	anOTExponentialHistogramDataPoint min ifNotNil: [
+		aWriter
+			writeTag: 12 wireType: 1;
+			writeDouble: anOTExponentialHistogramDataPoint min ].
+	anOTExponentialHistogramDataPoint max ifNotNil: [
+		aWriter
+			writeTag: 13 wireType: 1;
+			writeDouble: anOTExponentialHistogramDataPoint max ].
+	anOTExponentialHistogramDataPoint zeroThreshold = 0 ifFalse: [
+		aWriter
+			writeTag: 14 wireType: 1;
+			writeDouble: anOTExponentialHistogramDataPoint zeroThreshold ]
+]
+
+{ #category : 'private - encoding' }
 OTOtlpProtobufMetricEncoder >> temporalityCodeFor: aSymbol [
 
 	^ aSymbol = #delta ifTrue: [ 1 ] ifFalse: [ 2 ]

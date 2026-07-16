@@ -90,6 +90,22 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesCumulativeTemporalityPref
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesExplicitBucketHistogramAggregationByDefaultForOtlpExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+			yourself)
+		during: [
+			| histogram provider reader |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			histogram := (provider meterNamed: 'demo.metrics')
+				histogramNamed: 'request.duration'.
+			self assert: (reader aggregationFor: histogram) equals: #default ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpHttpProtobufExporterWhenSettingIsAbsent [
 
 	self
@@ -135,6 +151,26 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesDeltaTemporalityPreferenc
 			self assert: (reader temporalityFor: histogram) equals: #delta.
 			self assert: (reader temporalityFor: asyncCounter) equals: #delta.
 			self assert: (reader temporalityFor: upDownCounter) equals: #cumulative ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggregationWhenConfiguredForOtlpExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+			at: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION'
+				put: 'base2_exponential_bucket_histogram';
+			yourself)
+		during: [
+			| histogram provider reader |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			histogram := (provider meterNamed: 'demo.metrics')
+				histogramNamed: 'request.duration'.
+			self
+				assert: (reader aggregationFor: histogram)
+				equals: #base2ExponentialBucketHistogram ]
 ]
 
 { #category : 'tests' }
@@ -243,6 +279,28 @@ OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidMetricReader
 			equals: #(
 				'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for ''OTEL_METRIC_EXPORT_INTERVAL'': ''invalid'''
 				'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for ''OTEL_METRIC_EXPORT_TIMEOUT'': ''-1''' ) ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidOtlpHistogramAggregationAndFallsBackToExplicitBuckets [
+
+	self withWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+				at: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION'
+					put: 'wide-open-spaces';
+				yourself)
+			during: [
+				| histogram provider reader |
+				provider := OTMeterProvider current.
+				reader := provider metricReaders first.
+				histogram := (provider meterNamed: 'demo.metrics')
+					histogramNamed: 'request.duration'.
+				self assert: (reader aggregationFor: histogram) equals: #default ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry OTLP metrics default histogram aggregation was invalid and has been ignored: ''wide-open-spaces''' ]
 ]
 
 { #category : 'tests' }

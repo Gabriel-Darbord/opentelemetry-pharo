@@ -5,12 +5,36 @@ Class {
 		'provider',
 		'shutdown',
 		'temporalitySelector',
+		'aggregationSelector',
 		'lastCollectionTimestampByInstrument',
 		'lastAsynchronousValuesByInstrument'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'accessing' }
+OTMetricReader >> aggregationFor: anOTMetricInstrument [
+
+	| selected |
+	selected := self aggregationSelector value: anOTMetricInstrument.
+	^ selected = #base2ExponentialBucketHistogram
+		ifTrue: [ #base2ExponentialBucketHistogram ]
+		ifFalse: [ #default ]
+]
+
+{ #category : 'accessing' }
+OTMetricReader >> aggregationSelector [
+
+	^ aggregationSelector
+		ifNil: [ self defaultAggregationSelector ]
+]
+
+{ #category : 'accessing' }
+OTMetricReader >> aggregationSelector: aBlockOrNil [
+
+	aggregationSelector := aBlockOrNil
+]
 
 { #category : 'collecting' }
 OTMetricReader >> collect [
@@ -63,6 +87,12 @@ OTMetricReader >> defaultTemporalitySelector [
 	^ [ :instrument | #cumulative ]
 ]
 
+{ #category : 'accessing' }
+OTMetricReader >> defaultAggregationSelector [
+
+	^ [ :instrument | #default ]
+]
+
 { #category : 'lifecycle' }
 OTMetricReader >> forceFlush [
 
@@ -76,7 +106,8 @@ OTMetricReader >> initialize [
 	shutdown := false.
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.
 	lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new.
-	temporalitySelector := nil
+	temporalitySelector := nil.
+	aggregationSelector := nil
 ]
 
 { #category : 'testing' }
@@ -147,6 +178,7 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument collectedAt:
 		collectedAt: aDateAndTime
 		startTimestamp: startTimestamp
 		temporality: temporality
+		aggregation: (self aggregationFor: anOTMetricInstrument)
 ]
 
 { #category : 'collecting' }

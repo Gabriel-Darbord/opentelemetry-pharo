@@ -4,7 +4,8 @@ Class {
 	#instVars : [
 		'collectedAt',
 		'startTimestamp',
-		'temporality'
+		'temporality',
+		'aggregation'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -13,13 +14,36 @@ Class {
 { #category : 'instance creation' }
 OTMetricAggregationContext class >> collectedAt: aCollectedAt startTimestamp: aStartTimestamp temporality: aTemporalitySymbol [
 
+	^ self
+		collectedAt: aCollectedAt
+		startTimestamp: aStartTimestamp
+		temporality: aTemporalitySymbol
+		aggregation: #default
+]
+
+{ #category : 'instance creation' }
+OTMetricAggregationContext class >> collectedAt: aCollectedAt startTimestamp: aStartTimestamp temporality: aTemporalitySymbol aggregation: anAggregationSymbol [
+
 	| context |
 	context := self new.
 	context
 		collectedAt: aCollectedAt;
 		startTimestamp: aStartTimestamp;
-		temporality: aTemporalitySymbol.
+		temporality: aTemporalitySymbol;
+		aggregation: anAggregationSymbol.
 	^ context
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> aggregation [
+
+	^ aggregation ifNil: [ #default ]
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> aggregation: aSymbol [
+
+	aggregation := aSymbol ifNil: [ #default ] ifNotNil: [ aSymbol ]
 ]
 
 { #category : 'accessing' }

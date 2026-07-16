@@ -44,6 +44,12 @@ OTPeriodicExportingMetricReader >> defaultTemporalitySelector [
 ]
 
 { #category : 'accessing' }
+OTPeriodicExportingMetricReader >> defaultAggregationSelector [
+
+	^ self exporter aggregationSelector
+]
+
+{ #category : 'accessing' }
 OTPeriodicExportingMetricReader >> exporter [
 
 	^ exporter ifNil: [ exporter := OTNoopMetricExporter new ]

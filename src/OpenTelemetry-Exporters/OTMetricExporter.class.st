@@ -3,11 +3,27 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'shutdown',
-		'temporalitySelector'
+		'temporalitySelector',
+		'aggregationSelector'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
 }
+
+{ #category : 'accessing' }
+OTMetricExporter >> aggregationSelector [
+
+	^ aggregationSelector
+		ifNil: [ aggregationSelector := [ :instrument | #default ] ]
+]
+
+{ #category : 'accessing' }
+OTMetricExporter >> aggregationSelector: aBlockOrNil [
+
+	aggregationSelector := aBlockOrNil
+		ifNil: [ [ :instrument | #default ] ]
+		ifNotNil: [ aBlockOrNil ]
+]
 
 { #category : 'exporting' }
 OTMetricExporter >> export: anOTMetricSnapshot [
@@ -26,7 +42,8 @@ OTMetricExporter >> initialize [
 
 	super initialize.
 	shutdown := false.
-	temporalitySelector := [ :instrument | #cumulative ]
+	temporalitySelector := [ :instrument | #cumulative ].
+	aggregationSelector := [ :instrument | #default ]
 ]
 
 { #category : 'testing' }
