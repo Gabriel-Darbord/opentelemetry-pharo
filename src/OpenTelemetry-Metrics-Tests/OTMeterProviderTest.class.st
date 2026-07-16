@@ -10,6 +10,7 @@ OTMeterProviderTest >> tearDown [
 
 	[
 		OpenTelemetry meterProvider: nil.
+		OTMeter instrumentWarningSink: nil.
 		OTMeterProvider meterNameWarningSink: nil.
 		OTMeterProvider reset ]
 		ensure: [ super tearDown ]
@@ -34,6 +35,17 @@ OTMeterProviderTest >> withMeterNameWarningsDo: aBlock [
 		ensure: [ OTMeterProvider meterNameWarningSink: nil ]
 }
 
+{ #category : 'private' }
+OTMeterProviderTest >> withInstrumentWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTMeter instrumentWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTMeter instrumentWarningSink: nil ]
+}
+
 { #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousInstrumentCreationAcceptsCallbacksWithoutInvokingThem [
 
@@ -48,6 +60,11 @@ OTMeterProviderTest >> testAsynchronousInstrumentCreationAcceptsCallbacksWithout
 		description: 'CPU'
 		advice: { 'attributes' -> #( 'state' ) } asDictionary.
 	self assert: instrument class identicalTo: OTObservableCounter.
+	self assert: instrument meter identicalTo: meter.
+	self assert: instrument name equals: 'runtime.cpu'.
+	self assert: instrument unit equals: '1'.
+	self assert: instrument description equals: 'CPU'.
+	self assert: instrument callbacks size equals: 1.
 	self assert: callbackCount equals: 0
 ]
 
@@ -114,6 +131,43 @@ OTMeterProviderTest >> testMeterCreationReturnsNoopInstruments [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMeterReturnsIdenticalInstrumentForIdenticalRegistration [
+
+	| first second meter |
+	meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+	first := meter
+		counterNamed: 'requests.total'
+		unit: '1'
+		description: 'Request count'
+		advice: { 'attributes' -> #( 'method' ) } asDictionary.
+	second := meter
+		counterNamed: 'requests.total'
+		unit: '1'
+		description: 'Request count'
+		advice: { 'attributes' -> #( 'method' ) } asDictionary.
+	self assert: first identicalTo: second
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterReturnsRealInstrumentMetadata [
+
+	| instrument meter |
+	meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+	instrument := meter
+		histogramNamed: 'request.duration'
+		unit: 'ms'
+		description: 'Request duration'
+		advice: { 'attributes' -> #( 'method' ) } asDictionary.
+	self assert: instrument meter identicalTo: meter.
+	self assert: instrument name equals: 'request.duration'.
+	self assert: instrument unit equals: 'ms'.
+	self assert: instrument description equals: 'Request duration'.
+	self
+		assert: (instrument advice at: 'attributes')
+		equals: #( 'method' )
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterExposesInstrumentationScopeMetadata [
 
 	| meter |
@@ -129,6 +183,29 @@ OTMeterProviderTest >> testMeterExposesInstrumentationScopeMetadata [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMeterWarnsAndReusesFirstSeenAdviceForIdenticalInstrument [
+
+	self withInstrumentWarningsDo: [ :warnings |
+		| first second meter |
+		meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+		first := meter
+			counterNamed: 'requests.total'
+			unit: '1'
+			description: 'Request count'
+			advice: { 'attributes' -> #( 'method' ) } asDictionary.
+		second := meter
+			counterNamed: 'requests.total'
+			unit: '1'
+			description: 'Request count'
+			advice: { 'attributes' -> #( 'status' ) } asDictionary.
+		self assert: second identicalTo: first.
+		self
+			assert: (second advice at: 'attributes')
+			equals: #( 'method' ).
+		self assert: warnings size equals: 1 ]
+}
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterProviderAcceptsRichMeterParametersWithoutValidation [
 
 	| meter provider |
@@ -140,6 +217,27 @@ OTMeterProviderTest >> testMeterProviderAcceptsRichMeterParametersWithoutValidat
 		attributes: { 'scope.answer' -> 42. #component -> 'worker' }.
 	self deny: meter isNoop
 ]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarnsAndReusesFirstSeenNameCasing [
+
+	self withInstrumentWarningsDo: [ :warnings |
+		| first second meter |
+		meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+		first := meter
+			counterNamed: 'requestCount'
+			unit: '1'
+			description: ''
+			advice: Dictionary new.
+		second := meter
+			counterNamed: 'RequestCount'
+			unit: '1'
+			description: ''
+			advice: Dictionary new.
+		self assert: second identicalTo: first.
+		self assert: second name equals: 'requestCount'.
+		self assert: warnings size equals: 1 ]
+}
 
 { #category : 'tests' }
 OTMeterProviderTest >> testMeterProviderCachesByFullInstrumentationScope [
@@ -164,6 +262,26 @@ OTMeterProviderTest >> testMeterProviderCachesByFullInstrumentationScope [
 	self assert: first identicalTo: second.
 	self deny: first identicalTo: third
 ]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarnsOnDuplicateInstrumentRegistrationWithDifferentDescription [
+
+	self withInstrumentWarningsDo: [ :warnings |
+		| first second meter |
+		meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+		first := meter
+			counterNamed: 'requests.total'
+			unit: '1'
+			description: 'First'
+			advice: Dictionary new.
+		second := meter
+			counterNamed: 'requests.total'
+			unit: '1'
+			description: 'Second'
+			advice: Dictionary new.
+		self deny: second identicalTo: first.
+		self assert: warnings size equals: 1 ]
+}
 
 { #category : 'tests' }
 OTMeterProviderTest >> testOpenTelemetryMeterNamedDelegatesToCurrentMeterProvider [
@@ -216,6 +334,21 @@ OTMeterProviderTest >> testSynchronousNoopInstrumentOperationsAreSafe [
 	self shouldnt: [ histogram record: 12.5 ] raise: Error.
 	self shouldnt: [ gauge record: 7 ] raise: Error
 ]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarnsOnInvalidInstrumentNamesAndPreservesOriginalText [
+
+	self withInstrumentWarningsDo: [ :warnings |
+		| instrument meter |
+		meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+		instrument := meter
+			counterNamed: '1 requests'
+			unit: '1'
+			description: ''
+			advice: Dictionary new.
+		self assert: instrument name equals: '1 requests'.
+		self assert: warnings size equals: 1 ]
+}
 
 { #category : 'tests' }
 OTMeterProviderTest >> testWarnsAndNormalizesInvalidMeterNames [

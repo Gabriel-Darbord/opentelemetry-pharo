@@ -23,6 +23,8 @@ The current metrics implementation provides:
   - `OTObservableGauge`
 - `OpenTelemetry` entry points for the global meter provider
 - meter caching by full instrumentation scope
+- instrument caching by identifying fields `(name, kind, unit, description)`
+- duplicate registration warnings for case-only name conflicts, conflicting metadata, and conflicting advisory parameters
 - invalid meter-name normalization with diagnostic warnings
 - provider lifecycle behavior for `shutdown` and `forceFlush`
 
@@ -86,9 +88,16 @@ All current metric instruments are no-op instruments:
 - `enabled` answers `false`
 - synchronous recording messages such as `add:` and `record:` are accepted and ignored
 - asynchronous observation messages such as `observe:` are accepted and ignored
-- asynchronous creation accepts callback blocks but does not retain or execute them yet
+- asynchronous creation accepts callback blocks, retains them on the instrument object, but does not execute them yet
 - `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters
 - `OTMeterProvider>>forceFlush` currently answers success without work because no readers/exporters exist yet
+
+Meters do already preserve instrument registration identity:
+
+- creating the same instrument twice with identical identifying fields returns the same instrument object
+- creating the same instrument name with different casing returns the first-seen instrument and emits a warning
+- creating the same instrument name/kind with different `unit` or `description` returns a distinct instrument and emits a warning
+- creating identical instruments with different advisory parameters reuses the first-seen advisory parameters and emits a warning
 
 That means you can start writing Pharo code against the metrics API now, and we
 can evolve the implementation underneath it without redesigning the public
