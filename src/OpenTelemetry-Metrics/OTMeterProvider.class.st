@@ -6,6 +6,10 @@ The current implementation is a spec-shaped no-op foundation.
 Class {
 	#name : 'OTMeterProvider',
 	#superclass : 'Object',
+	#instVars : [
+		'meters',
+		'shutdown'
+	],
 	#classVars : [
 		'Current'
 	],
@@ -31,6 +35,60 @@ OTMeterProvider class >> reset [
 	Current := nil
 ]
 
+{ #category : 'private - logging' }
+OTMeterProvider class >> defaultMeterNameWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> meterNameWarningSink [
+
+	^ OTClassStateStore
+		valueAt: #otMeterNameWarningSink
+		forClass: self
+		ifAbsent: [ self defaultMeterNameWarningSink ]
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> meterNameWarningSink: aBlock [
+
+	aBlock
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otMeterNameWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otMeterNameWarningSink
+				forClass: self
+				put: aBlock ].
+	^ self meterNameWarningSink
+]
+
+{ #category : 'private - logging' }
+OTMeterProvider class >> noteInvalidMeterName: aValue [
+
+	self meterNameWarningSink value:
+		'OpenTelemetry meter name was invalid and has been normalized to an empty string: '
+			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> normalizedMeterNameFrom: aValue [
+
+	| meterName |
+	aValue ifNil: [
+		self noteInvalidMeterName: aValue.
+		^ '' ].
+	meterName := aValue asString.
+	meterName trimBoth isEmpty ifTrue: [
+		self noteInvalidMeterName: aValue.
+		^ '' ].
+	^ meterName
+]
+
 { #category : 'accessing' }
 OTMeterProvider >> meterNamed: aString [
 
@@ -44,5 +102,47 @@ OTMeterProvider >> meterNamed: aString [
 { #category : 'accessing' }
 OTMeterProvider >> meterNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
-	^ OTMeter noop
+	| scope |
+	scope := OTInstrumentationScope
+		named: (self class normalizedMeterNameFrom: aString)
+		version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
+		schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
+		attributes: aCollection.
+	self isShutdown ifTrue: [ ^ OTMeter forProvider: nil instrumentationScope: scope ].
+	^ self meters
+		at: scope
+		ifAbsentPut: [ OTMeter forProvider: self instrumentationScope: scope ]
+]
+
+{ #category : 'lifecycle' }
+OTMeterProvider >> forceFlush [
+
+	^ true
+]
+
+{ #category : 'initialization' }
+OTMeterProvider >> initialize [
+
+	super initialize.
+	meters := OrderedDictionary new.
+	shutdown := false
+]
+
+{ #category : 'testing' }
+OTMeterProvider >> isShutdown [
+
+	^ shutdown
+]
+
+{ #category : 'accessing' }
+OTMeterProvider >> meters [
+
+	^ meters ifNil: [ meters := OrderedDictionary new ]
+]
+
+{ #category : 'lifecycle' }
+OTMeterProvider >> shutdown [
+
+	shutdown := true.
+	^ true
 ]

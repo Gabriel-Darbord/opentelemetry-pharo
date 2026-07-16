@@ -10,9 +10,29 @@ OTMeterProviderTest >> tearDown [
 
 	[
 		OpenTelemetry meterProvider: nil.
+		OTMeterProvider meterNameWarningSink: nil.
 		OTMeterProvider reset ]
 		ensure: [ super tearDown ]
 ]
+
+{ #category : 'private' }
+OTMeterProviderTest >> sampleAttributes [
+
+	^ OrderedDictionary new
+		at: 'scope.answer' put: 42;
+		yourself
+]
+
+{ #category : 'private' }
+OTMeterProviderTest >> withMeterNameWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTMeterProvider meterNameWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTMeterProvider meterNameWarningSink: nil ]
+}
 
 { #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousInstrumentCreationAcceptsCallbacksWithoutInvokingThem [
@@ -44,12 +64,32 @@ OTMeterProviderTest >> testAsynchronousNoopInstrumentOperationsAreSafe [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testDistinctMeterRequestsReturnDistinctMeters [
+
+	| first second provider |
+	provider := OTMeterProvider new.
+	first := provider meterNamed: 'first'.
+	second := provider
+		meterNamed: 'second'
+		version: '1.2.3'
+		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		attributes: { 'component' -> 'worker' }.
+	self deny: first identicalTo: second
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testExplicitMeterProviderCanBeInstalledGlobally [
 
 	| provider |
 	provider := OTMeterProvider new.
 	OpenTelemetry meterProvider: provider.
 	self assert: OpenTelemetry meterProvider identicalTo: provider
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testForceFlushAnswersSuccess [
+
+	self assert: OTMeterProvider new forceFlush
 ]
 
 { #category : 'tests' }
@@ -74,6 +114,21 @@ OTMeterProviderTest >> testMeterCreationReturnsNoopInstruments [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMeterExposesInstrumentationScopeMetadata [
+
+	| meter |
+	meter := OTMeterProvider current
+		meterNamed: 'demo.metrics'
+		version: '1.2.3'
+		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		attributes: self sampleAttributes.
+	self assert: meter instrumentationName equals: 'demo.metrics'.
+	self assert: meter instrumentationVersion equals: '1.2.3'.
+	self assert: meter schemaUrl equals: 'https://opentelemetry.io/schemas/1.0.0'.
+	self assert: (meter scopeAttributes at: 'scope.answer') equals: 42
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterProviderAcceptsRichMeterParametersWithoutValidation [
 
 	| meter provider |
@@ -82,22 +137,32 @@ OTMeterProviderTest >> testMeterProviderAcceptsRichMeterParametersWithoutValidat
 		meterNamed: nil
 		version: 42
 		schemaUrl: Object new
-		attributes: { 1 -> 2. #x -> nil }.
-	self assert: meter identicalTo: OTMeter noop
+		attributes: { 'scope.answer' -> 42. #component -> 'worker' }.
+	self deny: meter isNoop
 ]
 
 { #category : 'tests' }
-OTMeterProviderTest >> testMeterProviderMayReturnSameMeterForDistinctRequests [
+OTMeterProviderTest >> testMeterProviderCachesByFullInstrumentationScope [
 
-	| first second provider |
+	| first second third provider |
 	provider := OTMeterProvider new.
-	first := provider meterNamed: 'first'.
-	second := provider
-		meterNamed: 'second'
+	first := provider
+		meterNamed: 'demo.metrics'
 		version: '1.2.3'
 		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
-		attributes: { 'component' -> 'worker' }.
-	self assert: first identicalTo: second
+		attributes: self sampleAttributes.
+	second := provider
+		meterNamed: 'demo.metrics'
+		version: '1.2.3'
+		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		attributes: self sampleAttributes.
+	third := provider
+		meterNamed: 'demo.metrics'
+		version: '2.0.0'
+		schemaUrl: ''
+		attributes: #().
+	self assert: first identicalTo: second.
+	self deny: first identicalTo: third
 ]
 
 { #category : 'tests' }
@@ -109,13 +174,29 @@ OTMeterProviderTest >> testOpenTelemetryMeterNamedDelegatesToCurrentMeterProvide
 		version: '1.0.0'
 		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
 		attributes: { 'component' -> 'worker' }.
-	self assert: meter identicalTo: OTMeter noop
+	self assert: meter instrumentationName equals: 'demo.metrics'
 ]
 
 { #category : 'tests' }
 OTMeterProviderTest >> testOpenTelemetryMeterProviderUsesCurrentGlobalSingleton [
 
 	self assert: OpenTelemetry meterProvider identicalTo: OTMeterProvider current
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testShutdownMakesFutureMetersNoopButPreservesScope [
+
+	| meter provider |
+	provider := OTMeterProvider new.
+	self assert: provider shutdown.
+	meter := provider
+		meterNamed: 'demo.metrics'
+		version: '1.2.3'
+		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		attributes: self sampleAttributes.
+	self assert: meter isNoop.
+	self assert: meter instrumentationName equals: 'demo.metrics'.
+	self assert: meter instrumentationVersion equals: '1.2.3'
 ]
 
 { #category : 'tests' }
@@ -135,3 +216,17 @@ OTMeterProviderTest >> testSynchronousNoopInstrumentOperationsAreSafe [
 	self shouldnt: [ histogram record: 12.5 ] raise: Error.
 	self shouldnt: [ gauge record: 7 ] raise: Error
 ]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testWarnsAndNormalizesInvalidMeterNames [
+
+	self withMeterNameWarningsDo: [ :warnings |
+		| meter provider |
+		provider := OTMeterProvider new.
+		meter := provider meterNamed: '   '.
+		self assert: meter instrumentationName equals: ''.
+		self
+			assert: warnings asArray
+			equals: {
+				'OpenTelemetry meter name was invalid and has been normalized to an empty string: ''   ''' } ]
+}

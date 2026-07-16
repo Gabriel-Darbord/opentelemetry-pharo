@@ -6,9 +6,24 @@ The current implementation is a spec-shaped no-op meter.
 Class {
 	#name : 'OTMeter',
 	#superclass : 'Object',
+	#instVars : [
+		'provider',
+		'instrumentationScope'
+	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'instance creation' }
+OTMeter class >> forProvider: anOTMeterProvider instrumentationScope: anInstrumentationScope [
+
+	| meter |
+	meter := self new.
+	meter
+		provider: anOTMeterProvider;
+		instrumentationScope: anInstrumentationScope.
+	^ meter
+]
 
 { #category : 'instance creation' }
 OTMeter class >> noop [
@@ -18,9 +33,38 @@ OTMeter class >> noop [
 		forClass: self
 		ifAbsent: [
 			| meter |
-			meter := self new.
+			meter := self
+				forProvider: nil
+				instrumentationScope: (OTInstrumentationScope named: '').
 			OTClassStateStore valueAt: #otNoopMeter forClass: self put: meter.
 			meter ]
+]
+
+{ #category : 'accessing' }
+OTMeter >> instrumentationName [
+
+	^ self instrumentationScope name
+]
+
+{ #category : 'accessing' }
+OTMeter >> instrumentationScope [
+
+	^ instrumentationScope ifNil: [ OTInstrumentationScope named: '' ]
+]
+
+{ #category : 'accessing' }
+OTMeter >> instrumentationScope: anInstrumentationScope [
+
+	instrumentationScope := anInstrumentationScope
+		ifNil: [ OTInstrumentationScope named: '' ]
+		ifNotNil: [ anInstrumentationScope ].
+	^ instrumentationScope
+]
+
+{ #category : 'accessing' }
+OTMeter >> instrumentationVersion [
+
+	^ self instrumentationScope version
 ]
 
 { #category : 'accessing' }
@@ -88,6 +132,12 @@ OTMeter >> histogramNamed: aString unit: aUnitString description: aDescriptionSt
 
 	^ OTHistogram noop
 ]
+
+{ #category : 'testing' }
+OTMeter >> isNoop [
+
+	^ provider isNil
+}
 
 { #category : 'accessing' }
 OTMeter >> observableCounterNamed: aString [
@@ -171,6 +221,30 @@ OTMeter >> observableUpDownCounterNamed: aString callbacks: someCallbacks [
 OTMeter >> observableUpDownCounterNamed: aString callbacks: someCallbacks unit: aUnitString description: aDescriptionString advice: aDictionary [
 
 	^ OTObservableUpDownCounter noop
+]
+
+{ #category : 'accessing' }
+OTMeter >> provider [
+
+	^ provider
+]
+
+{ #category : 'accessing' }
+OTMeter >> provider: anOTMeterProvider [
+
+	provider := anOTMeterProvider
+]
+
+{ #category : 'accessing' }
+OTMeter >> schemaUrl [
+
+	^ self instrumentationScope schemaUrl
+]
+
+{ #category : 'accessing' }
+OTMeter >> scopeAttributes [
+
+	^ self instrumentationScope allAttributes
 ]
 
 { #category : 'accessing' }

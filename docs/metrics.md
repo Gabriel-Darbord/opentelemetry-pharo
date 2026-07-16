@@ -22,6 +22,9 @@ The current metrics implementation provides:
   - `OTObservableUpDownCounter`
   - `OTObservableGauge`
 - `OpenTelemetry` entry points for the global meter provider
+- meter caching by full instrumentation scope
+- invalid meter-name normalization with diagnostic warnings
+- provider lifecycle behavior for `shutdown` and `forceFlush`
 
 The current metrics implementation does not yet provide:
 
@@ -49,6 +52,11 @@ meter := provider
 	schemaUrl: ''
 	attributes: { 'component' -> 'worker' }.
 ```
+
+Meters are cached by the full instrumentation-scope tuple
+`(name, version, schemaUrl, attributes)`. Repeating the same request returns
+the same meter object, while changing any of those values returns a distinct
+meter.
 
 ## Creating Instruments
 
@@ -79,6 +87,8 @@ All current metric instruments are no-op instruments:
 - synchronous recording messages such as `add:` and `record:` are accepted and ignored
 - asynchronous observation messages such as `observe:` are accepted and ignored
 - asynchronous creation accepts callback blocks but does not retain or execute them yet
+- `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters
+- `OTMeterProvider>>forceFlush` currently answers success without work because no readers/exporters exist yet
 
 That means you can start writing Pharo code against the metrics API now, and we
 can evolve the implementation underneath it without redesigning the public
