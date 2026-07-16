@@ -572,8 +572,11 @@ OTMeterProviderTest >> testMetricSnapshotAggregatesCounterMeasurementsAsMonotoni
 	metric := snapshot metrics first.
 	self assert: metric class identicalTo: OTSumMetricData.
 	self assert: metric monotonic.
+	self assert: metric temporality equals: #cumulative.
 	point := metric points first.
 	self assert: point value equals: 3.
+	self assert: point startTimestamp equals: provider measurements first timestamp.
+	self assert: point timestamp equals: snapshot collectedAt.
 	self assert: (point attributes at: 'method') equals: 'GET'
 ]
 
@@ -625,11 +628,13 @@ OTMeterProviderTest >> testMetricSnapshotAggregatesHistogramMeasurementsWithExpl
 	snapshot := reader collectSnapshot.
 	histogramMetric := snapshot metrics first.
 	self assert: histogramMetric class identicalTo: OTHistogramMetricData.
+	self assert: histogramMetric temporality equals: #cumulative.
 	point := histogramMetric points first.
 	self assert: point count equals: 3.
 	self assert: point sum equals: 45.
 	self assert: point min equals: 5.
 	self assert: point max equals: 25.
+	self assert: point timestamp equals: snapshot collectedAt.
 	self assert: point explicitBounds equals: #( 10.0 20.0 ).
 	self assert: point bucketCounts equals: #( 1 1 1 )
 ]

@@ -3,20 +3,24 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'attributes',
-		'value'
+		'value',
+		'startTimestamp',
+		'timestamp'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'instance creation' }
-OTNumberDataPoint class >> attributes: aCollection value: aNumber [
+OTNumberDataPoint class >> attributes: aCollection value: aNumber startTimestamp: aStartDateAndTime timestamp: anEndDateAndTime [
 
 	| point |
 	point := self new.
 	point
 		attributes: aCollection;
-		value: aNumber.
+		value: aNumber;
+		startTimestamp: aStartDateAndTime;
+		timestamp: anEndDateAndTime.
 	^ point
 ]
 
@@ -42,4 +46,28 @@ OTNumberDataPoint >> value [
 OTNumberDataPoint >> value: aNumber [
 
 	value := aNumber
+]
+
+{ #category : 'accessing' }
+OTNumberDataPoint >> startTimestamp [
+
+	^ startTimestamp
+]
+
+{ #category : 'accessing' }
+OTNumberDataPoint >> startTimestamp: aDateAndTime [
+
+	startTimestamp := aDateAndTime
+]
+
+{ #category : 'accessing' }
+OTNumberDataPoint >> timestamp [
+
+	^ timestamp
+]
+
+{ #category : 'accessing' }
+OTNumberDataPoint >> timestamp: aDateAndTime [
+
+	timestamp := aDateAndTime
 ]

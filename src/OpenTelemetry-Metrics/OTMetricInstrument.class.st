@@ -77,6 +77,14 @@ OTMetricInstrument >> instrumentationScope [
 { #category : 'aggregating' }
 OTMetricInstrument >> metricDataFromMeasurements: someMeasurements [
 
+	^ self
+		metricDataFromMeasurements: someMeasurements
+		collectedAt: DateAndTime now asUTC
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> metricDataFromMeasurements: someMeasurements collectedAt: aDateAndTime [
+
 	self subclassResponsibility
 ]
 

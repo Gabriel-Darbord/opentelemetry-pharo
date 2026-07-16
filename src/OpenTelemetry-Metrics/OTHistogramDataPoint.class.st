@@ -8,14 +8,16 @@ Class {
 		'min',
 		'max',
 		'explicitBounds',
-		'bucketCounts'
+		'bucketCounts',
+		'startTimestamp',
+		'timestamp'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'instance creation' }
-OTHistogramDataPoint class >> attributes: aCollection count: aCount sum: aSum min: aMin max: aMax explicitBounds: someBounds bucketCounts: someBucketCounts [
+OTHistogramDataPoint class >> attributes: aCollection count: aCount sum: aSum min: aMin max: aMax explicitBounds: someBounds bucketCounts: someBucketCounts startTimestamp: aStartDateAndTime timestamp: anEndDateAndTime [
 
 	| point |
 	point := self new.
@@ -26,7 +28,9 @@ OTHistogramDataPoint class >> attributes: aCollection count: aCount sum: aSum mi
 		min: aMin;
 		max: aMax;
 		explicitBounds: someBounds;
-		bucketCounts: someBucketCounts.
+		bucketCounts: someBucketCounts;
+		startTimestamp: aStartDateAndTime;
+		timestamp: anEndDateAndTime.
 	^ point
 ]
 
@@ -113,3 +117,27 @@ OTHistogramDataPoint >> sum: aNumber [
 
 	sum := aNumber
 ]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> startTimestamp [
+
+	^ startTimestamp
+]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> startTimestamp: aDateAndTime [
+
+	startTimestamp := aDateAndTime
+]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> timestamp [
+
+	^ timestamp
+]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> timestamp: aDateAndTime [
+
+	timestamp := aDateAndTime
+}

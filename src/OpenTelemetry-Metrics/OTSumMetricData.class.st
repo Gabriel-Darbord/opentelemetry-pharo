@@ -2,7 +2,8 @@ Class {
 	#name : 'OTSumMetricData',
 	#superclass : 'OTMetricData',
 	#instVars : [
-		'monotonic'
+		'monotonic',
+		'temporality'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -14,6 +15,7 @@ OTSumMetricData class >> instrument: anOTMetricInstrument points: aCollection mo
 	| metric |
 	metric := self instrument: anOTMetricInstrument points: aCollection.
 	metric monotonic: aBoolean.
+	metric temporality: #cumulative.
 	^ metric
 ]
 
@@ -27,4 +29,16 @@ OTSumMetricData >> monotonic [
 OTSumMetricData >> monotonic: aBoolean [
 
 	monotonic := aBoolean = true
+]
+
+{ #category : 'accessing' }
+OTSumMetricData >> temporality [
+
+	^ temporality ifNil: [ #cumulative ]
+]
+
+{ #category : 'accessing' }
+OTSumMetricData >> temporality: aSymbol [
+
+	temporality := aSymbol ifNil: [ #cumulative ] ifNotNil: [ aSymbol ]
 ]

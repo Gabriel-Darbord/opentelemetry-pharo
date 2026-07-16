@@ -28,13 +28,16 @@ OTMetricReader >> attachToProvider: anOTMeterProvider [
 { #category : 'collecting' }
 OTMetricReader >> collectSnapshot [
 
+	| collectedAt |
 	self isShutdown ifTrue: [ ^ OTMetricSnapshot empty ].
+	collectedAt := DateAndTime now asUTC.
 	^ self provider
 		ifNil: [ OTMetricSnapshot empty ]
 		ifNotNil: [ :aProvider |
 			OTMetricSnapshot
 				resource: aProvider resource
-				measurements: (aProvider collectMeasurementsFor: self) ]
+				measurements: (aProvider collectMeasurementsFor: self)
+				collectedAt: collectedAt ]
 ]
 
 { #category : 'callbacks' }

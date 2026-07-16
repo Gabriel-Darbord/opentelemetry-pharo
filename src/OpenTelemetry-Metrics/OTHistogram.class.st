@@ -59,7 +59,7 @@ OTHistogram >> bucketCountsForMeasurements: someMeasurements boundaries: someBou
 ]
 
 { #category : 'aggregating' }
-OTHistogram >> metricDataFromMeasurements: someMeasurements [
+OTHistogram >> metricDataFromMeasurements: someMeasurements collectedAt: aDateAndTime [
 
 	| boundaries points |
 	boundaries := self explicitBucketBoundaries.
@@ -74,6 +74,8 @@ OTHistogram >> metricDataFromMeasurements: someMeasurements [
 				min: values min
 				max: values max
 				explicitBounds: boundaries
-				bucketCounts: (self bucketCountsForMeasurements: each value boundaries: boundaries) ].
+				bucketCounts: (self bucketCountsForMeasurements: each value boundaries: boundaries)
+				startTimestamp: (each value first timestamp)
+				timestamp: aDateAndTime ].
 	^ OTHistogramMetricData instrument: self points: points
 ]

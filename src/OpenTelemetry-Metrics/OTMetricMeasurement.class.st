@@ -7,7 +7,8 @@ Class {
 	#instVars : [
 		'instrument',
 		'value',
-		'attributes'
+		'attributes',
+		'timestamp'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -21,7 +22,8 @@ OTMetricMeasurement class >> instrument: anOTMetricInstrument value: aNumber att
 	measurement
 		instrument: anOTMetricInstrument;
 		value: aNumber;
-		attributes: aCollection.
+		attributes: aCollection;
+		timestamp: DateAndTime now asUTC.
 	^ measurement
 ]
 
@@ -48,6 +50,18 @@ OTMetricMeasurement >> instrument: anOTMetricInstrument [
 
 	instrument := anOTMetricInstrument
 ]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> timestamp [
+
+	^ timestamp ifNil: [ DateAndTime now asUTC ]
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> timestamp: aDateAndTime [
+
+	timestamp := aDateAndTime ifNil: [ DateAndTime now asUTC ] ifNotNil: [ aDateAndTime ]
+}
 
 { #category : 'accessing' }
 OTMetricMeasurement >> value [
