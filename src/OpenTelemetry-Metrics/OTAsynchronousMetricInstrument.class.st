@@ -58,9 +58,10 @@ OTAsynchronousMetricInstrument >> collectFor: anOTMetricReader into: aCollection
 
 	self collectsMeasurements ifFalse: [ ^ self ].
 	self callbacks do: [ :each |
-		self
-			invokeCallback: each
-			with: (self newObserverOn: aCollection) ].
+		anOTMetricReader
+			collectAsynchronousCallback: each
+			for: self
+			into: aCollection ].
 ]
 
 { #category : 'collecting' }

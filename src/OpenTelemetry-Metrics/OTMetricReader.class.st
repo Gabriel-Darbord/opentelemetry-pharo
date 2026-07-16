@@ -6,12 +6,45 @@ Class {
 		'shutdown',
 		'temporalitySelector',
 		'aggregationSelector',
+		'callbackTimeoutMillis',
 		'lastCollectionTimestampByInstrument',
 		'lastAsynchronousValuesByInstrument'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'private - logging' }
+OTMetricReader class >> callbackWarningSink [
+
+	^ OTClassStateStore
+		valueAt: #otMetricCallbackWarningSink
+		forClass: self
+		ifAbsent: [ self defaultCallbackWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTMetricReader class >> callbackWarningSink: aBlock [
+
+	aBlock
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otMetricCallbackWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otMetricCallbackWarningSink
+				forClass: self
+				put: aBlock ].
+	^ self callbackWarningSink
+]
+
+{ #category : 'private - logging' }
+OTMetricReader class >> defaultCallbackWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
 
 { #category : 'accessing' }
 OTMetricReader >> aggregationFor: anOTMetricInstrument [
@@ -34,6 +67,18 @@ OTMetricReader >> aggregationSelector [
 OTMetricReader >> aggregationSelector: aBlockOrNil [
 
 	aggregationSelector := aBlockOrNil
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> collectAsynchronousCallback: aBlock for: anOTAsynchronousMetricInstrument into: aCollection [
+
+	| callbackMeasurements status |
+	callbackMeasurements := OrderedCollection new.
+	status := self
+		invokeAsynchronousCallback: aBlock
+		for: anOTAsynchronousMetricInstrument
+		observer: (anOTAsynchronousMetricInstrument newObserverOn: callbackMeasurements).
+	status = #completed ifTrue: [ aCollection addAll: callbackMeasurements ]
 ]
 
 { #category : 'collecting' }
@@ -93,6 +138,27 @@ OTMetricReader >> defaultAggregationSelector [
 	^ [ :instrument | #default ]
 ]
 
+{ #category : 'accessing' }
+OTMetricReader >> callbackTimeoutMillis [
+
+	^ callbackTimeoutMillis ifNil: [ 30000 ]
+]
+
+{ #category : 'accessing' }
+OTMetricReader >> callbackTimeoutMillis: anInteger [
+
+	callbackTimeoutMillis := anInteger
+		ifNil: [ 30000 ]
+		ifNotNil: [ anInteger max: 1 ].
+	^ self callbackTimeoutMillis
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> callbackWarningSink [
+
+	^ OTMetricReader callbackWarningSink
+]
+
 { #category : 'lifecycle' }
 OTMetricReader >> forceFlush [
 
@@ -107,7 +173,35 @@ OTMetricReader >> initialize [
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.
 	lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new.
 	temporalitySelector := nil.
-	aggregationSelector := nil
+	aggregationSelector := nil.
+	callbackTimeoutMillis := 30000
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> invokeAsynchronousCallback: aBlock for: anOTAsynchronousMetricInstrument observer: anOTAsynchronousMetricObserver [
+
+	| error process semaphore timedOut |
+	error := nil.
+	semaphore := Semaphore new.
+	process := [
+		[ anOTAsynchronousMetricInstrument
+			invokeCallback: aBlock
+			with: anOTAsynchronousMetricObserver ]
+			on: Error
+			do: [ :anError | error := anError ].
+		semaphore signal ]
+		forkAt: Processor userBackgroundPriority.
+	timedOut := semaphore waitTimeoutMilliseconds: self callbackTimeoutMillis.
+	timedOut ifTrue: [
+		process terminate.
+		self noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument.
+		^ #timedOut ].
+	error ifNotNil: [
+		self
+			noteAsynchronousCallbackError: error
+			for: anOTAsynchronousMetricInstrument.
+		^ #failed ].
+	^ #completed
 ]
 
 { #category : 'testing' }
@@ -162,7 +256,28 @@ OTMetricReader >> lastAsynchronousValuesFor: anOTMetricInstrument [
 OTMetricReader >> markCollectedAt: aDateAndTime forInstruments: someInstruments [
 
 	someInstruments do: [ :each |
-		self lastCollectionTimestampByInstrument at: each put: aDateAndTime ]
+	self lastCollectionTimestampByInstrument at: each put: aDateAndTime ]
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> noteAsynchronousCallbackError: anError for: anOTAsynchronousMetricInstrument [
+
+	self callbackWarningSink value:
+		'OpenTelemetry asynchronous metric callback failed for instrument '
+			, anOTAsynchronousMetricInstrument name printString
+			, ': '
+			, anError messageText
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument [
+
+	self callbackWarningSink value:
+		'OpenTelemetry asynchronous metric callback timed out for instrument '
+			, anOTAsynchronousMetricInstrument name printString
+			, ' after '
+			, self callbackTimeoutMillis asString
+			, ' ms'
 ]
 
 { #category : 'collecting' }

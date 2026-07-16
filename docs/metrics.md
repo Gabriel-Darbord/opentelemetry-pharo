@@ -5,8 +5,7 @@ This guide covers the current Pharo-facing metrics API.
 The current implementation is an early SDK foundation. It gives you the global
 entry points, meters, instrument objects, provider-owned measurements,
 reader-owned metric aggregation, OTLP metric exporters, and callback-driven
-asynchronous collection, but it does not yet include views or callback
-isolation policies.
+asynchronous collection, but it does not yet include views.
 
 ## Current Scope
 
@@ -34,6 +33,7 @@ The current metrics implementation provides:
 - `OTMetricReader`, `OTInMemoryMetricReader`, and `OTPeriodicExportingMetricReader`
 - reader-scoped asynchronous callback collection
 - reader-scoped temporality selection for synchronous and asynchronous instruments
+- reader-scoped asynchronous callback timeout and failure isolation
 - `OTNoopMetricExporter`, `OTConsoleMetricExporter`, `OTOtlpStdoutMetricExporter`
 - OTLP metric exporters over HTTP JSON, HTTP protobuf, and gRPC
 - OTLP metric auto-configuration through `OTEL_METRICS_EXPORTER`,
@@ -46,7 +46,6 @@ The current metrics implementation does not yet provide:
 
 - views or aggregations
 - Prometheus export
-- callback timeouts or isolation policies
 
 ## Getting A Meter
 
@@ -138,6 +137,7 @@ Current metric behavior:
 - `OTPeriodicExportingMetricReader` exports those snapshots through its configured exporter on collection and background intervals
 - asynchronous callback blocks may accept either zero arguments or one observer argument
 - observer-driven asynchronous observations are collected only during reader collection
+- timed-out or failing asynchronous callbacks are isolated from the rest of collection and emit diagnostic warnings
 - direct asynchronous `observe:` sends outside registered callbacks are ignored
 - synchronous `bind:` returns an `OTBoundMetricInstrument` that retains pre-bound attributes
 - `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters and shuts down registered readers
