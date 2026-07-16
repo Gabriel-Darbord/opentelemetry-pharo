@@ -530,6 +530,18 @@ OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testShutdownShutsDownLifecycleManagedSampler [
+
+	| provider rootSampler |
+	provider := OTTracerProvider new.
+	rootSampler := OTLifecycleTrackingSampler new.
+	provider sampler: (OTParentBasedSampler root: rootSampler).
+	self assert: provider shutdown.
+	self assert: rootSampler startCount equals: 1.
+	self assert: rootSampler shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testShutdownSuppressesProcessorErrorsAndContinues [
 
 	self withSpanProcessorWarningsDo: [ :warnings |
@@ -593,6 +605,21 @@ OTTracerProviderTest >> testUnsampledChildSpanPreservesParentRandomFlag [
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self assert: span spanContext traceFlags equals: '02'.
 	self assert: span spanContext isRandom
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testReplacingSamplerShutsDownPreviousLifecycleManagedSampler [
+
+	| firstProviderSampler provider secondProviderSampler |
+	provider := OTTracerProvider new.
+	firstProviderSampler := OTLifecycleTrackingSampler new.
+	secondProviderSampler := OTLifecycleTrackingSampler new.
+	provider sampler: (OTParentBasedSampler root: firstProviderSampler).
+	provider sampler: (OTParentBasedSampler root: secondProviderSampler).
+	self assert: firstProviderSampler startCount equals: 1.
+	self assert: firstProviderSampler shutdownCount equals: 1.
+	self assert: secondProviderSampler startCount equals: 1.
+	self assert: secondProviderSampler shutdownCount equals: 0
 ]
 
 { #category : 'tests' }

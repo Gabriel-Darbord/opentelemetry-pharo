@@ -57,6 +57,24 @@ OTParentBasedSampler >> description [
 			nextPut: $} ]
 ]
 
+{ #category : 'private - lifecycle' }
+OTParentBasedSampler >> componentSamplers [
+
+	| delegates seen |
+	delegates := OrderedCollection new.
+	seen := IdentitySet new.
+	{
+		rootSampler.
+		remoteParentSampledSampler.
+		remoteParentNotSampledSampler.
+		localParentSampledSampler.
+		localParentNotSampledSampler } do: [ :each |
+		(seen includes: each) ifFalse: [
+			seen add: each.
+			delegates add: each ] ].
+	^ delegates
+]
+
 { #category : 'initialization' }
 OTParentBasedSampler >> initialize [
 
@@ -65,8 +83,23 @@ OTParentBasedSampler >> initialize [
 	remoteParentSampledSampler := OTAlwaysOnSampler new.
 	remoteParentNotSampledSampler := OTAlwaysOffSampler new.
 	localParentSampledSampler := OTAlwaysOnSampler new.
-	localParentNotSampledSampler := OTAlwaysOffSampler new.
-	^ self
+	localParentNotSampledSampler := OTAlwaysOffSampler new
+]
+
+{ #category : 'lifecycle' }
+OTParentBasedSampler >> shutdown [
+
+	| allShutdown |
+	allShutdown := true.
+	self componentSamplers do: [ :each |
+		allShutdown := each shutdown & allShutdown ].
+	^ allShutdown
+]
+
+{ #category : 'lifecycle' }
+OTParentBasedSampler >> start [
+
+	self componentSamplers do: [ :each | each start ]
 ]
 
 { #category : 'accessing' }

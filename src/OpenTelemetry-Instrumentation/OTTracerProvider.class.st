@@ -402,6 +402,22 @@ OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSample
 ]
 
 { #category : 'private - logging' }
+OTTracerProvider class >> noteSampler: aSampler failedDuring: anOperationName error: anError [
+
+	| message |
+	message := 'OpenTelemetry sampler callback failed during '
+		, anOperationName
+		, ' for '
+		, aSampler class name
+		, ': '
+		, anError messageText.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self samplerConfigurationWarningSink value: message ]
+]
+
+{ #category : 'private - logging' }
 OTTracerProvider class >> noteMissingGrpcDependencyForSampler: aSamplerName [
 
 	self samplerConfigurationWarningSink value:
@@ -1239,10 +1255,20 @@ OTTracerProvider >> sampler [
 { #category : 'accessing' }
 OTTracerProvider >> sampler: anOTSampler [
 
+	| effectiveSampler previousSampler |
 	self ensureOpen.
+	effectiveSampler := anOTSampler
+		ifNil: [ self class defaultSampler ]
+		ifNotNil: [ anOTSampler ].
+	previousSampler := self class samplerByProvider
+		at: self
+		ifAbsent: [ nil ].
+	(previousSampler notNil and: [ previousSampler ~~ effectiveSampler ]) ifTrue: [
+		self shutdownSampler: previousSampler ].
 	self class samplerByProvider
 		at: self
-		put: (anOTSampler ifNil: [ self class defaultSampler ] ifNotNil: [ anOTSampler ]).
+		put: effectiveSampler.
+	self startSampler: effectiveSampler.
 	^ self sampler
 ]
 
@@ -1263,8 +1289,8 @@ OTTracerProvider >> shutdown [
 
 	| processors allShutdown |
 	self isShutdown ifTrue: [ ^ false ].
+	allShutdown := self shutdownSampler: (self class samplerByProvider at: self ifAbsent: [ nil ]).
 	processors := self spanProcessors.
-	allShutdown := true.
 	processors do: [ :each |
 		allShutdown := (self
 			withSpanProcessor: each
@@ -1273,6 +1299,17 @@ OTTracerProvider >> shutdown [
 			do: [ each shutdown ]) & allShutdown ].
 	self class shutdownByProvider at: self put: true.
 	^ allShutdown
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> shutdownSampler: aSampler [
+
+	aSampler ifNil: [ ^ true ].
+	^ [ aSampler shutdown ]
+		on: Error
+		do: [ :error |
+			self class noteSampler: aSampler failedDuring: 'shutdown' error: error.
+			false ]
 ]
 
 { #category : 'accessing' }
@@ -1318,6 +1355,18 @@ OTTracerProvider >> spanProcessors: aCollection [
 			ifNil: [ OrderedCollection new ]
 			ifNotNil: [ aCollection asOrderedCollection ]).
 	^ self spanProcessors
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> startSampler: aSampler [
+
+	aSampler ifNil: [ ^ true ].
+	^ [ aSampler start.
+		true ]
+		on: Error
+		do: [ :error |
+			self class noteSampler: aSampler failedDuring: 'start' error: error.
+			false ]
 ]
 
 { #category : 'sampling' }

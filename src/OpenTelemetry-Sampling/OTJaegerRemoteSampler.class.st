@@ -2,8 +2,9 @@
 I poll a Jaeger remote sampling endpoint over gRPC and delegate sampling decisions
 to the latest strategy received from the backend.
 
-This first implementation refreshes lazily when a sampling decision is requested
-and the configured polling interval has elapsed.
+When started by the SDK lifecycle I refresh in a background worker; when used
+standalone I can still fall back to lazy refresh on demand until explicitly
+started.
 "
 Class {
 	#name : 'OTJaegerRemoteSampler',
@@ -20,7 +21,10 @@ Class {
 		'clockBlock',
 		'lastPollTimeMillis',
 		'refreshLock',
-		'warningSink'
+		'warningSink',
+		'pollingProcess',
+		'pollingSemaphore',
+		'shutdownRequested'
 	],
 	#category : 'OpenTelemetry-Sampling',
 	#package : 'OpenTelemetry-Sampling'
@@ -105,6 +109,15 @@ OTJaegerRemoteSampler >> clockBlock: aBlockClosure [
 OTJaegerRemoteSampler >> currentTimeMillis [
 
 	^ clockBlock value
+]
+
+{ #category : 'private - refreshing' }
+OTJaegerRemoteSampler >> ensurePollingProcess [
+
+	self isShutdown ifTrue: [ ^ nil ].
+	(self isStarted and: [ pollingProcess notNil ]) ifTrue: [ ^ pollingProcess ].
+	pollingProcess := [ self runPollingLoop ] forkAt: Processor userBackgroundPriority.
+	^ pollingProcess
 ]
 
 { #category : 'accessing' }
@@ -237,7 +250,22 @@ OTJaegerRemoteSampler >> initialize [
 	clockBlock := [ Time millisecondClockValue ].
 	refreshLock := Semaphore forMutualExclusion.
 	lastPollTimeMillis := nil.
-	warningSink := OTDiagnosticLogger defaultWarningSink
+	warningSink := OTDiagnosticLogger defaultWarningSink.
+	pollingSemaphore := Semaphore new.
+	pollingProcess := nil.
+	shutdownRequested := false
+]
+
+{ #category : 'testing' }
+OTJaegerRemoteSampler >> isShutdown [
+
+	^ shutdownRequested = true
+]
+
+{ #category : 'testing' }
+OTJaegerRemoteSampler >> isStarted [
+
+	^ pollingProcess notNil and: [ pollingProcess isTerminated not ]
 ]
 
 { #category : 'private - logging' }
@@ -298,13 +326,24 @@ OTJaegerRemoteSampler >> pollingIntervalMillis: anInteger [
 		Error signal:
 			'Jaeger remote sampler polling interval must be a positive integer number of milliseconds' ].
 	pollingIntervalMillis := anInteger.
+	pollingSemaphore signal.
 	^ pollingIntervalMillis
+]
+
+{ #category : 'private - refreshing' }
+OTJaegerRemoteSampler >> pollOnce [
+
+	refreshLock critical: [
+		lastPollTimeMillis := self currentTimeMillis.
+		self refreshSampler ]
 ]
 
 { #category : 'private - refreshing' }
 OTJaegerRemoteSampler >> refreshIfNeeded [
 
 	| now previous |
+	self isShutdown ifTrue: [ ^ self ].
+	self isStarted ifTrue: [ ^ self ].
 	now := self currentTimeMillis.
 	previous := lastPollTimeMillis.
 	(previous notNil and: [ now >= previous and: [ now - previous < self pollingIntervalMillis ] ])
@@ -347,6 +386,17 @@ OTJaegerRemoteSampler >> refreshSampler [
 OTJaegerRemoteSampler >> requestExecutor: aBlockClosure [
 
 	requestExecutor := aBlockClosure
+]
+
+{ #category : 'private - refreshing' }
+OTJaegerRemoteSampler >> runPollingLoop [
+
+	[ self isShutdown ] whileFalse: [
+		[ self pollOnce ]
+			on: Error
+			do: [ :error | self noteRefreshError: error ].
+		self isShutdown ifFalse: [
+			pollingSemaphore waitTimeoutMilliseconds: self pollingIntervalMillis ] ]
 ]
 
 { #category : 'private - grpc' }
@@ -398,6 +448,31 @@ OTJaegerRemoteSampler >> shouldSampleIn: aContext traceId: aTraceId name: aStrin
 		kind: aSpanKind
 		attributes: someAttributes
 		links: someLinks
+]
+
+{ #category : 'lifecycle' }
+OTJaegerRemoteSampler >> shutdown [
+
+	self isShutdown ifTrue: [ ^ false ].
+	shutdownRequested := true.
+	self stopPollingProcess.
+	grpcChannel := nil.
+	^ true
+]
+
+{ #category : 'lifecycle' }
+OTJaegerRemoteSampler >> start [
+
+	self ensurePollingProcess
+]
+
+{ #category : 'private - refreshing' }
+OTJaegerRemoteSampler >> stopPollingProcess [
+
+	pollingProcess ifNotNil: [
+		pollingSemaphore signal.
+		pollingProcess terminate.
+		pollingProcess := nil ]
 ]
 
 { #category : 'accessing' }

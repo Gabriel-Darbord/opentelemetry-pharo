@@ -124,6 +124,12 @@ OTJaegerRemoteSamplerTest >> setUp [
 		timeoutMillis: 4321
 ]
 
+{ #category : 'running' }
+OTJaegerRemoteSamplerTest >> tearDown [
+
+	[ sampler ifNotNil: [ sampler shutdown ] ] ensure: [ super tearDown ]
+]
+
 { #category : 'tests' }
 OTJaegerRemoteSamplerTest >> testNonOkGrpcStatusKeepsCurrentSamplerAndWarns [
 
@@ -141,6 +147,24 @@ OTJaegerRemoteSamplerTest >> testNonOkGrpcStatusKeepsCurrentSamplerAndWarns [
 	self assert: warnings size equals: 1.
 	self assert: (warnings first includesSubstring: 'UNAVAILABLE').
 	self assert: (warnings first includesSubstring: 'busy')
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testProviderManagedSamplerRefreshesInBackground [
+
+	| provider |
+	sampler
+		pollingIntervalMillis: 20;
+		requestExecutor: [ :request |
+			self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 1) ].
+	provider := OTTracerProvider new.
+	[
+	provider sampler: sampler.
+	self
+		waitUntil: [ sampler currentSampler class == OTTraceIdRatioBasedSampler ]
+		timeoutMillis: 1000
+		description: 'Jaeger remote sampler background refresh' ]
+		ensure: [ provider shutdown ]
 ]
 
 { #category : 'tests' }
@@ -216,6 +240,27 @@ OTJaegerRemoteSamplerTest >> testRefreshUpdatesToRateLimitingSampler [
 ]
 
 { #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testShutdownStopsBackgroundPolling [
+
+	| executionCount shutdownExecutionCount |
+	executionCount := 0.
+	sampler
+		pollingIntervalMillis: 20;
+		requestExecutor: [ :request |
+			executionCount := executionCount + 1.
+			self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+	sampler start.
+	self
+		waitUntil: [ executionCount >= 2 ]
+		timeoutMillis: 1000
+		description: 'multiple Jaeger remote sampler background polls'.
+	self assert: sampler shutdown.
+	shutdownExecutionCount := executionCount.
+	(Delay forMilliseconds: 80) wait.
+	self assert: executionCount equals: shutdownExecutionCount
+]
+
+{ #category : 'tests' }
 OTJaegerRemoteSamplerTest >> testRateLimitingSamplerUsesInjectedClock [
 
 	| directRateSampler first second third |
@@ -247,4 +292,16 @@ OTJaegerRemoteSamplerTest >> testSamplingRequestEncodesServiceNameAndTimeout [
 	self assertReader: reader readsField: 1 wireType: 2.
 	self assert: reader readString equals: 'shopping-cart'.
 	self assert: reader atEnd
+]
+
+{ #category : 'private' }
+OTJaegerRemoteSamplerTest >> waitUntil: aBlock timeoutMillis: timeoutMillis description: aString [
+
+	| deadline |
+	deadline := Time millisecondClockValue + timeoutMillis.
+	[
+		aBlock value ifTrue: [ ^ self ].
+		Time millisecondClockValue >= deadline ifTrue: [
+			self fail: 'Timed out waiting for ', aString ].
+		(Delay forMilliseconds: 10) wait ] repeat
 ]

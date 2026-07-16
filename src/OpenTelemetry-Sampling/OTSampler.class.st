@@ -64,6 +64,24 @@ OTSampler >> description [
 	^ self class name
 ]
 
+{ #category : 'testing' }
+OTSampler >> isShutdown [
+
+	^ false
+]
+
+{ #category : 'lifecycle' }
+OTSampler >> shutdown [
+
+	^ true
+]
+
+{ #category : 'lifecycle' }
+OTSampler >> start [
+
+	self
+]
+
 { #category : 'asserting' }
 OTSampler >> shouldSample [
 
