@@ -309,30 +309,11 @@ OTConfigurationSource class >> projectLoggerProviderFrom: aConfiguration into: a
 { #category : 'private - projection' }
 OTConfigurationSource class >> projectMeterProviderFrom: aConfiguration into: anEnvironment [
 
-	| exporter exporterAssociation exporterOptions meterProvider periodic |
+	| meterProvider |
 	meterProvider := self dictionaryValueAt: 'meter_provider' in: aConfiguration.
 	meterProvider ifNil: [ ^ self ].
 	self put: 'OTEL_METRICS_EXEMPLAR_FILTER' fromAnyOf: #( 'exemplar_filter' 'exemplar' ) in: meterProvider into: anEnvironment.
-	periodic := self firstNodeNamed: 'periodic' inSequence: (self sequenceValueAt: 'readers' in: meterProvider).
-	periodic ifNil: [ ^ self ].
-	self put: 'OTEL_METRIC_EXPORT_INTERVAL' from: 'interval' in: periodic into: anEnvironment.
-	self put: 'OTEL_METRIC_EXPORT_TIMEOUT' from: 'timeout' in: periodic into: anEnvironment.
-	exporter := self exporterNodeFromProcessorNode: periodic.
-	exporterAssociation := exporter ifNil: [ nil ] ifNotNil: [ self samplerAssociationFrom: exporter ].
-	exporterOptions := exporterAssociation
-		ifNil: [ nil ]
-		ifNotNil: [ exporterAssociation value ifNil: [ OrderedDictionary new ] ].
-	self
-		put: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'
-		from: 'temporality_preference'
-		in: exporterOptions
-		into: anEnvironment.
-	self
-		put: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION'
-		from: 'default_histogram_aggregation'
-		in: exporterOptions
-		into: anEnvironment.
-	self projectExporterNode: exporter signalNamed: 'METRICS' into: anEnvironment
+	self projectMetricReadersFrom: meterProvider into: anEnvironment
 ]
 
 { #category : 'private - projection' }
@@ -370,6 +351,40 @@ OTConfigurationSource class >> projectBatchProcessorEnvironmentSettings: aDictio
 	self put: aString , '_EXPORT_TIMEOUT' from: 'export_timeout' in: aDictionary into: anEnvironment.
 	self put: aString , '_MAX_QUEUE_SIZE' from: 'max_queue_size' in: aDictionary into: anEnvironment.
 	self put: aString , '_MAX_EXPORT_BATCH_SIZE' from: 'max_export_batch_size' in: aDictionary into: anEnvironment.
+	^ self
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectMetricReadersFrom: aDictionary into: anEnvironment [
+
+	| exporters metricExporterSettings periodicSettings readers |
+	readers := self sequenceValueAt: 'readers' in: aDictionary.
+	readers ifNil: [ ^ self ].
+	readers ifEmpty: [
+		anEnvironment at: 'OTEL_METRICS_EXPORTER' put: 'none'.
+		^ self ].
+	exporters := self projectedMetricExporterNodesFromReaders: readers.
+	periodicSettings := self sharedPeriodicMetricReaderSettingsFrom: readers.
+	periodicSettings ifNotNil: [
+		self put: 'OTEL_METRIC_EXPORT_INTERVAL' from: 'interval' in: periodicSettings into: anEnvironment.
+		self put: 'OTEL_METRIC_EXPORT_TIMEOUT' from: 'timeout' in: periodicSettings into: anEnvironment ].
+	metricExporterSettings := self sharedOtlpMetricExporterSettingsFromReaders: readers.
+	metricExporterSettings ifNotNil: [
+		self
+			put: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'
+			from: 'temporality_preference'
+			in: metricExporterSettings
+			into: anEnvironment.
+		self
+			put: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION'
+			from: 'default_histogram_aggregation'
+			in: metricExporterSettings
+			into: anEnvironment ].
+	anEnvironment
+		at: 'OTEL_METRICS_EXPORTER'
+		put: (self projectedExporterSelectionFrom: exporters).
+	exporters values do: [ :each |
+		self projectExporterConfigurationNode: each signalNamed: 'METRICS' into: anEnvironment ].
 	^ self
 ]
 
@@ -581,6 +596,58 @@ OTConfigurationSource class >> projectedExporterEnvironmentNameFrom: aDictionary
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> projectedMetricExporterNodesFromReaders: aCollection [
+
+	| exporters |
+	exporters := OrderedDictionary new.
+	aCollection do: [ :each |
+		| exporterName exporterNode readerAssociation readerKind readerOptions |
+		readerAssociation := self samplerAssociationFrom: each.
+		readerKind := self normalizedSamplerKind: readerAssociation key.
+		readerOptions := readerAssociation value ifNil: [ OrderedDictionary new ].
+		exporterNode := self exporterNodeFromProcessorNode: readerOptions.
+		exporterName := self projectedExporterEnvironmentNameFrom: exporterNode signalNamed: 'METRICS'.
+		self validateMetricReaderKind: readerKind exporterName: exporterName node: each.
+		(self projectedPeriodicMetricReaderSettingsFrom: readerOptions) isEmpty ifFalse: [
+			readerKind = 'periodic' ifFalse: [
+				Error signal:
+					'Declarative pull metric readers are not representable with interval or timeout settings via SDK environment variables' ] ].
+		self
+			validateMetricExporterSettingsIn: exporterNode
+			exporterName: exporterName.
+		(exporters includesKey: exporterName) ifTrue: [
+			Error signal:
+				'Declarative metric readers configure the same exporter more than once, which is not representable via SDK environment variables' ].
+		exporters at: exporterName put: exporterNode ].
+	^ exporters
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectedMetricExporterSettingsFrom: aDictionary [
+
+	| association exporterOptions settings |
+	aDictionary ifNil: [ ^ OrderedDictionary new ].
+	association := self samplerAssociationFrom: aDictionary.
+	exporterOptions := association value ifNil: [ OrderedDictionary new ].
+	settings := OrderedDictionary new.
+	#( 'temporality_preference' 'default_histogram_aggregation' ) do: [ :each |
+		(self stringValueAt: each in: exporterOptions) ifNotNil: [ :value |
+			settings at: each put: value ] ].
+	^ settings
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectedPeriodicMetricReaderSettingsFrom: aDictionary [
+
+	| settings |
+	settings := OrderedDictionary new.
+	#( 'interval' 'timeout' ) do: [ :each |
+		(self stringValueAt: each in: aDictionary) ifNotNil: [ :value |
+			settings at: each put: value ] ].
+	^ settings
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> projectedExporterNodesFromProcessors: aCollection signalNamed: aString [
 
 	| exporters |
@@ -784,6 +851,51 @@ OTConfigurationSource class >> sharedBatchProcessorSettingsFrom: aCollection [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> sharedOtlpMetricExporterSettingsFromReaders: aCollection [
+
+	| foundSettings |
+	foundSettings := nil.
+	aCollection do: [ :each |
+		| exporterName exporterNode readerAssociation readerOptions settings |
+		readerAssociation := self samplerAssociationFrom: each.
+		readerOptions := readerAssociation value ifNil: [ OrderedDictionary new ].
+		exporterNode := self exporterNodeFromProcessorNode: readerOptions.
+		exporterName := self projectedExporterEnvironmentNameFrom: exporterNode signalNamed: 'METRICS'.
+		exporterName = 'otlp' ifTrue: [
+			settings := self projectedMetricExporterSettingsFrom: exporterNode.
+			settings isEmpty ifFalse: [
+				foundSettings
+					ifNil: [ foundSettings := settings ]
+					ifNotNil: [
+						foundSettings = settings ifFalse: [
+							Error signal:
+								'Declarative metric readers configure incompatible OTLP reader settings for one signal' ] ] ] ] ].
+	^ foundSettings
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> sharedPeriodicMetricReaderSettingsFrom: aCollection [
+
+	| foundSettings |
+	foundSettings := nil.
+	aCollection do: [ :each |
+		| readerAssociation readerKind readerOptions settings |
+		readerAssociation := self samplerAssociationFrom: each.
+		readerKind := self normalizedSamplerKind: readerAssociation key.
+		readerKind = 'periodic' ifTrue: [
+			readerOptions := readerAssociation value ifNil: [ OrderedDictionary new ].
+			settings := self projectedPeriodicMetricReaderSettingsFrom: readerOptions.
+			settings isEmpty ifFalse: [
+				foundSettings
+					ifNil: [ foundSettings := settings ]
+					ifNotNil: [
+						foundSettings = settings ifFalse: [
+							Error signal:
+								'Declarative metric readers configure incompatible periodic reader settings for one signal' ] ] ] ] ].
+	^ foundSettings
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> validateProcessorKind: aString exporterName: anotherString node: aDictionary [
 
 	aString = 'simple' ifTrue: [
@@ -797,5 +909,33 @@ OTConfigurationSource class >> validateProcessorKind: aString exporterName: anot
 		^ self ].
 	Error signal:
 		'Unsupported declarative processor type: '
+			, (self samplerAssociationFrom: aDictionary) key printString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> validateMetricExporterSettingsIn: aDictionary exporterName: aString [
+
+	| settings |
+	settings := self projectedMetricExporterSettingsFrom: aDictionary.
+	settings isEmpty ifTrue: [ ^ self ].
+	aString = 'otlp' ifTrue: [ ^ self ].
+	Error signal:
+		'Declarative metric exporter settings for temporality or histogram aggregation are only representable for OTLP exporters via SDK environment variables'
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> validateMetricReaderKind: aString exporterName: anotherString node: aDictionary [
+
+	aString = 'periodic' ifTrue: [
+		anotherString = 'prometheus' ifTrue: [
+			Error signal:
+				'Declarative periodic metric readers are not representable for Prometheus exporters via SDK environment variables' ].
+		^ self ].
+	aString = 'pull' ifTrue: [
+		anotherString = 'prometheus' ifTrue: [ ^ self ].
+		Error signal:
+			'Declarative pull metric readers are only representable for Prometheus exporters via SDK environment variables' ].
+	Error signal:
+		'Unsupported declarative metric reader type: '
 			, (self samplerAssociationFrom: aDictionary) key printString
 ]

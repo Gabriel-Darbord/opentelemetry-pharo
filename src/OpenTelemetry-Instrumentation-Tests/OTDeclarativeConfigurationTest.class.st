@@ -330,6 +330,59 @@ logger_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsMetricReaderSequenceWhenRepresentable [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+    - periodic:
+        interval: 2222
+        timeout: 3333
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/custom/metrics
+            temporality_preference: delta
+            default_histogram_aggregation: base2_exponential_bucket_histogram
+'
+		environmentValues: Dictionary new
+		during: [
+			| counter histogram provider readers |
+			provider := OTMeterProvider current.
+			readers := provider metricReaders.
+			counter := (provider meterNamed: 'config.metrics')
+				counterNamed: 'requests.total'.
+			histogram := (provider meterNamed: 'config.metrics')
+				histogramNamed: 'request.duration'.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_METRICS_EXPORTER')
+				equals: 'prometheus,otlp'.
+			self assert: readers size equals: 2.
+			self assert: readers first class identicalTo: OTPrometheusMetricReader.
+			self assert: readers first host equals: 'metrics.example'.
+			self assert: readers first port equals: 9564.
+			self assert: readers second class identicalTo: OTPeriodicExportingMetricReader.
+			self
+				assert: readers second exporter class
+				identicalTo: OTOtlpHttpProtobufMetricExporter.
+			self assert: readers second exportIntervalMillis equals: 2222.
+			self assert: readers second exportTimeoutMillis equals: 3333.
+			self
+				assert: readers second exporter configuration endpoint
+				equals: 'http://collector:4318/custom/metrics'.
+			self assert: (readers second temporalityFor: counter) equals: #delta.
+			self
+				assert: (readers second aggregationFor: histogram)
+				equals: #base2ExponentialBucketHistogram ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsConflictingBatchProcessorSettingsForOneSignal [
 
 	self
@@ -352,6 +405,27 @@ tracer_provider:
 '
 				environmentValues: Dictionary new
 				during: [ OTConfigurationSource environmentValueAt: 'OTEL_TRACES_EXPORTER' ] ]
+		raise: Error
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsPeriodicPrometheusReader [
+
+	self
+		should: [
+			self
+				withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+'
+				environmentValues: Dictionary new
+				during: [ OTMeterProvider current ] ]
 		raise: Error
 ]
 
