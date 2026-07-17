@@ -368,11 +368,25 @@ OTConfigurationSource class >> projectSpanLimitsFrom: aDictionary into: anEnviro
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> projectTraceSamplerFrom: aDictionary into: anEnvironment [
+
+	| sampler samplerPair |
+	sampler := self dictionaryValueAt: 'sampler' in: aDictionary.
+	sampler ifNil: [ ^ self ].
+	samplerPair := self samplerEnvironmentPairFrom: sampler.
+	anEnvironment at: 'OTEL_TRACES_SAMPLER' put: samplerPair first.
+	samplerPair second ifNotNil: [
+		anEnvironment at: 'OTEL_TRACES_SAMPLER_ARG' put: samplerPair second ].
+	^ self
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> projectTracerProviderFrom: aConfiguration into: anEnvironment [
 
 	| batch traceProvider |
 	traceProvider := self dictionaryValueAt: 'tracer_provider' in: aConfiguration.
 	traceProvider ifNil: [ ^ self ].
+	self projectTraceSamplerFrom: traceProvider into: anEnvironment.
 	batch := self firstNodeNamed: 'batch' inSequence: (self sequenceValueAt: 'processors' in: traceProvider).
 	batch ifNotNil: [
 		self projectBatchProcessorNode: batch prefix: 'OTEL_BSP' into: anEnvironment.
@@ -431,6 +445,111 @@ OTConfigurationSource class >> put: anEnvironmentName from: aConfigurationKey in
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> samplerAssociationFrom: aDictionary [
+
+	aDictionary ifNil: [
+		Error signal: 'Declarative configuration sampler nodes must not be nil' ].
+	aDictionary associations size = 1 ifFalse: [
+		Error signal: 'Declarative configuration sampler nodes must contain exactly one sampler' ].
+	^ aDictionary associations first
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> samplerEnvironmentPairFrom: aDictionary [
+
+	| association kind options ratio |
+	association := self samplerAssociationFrom: aDictionary.
+	kind := self normalizedSamplerKind: association key.
+	options := association value ifNil: [ OrderedDictionary new ].
+	kind = 'always_on' ifTrue: [ ^ #( 'always_on' nil ) ].
+	kind = 'always_off' ifTrue: [ ^ #( 'always_off' nil ) ].
+	((kind = 'probability') or: [ kind = 'trace_id_ratio_based' ]) ifTrue: [
+		ratio := self stringValueAt: 'ratio' in: options.
+		ratio ifNil: [
+			Error signal: 'Declarative configuration probability samplers require a ratio' ].
+		^ { 'traceidratio'. ratio } ].
+	kind = 'parent_based' ifTrue: [
+		^ self parentBasedSamplerEnvironmentPairFrom: options ].
+	kind = 'jaeger_remote' ifTrue: [
+		^ { 'jaeger_remote'. (self jaegerRemoteSamplerArgumentFrom: options) } ].
+	Error signal: 'Unsupported declarative sampler type: ', association key printString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> jaegerRemoteInitialSamplingRateFrom: aDictionary [
+
+	| pair samplerName |
+	aDictionary ifNil: [
+		Error signal: 'Declarative jaeger_remote sampler requires an initial_sampler' ].
+	pair := self samplerEnvironmentPairFrom: aDictionary.
+	samplerName := pair first.
+	samplerName = 'always_off' ifTrue: [ ^ '0' ].
+	samplerName = 'always_on' ifTrue: [ ^ '1' ].
+	samplerName = 'traceidratio' ifTrue: [ ^ pair second ].
+	Error signal:
+		'Declarative jaeger_remote initial_sampler is not representable via SDK environment variables'
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> jaegerRemoteSamplerArgumentFrom: aDictionary [
+
+	| endpoint initialSampler interval |
+	endpoint := self stringValueAt: 'endpoint' in: aDictionary.
+	endpoint ifNil: [
+		Error signal: 'Declarative jaeger_remote sampler requires an endpoint' ].
+	initialSampler := self
+		jaegerRemoteInitialSamplingRateFrom: (self dictionaryValueAt: 'initial_sampler' in: aDictionary).
+	interval := self stringValueAt: 'interval' in: aDictionary.
+	^ String streamContents: [ :stream |
+		stream nextPutAll: 'endpoint='; nextPutAll: endpoint.
+		interval ifNotNil: [
+			stream nextPutAll: ',pollingIntervalMs='; nextPutAll: interval ].
+		stream nextPutAll: ',initialSamplingRate='; nextPutAll: initialSampler ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> normalizedSamplerKind: aString [
+
+	| delimiter |
+	delimiter := aString indexOf: $/ ifAbsent: [ 0 ].
+	^ delimiter = 0
+		ifTrue: [ aString ]
+		ifFalse: [ aString copyFrom: 1 to: delimiter - 1 ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> parentBasedSamplerEnvironmentPairFrom: aDictionary [
+
+	| root rootPair |
+	root := self dictionaryValueAt: 'root' in: aDictionary.
+	root ifNil: [
+		Error signal: 'Declarative parent_based sampler requires a root sampler' ].
+	self
+		validateParentBasedDelegateNamed: 'remote_parent_sampled'
+		expectedSampler: 'always_on'
+		in: aDictionary.
+	self
+		validateParentBasedDelegateNamed: 'remote_parent_not_sampled'
+		expectedSampler: 'always_off'
+		in: aDictionary.
+	self
+		validateParentBasedDelegateNamed: 'local_parent_sampled'
+		expectedSampler: 'always_on'
+		in: aDictionary.
+	self
+		validateParentBasedDelegateNamed: 'local_parent_not_sampled'
+		expectedSampler: 'always_off'
+		in: aDictionary.
+	rootPair := self samplerEnvironmentPairFrom: root.
+	rootPair first = 'always_on' ifTrue: [ ^ #( 'parentbased_always_on' nil ) ].
+	rootPair first = 'always_off' ifTrue: [ ^ #( 'parentbased_always_off' nil ) ].
+	rootPair first = 'traceidratio' ifTrue: [ ^ { 'parentbased_traceidratio'. rootPair second } ].
+	rootPair first = 'jaeger_remote' ifTrue: [ ^ { 'parentbased_jaeger_remote'. rootPair second } ].
+	Error signal:
+		'Declarative parent_based sampler root is not representable via SDK environment variables'
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> sequenceValueAt: aKey in: aDictionary [
 
 	| value |
@@ -454,4 +573,17 @@ OTConfigurationSource class >> stringValueAt: aKey in: aDictionary [
 	(value isString or: [ value isSymbol ]) ifFalse: [ ^ nil ].
 	value := value asString trimBoth.
 	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> validateParentBasedDelegateNamed: aString expectedSampler: anotherString in: aDictionary [
+
+	| delegate |
+	delegate := self dictionaryValueAt: aString in: aDictionary.
+	delegate ifNil: [ ^ self ].
+	(self normalizedSamplerKind: (self samplerAssociationFrom: delegate) key) = anotherString ifFalse: [
+		Error signal:
+			'Declarative parent_based sampler delegate is not representable via SDK environment variables: '
+				, aString printString ].
+	^ self
 ]
