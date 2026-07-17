@@ -532,7 +532,8 @@ OTTracerProvider class >> readConfiguration [
 	provider
 		resource: resource;
 		sampler: (self configuredSamplerForResource: resource);
-		spanLimits: self configuredSpanLimits.
+		spanLimits: self configuredSpanLimits;
+		tracerConfigurator: OTConfigurationSource configuredTracerConfigurator.
 	(self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
 		ifFalse: [ provider spanProcessors: OTSpanProcessor current componentProcessors ].
 	^ provider

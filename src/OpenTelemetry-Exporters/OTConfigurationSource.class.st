@@ -136,6 +136,34 @@ OTConfigurationSource class >> configuredLoggerConfigurator [
 	^ self loggerConfiguratorFrom: node
 ]
 
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredMeterConfigurator [
+
+	| configuration meterProvider node |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ nil ].
+	meterProvider := self dictionaryValueAt: 'meter_provider' in: configuration.
+	node := self
+		dictionaryValueAt: 'meter_configurator/development'
+		in: meterProvider.
+	node ifNil: [ ^ nil ].
+	^ self meterConfiguratorFrom: node
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredTracerConfigurator [
+
+	| configuration tracerProvider node |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ nil ].
+	tracerProvider := self dictionaryValueAt: 'tracer_provider' in: configuration.
+	node := self
+		dictionaryValueAt: 'tracer_configurator/development'
+		in: tracerProvider.
+	node ifNil: [ ^ nil ].
+	^ self tracerConfiguratorFrom: node
+]
+
 { #category : 'private - projection' }
 OTConfigurationSource class >> encodedResourceAttributesFrom: aDictionary [
 
@@ -230,11 +258,11 @@ OTConfigurationSource class >> firstNodeNamed: aKey inSequence: aCollection [
 { #category : 'private - projection' }
 OTConfigurationSource class >> loggerConfigFrom: aDictionary [
 
-	| config |
+	| config enabled |
 	aDictionary ifNil: [ ^ OTLoggerConfig default ].
 	config := OTLoggerConfig default.
-	(self booleanValueAt: 'enabled' in: aDictionary) ifNotNil: [ :value |
-		config enabled: value ].
+	enabled := self enabledValueFrom: aDictionary.
+	enabled ifNotNil: [ config enabled: enabled ].
 	(self loggerSeverityValueAt: 'minimum_severity' in: aDictionary) ifNotNil: [ :value |
 		config minimumSeverity: value ].
 	(self booleanValueAt: 'trace_based' in: aDictionary) ifNotNil: [ :value |
@@ -245,12 +273,10 @@ OTConfigurationSource class >> loggerConfigFrom: aDictionary [
 { #category : 'private - projection' }
 OTConfigurationSource class >> loggerConfigFor: anInstrumentationScope rules: aCollection default: anOTLoggerConfig [
 
-	| scopeName |
-	scopeName := anInstrumentationScope name.
-	aCollection do: [ :each |
-		(self loggerNamePattern: each key matches: scopeName) ifTrue: [
-			^ each value ] ].
-	^ anOTLoggerConfig
+	^ self
+		namedScopeConfigFor: anInstrumentationScope
+		rules: aCollection
+		default: anOTLoggerConfig
 ]
 
 { #category : 'private - projection' }
@@ -271,14 +297,9 @@ OTConfigurationSource class >> loggerConfiguratorFrom: aDictionary [
 { #category : 'private - projection' }
 OTConfigurationSource class >> loggerConfiguratorRuleFrom: aDictionary [
 
-	| configNode name |
-	name := self stringValueAt: 'name' in: aDictionary.
-	name ifNil: [
-		Error signal: 'Declarative logger configurator entries require a logger name' ].
-	configNode := self dictionaryValueAt: 'config' in: aDictionary.
-	configNode ifNil: [
-		Error signal: 'Declarative logger configurator entries require a config' ].
-	^ name -> (self loggerConfigFrom: configNode)
+	^ self
+		namedScopeRuleFrom: aDictionary
+		configBlock: [ :configNode | self loggerConfigFrom: configNode ]
 ]
 
 { #category : 'private - projection' }
@@ -335,6 +356,65 @@ OTConfigurationSource class >> loggerSeverityValueAt: aKey in: aDictionary [
 	value isInteger ifTrue: [ ^ OTSeverity normalize: value ].
 	(value isString or: [ value isSymbol ]) ifFalse: [ ^ nil ].
 	^ OTSeverity fromName: value
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> meterConfigFrom: aDictionary [
+
+	| enabled |
+	enabled := self enabledValueFrom: aDictionary.
+	^ OTMeterConfig enabled:
+		(enabled
+			ifNil: [ true ]
+			ifNotNil: [ enabled ])
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> meterConfiguratorFrom: aDictionary [
+
+	| defaultConfig rules |
+	defaultConfig := self
+		meterConfigFrom: (self dictionaryValueAt: 'default_config' in: aDictionary).
+	rules := self
+		namedScopeRulesFrom: (self sequenceValueAt: 'meters' in: aDictionary)
+		configBlock: [ :configNode | self meterConfigFrom: configNode ].
+	^ [ :scope |
+		self
+			namedScopeConfigFor: scope
+			rules: rules
+			default: defaultConfig ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> namedScopeConfigFor: anInstrumentationScope rules: aCollection default: anObject [
+
+	| scopeName |
+	scopeName := anInstrumentationScope name.
+	aCollection do: [ :each |
+		(self loggerNamePattern: each key matches: scopeName) ifTrue: [
+			^ each value ] ].
+	^ anObject
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> namedScopeRuleFrom: aDictionary configBlock: aBlock [
+
+	| configNode name |
+	name := self stringValueAt: 'name' in: aDictionary.
+	name ifNil: [
+		Error signal: 'Declarative scope configurator entries require a name' ].
+	configNode := self dictionaryValueAt: 'config' in: aDictionary.
+	configNode ifNil: [
+		Error signal: 'Declarative scope configurator entries require a config' ].
+	^ name -> (aBlock value: configNode)
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> namedScopeRulesFrom: aCollection configBlock: aBlock [
+
+	aCollection ifNil: [ ^ #() ].
+	^ aCollection collect: [ :each |
+		self namedScopeRuleFrom: each configBlock: aBlock ]
 ]
 
 { #category : 'private - projection' }
@@ -995,6 +1075,39 @@ OTConfigurationSource class >> booleanValueAt: aKey in: aDictionary [
 	value = 'true' ifTrue: [ ^ true ].
 	value = 'false' ifTrue: [ ^ false ].
 	^ nil
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> enabledValueFrom: aDictionary [
+
+	| disabled enabled |
+	enabled := self booleanValueAt: 'enabled' in: aDictionary.
+	enabled ifNotNil: [ ^ enabled ].
+	disabled := self booleanValueAt: 'disabled' in: aDictionary.
+	disabled ifNotNil: [ ^ disabled not ].
+	^ nil
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> tracerConfiguratorFrom: aDictionary [
+
+	| defaultConfig rules |
+	defaultConfig := self
+		tracerEnabledFrom: (self dictionaryValueAt: 'default_config' in: aDictionary).
+	rules := self
+		namedScopeRulesFrom: (self sequenceValueAt: 'tracers' in: aDictionary)
+		configBlock: [ :configNode | self tracerEnabledFrom: configNode ].
+	^ [ :scope |
+		self
+			namedScopeConfigFor: scope
+			rules: rules
+			default: defaultConfig ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> tracerEnabledFrom: aDictionary [
+
+	^ self enabledValueFrom: aDictionary
 ]
 
 { #category : 'private - projection' }

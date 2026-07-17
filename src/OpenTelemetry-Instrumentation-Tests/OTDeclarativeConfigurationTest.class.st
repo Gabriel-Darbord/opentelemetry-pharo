@@ -416,6 +416,67 @@ logger_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsMeterConfiguratorDefaultsAndExplicitRules [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  meter_configurator/development:
+    default_config:
+      enabled: false
+    meters:
+      - name: config.enabled
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| defaultInstrument enabledInstrument provider |
+			provider := OTMeterProvider current.
+			defaultInstrument := (provider meterNamed: 'default.scope')
+				counterNamed: 'requests.total'.
+			enabledInstrument := (provider meterNamed: 'config.enabled')
+				counterNamed: 'requests.total'.
+			self deny: defaultInstrument enabled.
+			self assert: enabledInstrument enabled ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsMeterConfiguratorRulesInOrder [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  meter_configurator/development:
+    default_config:
+      enabled: true
+    meters:
+      - name: spec.*
+        config:
+          enabled: false
+      - name: spec.meter
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| instrument |
+			instrument := (OTMeterProvider current meterNamed: 'spec.meter')
+				counterNamed: 'requests.total'.
+			self deny: instrument enabled ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileProjectsMetricReaderSequenceWhenRepresentable [
 
 	self
@@ -466,6 +527,67 @@ meter_provider:
 			self
 				assert: (readers second aggregationFor: histogram)
 				equals: #base2ExponentialBucketHistogram ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsTracerConfiguratorDefaultsAndExplicitRules [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+  tracer_configurator/development:
+    default_config:
+      enabled: false
+    tracers:
+      - name: config.enabled
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| disabledSpan disabledTracer enabledTracer enabledSpan |
+			disabledTracer := OTTracerProvider current tracerNamed: 'default.scope'.
+			enabledTracer := OTTracerProvider current tracerNamed: 'config.enabled'.
+			self deny: disabledTracer enabled.
+			self assert: enabledTracer enabled.
+			disabledSpan := (disabledTracer spanBuilderNamed: 'disabled') startSpan.
+			enabledSpan := (enabledTracer spanBuilderNamed: 'enabled') startSpan.
+			self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
+			self assert: enabledSpan isRecording ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsTracerConfiguratorRulesInOrder [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+  tracer_configurator/development:
+    default_config:
+      enabled: true
+    tracers:
+      - name: spec.*
+        config:
+          enabled: false
+      - name: spec.tracer
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| tracer |
+			tracer := OTTracerProvider current tracerNamed: 'spec.tracer'.
+			self deny: tracer enabled ]
 ]
 
 { #category : 'tests' }

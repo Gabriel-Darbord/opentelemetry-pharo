@@ -40,7 +40,8 @@ OTMeterProvider class >> readConfiguration [
 	provider := self new.
 	provider
 		resource: OTTracerProvider configuredResource;
-		exemplarFilter: self configuredExemplarFilter.
+		exemplarFilter: self configuredExemplarFilter;
+		meterConfigurator: OTConfigurationSource configuredMeterConfigurator.
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	exporterNames := self configuredExporterNames.
 	exporterNames do: [ :each |
