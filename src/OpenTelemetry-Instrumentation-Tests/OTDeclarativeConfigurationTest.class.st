@@ -82,8 +82,8 @@ tracer_provider:
     attribute_value_length_limit: 34
     event_count_limit: 5
     link_count_limit: 6
-    attribute_per_event_count_limit: 7
-    attribute_per_link_count_limit: 8
+    event_attribute_count_limit: 7
+    link_attribute_count_limit: 8
   processors:
     - batch:
         schedule_delay: 111
@@ -99,17 +99,20 @@ tracer_provider:
               - name: authorization
                 value: Bearer 123
 meter_provider:
-  exemplar: always_off
+  exemplar_filter: always_off
   readers:
     - periodic:
         interval: 1001
         timeout: 1002
-        temporality_preference: delta
-        default_histogram_aggregation: base2_exponential_bucket_histogram
         exporter:
           otlp_http:
             endpoint: http://collector:4318/custom/metrics
+            temporality_preference: delta
+            default_histogram_aggregation: base2_exponential_bucket_histogram
 logger_provider:
+  limits:
+    attribute_count_limit: 55
+    attribute_value_length_limit: 66
   processors:
     - batch:
         schedule_delay: 2001
@@ -161,6 +164,8 @@ logger_provider:
 				equals: #base2ExponentialBucketHistogram.
 
 			logProcessor := OTLoggerProvider current logRecordProcessors first.
+			self assert: OTLoggerProvider current logRecordLimits attributeCountLimit equals: 55.
+			self assert: OTLoggerProvider current logRecordLimits attributeValueLengthLimit equals: 66.
 			self assert: logProcessor scheduledDelayMillis equals: 2001.
 			self assert: logProcessor exportTimeoutMillis equals: 2002.
 			self assert: logProcessor maxQueueSize equals: 2003.
@@ -258,7 +263,8 @@ resource:
     - name: service.name
       value: config-service
 propagator:
-  composite_list: baggage
+  composite:
+    - baggage:
 '
 		environmentValues: (Dictionary new
 			at: 'OTEL_SDK_DISABLED' put: 'true';

@@ -151,6 +151,18 @@ OTConfigurationSource class >> headersListStringFrom: aCollection [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> nodeKindsStringFrom: aCollection [
+
+	aCollection ifNil: [ ^ nil ].
+	^ String streamContents: [ :stream |
+		aCollection do: [ :each |
+			| association |
+			association := self samplerAssociationFrom: each.
+			stream position > 0 ifTrue: [ stream nextPut: $, ].
+			stream nextPutAll: association key asString ] ]
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> dictionaryValueAt: aKey in: aDictionary [
 
 	| value |
@@ -279,6 +291,7 @@ OTConfigurationSource class >> projectLoggerProviderFrom: aConfiguration into: a
 	| batch loggerProvider |
 	loggerProvider := self dictionaryValueAt: 'logger_provider' in: aConfiguration.
 	loggerProvider ifNil: [ ^ self ].
+	self projectLogRecordLimitsFrom: loggerProvider into: anEnvironment.
 	batch := self firstNodeNamed: 'batch' inSequence: (self sequenceValueAt: 'processors' in: loggerProvider).
 	batch ifNil: [ ^ self ].
 	self projectBatchProcessorNode: batch prefix: 'OTEL_BLRP' into: anEnvironment.
@@ -288,37 +301,61 @@ OTConfigurationSource class >> projectLoggerProviderFrom: aConfiguration into: a
 { #category : 'private - projection' }
 OTConfigurationSource class >> projectMeterProviderFrom: aConfiguration into: anEnvironment [
 
-	| exporter meterProvider periodic |
+	| exporter exporterAssociation exporterOptions meterProvider periodic |
 	meterProvider := self dictionaryValueAt: 'meter_provider' in: aConfiguration.
 	meterProvider ifNil: [ ^ self ].
-	self put: 'OTEL_METRICS_EXEMPLAR_FILTER' from: 'exemplar' in: meterProvider into: anEnvironment.
+	self put: 'OTEL_METRICS_EXEMPLAR_FILTER' fromAnyOf: #( 'exemplar_filter' 'exemplar' ) in: meterProvider into: anEnvironment.
 	periodic := self firstNodeNamed: 'periodic' inSequence: (self sequenceValueAt: 'readers' in: meterProvider).
 	periodic ifNil: [ ^ self ].
 	self put: 'OTEL_METRIC_EXPORT_INTERVAL' from: 'interval' in: periodic into: anEnvironment.
 	self put: 'OTEL_METRIC_EXPORT_TIMEOUT' from: 'timeout' in: periodic into: anEnvironment.
+	exporter := self exporterNodeFromProcessorNode: periodic.
+	exporterAssociation := exporter ifNil: [ nil ] ifNotNil: [ self samplerAssociationFrom: exporter ].
+	exporterOptions := exporterAssociation
+		ifNil: [ nil ]
+		ifNotNil: [ exporterAssociation value ifNil: [ OrderedDictionary new ] ].
 	self
 		put: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'
 		from: 'temporality_preference'
-		in: periodic
+		in: exporterOptions
 		into: anEnvironment.
 	self
 		put: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION'
 		from: 'default_histogram_aggregation'
-		in: periodic
+		in: exporterOptions
 		into: anEnvironment.
-	exporter := self exporterNodeFromProcessorNode: periodic.
 	self projectExporterNode: exporter signalNamed: 'METRICS' into: anEnvironment
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectLogRecordLimitsFrom: aDictionary into: anEnvironment [
+
+	| limits |
+	limits := self dictionaryValueAt: 'limits' in: aDictionary.
+	limits ifNil: [ ^ self ].
+	self
+		put: 'OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT'
+		from: 'attribute_count_limit'
+		in: limits
+		into: anEnvironment.
+	self
+		put: 'OTEL_LOGRECORD_ATTRIBUTE_VALUE_LENGTH_LIMIT'
+		from: 'attribute_value_length_limit'
+		in: limits
+		into: anEnvironment
 ]
 
 { #category : 'private - projection' }
 OTConfigurationSource class >> projectPropagatorsFrom: aConfiguration into: anEnvironment [
 
-	| propagator compositeList |
+	| compositeNodes compositeList propagator |
 	propagator := self dictionaryValueAt: 'propagator' in: aConfiguration.
 	propagator ifNil: [ ^ self ].
-	compositeList := self stringValueAt: 'composite' in: propagator.
-	compositeList ifNil: [
-		compositeList := self stringValueAt: 'composite_list' in: propagator ].
+	compositeNodes := self sequenceValueAt: 'composite' in: propagator.
+	compositeList := self
+		nodeKindsStringFrom: compositeNodes.
+	compositeList ifNil: [ compositeList := self stringValueAt: 'composite' in: propagator ].
+	compositeList ifNil: [ compositeList := self stringValueAt: 'composite_list' in: propagator ].
 	compositeList ifNotNil: [
 		anEnvironment at: 'OTEL_PROPAGATORS' put: compositeList ]
 ]
@@ -363,8 +400,16 @@ OTConfigurationSource class >> projectSpanLimitsFrom: aDictionary into: anEnviro
 		into: anEnvironment.
 	self put: 'OTEL_SPAN_EVENT_COUNT_LIMIT' from: 'event_count_limit' in: limits into: anEnvironment.
 	self put: 'OTEL_SPAN_LINK_COUNT_LIMIT' from: 'link_count_limit' in: limits into: anEnvironment.
-	self put: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT' from: 'attribute_per_event_count_limit' in: limits into: anEnvironment.
-	self put: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT' from: 'attribute_per_link_count_limit' in: limits into: anEnvironment
+	self
+		put: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT'
+		fromAnyOf: #( 'event_attribute_count_limit' 'attribute_per_event_count_limit' )
+		in: limits
+		into: anEnvironment.
+	self
+		put: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT'
+		fromAnyOf: #( 'link_attribute_count_limit' 'attribute_per_link_count_limit' )
+		in: limits
+		into: anEnvironment
 ]
 
 { #category : 'private - projection' }
@@ -441,6 +486,18 @@ OTConfigurationSource class >> put: anEnvironmentName from: aConfigurationKey in
 	| value |
 	value := self stringValueAt: aConfigurationKey in: aDictionary.
 	value ifNotNil: [ anEnvironment at: anEnvironmentName put: value ].
+	^ anEnvironment
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> put: anEnvironmentName fromAnyOf: aCollection in: aDictionary into: anEnvironment [
+
+	aCollection do: [ :each |
+		| value |
+		value := self stringValueAt: each in: aDictionary.
+		value ifNotNil: [
+			anEnvironment at: anEnvironmentName put: value.
+			^ anEnvironment ] ].
 	^ anEnvironment
 ]
 
