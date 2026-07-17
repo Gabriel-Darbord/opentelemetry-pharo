@@ -6,7 +6,8 @@ Class {
 		'name',
 		'description',
 		'unit',
-		'points'
+		'points',
+		'metadata'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -62,6 +63,24 @@ OTMetricData >> name [
 OTMetricData >> name: aString [
 
 	name := aString ifNil: [ '' ] ifNotNil: [ aString ]
+]
+
+{ #category : 'accessing' }
+OTMetricData >> metadata [
+
+	^ metadata ifNil: [ OrderedDictionary new ]
+]
+
+{ #category : 'accessing' }
+OTMetricData >> metadata: aCollection [
+
+	metadata := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'accessing' }
+OTMetricData >> metadataValueAt: aString ifAbsent: aBlock [
+
+	^ self metadata at: aString ifAbsent: aBlock
 ]
 
 { #category : 'accessing' }

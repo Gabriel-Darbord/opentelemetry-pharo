@@ -38,7 +38,8 @@ OTOtlpProtobufMetricEncoder >> encodeMetric: anOTMetricData on: aWriter [
 		aWriter
 			writeTag: 3 wireType: 2;
 			writeString: anOTMetricData unit ].
-	anOTMetricData writeOtlpProtobufDataOn: aWriter encoder: self
+	anOTMetricData writeOtlpProtobufDataOn: aWriter encoder: self.
+	self writeAttributes: anOTMetricData metadata fieldNumber: 12 on: aWriter
 ]
 
 { #category : 'private - encoding' }

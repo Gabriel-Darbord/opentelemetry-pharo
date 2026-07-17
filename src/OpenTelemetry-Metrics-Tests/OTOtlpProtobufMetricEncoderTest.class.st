@@ -119,3 +119,35 @@ OTOtlpProtobufMetricEncoderTest >> testWriteSummaryDataPointEncodesCountSumAndQu
 	self assertReader: quantileReader readsField: 2 wireType: 1.
 	self assert: quantileReader readDouble equals: 1.5
 ]
+
+{ #category : 'tests' }
+OTOtlpProtobufMetricEncoderTest >> testEncodeMetricEncodesMetadata [
+
+	| metadataReader metric reader writer |
+	metric := OTSumMetricData new.
+	metric
+		instrumentationScope: (OTInstrumentationScope named: 'instrumentation');
+		name: 'requests.total';
+		description: 'Request count';
+		unit: '1';
+		points: #();
+		monotonic: true;
+		temporality: #cumulative;
+		metadata: { 'prometheus.type' -> 'unknown' }.
+	writer := OTProtobufWriter withBytes.
+	encoder encodeMetric: metric on: writer.
+	reader := OTProtobufReader on: writer contents.
+	self assertReader: reader readsField: 1 wireType: 2.
+	self assert: reader readString equals: 'requests.total'.
+	self assertReader: reader readsField: 2 wireType: 2.
+	reader readString.
+	self assertReader: reader readsField: 3 wireType: 2.
+	reader readString.
+	reader readTag.
+	reader readBytes.
+	metadataReader := OTProtobufReader
+		on: (self bytesForFieldNumber: 12 fromReader: reader).
+	self assertReader: metadataReader readsField: 1 wireType: 2.
+	self assert: metadataReader readString equals: 'prometheus.type'.
+	self assertReader: metadataReader readsField: 2 wireType: 2
+]

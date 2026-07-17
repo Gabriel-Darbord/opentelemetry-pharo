@@ -99,16 +99,25 @@ OTPrometheusTextEncoder >> normalizedPrometheusNameFrom: aString allowingColon: 
 { #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusMetricNameFor: anOTMetricData type: aTypeSymbol [
 
+	^ self
+		prometheusMetricNameFor: anOTMetricData
+		type: aTypeSymbol
+		format: #prometheusText004
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusMetricNameFor: anOTMetricData type: aTypeSymbol format: aFormatSymbol [
+
 	| suffix stem unitWord |
 	stem := self prometheusMetricStemFor: anOTMetricData type: aTypeSymbol.
-	unitWord := self prometheusUnitWordFrom: anOTMetricData unit.
+	unitWord := (self typeUsesPrometheusUnitSuffix: aTypeSymbol)
+		ifTrue: [ self prometheusUnitWordFrom: anOTMetricData unit ]
+		ifFalse: [ nil ].
 	(unitWord notNil and: [
 		((stem endsWith: '_' , unitWord) not)
 			and: [ stem ~= unitWord ] ])
 		ifTrue: [ stem := stem , '_' , unitWord ].
-	suffix := aTypeSymbol = #counter
-		ifTrue: [ '_total' ]
-		ifFalse: [ '' ].
+	suffix := self suffixForPrometheusMetricType: aTypeSymbol format: aFormatSymbol.
 	^ stem , suffix
 ]
 
@@ -121,6 +130,9 @@ OTPrometheusTextEncoder >> prometheusMetricStemFor: anOTMetricData type: aTypeSy
 		allowingColon: true.
 	(aTypeSymbol = #counter and: [ normalizedName endsWith: '_total' ])
 		ifTrue: [ ^ normalizedName allButLast: '_total' size ].
+	((#( #info #infoGauge ) includes: aTypeSymbol)
+		and: [ normalizedName endsWith: '_info' ])
+		ifTrue: [ ^ normalizedName allButLast: '_info' size ].
 	^ normalizedName
 ]
 
@@ -133,11 +145,20 @@ OTPrometheusTextEncoder >> prometheusLabelNameFor: aString [
 { #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData [
 
-	anOTMetricData class = OTGaugeMetricData ifTrue: [ ^ #gauge ].
+	^ self
+		prometheusMetricTypeFor: anOTMetricData
+		format: #prometheusText004
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData format: aFormatSymbol [
+
+	anOTMetricData class = OTGaugeMetricData ifTrue: [
+		^ self prometheusGaugeLikeMetricTypeFor: anOTMetricData format: aFormatSymbol ].
 	anOTMetricData class = OTSumMetricData ifTrue: [
 		^ anOTMetricData monotonic
 			ifTrue: [ #counter ]
-			ifFalse: [ #gauge ] ].
+			ifFalse: [ self prometheusGaugeLikeMetricTypeFor: anOTMetricData format: aFormatSymbol ] ].
 	anOTMetricData class = OTHistogramMetricData ifTrue: [ ^ #histogram ].
 	anOTMetricData class = OTSummaryMetricData ifTrue: [ ^ #summary ].
 	^ #drop
@@ -149,7 +170,45 @@ OTPrometheusTextEncoder >> prometheusMetricTypeStringFor: aTypeSymbol [
 	aTypeSymbol = #counter ifTrue: [ ^ 'counter' ].
 	aTypeSymbol = #histogram ifTrue: [ ^ 'histogram' ].
 	aTypeSymbol = #summary ifTrue: [ ^ 'summary' ].
+	aTypeSymbol = #unknown ifTrue: [ ^ 'unknown' ].
+	aTypeSymbol = #untyped ifTrue: [ ^ 'untyped' ].
+	aTypeSymbol = #info ifTrue: [ ^ 'info' ].
+	aTypeSymbol = #stateset ifTrue: [ ^ 'stateset' ].
 	^ 'gauge'
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusGaugeLikeMetricTypeFor: anOTMetricData format: aFormatSymbol [
+
+	| hint |
+	hint := self prometheusTypeHintFor: anOTMetricData.
+	hint = #unknown ifTrue: [
+		^ aFormatSymbol = #openMetricsText100
+			ifTrue: [ #unknown ]
+			ifFalse: [ #untyped ] ].
+	hint = #info ifTrue: [
+		^ aFormatSymbol = #openMetricsText100
+			ifTrue: [ #info ]
+			ifFalse: [ #infoGauge ] ].
+	hint = #stateset ifTrue: [
+		^ aFormatSymbol = #openMetricsText100
+			ifTrue: [ #stateset ]
+			ifFalse: [ #statesetGauge ] ].
+	^ #gauge
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusTypeHintFor: anOTMetricData [
+
+	| normalized |
+	normalized := anOTMetricData
+		metadataValueAt: 'prometheus.type'
+		ifAbsent: [ ^ nil ].
+	normalized := normalized asString trimBoth asLowercase.
+	normalized = 'unkown' ifTrue: [ normalized := 'unknown' ].
+	(#( 'gauge' 'unknown' 'info' 'stateset' ) includes: normalized)
+		ifFalse: [ ^ nil ].
+	^ normalized asSymbol
 ]
 
 { #category : 'private - formatting' }
@@ -449,15 +508,28 @@ OTPrometheusTextEncoder >> writeSampleNamed: aMetricName labels: someLabels valu
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData on: aStream [
 
+	^ self
+		writeGauge: anOTGaugeMetricData
+		type: #gauge
+		format: #prometheusText004
+		on: aStream
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData type: aTypeSymbol format: aFormatSymbol on: aStream [
+
 	| metricName |
-	metricName := self prometheusMetricNameFor: anOTGaugeMetricData type: #gauge.
+	metricName := self
+		prometheusMetricNameFor: anOTGaugeMetricData
+		type: aTypeSymbol
+		format: aFormatSymbol.
 	anOTGaugeMetricData points do: [ :each |
 		self
 			writeSampleNamed: metricName
 			labels: (self
 				pointLabels: each attributes
 				scope: anOTGaugeMetricData instrumentationScope)
-			value: each value
+			value: (self prometheusValueForGaugeLikePoint: each type: aTypeSymbol)
 			on: aStream ]
 ]
 
@@ -475,6 +547,14 @@ OTPrometheusTextEncoder >> writeSum: anOTSumMetricData on: aStream [
 				scope: anOTSumMetricData instrumentationScope)
 			value: each value
 			on: aStream ]
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeSum: anOTSumMetricData type: aTypeSymbol format: aFormatSymbol on: aStream [
+
+	aTypeSymbol = #counter ifFalse: [
+		^ self writeGauge: anOTSumMetricData type: aTypeSymbol format: aFormatSymbol on: aStream ].
+	^ self writeSum: anOTSumMetricData on: aStream
 ]
 
 { #category : 'private - writing' }
@@ -550,10 +630,21 @@ OTPrometheusTextEncoder >> writeTargetInfoFor: anOTResource on: aStream [
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeMetric: anOTMetricData on: aStream [
 
+	^ self
+		writeMetric: anOTMetricData
+		format: #prometheusText004
+		on: aStream
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeMetric: anOTMetricData format: aFormatSymbol on: aStream [
+
+	| type |
+	type := self prometheusMetricTypeFor: anOTMetricData format: aFormatSymbol.
 	anOTMetricData class = OTGaugeMetricData ifTrue: [
-		^ self writeGauge: anOTMetricData on: aStream ].
+		^ self writeGauge: anOTMetricData type: type format: aFormatSymbol on: aStream ].
 	anOTMetricData class = OTSumMetricData ifTrue: [
-		^ self writeSum: anOTMetricData on: aStream ].
+		^ self writeSum: anOTMetricData type: type format: aFormatSymbol on: aStream ].
 	anOTMetricData class = OTHistogramMetricData ifTrue: [
 		^ self writeHistogram: anOTMetricData on: aStream ].
 	anOTMetricData class = OTSummaryMetricData ifTrue: [
@@ -600,7 +691,7 @@ OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetr
 	typeSymbols := OrderedCollection new.
 	someMetrics do: [ :each |
 		| type |
-		type := self prometheusMetricTypeFor: each.
+		type := self prometheusMetricTypeFor: each format: aFormatSymbol.
 		type ~= #drop ifTrue: [ typeSymbols add: type ] ].
 	typeSymbols isEmpty ifTrue: [ ^ self ].
 	types := typeSymbols asSet.
@@ -612,7 +703,9 @@ OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetr
 	someMetrics do: [ :each |
 		| unitWord |
 		each description isNotEmpty ifTrue: [ descriptions add: each description ].
-		unitWord := self prometheusUnitWordFrom: each unit.
+		unitWord := (self typeUsesPrometheusUnitSuffix: typeSymbols first)
+			ifTrue: [ self prometheusUnitWordFrom: each unit ]
+			ifFalse: [ nil ].
 		(unitWord notNil and: [ unitWord isNotEmpty ]) ifTrue: [
 			unitValues add: unitWord ] ].
 	descriptions size > 1 ifTrue: [
@@ -633,7 +726,9 @@ OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetr
 	chosenUnit := nil.
 	someMetrics do: [ :each |
 		| unitWord |
-		unitWord := self prometheusUnitWordFrom: each unit.
+		unitWord := (self typeUsesPrometheusUnitSuffix: typeSymbols first)
+			ifTrue: [ self prometheusUnitWordFrom: each unit ]
+			ifFalse: [ nil ].
 		(chosenUnit isNil and: [ unitWord notNil and: [ unitWord isNotEmpty ] ]) ifTrue: [
 			chosenUnit := unitWord ] ].
 	self
@@ -643,7 +738,7 @@ OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetr
 		type: chosenType
 		format: aFormatSymbol
 		on: aStream.
-	someMetrics do: [ :each | self writeMetric: each on: aStream ]
+	someMetrics do: [ :each | self writeMetric: each format: aFormatSymbol on: aStream ]
 ]
 
 { #category : 'private - writing' }
@@ -654,9 +749,12 @@ OTPrometheusTextEncoder >> writeSnapshot: anOTMetricSnapshot format: aFormatSymb
 	metricFamilies := OrderedDictionary new.
 	anOTMetricSnapshot metrics do: [ :each |
 		| type familyName |
-		type := self prometheusMetricTypeFor: each.
+		type := self prometheusMetricTypeFor: each format: aFormatSymbol.
 		type = #drop ifFalse: [
-			familyName := self prometheusMetricNameFor: each type: type.
+			familyName := self
+				prometheusMetricNameFor: each
+				type: type
+				format: aFormatSymbol.
 			(metricFamilies
 				at: familyName
 				ifAbsentPut: [ OrderedCollection new ]) add: each ] ].
@@ -676,6 +774,27 @@ OTPrometheusTextEncoder >> writeSnapshot: anOTMetricSnapshot format: aFormatSymb
 OTPrometheusTextEncoder >> supportsUnitMetadataInFormat: aFormatSymbol [
 
 	^ aFormatSymbol ~= #prometheusText004
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> suffixForPrometheusMetricType: aTypeSymbol format: aFormatSymbol [
+
+	aTypeSymbol = #counter ifTrue: [ ^ '_total' ].
+	(#( #info #infoGauge ) includes: aTypeSymbol) ifTrue: [ ^ '_info' ].
+	^ ''
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> typeUsesPrometheusUnitSuffix: aTypeSymbol [
+
+	^ (#( #info #infoGauge #stateset #statesetGauge ) includes: aTypeSymbol) not
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusValueForGaugeLikePoint: anOTNumberDataPoint type: aTypeSymbol [
+
+	(#( #info #infoGauge ) includes: aTypeSymbol) ifTrue: [ ^ 1 ].
+	^ anOTNumberDataPoint value
 ]
 
 { #category : 'accessing' }

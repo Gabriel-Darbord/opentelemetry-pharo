@@ -173,6 +173,8 @@ OTOtlpJsonMetricEncoder >> metricDataFor: anOTMetricData [
 		at: 'name' put: anOTMetricData name;
 		at: 'description' put: anOTMetricData description;
 		at: 'unit' put: anOTMetricData unit.
+	anOTMetricData metadata ifNotEmpty: [
+		data at: 'metadata' put: (self keyValueDataFrom: anOTMetricData metadata) ].
 	anOTMetricData addOtlpJsonDataTo: data encoder: self.
 	^ data
 ]

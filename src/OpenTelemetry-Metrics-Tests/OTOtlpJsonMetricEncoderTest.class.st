@@ -250,3 +250,32 @@ OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotIncludesExemplars [
 	self assert: (data at: 'spanId') equals: '1234567890abcdef'.
 	self assert: (point at: 'stringValue') equals: 'alice'
 ]
+
+{ #category : 'tests' }
+OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotIncludesMetricMetadata [
+
+	| metric payload resourceMetrics scopeMetrics metadata valuesByKey |
+	metric := OTSumMetricData new.
+	metric
+		instrumentationScope: (self sampleSnapshot metrics first instrumentationScope);
+		name: 'requests.total';
+		description: 'Request count';
+		unit: '1';
+		points: { (self sampleSnapshot metrics first points first) };
+		monotonic: true;
+		temporality: #cumulative;
+		metadata: { 'prometheus.type' -> 'unknown'. 'legacy.source' -> 'bridge' }.
+	payload := encoder
+		encodeSnapshot:
+			(OTMetricSnapshot
+				resource: (self sampleSnapshot resource)
+				measurements: #()
+				metrics: { metric }
+				collectedAt: DateAndTime unixEpoch).
+	resourceMetrics := (payload at: 'resourceMetrics') first.
+	scopeMetrics := (resourceMetrics at: 'scopeMetrics') first.
+	metadata := ((scopeMetrics at: 'metrics') first at: 'metadata').
+	valuesByKey := self attributeValuesByKeyFrom: metadata.
+	self assert: ((valuesByKey at: 'prometheus.type') at: 'stringValue') equals: 'unknown'.
+	self assert: ((valuesByKey at: 'legacy.source') at: 'stringValue') equals: 'bridge'
+]

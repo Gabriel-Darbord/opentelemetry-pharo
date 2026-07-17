@@ -311,3 +311,93 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesSummaryQuantilesCountAndS
 	self assert: (text includesSubstring: 'request_duration_milliseconds_sum{').
 	self assert: (text includesSubstring: 'request_duration_milliseconds_count{')
 ]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesInfoTypeHintAcrossFormats [
+
+	| metric point prometheusText openMetricsText snapshot |
+	point := OTNumberDataPoint
+		attributes: { 'version' -> '1.2.3' }
+		value: 42
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	metric := OTGaugeMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'build';
+		description: 'Build metadata';
+		unit: 'ms';
+		points: { point };
+		metadata: { 'prometheus.type' -> 'info' }.
+	snapshot := OTMetricSnapshot
+		resource: OTResource empty
+		measurements: #()
+		metrics: { metric }
+		collectedAt: DateAndTime unixEpoch.
+	prometheusText := encoder encodeSnapshot: snapshot format: #prometheusText100.
+	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (prometheusText includesSubstring: '# TYPE build_info gauge').
+	self assert: (prometheusText includesSubstring: 'build_info{').
+	self assert: (prometheusText includesSubstring: 'version="1.2.3"} 1').
+	self deny: (prometheusText includesSubstring: '# UNIT build_info').
+	self assert: (openMetricsText includesSubstring: '# TYPE build_info info')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesStateSetTypeHintAcrossFormats [
+
+	| metric point openMetricsText prometheusText snapshot |
+	point := OTNumberDataPoint
+		attributes: { 'connection_state' -> 'idle' }
+		value: 1
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	metric := OTGaugeMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'connection.state';
+		description: 'Connection state';
+		unit: '1';
+		points: { point };
+		metadata: { 'prometheus.type' -> 'stateset' }.
+	snapshot := OTMetricSnapshot
+		resource: OTResource empty
+		measurements: #()
+		metrics: { metric }
+		collectedAt: DateAndTime unixEpoch.
+	prometheusText := encoder encodeSnapshot: snapshot format: #prometheusText100.
+	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (prometheusText includesSubstring: '# TYPE connection_state gauge').
+	self assert: (openMetricsText includesSubstring: '# TYPE connection_state stateset').
+	self deny: (openMetricsText includesSubstring: '# UNIT connection_state').
+	self assert: (openMetricsText includesSubstring: 'connection_state{connection_state="idle"')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesUnknownTypeHintAcrossFormats [
+
+	| metric openMetricsText point prometheusText snapshot |
+	point := OTNumberDataPoint
+		attributes: { 'method' -> 'GET' }
+		value: 7
+		startTimestamp: DateAndTime unixEpoch
+		timestamp: DateAndTime unixEpoch.
+	metric := OTGaugeMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Requests';
+		unit: '1';
+		points: { point };
+		metadata: { 'prometheus.type' -> 'unkown' }.
+	snapshot := OTMetricSnapshot
+		resource: OTResource empty
+		measurements: #()
+		metrics: { metric }
+		collectedAt: DateAndTime unixEpoch.
+	prometheusText := encoder encodeSnapshot: snapshot format: #prometheusText100.
+	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (prometheusText includesSubstring: '# TYPE requests untyped').
+	self assert: (openMetricsText includesSubstring: '# TYPE requests unknown').
+	self assert: (openMetricsText includesSubstring: 'requests{')
+]
