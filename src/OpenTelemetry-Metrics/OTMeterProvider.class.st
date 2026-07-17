@@ -36,12 +36,14 @@ OTMeterProvider class >> current: anOTMeterProvider [
 { #category : 'instance creation' }
 OTMeterProvider class >> readConfiguration [
 
-	| exporterNames provider |
+	| exporterNames provider views |
 	provider := self new.
 	provider
 		resource: OTTracerProvider configuredResource;
 		exemplarFilter: self configuredExemplarFilter;
 		meterConfigurator: OTConfigurationSource configuredMeterConfigurator.
+	views := OTConfigurationSource configuredMetricViews.
+	views do: [ :each | provider addView: each ].
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	exporterNames := self configuredExporterNames.
 	exporterNames do: [ :each |

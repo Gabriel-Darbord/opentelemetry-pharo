@@ -477,6 +477,115 @@ meter_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeMetricViewAggregationParameters [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  views:
+    - selector:
+        instrument_name: request.duration
+        instrument_type: histogram
+      stream:
+        aggregation:
+          explicit_bucket_histogram:
+            boundaries:
+              - 1
+              - 10
+            record_min_max: false
+'
+		environmentValues: Dictionary new
+		during: [
+			| histogram metric point provider reader |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			histogram := (provider meterNamed: 'demo.metrics')
+				histogramNamed: 'request.duration'
+				unit: 'ms'
+				description: 'Request duration'.
+			histogram record: 0.
+			histogram record: 5.
+			histogram record: 15.
+			metric := reader collectSnapshot metrics first.
+			point := metric points first.
+			self assert: metric class identicalTo: OTHistogramMetricData.
+			self assert: point explicitBounds equals: #( 1.0 10.0 ).
+			self assert: point bucketCounts equals: #( 1 1 1 ).
+			self assert: point min isNil.
+			self assert: point max isNil ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeMetricViewSelectorsAndStreamOverrides [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  views:
+    - selector:
+        instrument_name: requests.total
+        instrument_type: counter
+        meter_name: alpha.metrics
+      stream:
+        name: alpha.requests
+        description: Alpha requests grouped by status
+        aggregation_cardinality_limit: 1
+        attribute_keys:
+          included:
+            - status
+            - user
+          excluded:
+            - user
+'
+		environmentValues: Dictionary new
+		during: [
+			| alphaMetric betaMetric overflowPoint point provider reader snapshot |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			((provider meterNamed: 'alpha.metrics')
+				counterNamed: 'requests.total')
+				add: 2
+				attributes: { 'status' -> '200'. 'user' -> 'alice' }.
+			((provider meterNamed: 'alpha.metrics')
+				counterNamed: 'requests.total')
+				add: 3
+				attributes: { 'status' -> '500'. 'user' -> 'bob' }.
+			((provider meterNamed: 'beta.metrics')
+				counterNamed: 'requests.total')
+				add: 7
+				attributes: { 'status' -> '201'. 'user' -> 'carol' }.
+			snapshot := reader collectSnapshot.
+			alphaMetric := snapshot metrics
+				detect: [ :each | each name = 'alpha.requests' ]
+				ifNone: [ self fail: 'Expected renamed alpha metric' ].
+			betaMetric := snapshot metrics
+				detect: [ :each | each name = 'requests.total' ]
+				ifNone: [ self fail: 'Expected default beta metric' ].
+			point := alphaMetric points
+				detect: [ :each | (each attributes at: 'status' ifAbsent: [ nil ]) = '200' ]
+				ifNone: [ self fail: 'Expected filtered alpha point' ].
+			overflowPoint := alphaMetric points
+				detect: [ :each |
+					(each attributes at: 'otel.metric.overflow' ifAbsent: [ false ]) = true ]
+				ifNone: [ self fail: 'Expected alpha overflow point' ].
+			self assert: alphaMetric description equals: 'Alpha requests grouped by status'.
+			self assert: point value equals: 2.
+			self deny: (point attributes includesKey: 'user').
+			self assert: overflowPoint value equals: 3.
+			self assert: betaMetric points first value equals: 7 ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileProjectsMetricReaderSequenceWhenRepresentable [
 
 	self
@@ -527,6 +636,32 @@ meter_provider:
 			self
 				assert: (readers second aggregationFor: histogram)
 				equals: #base2ExponentialBucketHistogram ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsExcludedOnlyDeclarativeMetricViewAttributeKeys [
+
+	self
+		should: [
+			self
+				withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  views:
+    - selector:
+        instrument_name: requests.total
+      stream:
+        attribute_keys:
+          excluded:
+            - user
+'
+				environmentValues: Dictionary new
+				during: [ OTMeterProvider current ] ]
+		raise: Error
 ]
 
 { #category : 'tests' }

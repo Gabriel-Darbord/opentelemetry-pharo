@@ -151,6 +151,18 @@ OTConfigurationSource class >> configuredMeterConfigurator [
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredMetricViews [
+
+	| configuration meterProvider views |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ #() ].
+	meterProvider := self dictionaryValueAt: 'meter_provider' in: configuration.
+	views := self sequenceValueAt: 'views' in: meterProvider.
+	views ifNil: [ ^ #() ].
+	^ views collect: [ :each | self metricViewFrom: each ]
+]
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> configuredTracerConfigurator [
 
 	| configuration tracerProvider node |
@@ -418,6 +430,49 @@ OTConfigurationSource class >> namedScopeRulesFrom: aCollection configBlock: aBl
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> metricViewAggregationParametersFor: anAssociation [
+
+	| kind options |
+	kind := anAssociation key.
+	options := anAssociation value ifNil: [ OrderedDictionary new ].
+	(#( 'default' 'drop' 'last_value' 'sum' ) includes: kind) ifTrue: [ ^ nil ].
+	kind = 'explicit_bucket_histogram' ifTrue: [
+		^ self explicitBucketHistogramAggregationParametersFrom: options ].
+	kind = 'base2_exponential_bucket_histogram' ifTrue: [
+		^ self base2ExponentialHistogramAggregationParametersFrom: options ].
+	Error signal: 'Unsupported declarative metric view aggregation: ', kind printString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> metricViewAttributeKeysFrom: aDictionary [
+
+	| attributeKeys excluded included |
+	attributeKeys := self dictionaryValueAt: 'attribute_keys' in: aDictionary.
+	attributeKeys ifNil: [ ^ nil ].
+	included := self stringCollectionValueAt: 'included' in: attributeKeys.
+	excluded := self stringCollectionValueAt: 'excluded' in: attributeKeys.
+	included ifNil: [
+		excluded ifNotNil: [
+			Error signal:
+				'Declarative metric views with excluded-only attribute_keys are not representable by OTMetricView' ].
+		^ nil ].
+	excluded ifNil: [ ^ included ].
+	^ included reject: [ :each | excluded includes: each ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> metricViewFrom: aDictionary [
+
+	| selector stream view |
+	view := OTMetricView new.
+	selector := self dictionaryValueAt: 'selector' in: aDictionary.
+	selector ifNotNil: [ self configureMetricView: view selectorFrom: selector ].
+	stream := self dictionaryValueAt: 'stream' in: aDictionary.
+	stream ifNotNil: [ self configureMetricView: view streamFrom: stream ].
+	^ view
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> mergeResourceAttributesFromListValue: aString into: anOrderedDictionary [
 
 	aString ifNil: [ ^ anOrderedDictionary ].
@@ -433,6 +488,17 @@ OTConfigurationSource class >> mergeResourceAttributesFromListValue: aString int
 			anOrderedDictionary at: key put: value ] ].
 	^ anOrderedDictionary
 ]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> singleAssociationFrom: aDictionary describedAs: aString [
+
+	aDictionary ifNil: [
+		Error signal: 'Declarative configuration ', aString, ' nodes must not be nil' ].
+	aDictionary associations size = 1 ifFalse: [
+		Error signal:
+			'Declarative configuration ', aString, ' nodes must contain exactly one entry' ].
+	^ aDictionary associations first
+}
 
 { #category : 'private - projection' }
 OTConfigurationSource class >> projectAttributeLimitsFrom: aDictionary into: anEnvironment [
@@ -935,11 +1001,7 @@ OTConfigurationSource class >> projectedExporterSelectionFrom: anOrderedDictiona
 { #category : 'private - projection' }
 OTConfigurationSource class >> samplerAssociationFrom: aDictionary [
 
-	aDictionary ifNil: [
-		Error signal: 'Declarative configuration sampler nodes must not be nil' ].
-	aDictionary associations size = 1 ifFalse: [
-		Error signal: 'Declarative configuration sampler nodes must contain exactly one sampler' ].
-	^ aDictionary associations first
+	^ self singleAssociationFrom: aDictionary describedAs: 'sampler'
 ]
 
 { #category : 'private - projection' }
@@ -1064,6 +1126,15 @@ OTConfigurationSource class >> stringValueAt: aKey in: aDictionary [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> stringCollectionValueAt: aKey in: aDictionary [
+
+	| values |
+	values := self sequenceValueAt: aKey in: aDictionary.
+	values ifNil: [ ^ nil ].
+	^ values collect: [ :each | each asString ]
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> booleanValueAt: aKey in: aDictionary [
 
 	| value |
@@ -1108,6 +1179,91 @@ OTConfigurationSource class >> tracerConfiguratorFrom: aDictionary [
 OTConfigurationSource class >> tracerEnabledFrom: aDictionary [
 
 	^ self enabledValueFrom: aDictionary
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> base2ExponentialHistogramAggregationParametersFrom: aDictionary [
+
+	| parameters |
+	parameters := OrderedDictionary new.
+	(self integerValueAt: 'max_scale' in: aDictionary) ifNotNil: [ :value |
+		parameters at: 'max_scale' put: value ].
+	(self integerValueAt: 'max_size' in: aDictionary) ifNotNil: [ :value |
+		parameters at: 'max_size' put: value ].
+	(self booleanValueAt: 'record_min_max' in: aDictionary) ifNotNil: [ :value |
+		parameters at: 'record_min_max' put: value ].
+	^ parameters isEmpty ifTrue: [ nil ] ifFalse: [ parameters ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> configureMetricView: anOTMetricView selectorFrom: aDictionary [
+
+	(self stringValueAt: 'instrument_name' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView namePattern: value ].
+	(self stringValueAt: 'instrument_type' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView instrumentType: value ].
+	(self stringValueAt: 'unit' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView unit: value ].
+	(self stringValueAt: 'meter_name' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView meterName: value ].
+	(self stringValueAt: 'meter_version' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView meterVersion: value ].
+	(self stringValueAt: 'meter_schema_url' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView meterSchemaUrl: value ].
+	^ anOTMetricView
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> configureMetricView: anOTMetricView streamFrom: aDictionary [
+
+	| attributeKeys |
+	(self stringValueAt: 'name' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView streamName: value ].
+	(self stringValueAt: 'description' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView streamDescription: value ].
+	(self integerValueAt: 'aggregation_cardinality_limit' in: aDictionary) ifNotNil: [ :value |
+		anOTMetricView aggregationCardinalityLimit: value ].
+	attributeKeys := self metricViewAttributeKeysFrom: aDictionary.
+	attributeKeys ifNotNil: [ anOTMetricView attributeKeys: attributeKeys ].
+	self configureMetricView: anOTMetricView aggregationFrom: aDictionary.
+	^ anOTMetricView
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> configureMetricView: anOTMetricView aggregationFrom: aDictionary [
+
+	| aggregationNode parameters |
+	aggregationNode := self dictionaryValueAt: 'aggregation' in: aDictionary.
+	aggregationNode ifNil: [ ^ anOTMetricView ].
+	aggregationNode := self
+		singleAssociationFrom: aggregationNode
+		describedAs: 'metric view aggregation'.
+	anOTMetricView aggregation: aggregationNode key.
+	parameters := self metricViewAggregationParametersFor: aggregationNode.
+	parameters ifNotNil: [ anOTMetricView aggregationParameters: parameters ].
+	^ anOTMetricView
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> explicitBucketHistogramAggregationParametersFrom: aDictionary [
+
+	| boundaries parameters |
+	parameters := OrderedDictionary new.
+	boundaries := self sequenceValueAt: 'boundaries' in: aDictionary.
+	boundaries ifNotNil: [ parameters at: 'boundaries' put: boundaries ].
+	(self booleanValueAt: 'record_min_max' in: aDictionary) ifNotNil: [ :value |
+		parameters at: 'record_min_max' put: value ].
+	^ parameters isEmpty ifTrue: [ nil ] ifFalse: [ parameters ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> integerValueAt: aKey in: aDictionary [
+
+	| value |
+	aDictionary ifNil: [ ^ nil ].
+	value := aDictionary at: aKey ifAbsent: [ ^ nil ].
+	value isInteger ifTrue: [ ^ value ].
+	^ nil
 ]
 
 { #category : 'private - projection' }
