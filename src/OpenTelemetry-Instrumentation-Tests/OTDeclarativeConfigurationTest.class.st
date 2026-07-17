@@ -330,6 +330,92 @@ logger_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsLoggerConfiguratorDefaultsAndExplicitRules [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+  logger_configurator/development:
+    default_config:
+      enabled: true
+      minimum_severity: warn
+    loggers:
+      - name: io.opentelemetry.contrib.*
+        config:
+          enabled: false
+      - name: spec.logs
+        config:
+          enabled: true
+          minimum_severity: error
+          trace_based: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| context defaultLogger disabledLogger sampledContext spanContext tracedLogger |
+			disabledLogger := OTLoggerProvider current
+				loggerNamed: 'io.opentelemetry.contrib.library'.
+			self deny: disabledLogger enabled.
+
+			defaultLogger := OTLoggerProvider current loggerNamed: 'default.logs'.
+			self deny: (defaultLogger enabledIn: nil severityNumber: OTSeverity info eventName: nil).
+			self assert: (defaultLogger enabledIn: nil severityNumber: OTSeverity warn eventName: nil).
+
+			spanContext := OTSpanContext
+				traceId: '0123456789abcdef0123456789abcdef'
+				spanId: '0123456789abcdef'
+				traceFlags: '00'
+				traceState: nil
+				remote: false.
+			context := OTContext new withSpan: spanContext asNonRecordingSpan.
+			tracedLogger := OTLoggerProvider current loggerNamed: 'spec.logs'.
+			self deny: (tracedLogger enabledIn: context severityNumber: OTSeverity error eventName: nil).
+
+			sampledContext := OTContext new withSpan: (
+				OTSpanContext
+					traceId: 'fedcba9876543210fedcba9876543210'
+					spanId: 'fedcba9876543210'
+					traceFlags: '01'
+					traceState: nil
+					remote: false) asNonRecordingSpan.
+			self assert: (tracedLogger enabledIn: sampledContext severityNumber: OTSeverity error eventName: nil).
+			self deny: (tracedLogger enabledIn: sampledContext severityNumber: OTSeverity warn eventName: nil) ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsLoggerConfiguratorRulesInOrder [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+  logger_configurator/development:
+    default_config:
+      enabled: true
+    loggers:
+      - name: spec.*
+        config:
+          enabled: false
+      - name: spec.logs
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| logger |
+			logger := OTLoggerProvider current loggerNamed: 'spec.logs'.
+			self deny: logger enabled ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileProjectsMetricReaderSequenceWhenRepresentable [
 
 	self

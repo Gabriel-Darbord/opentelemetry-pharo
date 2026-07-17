@@ -70,6 +70,39 @@ OTSeverity class >> isValid: anInteger [
 ]
 
 { #category : 'normalizing' }
+OTSeverity class >> fromName: anObject [
+
+	| normalized |
+	anObject ifNil: [ ^ self undefined ].
+	normalized := anObject asString trimBoth asLowercase.
+	normalized = 'trace' ifTrue: [ ^ self trace ].
+	normalized = 'trace2' ifTrue: [ ^ self trace: 2 ].
+	normalized = 'trace3' ifTrue: [ ^ self trace: 3 ].
+	normalized = 'trace4' ifTrue: [ ^ self trace: 4 ].
+	normalized = 'debug' ifTrue: [ ^ self debug ].
+	normalized = 'debug2' ifTrue: [ ^ self debug: 2 ].
+	normalized = 'debug3' ifTrue: [ ^ self debug: 3 ].
+	normalized = 'debug4' ifTrue: [ ^ self debug: 4 ].
+	normalized = 'info' ifTrue: [ ^ self info ].
+	normalized = 'info2' ifTrue: [ ^ self info: 2 ].
+	normalized = 'info3' ifTrue: [ ^ self info: 3 ].
+	normalized = 'info4' ifTrue: [ ^ self info: 4 ].
+	normalized = 'warn' ifTrue: [ ^ self warn ].
+	normalized = 'warn2' ifTrue: [ ^ self warn: 2 ].
+	normalized = 'warn3' ifTrue: [ ^ self warn: 3 ].
+	normalized = 'warn4' ifTrue: [ ^ self warn: 4 ].
+	normalized = 'error' ifTrue: [ ^ self error ].
+	normalized = 'error2' ifTrue: [ ^ self error: 2 ].
+	normalized = 'error3' ifTrue: [ ^ self error: 3 ].
+	normalized = 'error4' ifTrue: [ ^ self error: 4 ].
+	normalized = 'fatal' ifTrue: [ ^ self fatal ].
+	normalized = 'fatal2' ifTrue: [ ^ self fatal: 2 ].
+	normalized = 'fatal3' ifTrue: [ ^ self fatal: 3 ].
+	normalized = 'fatal4' ifTrue: [ ^ self fatal: 4 ].
+	Error signal: 'Unknown OpenTelemetry severity name: ', anObject printString
+]
+
+{ #category : 'normalizing' }
 OTSeverity class >> normalize: anObject [
 
 	anObject ifNil: [ ^ self undefined ].

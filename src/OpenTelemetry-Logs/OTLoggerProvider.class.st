@@ -268,7 +268,8 @@ OTLoggerProvider class >> readConfiguration [
 	provider := self new.
 	provider
 		resource: OTTracerProvider configuredResource;
-		logRecordLimits: self configuredLogRecordLimits.
+		logRecordLimits: self configuredLogRecordLimits;
+		loggerConfigurator: OTConfigurationSource configuredLoggerConfigurator.
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	exporterNames := self configuredExporterNames.
 	exporterNames do: [ :each |

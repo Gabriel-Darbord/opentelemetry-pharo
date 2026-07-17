@@ -60,6 +60,31 @@ OTConfigurationSource class >> cachedEnvironmentValues: aDictionaryOrNil [
 				put: aDictionaryOrNil ]
 ]
 
+{ #category : 'private - caching' }
+OTConfigurationSource class >> cachedParsedConfiguration [
+
+	^ OTClassStateStore
+		valueAt: #otConfigurationParsedConfiguration
+		forClass: self
+		ifAbsent: [ nil ]
+]
+
+{ #category : 'private - caching' }
+OTConfigurationSource class >> cachedParsedConfiguration: aDictionaryOrNil [
+
+	aDictionaryOrNil
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otConfigurationParsedConfiguration
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otConfigurationParsedConfiguration
+				forClass: self
+				put: aDictionaryOrNil ]
+]
+
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> configurationFilePath [
 
@@ -71,19 +96,44 @@ OTConfigurationSource class >> configurationFilePath [
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> configuredEnvironmentValues [
 
-	| cachedPath path values |
+	self configuredConfiguration.
+	^ self cachedEnvironmentValues
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredConfiguration [
+
+	| cachedPath configuration path values |
 	path := self configurationFilePath.
 	cachedPath := self cachedConfigurationFilePath.
-	(cachedPath = path and: [ cachedPath notNil ]) ifTrue: [
-		^ self cachedEnvironmentValues ].
+	(cachedPath = path
+		and: [ cachedPath notNil and: [ self cachedParsedConfiguration notNil ] ]) ifTrue: [
+		^ self cachedParsedConfiguration ].
 	path ifNil: [
 		self cachedConfigurationFilePath: nil.
 		self cachedEnvironmentValues: nil.
+		self cachedParsedConfiguration: nil.
 		^ nil ].
-	values := self environmentValuesFromConfigurationFileAt: path.
+	configuration := self parsedConfigurationFromConfigurationFileAt: path.
+	values := self projectedEnvironmentValuesFromConfiguration: configuration.
 	self cachedConfigurationFilePath: path.
+	self cachedParsedConfiguration: configuration.
 	self cachedEnvironmentValues: values.
-	^ values
+	^ configuration
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredLoggerConfigurator [
+
+	| configuration loggerProvider node |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ nil ].
+	loggerProvider := self dictionaryValueAt: 'logger_provider' in: configuration.
+	node := self
+		dictionaryValueAt: 'logger_configurator/development'
+		in: loggerProvider.
+	node ifNil: [ ^ nil ].
+	^ self loggerConfiguratorFrom: node
 ]
 
 { #category : 'private - projection' }
@@ -102,11 +152,8 @@ OTConfigurationSource class >> encodedResourceAttributesFrom: aDictionary [
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> environmentValuesFromConfigurationFileAt: aString [
 
-	| configuration fileContents |
-	fileContents := self readConfigurationFileAt: aString.
-	configuration := OTDeclarativeConfigFileParser
-		parse: fileContents
-		environmentLookup: [ :name | self rawEnvironmentValueAt: name ].
+	| configuration |
+	configuration := self parsedConfigurationFromConfigurationFileAt: aString.
 	^ self projectedEnvironmentValuesFromConfiguration: configuration
 ]
 
@@ -178,6 +225,116 @@ OTConfigurationSource class >> firstNodeNamed: aKey inSequence: aCollection [
 	aCollection do: [ :each |
 		(self dictionaryValueAt: aKey in: each) ifNotNil: [ :value | ^ value ] ].
 	^ nil
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerConfigFrom: aDictionary [
+
+	| config |
+	aDictionary ifNil: [ ^ OTLoggerConfig default ].
+	config := OTLoggerConfig default.
+	(self booleanValueAt: 'enabled' in: aDictionary) ifNotNil: [ :value |
+		config enabled: value ].
+	(self loggerSeverityValueAt: 'minimum_severity' in: aDictionary) ifNotNil: [ :value |
+		config minimumSeverity: value ].
+	(self booleanValueAt: 'trace_based' in: aDictionary) ifNotNil: [ :value |
+		config traceBased: value ].
+	^ config
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerConfigFor: anInstrumentationScope rules: aCollection default: anOTLoggerConfig [
+
+	| scopeName |
+	scopeName := anInstrumentationScope name.
+	aCollection do: [ :each |
+		(self loggerNamePattern: each key matches: scopeName) ifTrue: [
+			^ each value ] ].
+	^ anOTLoggerConfig
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerConfiguratorFrom: aDictionary [
+
+	| defaultConfig rules |
+	defaultConfig := self
+		loggerConfigFrom: (self dictionaryValueAt: 'default_config' in: aDictionary).
+	rules := self
+		loggerConfiguratorRulesFrom: (self sequenceValueAt: 'loggers' in: aDictionary).
+	^ [ :scope |
+		self
+			loggerConfigFor: scope
+			rules: rules
+			default: defaultConfig ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerConfiguratorRuleFrom: aDictionary [
+
+	| configNode name |
+	name := self stringValueAt: 'name' in: aDictionary.
+	name ifNil: [
+		Error signal: 'Declarative logger configurator entries require a logger name' ].
+	configNode := self dictionaryValueAt: 'config' in: aDictionary.
+	configNode ifNil: [
+		Error signal: 'Declarative logger configurator entries require a config' ].
+	^ name -> (self loggerConfigFrom: configNode)
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerConfiguratorRulesFrom: aCollection [
+
+	aCollection ifNil: [ ^ #() ].
+	^ aCollection collect: [ :each | self loggerConfiguratorRuleFrom: each ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerNamePattern: aPattern matches: aString [
+
+	aPattern = '*' ifTrue: [ ^ true ].
+	((aPattern includes: $*) or: [ aPattern includes: $? ]) ifTrue: [
+		^ self
+			loggerNamePattern: aPattern
+			at: 1
+			matches: aString
+			at: 1 ].
+	^ aPattern = aString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerNamePattern: aPattern at: patternIndex matches: aString at: stringIndex [
+
+	| character |
+	patternIndex > aPattern size ifTrue: [ ^ stringIndex > aString size ].
+	character := aPattern at: patternIndex.
+	character = $* ifTrue: [
+		patternIndex = aPattern size ifTrue: [ ^ true ].
+		stringIndex to: aString size + 1 do: [ :eachIndex |
+			(self
+				loggerNamePattern: aPattern
+				at: patternIndex + 1
+				matches: aString
+				at: eachIndex) ifTrue: [ ^ true ] ].
+		^ false ].
+	stringIndex > aString size ifTrue: [ ^ false ].
+	(character = $? or: [ character = (aString at: stringIndex) ]) ifFalse: [ ^ false ].
+	^ self
+		loggerNamePattern: aPattern
+		at: patternIndex + 1
+		matches: aString
+		at: stringIndex + 1
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerSeverityValueAt: aKey in: aDictionary [
+
+	| value |
+	aDictionary ifNil: [ ^ nil ].
+	value := aDictionary at: aKey ifAbsent: [ ^ nil ].
+	value ifNil: [ ^ nil ].
+	value isInteger ifTrue: [ ^ OTSeverity normalize: value ].
+	(value isString or: [ value isSymbol ]) ifFalse: [ ^ nil ].
+	^ OTSeverity fromName: value
 ]
 
 { #category : 'private - projection' }
@@ -517,6 +674,16 @@ OTConfigurationSource class >> projectedEnvironmentValuesFromConfiguration: aCon
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> parsedConfigurationFromConfigurationFileAt: aString [
+
+	| fileContents |
+	fileContents := self readConfigurationFileAt: aString.
+	^ OTDeclarativeConfigFileParser
+		parse: fileContents
+		environmentLookup: [ :name | self rawEnvironmentValueAt: name ]
+}
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> readConfigurationFileAt: aString [
 
 	| fileReference |
@@ -539,7 +706,8 @@ OTConfigurationSource class >> rawEnvironmentValueAt: aString [
 OTConfigurationSource class >> reset [
 
 	self cachedConfigurationFilePath: nil.
-	self cachedEnvironmentValues: nil
+	self cachedEnvironmentValues: nil.
+	self cachedParsedConfiguration: nil
 ]
 
 { #category : 'private - projection' }
@@ -813,6 +981,20 @@ OTConfigurationSource class >> stringValueAt: aKey in: aDictionary [
 	(value isString or: [ value isSymbol ]) ifFalse: [ ^ nil ].
 	value := value asString trimBoth.
 	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> booleanValueAt: aKey in: aDictionary [
+
+	| value |
+	aDictionary ifNil: [ ^ nil ].
+	value := aDictionary at: aKey ifAbsent: [ ^ nil ].
+	(OTAttributeNormalizer isBoolean: value) ifTrue: [ ^ value ].
+	(value isString or: [ value isSymbol ]) ifFalse: [ ^ nil ].
+	value := value asString trimBoth asLowercase.
+	value = 'true' ifTrue: [ ^ true ].
+	value = 'false' ifTrue: [ ^ false ].
+	^ nil
 ]
 
 { #category : 'private - projection' }
