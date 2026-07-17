@@ -236,7 +236,7 @@ OTConfigurationSource class >> projectCommonSettingsFrom: aConfiguration into: a
 ]
 
 { #category : 'private - projection' }
-OTConfigurationSource class >> projectExporterNode: aDictionary signalNamed: aString into: anEnvironment [
+OTConfigurationSource class >> projectExporterConfigurationNode: aDictionary signalNamed: aString into: anEnvironment [
 
 	| endpoint exporterName exporterOptions exporterType headers signalPrefix tls |
 	aDictionary ifNil: [ ^ self ].
@@ -246,19 +246,16 @@ OTConfigurationSource class >> projectExporterNode: aDictionary signalNamed: aSt
 	exporterOptions := aDictionary associations first value ifNil: [ OrderedDictionary new ].
 	signalPrefix := 'OTEL_EXPORTER_OTLP_', aString, '_'.
 	exporterType = 'console' ifTrue: [
-		anEnvironment at: (self exportEnvironmentNameForSignalNamed: aString) put: 'console'.
 		^ self ].
 	exporterType = 'zipkin' ifTrue: [
 		aString = 'TRACES' ifFalse: [
 			Error signal: 'Zipkin declarative configuration is only supported for traces' ].
-		anEnvironment at: 'OTEL_TRACES_EXPORTER' put: 'zipkin'.
 		self put: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT' from: 'endpoint' in: exporterOptions into: anEnvironment.
 		self put: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT' from: 'timeout' in: exporterOptions into: anEnvironment.
 		^ self ].
 	exporterType = 'prometheus' ifTrue: [
 		aString = 'METRICS' ifFalse: [
 			Error signal: 'Prometheus declarative configuration is only supported for metrics' ].
-		anEnvironment at: 'OTEL_METRICS_EXPORTER' put: 'prometheus'.
 		self put: 'OTEL_EXPORTER_PROMETHEUS_HOST' from: 'host' in: exporterOptions into: anEnvironment.
 		self put: 'OTEL_EXPORTER_PROMETHEUS_PORT' from: 'port' in: exporterOptions into: anEnvironment.
 		^ self ].
@@ -268,7 +265,6 @@ OTConfigurationSource class >> projectExporterNode: aDictionary signalNamed: aSt
 			exporterType = 'otlp_http'
 				ifTrue: [ 'http/protobuf' ]
 				ifFalse: [ Error signal: 'Unsupported declarative exporter type: ', exporterType printString ] ].
-	anEnvironment at: (self exportEnvironmentNameForSignalNamed: aString) put: 'otlp'.
 	anEnvironment at: signalPrefix , 'PROTOCOL' put: exporterName.
 	endpoint := self stringValueAt: 'endpoint' in: exporterOptions.
 	endpoint ifNotNil: [ anEnvironment at: signalPrefix , 'ENDPOINT' put: endpoint ].
@@ -286,16 +282,28 @@ OTConfigurationSource class >> projectExporterNode: aDictionary signalNamed: aSt
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> projectExporterNode: aDictionary signalNamed: aString into: anEnvironment [
+
+	| exporterName |
+	aDictionary ifNil: [ ^ self ].
+	exporterName := self projectedExporterEnvironmentNameFrom: aDictionary signalNamed: aString.
+	anEnvironment at: (self exportEnvironmentNameForSignalNamed: aString) put: exporterName.
+	self projectExporterConfigurationNode: aDictionary signalNamed: aString into: anEnvironment.
+	^ self
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> projectLoggerProviderFrom: aConfiguration into: anEnvironment [
 
-	| batch loggerProvider |
+	| loggerProvider |
 	loggerProvider := self dictionaryValueAt: 'logger_provider' in: aConfiguration.
 	loggerProvider ifNil: [ ^ self ].
 	self projectLogRecordLimitsFrom: loggerProvider into: anEnvironment.
-	batch := self firstNodeNamed: 'batch' inSequence: (self sequenceValueAt: 'processors' in: loggerProvider).
-	batch ifNil: [ ^ self ].
-	self projectBatchProcessorNode: batch prefix: 'OTEL_BLRP' into: anEnvironment.
-	self projectExporterNode: (self exporterNodeFromProcessorNode: batch) signalNamed: 'LOGS' into: anEnvironment
+	self
+		projectProcessorSequenceFrom: loggerProvider
+		signalNamed: 'LOGS'
+		batchPrefix: 'OTEL_BLRP'
+		into: anEnvironment
 ]
 
 { #category : 'private - projection' }
@@ -325,6 +333,44 @@ OTConfigurationSource class >> projectMeterProviderFrom: aConfiguration into: an
 		in: exporterOptions
 		into: anEnvironment.
 	self projectExporterNode: exporter signalNamed: 'METRICS' into: anEnvironment
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectProcessorSequenceFrom: aDictionary signalNamed: aString batchPrefix: anotherString into: anEnvironment [
+
+	| batchSettings exporters processors |
+	processors := self sequenceValueAt: 'processors' in: aDictionary.
+	processors ifNil: [ ^ self ].
+	processors ifEmpty: [
+		anEnvironment at: (self exportEnvironmentNameForSignalNamed: aString) put: 'none'.
+		^ self ].
+	exporters := self
+		projectedExporterNodesFromProcessors: processors
+		signalNamed: aString.
+	batchSettings := self
+		sharedBatchProcessorSettingsFrom: processors.
+	batchSettings ifNotNil: [
+		self
+			projectBatchProcessorEnvironmentSettings: batchSettings
+			prefix: anotherString
+			into: anEnvironment ].
+	anEnvironment
+		at: (self exportEnvironmentNameForSignalNamed: aString)
+		put: (self projectedExporterSelectionFrom: exporters).
+	exporters values do: [ :each |
+		self projectExporterConfigurationNode: each signalNamed: aString into: anEnvironment ].
+	^ self
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectBatchProcessorEnvironmentSettings: aDictionary prefix: aString into: anEnvironment [
+
+	aDictionary ifNil: [ ^ self ].
+	self put: aString , '_SCHEDULE_DELAY' from: 'schedule_delay' in: aDictionary into: anEnvironment.
+	self put: aString , '_EXPORT_TIMEOUT' from: 'export_timeout' in: aDictionary into: anEnvironment.
+	self put: aString , '_MAX_QUEUE_SIZE' from: 'max_queue_size' in: aDictionary into: anEnvironment.
+	self put: aString , '_MAX_EXPORT_BATCH_SIZE' from: 'max_export_batch_size' in: aDictionary into: anEnvironment.
+	^ self
 ]
 
 { #category : 'private - projection' }
@@ -428,14 +474,15 @@ OTConfigurationSource class >> projectTraceSamplerFrom: aDictionary into: anEnvi
 { #category : 'private - projection' }
 OTConfigurationSource class >> projectTracerProviderFrom: aConfiguration into: anEnvironment [
 
-	| batch traceProvider |
+	| traceProvider |
 	traceProvider := self dictionaryValueAt: 'tracer_provider' in: aConfiguration.
 	traceProvider ifNil: [ ^ self ].
 	self projectTraceSamplerFrom: traceProvider into: anEnvironment.
-	batch := self firstNodeNamed: 'batch' inSequence: (self sequenceValueAt: 'processors' in: traceProvider).
-	batch ifNotNil: [
-		self projectBatchProcessorNode: batch prefix: 'OTEL_BSP' into: anEnvironment.
-		self projectExporterNode: (self exporterNodeFromProcessorNode: batch) signalNamed: 'TRACES' into: anEnvironment ].
+	self
+		projectProcessorSequenceFrom: traceProvider
+		signalNamed: 'TRACES'
+		batchPrefix: 'OTEL_BSP'
+		into: anEnvironment.
 	self projectSpanLimitsFrom: traceProvider into: anEnvironment
 ]
 
@@ -499,6 +546,75 @@ OTConfigurationSource class >> put: anEnvironmentName fromAnyOf: aCollection in:
 			anEnvironment at: anEnvironmentName put: value.
 			^ anEnvironment ] ].
 	^ anEnvironment
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectedBatchProcessorSettingsFrom: aDictionary [
+
+	| settings |
+	settings := OrderedDictionary new.
+	#( 'schedule_delay' 'export_timeout' 'max_queue_size' 'max_export_batch_size' ) do: [ :each |
+		(self stringValueAt: each in: aDictionary) ifNotNil: [ :value |
+			settings at: each put: value ] ].
+	^ settings
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectedExporterEnvironmentNameFrom: aDictionary signalNamed: aString [
+
+	| association exporterType |
+	aDictionary ifNil: [
+		Error signal: 'Declarative configuration processors require an exporter' ].
+	association := self samplerAssociationFrom: aDictionary.
+	exporterType := association key.
+	exporterType = 'console' ifTrue: [ ^ 'console' ].
+	exporterType = 'zipkin' ifTrue: [
+		aString = 'TRACES' ifFalse: [
+			Error signal: 'Zipkin declarative configuration is only supported for traces' ].
+		^ 'zipkin' ].
+	exporterType = 'prometheus' ifTrue: [
+		aString = 'METRICS' ifFalse: [
+			Error signal: 'Prometheus declarative configuration is only supported for metrics' ].
+		^ 'prometheus' ].
+	(#( 'otlp_grpc' 'otlp_http' ) includes: exporterType) ifTrue: [ ^ 'otlp' ].
+	Error signal: 'Unsupported declarative exporter type: ', exporterType printString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectedExporterNodesFromProcessors: aCollection signalNamed: aString [
+
+	| exporters |
+	exporters := OrderedDictionary new.
+	aCollection do: [ :each |
+		| batchSettings exporterName exporterNode processorAssociation processorKind processorOptions |
+		processorAssociation := self samplerAssociationFrom: each.
+		processorKind := self normalizedSamplerKind: processorAssociation key.
+		processorOptions := processorAssociation value ifNil: [ OrderedDictionary new ].
+		exporterNode := self exporterNodeFromProcessorNode: processorOptions.
+		exporterName := self projectedExporterEnvironmentNameFrom: exporterNode signalNamed: aString.
+		self
+			validateProcessorKind: processorKind
+			exporterName: exporterName
+			node: each.
+		batchSettings := self projectedBatchProcessorSettingsFrom: processorOptions.
+		processorKind = 'simple' ifTrue: [
+				batchSettings isEmpty ifFalse: [
+					Error signal:
+						'Declarative simple processor settings are not representable via SDK environment variables' ] ].
+		(exporters includesKey: exporterName) ifTrue: [
+			Error signal:
+				'Declarative processor sequence configures the same exporter more than once, which is not representable via SDK environment variables' ].
+		exporters at: exporterName put: exporterNode ].
+	^ exporters
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectedExporterSelectionFrom: anOrderedDictionary [
+
+	^ String streamContents: [ :stream |
+		anOrderedDictionary keysDo: [ :each |
+			stream position > 0 ifTrue: [ stream nextPut: $, ].
+			stream nextPutAll: each ] ]
 ]
 
 { #category : 'private - projection' }
@@ -643,4 +759,43 @@ OTConfigurationSource class >> validateParentBasedDelegateNamed: aString expecte
 			'Declarative parent_based sampler delegate is not representable via SDK environment variables: '
 				, aString printString ].
 	^ self
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> sharedBatchProcessorSettingsFrom: aCollection [
+
+	| foundSettings |
+	foundSettings := nil.
+	aCollection do: [ :each |
+		| processorAssociation processorKind processorOptions settings |
+		processorAssociation := self samplerAssociationFrom: each.
+		processorKind := self normalizedSamplerKind: processorAssociation key.
+		processorKind = 'batch' ifTrue: [
+			processorOptions := processorAssociation value ifNil: [ OrderedDictionary new ].
+			settings := self projectedBatchProcessorSettingsFrom: processorOptions.
+			settings isEmpty ifFalse: [
+				foundSettings
+					ifNil: [ foundSettings := settings ]
+					ifNotNil: [
+						foundSettings = settings ifFalse: [
+							Error signal:
+								'Declarative processor sequence configures incompatible batch processor settings for one signal' ] ] ] ] ].
+	^ foundSettings
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> validateProcessorKind: aString exporterName: anotherString node: aDictionary [
+
+	aString = 'simple' ifTrue: [
+		anotherString = 'console' ifTrue: [ ^ self ].
+		Error signal:
+			'Declarative simple processors are only representable for console exporters via SDK environment variables' ].
+	aString = 'batch' ifTrue: [
+		anotherString = 'console' ifTrue: [
+			Error signal:
+				'Declarative batch processors are not representable for console exporters via SDK environment variables' ].
+		^ self ].
+	Error signal:
+		'Unsupported declarative processor type: '
+			, (self samplerAssociationFrom: aDictionary) key printString
 ]

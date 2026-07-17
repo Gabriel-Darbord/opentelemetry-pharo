@@ -252,6 +252,130 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsTraceProcessorSequenceWhenRepresentable [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+    - batch:
+        schedule_delay: 123
+        max_queue_size: 456
+        exporter:
+          zipkin:
+            endpoint: http://zipkin.example:9411/api/v2/spans
+            timeout: 789
+'
+		environmentValues: Dictionary new
+		during: [
+			| processors |
+			processors := OTTracerProvider current spanProcessors.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_EXPORTER')
+				equals: 'console,zipkin'.
+			self assert: processors size equals: 2.
+			self assert: processors first class identicalTo: OTSimpleSpanProcessor.
+			self assert: processors second class identicalTo: OTBatchSpanProcessor.
+			self assert: processors first exporter class identicalTo: OTConsoleSpanExporter.
+			self assert: processors second exporter class identicalTo: OTZipkinSpanExporter.
+			self assert: processors second scheduledDelayMillis equals: 123.
+			self assert: processors second maxQueueSize equals: 456.
+			self
+				assert: processors second exporter httpClient request url asString
+				equals: 'http://zipkin.example:9411/api/v2/spans'.
+			self assert: processors second exporter httpClient timeout equals: 789 ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsLogProcessorSequenceWhenRepresentable [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+    - batch:
+        export_timeout: 222
+        max_export_batch_size: 33
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/custom/logs
+'
+		environmentValues: Dictionary new
+		during: [
+			| processors |
+			processors := OTLoggerProvider current logRecordProcessors.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_LOGS_EXPORTER')
+				equals: 'console,otlp'.
+			self assert: processors size equals: 2.
+			self assert: processors first class identicalTo: OTSimpleLogRecordProcessor.
+			self assert: processors second class identicalTo: OTBatchLogRecordProcessor.
+			self assert: processors first exporter class identicalTo: OTConsoleLogRecordExporter.
+			self
+				assert: processors second exporter class
+				identicalTo: OTOtlpHttpProtobufLogRecordExporter.
+			self assert: processors second exportTimeoutMillis equals: 222.
+			self assert: processors second maxExportBatchSize equals: 33.
+			self
+				assert: processors second exporter configuration endpoint
+				equals: 'http://collector:4318/custom/logs' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsConflictingBatchProcessorSettingsForOneSignal [
+
+	self
+		should: [
+			self
+				withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - batch:
+        schedule_delay: 111
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/v1/traces
+    - batch:
+        schedule_delay: 222
+        exporter:
+          zipkin:
+            endpoint: http://zipkin.example:9411/api/v2/spans
+'
+				environmentValues: Dictionary new
+				during: [ OTConfigurationSource environmentValueAt: 'OTEL_TRACES_EXPORTER' ] ]
+		raise: Error
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsUnrepresentableSimpleTraceProcessor [
+
+	self
+		should: [
+			self
+				withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/v1/traces
+'
+				environmentValues: Dictionary new
+				during: [ OTTracerProvider current ] ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileTakesPrecedenceOverEnvironmentVariables [
 
 	self
