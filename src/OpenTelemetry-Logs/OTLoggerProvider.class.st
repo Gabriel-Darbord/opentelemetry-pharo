@@ -137,10 +137,7 @@ OTLoggerProvider class >> defaultLoggerConfig [
 { #category : 'private' }
 OTLoggerProvider class >> environmentValueAt: aString [
 
-	| value |
-	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
-	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+	^ OTConfigurationSource environmentValueAt: aString
 ]
 
 { #category : 'private' }
@@ -300,6 +297,7 @@ OTLoggerProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default:
 OTLoggerProvider class >> reset [
 
 	Current ifNotNil: [ Current shutdown ].
+	OTConfigurationSource reset.
 	Current := nil
 ]
 

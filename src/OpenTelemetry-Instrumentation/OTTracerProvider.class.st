@@ -316,10 +316,7 @@ OTTracerProvider class >> defaultTracerNameWarningSink [
 { #category : 'private' }
 OTTracerProvider class >> environmentValueAt: aString [
 
-	| value |
-	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
-	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+	^ OTConfigurationSource environmentValueAt: aString
 ]
 
 { #category : 'private' }
@@ -545,6 +542,7 @@ OTTracerProvider class >> readConfiguration [
 OTTracerProvider class >> reset [
 
 	Current ifNotNil: [ Current shutdown ].
+	OTConfigurationSource reset.
 	Current := nil.
 	self resourceDetectors: nil
 ]

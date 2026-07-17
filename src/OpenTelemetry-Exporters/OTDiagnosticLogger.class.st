@@ -130,10 +130,7 @@ OTDiagnosticLogger class >> errorSeverity [
 { #category : 'private - configuration' }
 OTDiagnosticLogger class >> environmentValueAt: aString [
 
-	| value |
-	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
-	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+	^ OTConfigurationSource environmentValueAt: aString
 ]
 
 { #category : 'severity' }
@@ -186,6 +183,7 @@ OTDiagnosticLogger class >> onWarningDo: aBlock [
 OTDiagnosticLogger class >> reset [
 
 	<script>
+	OTConfigurationSource reset.
 	self loggerFactory: nil.
 	self tinyLoggerClassResolver: nil.
 	Current := nil

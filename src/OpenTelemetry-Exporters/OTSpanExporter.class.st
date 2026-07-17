@@ -88,10 +88,7 @@ OTSpanExporter class >> defaultZipkinExporter [
 { #category : 'private' }
 OTSpanExporter class >> environmentValueAt: aString [
 
-	| value |
-	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
-	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+	^ OTConfigurationSource environmentValueAt: aString
 ]
 
 { #category : 'instance creation' }
@@ -243,6 +240,7 @@ OTSpanExporter class >> reset [
 	<script>
 	self shutdown.
 	self resetLifecycleState.
+	OTConfigurationSource reset.
 	Current := nil
 ]
 

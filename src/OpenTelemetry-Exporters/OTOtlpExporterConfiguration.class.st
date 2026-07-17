@@ -104,10 +104,7 @@ OTOtlpExporterConfiguration class >> decodedHeaderComponentFrom: aString [
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> environmentValueAt: aString [
 
-	| value |
-	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
-	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+	^ OTConfigurationSource environmentValueAt: aString
 ]
 
 { #category : 'private' }

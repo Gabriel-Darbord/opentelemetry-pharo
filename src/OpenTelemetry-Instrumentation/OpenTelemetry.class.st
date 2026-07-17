@@ -93,10 +93,7 @@ OpenTelemetry class >> defaultTextMapPropagator [
 { #category : 'private' }
 OpenTelemetry class >> environmentValueAt: aString [
 
-	| value |
-	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
-	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+	^ OTConfigurationSource environmentValueAt: aString
 ]
 
 { #category : 'accessing' }
