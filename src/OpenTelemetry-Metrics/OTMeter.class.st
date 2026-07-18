@@ -185,7 +185,7 @@ OTMeter >> histogramNamed: aString unit: aUnitString description: aDescriptionSt
 OTMeter >> isNoop [
 
 	^ provider isNil
-}
+]
 
 { #category : 'initialization' }
 OTMeter >> initialize [

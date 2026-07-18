@@ -66,6 +66,155 @@ resource:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeResourceAttributesAndSchemaWithoutDetectionNode [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+resource:
+  attributes:
+    - name: service.name
+      value: config-service
+    - name: bool_key
+      value: true
+      type: bool
+    - name: int_key
+      value: 42
+      type: int
+    - name: double_key
+      value: 1.5
+      type: double
+    - name: string_array_key
+      value: [ one, two ]
+      type: string_array
+    - name: bool_array_key
+      value: [ true, false ]
+      type: bool_array
+    - name: int_array_key
+      value: [ 1, 2 ]
+      type: int_array
+    - name: double_array_key
+      value: [ 1.1, 2.2 ]
+      type: double_array
+  attributes_list: service.namespace=config-namespace
+  schema_url: https://opentelemetry.io/schemas/1.16.0
+'
+		environmentValues: Dictionary new
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			self assert: resource serviceName equals: 'config-service'.
+			self assert: resource schemaUrl equals: 'https://opentelemetry.io/schemas/1.16.0'.
+			self assert: (resource attributeAt: 'service.namespace') equals: 'config-namespace'.
+			self assert: (resource attributeAt: 'bool_key') equals: true.
+			self assert: (resource attributeAt: 'int_key') equals: 42.
+			self assert: (resource attributeAt: 'double_key') equals: 1.5.
+			self assert: (resource attributeAt: 'string_array_key') equals: #( 'one' 'two' ).
+			self assert: (resource attributeAt: 'bool_array_key') equals: #( true false ).
+			self assert: (resource attributeAt: 'int_array_key') equals: #( 1 2 ).
+			self assert: (resource attributeAt: 'double_array_key') equals: #( 1.1 2.2 ) ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileIgnoresInvalidDeclarativeResourceAttributesListWithWarning [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+resource:
+  attributes:
+    - name: service.name
+      value: config-service
+  attributes_list: good=value,bad=%ZZ
+'
+		environmentValues: Dictionary new
+		during: [
+			self withResourceWarningsDo: [ :warnings |
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource serviceName equals: 'config-service'.
+				self assert: (resource attributeAt: 'good') isNil.
+				self assert: warnings size equals: 1.
+				self
+					assert: (warnings first includesSubstring: 'Failed to percent-decode resource.attributes_list entry') ] ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeEnvDetectorFromRawEnvironment [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+resource:
+  attributes:
+    - name: service.name
+      value: config-service
+  detection/development:
+    detectors:
+      - env:
+'
+		environmentValues: (Dictionary new
+			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'deployment.environment.name=prod';
+			yourself)
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			self assert: resource serviceName equals: 'config-service'.
+			self
+				assert: (resource attributeAt: 'deployment.environment.name')
+				equals: 'prod' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeOsDetectorSeparatelyFromHostDetector [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+resource:
+  detection/development:
+    detectors:
+      - os:
+'
+		environmentValues: Dictionary new
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			self assert: (resource attributeAt: 'os.type') notNil.
+			self assert: (resource attributeAt: 'host.name') isNil ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeResourceDetectionAttributeFiltering [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+resource:
+  attributes:
+    - name: service.name
+      value: config-service
+  detection/development:
+    attributes:
+      included:
+        - process.*
+      excluded:
+        - process.command_args
+    detectors:
+      - process:
+      - service:
+'
+		environmentValues: Dictionary new
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			self assert: resource serviceName equals: 'config-service'.
+			self assert: (resource attributeAt: 'process.runtime.name') equals: 'pharo'.
+			self assert: (resource attributeAt: 'service.instance.id') isNil.
+			self assert: (resource attributeAt: 'process.command_args') isNil ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileProjectsTracingMetricsAndLoggingSettings [
 
 	self
@@ -821,6 +970,17 @@ propagator:
 ]
 
 { #category : 'private' }
+OTDeclarativeConfigurationTest >> withResourceWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider resourceConfigurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
+]
+
+{ #category : 'private' }
 OTDeclarativeConfigurationTest >> withConfigurationFileContents: aString environmentValues: aDictionary during: aBlock [
 
 	| configFile environment |
@@ -843,7 +1003,9 @@ OTDeclarativeConfigurationTest >> withEnvironmentValues: aDictionary during: aBl
 	aDictionary keysAndValuesDo: [ :key :value |
 		snapshot at: key put: (environment at: key ifAbsent: [ absent ]).
 		value
-			ifNil: [ environment removeKey: key ifAbsent: [  ] ]
+			ifNil: [
+				(environment at: key ifAbsent: [ absent ]) == absent ifFalse: [
+					environment removeKey: key ] ]
 			ifNotNil: [ environment at: key put: value ] ].
 	[
 		self resetTelemetryConfiguration.
@@ -851,7 +1013,9 @@ OTDeclarativeConfigurationTest >> withEnvironmentValues: aDictionary during: aBl
 		ensure: [
 			snapshot keysAndValuesDo: [ :key :value |
 				value == absent
-					ifTrue: [ environment removeKey: key ifAbsent: [  ] ]
+					ifTrue: [
+						(environment at: key ifAbsent: [ absent ]) == absent ifFalse: [
+							environment removeKey: key ] ]
 					ifFalse: [ environment at: key put: value ] ].
 			self resetTelemetryConfiguration ]
 ]

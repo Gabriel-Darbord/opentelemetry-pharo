@@ -163,6 +163,17 @@ OTConfigurationSource class >> configuredMetricViews [
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredResource [
+
+	| configuration resource |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ nil ].
+	resource := self dictionaryValueAt: 'resource' in: configuration.
+	resource ifNil: [ ^ nil ].
+	^ self declarativeResourceFrom: resource
+]
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> configuredTracerConfigurator [
 
 	| configuration tracerProvider node |
@@ -268,6 +279,257 @@ OTConfigurationSource class >> firstNodeNamed: aKey inSequence: aCollection [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> attributeKey: aString matchesAnyPatternIn: aCollection [
+
+	aCollection ifNil: [ ^ false ].
+	^ aCollection anySatisfy: [ :each | self wildcardPattern: each matches: aString ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeEnvironmentResource [
+
+	| rawValue |
+	rawValue := self rawEnvironmentValueAt: 'OTEL_RESOURCE_ATTRIBUTES'.
+	rawValue ifNil: [ ^ OTResource empty ].
+	^ [ OTResource attributes: (OTTracerProvider resourceAttributesFromEnvironment: rawValue) ]
+		on: Error
+		do: [ :error |
+			OTTracerProvider noteInvalidResourceAttributes: rawValue error: error.
+			OTResource empty ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeResourceAttributesFrom: aDictionary [
+
+	| attributes explicitAttributes |
+	attributes := OrderedDictionary new.
+	attributes addAll: (self
+		resourceAttributesFromListValue: (self stringValueAt: 'attributes_list' in: aDictionary)).
+	explicitAttributes := self sequenceValueAt: 'attributes' in: aDictionary.
+	explicitAttributes ifNotNil: [
+		explicitAttributes do: [ :each |
+			(self declarativeResourceAttributeFrom: each) ifNotNil: [ :attribute |
+				attributes at: attribute key put: attribute value ] ] ].
+	^ attributes
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeResourceAttributeFrom: aDictionary [
+
+	| attributeName rawValue valueType |
+	attributeName := self stringValueAt: 'name' in: aDictionary.
+	attributeName ifNil: [ ^ nil ].
+	(aDictionary includesKey: 'value') ifFalse: [ ^ nil ].
+	rawValue := aDictionary at: 'value'.
+	valueType := self stringValueAt: 'type' in: aDictionary.
+	^ attributeName -> (self
+		declarativeResourceAttributeValue: rawValue
+		type: valueType)
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeResourceAttributeValue: anObject type: aStringOrNil [
+
+	aStringOrNil ifNil: [ ^ anObject asString ].
+	aStringOrNil = 'string' ifTrue: [
+		((anObject isString) or: [ anObject isSymbol ]) ifFalse: [
+			Error signal:
+				'Declarative resource attribute value does not match type string: '
+					, anObject printString ].
+		^ anObject asString ].
+	aStringOrNil = 'bool' ifTrue: [
+		(OTAttributeNormalizer isBoolean: anObject) ifFalse: [
+			Error signal:
+				'Declarative resource attribute value does not match type bool: '
+					, anObject printString ].
+		^ anObject ].
+	aStringOrNil = 'int' ifTrue: [
+		anObject isInteger ifFalse: [
+			Error signal:
+				'Declarative resource attribute value does not match type int: '
+					, anObject printString ].
+		^ anObject ].
+	aStringOrNil = 'double' ifTrue: [
+		anObject isNumber ifFalse: [
+			Error signal:
+				'Declarative resource attribute value does not match type double: '
+					, anObject printString ].
+		^ anObject asFloat ].
+	aStringOrNil = 'string_array' ifTrue: [
+		^ self
+			declarativeResourceAttributeValues: anObject
+			validatedBy: [ :each | each isString or: [ each isSymbol ] ]
+			convertedBy: [ :each | each asString ]
+			type: aStringOrNil ].
+	aStringOrNil = 'bool_array' ifTrue: [
+		^ self
+			declarativeResourceAttributeValues: anObject
+			validatedBy: [ :each | OTAttributeNormalizer isBoolean: each ]
+			convertedBy: [ :each | each ]
+			type: aStringOrNil ].
+	aStringOrNil = 'int_array' ifTrue: [
+		^ self
+			declarativeResourceAttributeValues: anObject
+			validatedBy: [ :each | each isInteger ]
+			convertedBy: [ :each | each ]
+			type: aStringOrNil ].
+	aStringOrNil = 'double_array' ifTrue: [
+		^ self
+			declarativeResourceAttributeValues: anObject
+			validatedBy: [ :each | each isNumber ]
+			convertedBy: [ :each | each asFloat ]
+			type: aStringOrNil ].
+	Error signal:
+		'Unsupported declarative resource attribute type: '
+			, aStringOrNil printString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeResourceAttributeValues: anObject validatedBy: aValidationBlock convertedBy: aConversionBlock type: aString [
+
+	((anObject isSequenceable) and: [ anObject isString not ]) ifFalse: [
+		Error signal:
+			'Declarative resource attribute value does not match type '
+				, aString printString
+				, ': '
+				, anObject printString ].
+	^ anObject collect: [ :each |
+		(aValidationBlock value: each) ifFalse: [
+			Error signal:
+				'Declarative resource attribute value does not match type '
+					, aString printString
+					, ': '
+					, anObject printString ].
+		aConversionBlock value: each ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeResourceDetectorFrom: aDictionary [
+
+	| association detectorName |
+	association := self
+		singleAssociationFrom: aDictionary
+		describedAs: 'resource detector'.
+	detectorName := association key asString.
+	^ self declarativeResourceDetectorNamed: detectorName
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeResourceDetectorNamed: detectorName [
+
+	detectorName = 'sdk' ifTrue: [
+		^ OTStaticResourceDetector
+			named: 'sdk'
+			resource: OTTracerProvider defaultResource ].
+	detectorName = 'host' ifTrue: [ ^ OTHostResourceDetector new ].
+	detectorName = 'os' ifTrue: [
+		^ OTBlockResourceDetector
+			named: 'os'
+			detecting: [
+				self
+					filteredResource: OTHostResourceDetector new detectResource
+					included: #( 'os.*' )
+					excluded: nil ] ].
+	detectorName = 'process' ifTrue: [ ^ OTProcessResourceDetector new ].
+	(#( 'env' 'environment' ) includes: detectorName) ifTrue: [
+		^ OTBlockResourceDetector
+			named: 'env'
+			detecting: [ self declarativeEnvironmentResource ] ].
+	detectorName = 'service' ifTrue: [
+		^ OTBlockResourceDetector
+			named: 'service'
+			detecting: [ self declarativeServiceResource ] ].
+	detectorName = 'service_instance' ifTrue: [ ^ OTServiceInstanceResourceDetector new ].
+	Error signal: 'Unsupported declarative resource detector: ', detectorName printString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeResourceDetectorsFrom: aDictionary [
+
+	| detectors |
+	detectors := self sequenceValueAt: 'detectors' in: aDictionary.
+	detectors ifNil: [
+		^ #( 'sdk' 'host' 'process' 'env' 'service' ) collect: [ :each |
+			self declarativeResourceDetectorNamed: each ] ].
+	^ detectors collect: [ :each | self declarativeResourceDetectorFrom: each ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeResourceFrom: aDictionary [
+
+	| detected detection explicitAttributes explicitResource explicitSchemaUrl |
+	detection := self dictionaryValueAt: 'detection/development' in: aDictionary.
+	detected := self
+		filteredDeclarativeResourceDetection:
+			(OTTracerProvider
+				resourceFromDetectors: (self declarativeResourceDetectorsFrom: detection))
+		with: detection.
+	explicitAttributes := self declarativeResourceAttributesFrom: aDictionary.
+	explicitSchemaUrl := self stringValueAt: 'schema_url' in: aDictionary.
+	explicitResource := (explicitAttributes isEmpty and: [ explicitSchemaUrl isNil ])
+		ifTrue: [ OTResource empty ]
+		ifFalse: [
+			OTResource
+				attributes: explicitAttributes
+				schemaUrl: (explicitSchemaUrl ifNil: [ '' ]) ].
+	^ detected merge: explicitResource
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeServiceResource [
+
+	| attributes rawResourceAttributes serviceName |
+	attributes := OrderedDictionary new.
+	serviceName := self rawEnvironmentValueAt: 'OTEL_SERVICE_NAME'.
+	serviceName ifNotNil: [ attributes at: 'service.name' put: serviceName ].
+	rawResourceAttributes := self rawEnvironmentValueAt: 'OTEL_RESOURCE_ATTRIBUTES'.
+	(rawResourceAttributes isNil
+		or: [ (rawResourceAttributes includesSubstring: 'service.instance.id=') not ]) ifTrue: [
+		attributes
+			at: 'service.instance.id'
+			put: OTTracerProvider defaultServiceInstanceId ].
+	^ attributes
+		ifEmpty: [ OTResource empty ]
+		ifNotEmpty: [
+			OTResource
+				attributes: attributes
+				schemaUrl: OTTracerProvider semanticConventionsSchemaUrl ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> filteredDeclarativeResourceDetection: anOTResource with: aDictionary [
+
+	| attributesNode excluded included |
+	attributesNode := self dictionaryValueAt: 'attributes' in: aDictionary.
+	attributesNode ifNil: [ ^ anOTResource ].
+	included := self stringCollectionValueAt: 'included' in: attributesNode.
+	excluded := self stringCollectionValueAt: 'excluded' in: attributesNode.
+	(included isNil and: [ excluded isNil ]) ifTrue: [ ^ anOTResource ].
+	^ self
+		filteredResource: anOTResource
+		included: included
+		excluded: excluded
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> filteredResource: anOTResource included: includedPatterns excluded: excludedPatterns [
+
+	| attributes |
+	attributes := OrderedDictionary new.
+	anOTResource allAttributes associationsDo: [ :each |
+		((includedPatterns isNil
+			or: [ self attributeKey: each key matchesAnyPatternIn: includedPatterns ])
+			and: [
+				excludedPatterns isNil
+					or: [ (self attributeKey: each key matchesAnyPatternIn: excludedPatterns) not ] ]) ifTrue: [
+			attributes at: each key put: each value ] ].
+	attributes isEmpty ifTrue: [ ^ OTResource empty ].
+	^ OTResource
+		attributes: attributes
+		schemaUrl: anOTResource schemaUrl
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> loggerConfigFrom: aDictionary [
 
 	| config enabled |
@@ -324,10 +586,26 @@ OTConfigurationSource class >> loggerConfiguratorRulesFrom: aCollection [
 { #category : 'private - projection' }
 OTConfigurationSource class >> loggerNamePattern: aPattern matches: aString [
 
+	^ self wildcardPattern: aPattern matches: aString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> loggerNamePattern: aPattern at: patternIndex matches: aString at: stringIndex [
+
+	^ self
+		wildcardPattern: aPattern
+		at: patternIndex
+		matches: aString
+		at: stringIndex
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> wildcardPattern: aPattern matches: aString [
+
 	aPattern = '*' ifTrue: [ ^ true ].
 	((aPattern includes: $*) or: [ aPattern includes: $? ]) ifTrue: [
 		^ self
-			loggerNamePattern: aPattern
+			wildcardPattern: aPattern
 			at: 1
 			matches: aString
 			at: 1 ].
@@ -335,7 +613,7 @@ OTConfigurationSource class >> loggerNamePattern: aPattern matches: aString [
 ]
 
 { #category : 'private - projection' }
-OTConfigurationSource class >> loggerNamePattern: aPattern at: patternIndex matches: aString at: stringIndex [
+OTConfigurationSource class >> wildcardPattern: aPattern at: patternIndex matches: aString at: stringIndex [
 
 	| character |
 	patternIndex > aPattern size ifTrue: [ ^ stringIndex > aString size ].
@@ -344,7 +622,7 @@ OTConfigurationSource class >> loggerNamePattern: aPattern at: patternIndex matc
 		patternIndex = aPattern size ifTrue: [ ^ true ].
 		stringIndex to: aString size + 1 do: [ :eachIndex |
 			(self
-				loggerNamePattern: aPattern
+				wildcardPattern: aPattern
 				at: patternIndex + 1
 				matches: aString
 				at: eachIndex) ifTrue: [ ^ true ] ].
@@ -352,7 +630,7 @@ OTConfigurationSource class >> loggerNamePattern: aPattern at: patternIndex matc
 	stringIndex > aString size ifTrue: [ ^ false ].
 	(character = $? or: [ character = (aString at: stringIndex) ]) ifFalse: [ ^ false ].
 	^ self
-		loggerNamePattern: aPattern
+		wildcardPattern: aPattern
 		at: patternIndex + 1
 		matches: aString
 		at: stringIndex + 1
@@ -482,11 +760,29 @@ OTConfigurationSource class >> mergeResourceAttributesFromListValue: aString int
 		entry ifNotEmpty: [
 			separator := entry indexOf: $=.
 			separator > 0 ifFalse: [
-				Error signal: 'Malformed resource attribute entry in declarative configuration' ].
-			key := (entry copyFrom: 1 to: separator - 1) urlDecoded.
-			value := (entry copyFrom: separator + 1 to: entry size) urlDecoded.
+				Error signal: 'Invalid format for resource.attributes_list entry' ].
+			((entry copyFrom: separator + 1 to: entry size) includes: $=) ifTrue: [
+				Error signal: 'Invalid format for resource.attributes_list entry' ].
+			[
+				key := (entry copyFrom: 1 to: separator - 1) urlDecoded.
+				value := (entry copyFrom: separator + 1 to: entry size) urlDecoded ]
+				on: Error
+				do: [
+					Error signal:
+						'Failed to percent-decode resource.attributes_list entry '
+							, entry printString ].
+			key isEmpty ifTrue: [
+				Error signal: 'Empty attribute name in resource.attributes_list entry' ].
 			anOrderedDictionary at: key put: value ] ].
 	^ anOrderedDictionary
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> noteInvalidDeclarativeResourceAttributesList: anError [
+
+	OTTracerProvider resourceConfigurationWarningSink value:
+		'OpenTelemetry declarative resource attributes_list was invalid and has been ignored: '
+			, anError messageText
 ]
 
 { #category : 'private - projection' }
@@ -498,7 +794,7 @@ OTConfigurationSource class >> singleAssociationFrom: aDictionary describedAs: a
 		Error signal:
 			'Declarative configuration ', aString, ' nodes must contain exactly one entry' ].
 	^ aDictionary associations first
-}
+]
 
 { #category : 'private - projection' }
 OTConfigurationSource class >> projectAttributeLimitsFrom: aDictionary into: anEnvironment [
@@ -534,8 +830,7 @@ OTConfigurationSource class >> projectCommonSettingsFrom: aConfiguration into: a
 	self put: 'OTEL_SDK_DISABLED' from: 'disabled' in: aConfiguration into: anEnvironment.
 	self put: 'OTEL_LOG_LEVEL' from: 'log_level' in: aConfiguration into: anEnvironment.
 	self projectAttributeLimitsFrom: aConfiguration into: anEnvironment.
-	self projectPropagatorsFrom: aConfiguration into: anEnvironment.
-	self projectResourceFrom: aConfiguration into: anEnvironment
+	self projectPropagatorsFrom: aConfiguration into: anEnvironment
 ]
 
 { #category : 'private - projection' }
@@ -731,9 +1026,8 @@ OTConfigurationSource class >> projectResourceFrom: aConfiguration into: anEnvir
 	resource := self dictionaryValueAt: 'resource' in: aConfiguration.
 	resource ifNil: [ ^ self ].
 	attributes := OrderedDictionary new.
-	self
-		mergeResourceAttributesFromListValue: (self stringValueAt: 'attributes_list' in: resource)
-		into: attributes.
+	attributes addAll: (self
+		resourceAttributesFromListValue: (self stringValueAt: 'attributes_list' in: resource)).
 	explicitAttributes := self sequenceValueAt: 'attributes' in: resource.
 	explicitAttributes ifNotNil: [
 		explicitAttributes do: [ :each |
@@ -827,7 +1121,7 @@ OTConfigurationSource class >> parsedConfigurationFromConfigurationFileAt: aStri
 	^ OTDeclarativeConfigFileParser
 		parse: fileContents
 		environmentLookup: [ :name | self rawEnvironmentValueAt: name ]
-}
+]
 
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> readConfigurationFileAt: aString [
@@ -846,6 +1140,19 @@ OTConfigurationSource class >> rawEnvironmentValueAt: aString [
 	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
 	value := value asString trimBoth.
 	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> resourceAttributesFromListValue: aString [
+
+	| attributes |
+	aString ifNil: [ ^ OrderedDictionary new ].
+	attributes := OrderedDictionary new.
+	^ [ self mergeResourceAttributesFromListValue: aString into: attributes ]
+		on: Error
+		do: [ :error |
+			self noteInvalidDeclarativeResourceAttributesList: error.
+			OrderedDictionary new ]
 ]
 
 { #category : 'accessing' }
@@ -1108,7 +1415,7 @@ OTConfigurationSource class >> sequenceValueAt: aKey in: aDictionary [
 	^ value isArray
 		ifTrue: [ value ]
 		ifFalse: [
-			((value isSequenceableCollection) and: [ value isString not ])
+			((value isSequenceable) and: [ value isString not ])
 				ifTrue: [ value asArray ]
 				ifFalse: [ nil ] ]
 ]

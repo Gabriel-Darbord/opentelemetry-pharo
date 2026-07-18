@@ -17,7 +17,9 @@ Class {
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredResource [
 
-	^ self resourceFromDetectors: self configuredResourceDetectors
+	| resource |
+	resource := OTConfigurationSource configuredResource.
+	^ resource ifNil: [ self resourceFromDetectors: self configuredResourceDetectors ]
 ]
 
 { #category : 'private' }

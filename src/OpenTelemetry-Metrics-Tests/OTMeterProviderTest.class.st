@@ -33,7 +33,7 @@ OTMeterProviderTest >> withMeterNameWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTMeterProvider meterNameWarningSink: nil ]
-}
+]
 
 { #category : 'private' }
 OTMeterProviderTest >> withInstrumentWarningsDo: aBlock [
@@ -44,7 +44,7 @@ OTMeterProviderTest >> withInstrumentWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTMeter instrumentWarningSink: nil ]
-}
+]
 
 { #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousInstrumentCreationAcceptsCallbacksWithoutInvokingThem [
@@ -645,11 +645,11 @@ OTMeterProviderTest >> testMeterWarnsAndReusesFirstSeenAdviceForIdenticalInstrum
 			description: 'Request count'
 			advice: { 'attributes' -> #( 'status' ) } asDictionary.
 		self assert: second identicalTo: first.
-		self
-			assert: (second advice at: 'attributes')
-			equals: #( 'method' ).
-		self assert: warnings size equals: 1 ]
-}
+			self
+				assert: (second advice at: 'attributes')
+				equals: #( 'method' ).
+			self assert: warnings size equals: 1 ]
+]
 
 { #category : 'tests' }
 OTMeterProviderTest >> testMeterProviderAcceptsRichMeterParametersWithoutValidation [
@@ -900,10 +900,10 @@ OTMeterProviderTest >> testMeterWarnsAndReusesFirstSeenNameCasing [
 			unit: '1'
 			description: ''
 			advice: Dictionary new.
-		self assert: second identicalTo: first.
-		self assert: second name equals: 'requestCount'.
-		self assert: warnings size equals: 1 ]
-}
+			self assert: second identicalTo: first.
+			self assert: second name equals: 'requestCount'.
+			self assert: warnings size equals: 1 ]
+]
 
 { #category : 'tests' }
 OTMeterProviderTest >> testMeterProviderCachesByFullInstrumentationScope [
@@ -945,9 +945,9 @@ OTMeterProviderTest >> testMeterWarnsOnDuplicateInstrumentRegistrationWithDiffer
 			unit: '1'
 			description: 'Second'
 			advice: Dictionary new.
-		self deny: second identicalTo: first.
-		self assert: warnings size equals: 1 ]
-}
+			self deny: second identicalTo: first.
+			self assert: warnings size equals: 1 ]
+]
 
 { #category : 'tests' }
 OTMeterProviderTest >> testOpenTelemetryMeterNamedDelegatesToCurrentMeterProvider [
@@ -1012,9 +1012,9 @@ OTMeterProviderTest >> testMeterWarnsOnInvalidInstrumentNamesAndPreservesOrigina
 			unit: '1'
 			description: ''
 			advice: Dictionary new.
-		self assert: instrument name equals: '1 requests'.
-		self assert: warnings size equals: 1 ]
-}
+			self assert: instrument name equals: '1 requests'.
+			self assert: warnings size equals: 1 ]
+]
 
 { #category : 'tests' }
 OTMeterProviderTest >> testWarnsAndNormalizesInvalidMeterNames [
@@ -1028,4 +1028,4 @@ OTMeterProviderTest >> testWarnsAndNormalizesInvalidMeterNames [
 			assert: warnings asArray
 			equals: {
 				'OpenTelemetry meter name was invalid and has been normalized to an empty string: ''   ''' } ]
-}
+]

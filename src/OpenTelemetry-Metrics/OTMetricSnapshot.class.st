@@ -70,7 +70,7 @@ OTMetricSnapshot >> collectedAt [
 OTMetricSnapshot >> collectedAt: aDateAndTime [
 
 	collectedAt := aDateAndTime ifNil: [ DateAndTime now asUTC ] ifNotNil: [ aDateAndTime ]
-}
+]
 
 { #category : 'accessing' }
 OTMetricSnapshot >> metrics [
