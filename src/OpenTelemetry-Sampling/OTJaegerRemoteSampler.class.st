@@ -39,7 +39,7 @@ OTJaegerRemoteSampler class >> defaultEndpoint [
 { #category : 'defaults' }
 OTJaegerRemoteSampler class >> defaultInitialSampler [
 
-	^ OTSampler traceIdRatioBased: self defaultInitialSamplingProbability
+	^ OTSampler probabilityOrAlwaysOff: self defaultInitialSamplingProbability
 ]
 
 { #category : 'defaults' }

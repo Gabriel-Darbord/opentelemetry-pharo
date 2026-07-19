@@ -57,7 +57,7 @@ OTPerOperationSampler >> hasPerOperationSamplers [
 OTPerOperationSampler >> initialize [
 
 	super initialize.
-	defaultSampler := OTSampler traceIdRatioBased: 0.
+	defaultSampler := OTAlwaysOffSampler new.
 	perOperationSamplers := OrderedDictionary new
 ]
 

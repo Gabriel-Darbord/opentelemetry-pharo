@@ -161,7 +161,7 @@ OTJaegerRemoteSamplerTest >> testProviderManagedSamplerRefreshesInBackground [
 	[
 	provider sampler: sampler.
 	self
-		waitUntil: [ sampler currentSampler class == OTTraceIdRatioBasedSampler ]
+		waitUntil: [ sampler currentSampler class == OTProbabilisticSampler ]
 		timeoutMillis: 1000
 		description: 'Jaeger remote sampler background refresh' ]
 		ensure: [ provider shutdown ]
@@ -209,7 +209,7 @@ OTJaegerRemoteSamplerTest >> testRefreshUpdatesToProbabilisticSampler [
 	sampler requestExecutor: [ :request |
 		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 1) ].
 	result := self samplingResultForOperationNamed: 'checkout'.
-	self assert: sampler currentSampler class identicalTo: OTTraceIdRatioBasedSampler.
+	self assert: sampler currentSampler class identicalTo: OTProbabilisticSampler.
 	self assert: result isRecordAndSample
 ]
 
@@ -222,7 +222,7 @@ OTJaegerRemoteSamplerTest >> testRefreshUpdatesToProbabilisticSamplerWhenStrateg
 			grpcOkResponseWithPayload:
 				(self probabilisticResponseBytesWithoutExplicitStrategyTypeWithRate: 1) ].
 	result := self samplingResultForOperationNamed: 'checkout'.
-	self assert: sampler currentSampler class identicalTo: OTTraceIdRatioBasedSampler.
+	self assert: sampler currentSampler class identicalTo: OTProbabilisticSampler.
 	self assert: result isRecordAndSample
 ]
 

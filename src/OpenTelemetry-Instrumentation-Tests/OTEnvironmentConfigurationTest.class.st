@@ -205,7 +205,7 @@ OTEnvironmentConfigurationTest >> testCurrentReadsJaegerRemoteSamplerFromEnviron
 			self assert: sampler endpoint equals: 'http://jaeger.example:14250'.
 			self assert: sampler pollingIntervalMillis equals: 5000.
 			initialSampler := sampler currentSampler.
-			self assert: initialSampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: initialSampler class identicalTo: OTProbabilisticSampler.
 			self assert: initialSampler probability equals: 0.25 ]
 ]
 

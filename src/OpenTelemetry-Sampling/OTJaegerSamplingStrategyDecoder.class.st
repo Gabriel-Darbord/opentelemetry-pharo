@@ -33,7 +33,7 @@ OTJaegerSamplingStrategyDecoder class >> operationSamplingAssociationFromBytes: 
 					ifFalse: [ reader skipWireType: wireType ] ]
 			ifFalse: [ reader skipWireType: wireType ] ] ].
 	operationName ifNil: [ ^ nil ].
-	^ operationName -> (OTSampler traceIdRatioBased: probability)
+	^ operationName -> (OTSampler probabilityOrAlwaysOff: probability)
 ]
 
 { #category : 'private - decoding' }
@@ -65,7 +65,7 @@ OTJaegerSamplingStrategyDecoder class >> perOperationSamplerFromBytes: aByteArra
 			ifFalse: [ reader skipWireType: wireType ] ] ].
 	operationSamplers ifEmpty: [ ^ nil ].
 	^ OTPerOperationSampler new
-		defaultSampler: (OTSampler traceIdRatioBased: defaultProbability);
+		defaultSampler: (OTSampler probabilityOrAlwaysOff: defaultProbability);
 		perOperationSamplers: operationSamplers;
 		yourself
 ]
@@ -87,7 +87,7 @@ OTJaegerSamplingStrategyDecoder class >> probabilisticSamplerFromBytes: aByteArr
 					ifTrue: [ probability := reader readDouble ]
 					ifFalse: [ reader skipWireType: wireType ] ]
 			ifFalse: [ reader skipWireType: wireType ] ].
-	^ OTSampler traceIdRatioBased: probability
+	^ OTSampler probabilityOrAlwaysOff: probability
 ]
 
 { #category : 'private - decoding' }
@@ -117,6 +117,9 @@ OTJaegerSamplingStrategyDecoder class >> samplerFromResponseBytes: aByteArray [
 
 	| perOperationSampler probabilisticSampler rateLimitingSampler reader strategyType |
 	reader := OTProtobufReader on: aByteArray.
+	perOperationSampler := nil.
+	probabilisticSampler := nil.
+	rateLimitingSampler := nil.
 	strategyType := #unrecognized.
 	[ reader atEnd ] whileFalse: [
 		| fieldNumber tag wireType |
@@ -149,7 +152,7 @@ OTJaegerSamplingStrategyDecoder class >> samplerFromResponseBytes: aByteArray [
 	rateLimitingSampler ifNotNil: [
 		strategyType = #probabilistic ifFalse: [ ^ rateLimitingSampler ] ].
 	strategyType = #probabilistic ifTrue: [
-		^ probabilisticSampler ifNil: [ OTSampler traceIdRatioBased: 0 ] ].
+		^ probabilisticSampler ifNil: [ OTAlwaysOffSampler new ] ].
 	strategyType = #rateLimiting ifTrue: [
 		^ rateLimitingSampler ifNil: [ OTRateLimitingSampler new ] ].
 	Error signal: 'Unsupported Jaeger sampling strategy response'

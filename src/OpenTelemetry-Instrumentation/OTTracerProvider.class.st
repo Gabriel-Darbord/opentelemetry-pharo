@@ -803,7 +803,7 @@ OTTracerProvider class >> strictJaegerRemoteSamplerOptionsFrom: aString [
 { #category : 'private' }
 OTTracerProvider class >> jaegerRemoteSamplerForResource: anOTResource argument: anotherString parentBased: aBoolean [
 
-	| configuredSampler options sampler samplerName serviceName value |
+	| configuredSampler options sampler samplerName |
 	samplerName := aBoolean
 		ifTrue: [ 'parentbased_jaeger_remote' ]
 		ifFalse: [ 'jaeger_remote' ].
@@ -813,20 +813,8 @@ OTTracerProvider class >> jaegerRemoteSamplerForResource: anOTResource argument:
 	options := self strictJaegerRemoteSamplerOptionsFrom: anotherString.
 	(anotherString notNil and: [ options isNil ]) ifTrue: [
 		self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-	serviceName := anOTResource
-		ifNil: [ self defaultServiceName ]
-		ifNotNil: [
-			anOTResource serviceName
-				ifNil: [ self defaultServiceName ]
-				ifNotNil: [ anOTResource serviceName ] ].
-	sampler := OTJaegerRemoteSampler serviceName: serviceName.
-	options ifNotNil: [
-		value := options at: 'endpoint' ifAbsent: [ nil ].
-		value ifNotNil: [ sampler endpoint: value ].
-		value := options at: 'pollingIntervalMs' ifAbsent: [ nil ].
-		value ifNotNil: [ sampler pollingIntervalMillis: value ].
-		value := options at: 'initialSamplingRate' ifAbsent: [ nil ].
-		value ifNotNil: [ sampler initialSampler: (OTSampler traceIdRatioBased: value) ] ].
+	sampler := OTJaegerRemoteSampler serviceName: (self serviceNameForSamplerResource: anOTResource).
+	options ifNotNil: [ self updateJaegerRemoteSampler: sampler withOptions: options ].
 	configuredSampler := aBoolean
 		ifTrue: [
 			OTParentBasedSampler default
@@ -834,6 +822,24 @@ OTTracerProvider class >> jaegerRemoteSamplerForResource: anOTResource argument:
 				yourself ]
 		ifFalse: [ sampler ].
 	^ configuredSampler
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> serviceNameForSamplerResource: anOTResource [
+
+	anOTResource ifNil: [ ^ self defaultServiceName ].
+	^ anOTResource serviceName ifNil: [ self defaultServiceName ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> updateJaegerRemoteSampler: aSampler withOptions: options [
+
+	options at: 'endpoint' ifPresent: [ :value |
+		aSampler endpoint: value ].
+	options at: 'pollingIntervalMs' ifPresent: [ :value |
+		aSampler pollingIntervalMillis: value ].
+	options at: 'initialSamplingRate' ifPresent: [ :value |
+		aSampler initialSampler: (OTSampler probabilityOrAlwaysOff: value) ]
 ]
 
 { #category : 'private' }

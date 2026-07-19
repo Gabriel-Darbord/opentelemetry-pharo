@@ -20,6 +20,8 @@ OTSamplerTest >> testFactoryMethodsReturnSamplerInstances [
 	self assert: (OTSampler withInterval: 1000) class identicalTo: OTTimeIntervalSampler.
 	self assert: (OTSampler withRate: 2) class identicalTo: OTFixedRateSampler.
 	self assert: (OTSampler probability: 0.5) class identicalTo: OTProbabilisticSampler.
+	self assert: (OTSampler probabilityOrAlwaysOff: 0) class identicalTo: OTAlwaysOffSampler.
+	self assert: (OTSampler probabilityOrAlwaysOff: 0.5) class identicalTo: OTProbabilisticSampler.
 	self assert: (OTSampler withProbability: 0.5) class identicalTo: OTProbabilisticSampler.
 	self assert: (OTSampler traceIdRatioBased: 0.5) class identicalTo: OTTraceIdRatioBasedSampler.
 	self assert: OTSampler parentBased class identicalTo: OTParentBasedSampler.

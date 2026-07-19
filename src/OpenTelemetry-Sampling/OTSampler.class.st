@@ -92,6 +92,14 @@ OTSampler class >> probability: aNumber [
 ]
 
 { #category : 'instance creation' }
+OTSampler class >> probabilityOrAlwaysOff: aNumber [
+	"A consistent probability sampler with a probability between 0 and 1"
+
+	aNumber = 0 ifTrue: [ ^ OTAlwaysOffSampler new ].
+	^ self probability: aNumber
+]
+
+{ #category : 'instance creation' }
 OTSampler class >> traceIdRatioBased: aNumber [
 	"A deterministic trace-id-ratio sampler with a probability between 0 and 1"
 
