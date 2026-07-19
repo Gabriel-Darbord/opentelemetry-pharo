@@ -663,6 +663,13 @@ OTSpan >> endTime: aDateAndTime [
 	endTime := aDateAndTime
 ]
 
+{ #category : 'private' }
+OTSpan >> ensureMutableSpanContextState [
+
+	startTime ifNil: [ ^ self ].
+	Error signal: 'OpenTelemetry recording span identity cannot change after the span has started'
+]
+
 { #category : 'accessing' }
 OTSpan >> events [
 
@@ -1059,6 +1066,7 @@ OTSpan >> spanContext: anOTSpanContext [
 	anOTSpanContext ifNil: [
 			spanContext := nil.
 			^ nil ].
+	self ensureMutableSpanContextState.
 	normalized := anOTSpanContext isRemote
 		              ifTrue: [ anOTSpanContext asLocal ]
 		              ifFalse: [ anOTSpanContext ].
@@ -1079,6 +1087,7 @@ OTSpan >> spanId [
 { #category : 'accessing' }
 OTSpan >> spanId: anIdentifier [
 
+	self ensureMutableSpanContextState.
 	spanId := anIdentifier.
 	spanContext := nil
 ]
@@ -1182,6 +1191,7 @@ OTSpan >> traceFlags [
 { #category : 'accessing' }
 OTSpan >> traceFlags: aString [
 
+	self ensureMutableSpanContextState.
 	traceFlags := aString.
 	spanContext := nil
 ]
@@ -1195,6 +1205,7 @@ OTSpan >> traceId [
 { #category : 'accessing' }
 OTSpan >> traceId: id [
 
+	self ensureMutableSpanContextState.
 	traceId := id.
 	spanContext := nil
 ]
@@ -1209,6 +1220,7 @@ OTSpan >> traceState [
 OTSpan >> traceState: aTraceState [
 
 	| normalized |
+	self ensureMutableSpanContextState.
 	normalized := OTTraceState from: aTraceState.
 	traceState := normalized.
 	spanContext := nil

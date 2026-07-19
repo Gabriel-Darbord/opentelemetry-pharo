@@ -21,7 +21,7 @@ OTOtlpJsonTraceEncoderTest >> attributeValuesByKeyFrom: someKeyValueDictionaries
 { #category : 'private' }
 OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 
-	| span parentContext linkContext provider tracer |
+	| linkContext parentContext span |
 	parentContext := OTSpanContext
 		                 traceId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 		                 spanId: 'bbbbbbbbbbbbbbbb'
@@ -34,20 +34,19 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 		               traceFlags: '03'
 		               traceState: 'link=value'
 		               remote: false.
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'encoder.test'.
-	span := tracer startSpanNamed: 'testSpan'.
+	span := OTSpan rootInInternal: OTContext new.
 	span
-		traceId: '12345678876543211234567887654321';
-		spanId: '8765432112345678';
+		spanContext: (OTSpanContext
+				 traceId: '12345678876543211234567887654321'
+				 spanId: '8765432112345678'
+				 traceFlags: '01'
+				 traceState: 'vendor=value'
+				 remote: false);
 		parent: parentContext asNonRecordingSpan;
 		name: 'testSpan';
 		kind: OTSpan client;
 		startTime: DateAndTime unixEpoch + (Duration nanoSeconds: 100);
 		endTime: DateAndTime unixEpoch + (Duration nanoSeconds: 1100);
-		traceFlags: '01';
-		traceState: 'vendor=value';
 		attributes: (OrderedDictionary new
 				 at: 'animal' put: 'cat';
 				 at: 'bytes' put: #[ 1 2 3 ];
@@ -97,20 +96,21 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 
 	| provider span tracer |
 	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		idGenerator: (OTFixedIdGenerator
+				 traceIdHex: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+				 spanIdHex: (aScopeName = 'scope-a'
+						  ifTrue: [ '1111111111111111' ]
+						  ifFalse: [ '2222222222222222' ])
+				 random: false).
 	tracer := provider tracerNamed: 'encoder.test'.
-	span := tracer startSpanNamed: aString.
+	span := (tracer spanBuilderNamed: aString)
+		        kind: OTSpan internal;
+		        startSpan.
 	span
-		traceId: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
-		spanId: (aScopeName = 'scope-a'
-				 ifTrue: [ '1111111111111111' ]
-				 ifFalse: [ '2222222222222222' ]);
-		name: aString;
-		kind: OTSpan internal;
 		startTime: DateAndTime unixEpoch + (Duration milliSeconds: 1);
 		endTime: DateAndTime unixEpoch + (Duration milliSeconds: 2);
-		traceFlags: '01';
-		traceState: nil;
 		attributes: #(  );
 		events: #(  );
 		links: #(  );
@@ -212,17 +212,16 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessag
 
 	| payload provider span tracer |
 	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	tracer := provider tracerNamed: 'encoder.test'.
-	span := tracer startSpanNamed: 'testSpan'.
+	span := (tracer spanBuilderNamed: 'testSpan')
+		        kind: OTSpan internal;
+		        startSpan.
 	span
-		traceId: '12345678876543211234567887654321';
-		spanId: '8765432112345678';
-		name: 'testSpan';
-		kind: OTSpan internal;
 		startTime: DateAndTime unixEpoch;
 		endTime: DateAndTime unixEpoch;
-		traceFlags: '01';
 		attributes: #(  );
 		events: #(  );
 		links: #(  );

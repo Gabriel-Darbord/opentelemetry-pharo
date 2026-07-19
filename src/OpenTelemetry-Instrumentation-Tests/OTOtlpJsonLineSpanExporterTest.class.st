@@ -14,18 +14,16 @@ OTOtlpJsonLineSpanExporterTest >> sampleSpan [
 
 	| provider span tracer |
 	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	tracer := provider tracerNamed: 'exporter.test'.
-	span := tracer startSpanNamed: 'operation'.
+	span := (tracer spanBuilderNamed: 'operation')
+		        kind: OTSpan internal;
+		        startSpan.
 	span
-		traceId: '12345678876543211234567887654321';
-		spanId: '8765432112345678';
-		name: 'operation';
-		kind: OTSpan internal;
 		startTime: DateAndTime unixEpoch + (Duration milliSeconds: 1);
 		endTime: DateAndTime unixEpoch + (Duration milliSeconds: 2);
-		traceFlags: '01';
-		traceState: nil;
 		attributes: (Dictionary new
 				 at: 'service.name' put: 'demo';
 				 yourself);

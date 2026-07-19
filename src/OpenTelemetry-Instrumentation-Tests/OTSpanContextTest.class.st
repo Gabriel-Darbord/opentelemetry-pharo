@@ -149,14 +149,36 @@ OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
 ]
 
 { #category : 'tests' }
-OTSpanContextTest >> testRecordingSpanStonRoundTripPreservesLocalSpanContext [
+OTSpanContextTest >> testRecordingSpanRejectsSpanContextMutationAfterStart [
 
-	| provider roundTripped span tracer |
+	| original provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	span traceState: 'vendor=value'.
+	original := span spanContext.
+	self should: [ span traceState: 'vendor=value' ] raise: Error.
+	self should: [ span spanContext: (original withTraceState: 'vendor=value') ] raise: Error.
+	self assert: span spanContext identicalTo: original.
+	self assert: span spanContext traceState equals: original traceState
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testRecordingSpanStonRoundTripPreservesLocalSpanContext [
+
+	| parentContext provider roundTripped span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '01'
+			                  traceState: 'vendor=value'
+			                  remote: true) asNonRecordingSpan.
+	span := (tracer spanBuilderNamed: 'operation')
+		        inContext: parentContext;
+		        startSpan.
 	roundTripped := STON fromString: (STON toString: span).
 	self deny: roundTripped spanContext isRemote.
 	self assert: roundTripped spanContext traceId equals: span traceId.
