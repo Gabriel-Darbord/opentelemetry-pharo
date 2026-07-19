@@ -11,6 +11,16 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation'
 }
 
+{ #category : 'actions' }
+OpenTelemetry class >> attachContext: aContext [
+
+	| context previousContext |
+	previousContext := self currentContext.
+	context := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	self currentContext: context.
+	^ OTContextToken previousContext: previousContext attachedContext: context process: Processor activeProcess
+]
+
 { #category : 'accessing' }
 OpenTelemetry class >> b3MultiTextMapPropagator [
 
@@ -88,6 +98,16 @@ OpenTelemetry class >> defaultPropagatorConfigurationWarningSink [
 OpenTelemetry class >> defaultTextMapPropagator [
 
 	^ self w3cTextMapPropagator
+]
+
+{ #category : 'actions' }
+OpenTelemetry class >> detachContext: aContextToken [
+
+	aContextToken ifNil: [ ^ false ].
+	aContextToken isForActiveProcess ifFalse: [ ^ false ].
+	self currentContext == aContextToken attachedContext ifFalse: [ ^ false ].
+	self currentContext: aContextToken previousContext.
+	^ true
 ]
 
 { #category : 'private' }
@@ -235,10 +255,9 @@ OpenTelemetry class >> useBaggage: aBaggage during: aBlock [
 { #category : 'actions' }
 OpenTelemetry class >> useContext: aContext during: aBlock [
 
-	| previousContext |
-	previousContext := self currentContext.
-	[ self currentContext: aContext.
-	^ aBlock value ] ensure: [ self currentContext: previousContext ]
+	| token |
+	token := self attachContext: aContext.
+	[ ^ aBlock value ] ensure: [ self detachContext: token ]
 ]
 
 { #category : 'actions' }

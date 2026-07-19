@@ -108,6 +108,8 @@ span := (tracer spanBuilderNamed: 'db.query')
 - `OpenTelemetry currentContext`
 - `OpenTelemetry currentSpan`
 - `OpenTelemetry currentBaggage`
+- `OpenTelemetry attachContext:`
+- `OpenTelemetry detachContext:`
 - `OpenTelemetry useContext:during:`
 - `OpenTelemetry useSpan:during:`
 - `OpenTelemetry useBaggage:during:`
@@ -125,6 +127,49 @@ OpenTelemetry
 
 Current context is process-local. A span or baggage value activated in one
 Pharo process is not implicitly shared with another process.
+
+If you need explicit attach/detach semantics, use the token-based API:
+
+```smalltalk
+| previousToken |
+previousToken := OpenTelemetry attachContext: context.
+[
+  "run work with context installed"
+] ensure: [
+  OpenTelemetry detachContext: previousToken ]
+```
+
+`detachContext:` answers a boolean so callers can detect wrong-order or
+wrong-process detach attempts.
+
+## Generic Context Values
+
+`OTContext` also provides a generic immutable key/value API for execution-local
+state that does not belong in baggage or span state.
+
+Create opaque keys with:
+
+- `OTContext createKeyNamed:`
+- `OTContext keyNamed:`
+
+Read and update values with:
+
+- `valueAt:`
+- `valueAt:ifAbsent:`
+- `withValueAt:put:`
+- `withoutValueAt:`
+
+Example:
+
+```smalltalk
+| context requestKey updated |
+requestKey := OTContext createKeyNamed: 'request-id'.
+context := OTContext new.
+updated := context withValueAt: requestKey put: 'req-42'.
+
+self assert: (updated valueAt: requestKey) equals: 'req-42'.
+self assert: (context valueAt: requestKey ifAbsent: [ #missing ]) equals: #missing.
+```
 
 ## Baggage
 

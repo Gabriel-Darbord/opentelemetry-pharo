@@ -13,6 +13,23 @@ OTCurrentContextTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTCurrentContextTest >> testAttachAndDetachContextRestoresPreviousContext [
+
+	| innerContext outerContext token |
+	outerContext := OTContext new withBaggage: (OTBaggage builder
+			                 putEntryNamed: 'scope' value: 'outer';
+			                 build).
+	innerContext := OTContext new withBaggage: (OTBaggage builder
+			                 putEntryNamed: 'scope' value: 'inner';
+			                 build).
+	OpenTelemetry currentContext: outerContext.
+	token := OpenTelemetry attachContext: innerContext.
+	self assert: OpenTelemetry currentContext identicalTo: innerContext.
+	self assert: (OpenTelemetry detachContext: token).
+	self assert: OpenTelemetry currentContext identicalTo: outerContext
+]
+
+{ #category : 'tests' }
 OTCurrentContextTest >> testCurrentContextIsProcessLocal [
 
 	| childContext currentContext semaphore |
@@ -28,6 +45,41 @@ OTCurrentContextTest >> testCurrentContextIsProcessLocal [
 	semaphore wait.
 	self assert: OpenTelemetry currentContext identicalTo: currentContext.
 	self assert: childContext isEmpty
+]
+
+{ #category : 'tests' }
+OTCurrentContextTest >> testDetachContextReturnsFalseWhenDetachOrderIsWrong [
+
+	| firstContext firstToken secondContext secondToken |
+	firstContext := OTContext new withBaggage: (OTBaggage builder
+			                 putEntryNamed: 'scope' value: 'first';
+			                 build).
+	secondContext := OTContext new withBaggage: (OTBaggage builder
+			                  putEntryNamed: 'scope' value: 'second';
+			                  build).
+	firstToken := OpenTelemetry attachContext: firstContext.
+	secondToken := OpenTelemetry attachContext: secondContext.
+	self deny: (OpenTelemetry detachContext: firstToken).
+	self assert: OpenTelemetry currentContext identicalTo: secondContext.
+	self assert: (OpenTelemetry detachContext: secondToken).
+	self assert: OpenTelemetry currentContext identicalTo: firstContext
+]
+
+{ #category : 'tests' }
+OTCurrentContextTest >> testDetachContextReturnsFalseWhenUsedFromAnotherProcess [
+
+	| childResult context semaphore token |
+	context := OTContext new withBaggage: (OTBaggage builder
+			            putEntryNamed: 'scope' value: 'parent';
+			            build).
+	token := OpenTelemetry attachContext: context.
+	semaphore := Semaphore new.
+	[
+		childResult := OpenTelemetry detachContext: token.
+		semaphore signal ] fork.
+	semaphore wait.
+	self deny: childResult.
+	self assert: OpenTelemetry currentContext identicalTo: context
 ]
 
 { #category : 'tests' }

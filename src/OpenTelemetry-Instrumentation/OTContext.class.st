@@ -10,6 +10,18 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation'
 }
 
+{ #category : 'instance creation' }
+OTContext class >> createKeyNamed: aString [
+
+	^ OTContextKey named: aString
+]
+
+{ #category : 'instance creation' }
+OTContext class >> keyNamed: aString [
+
+	^ self createKeyNamed: aString
+]
+
 { #category : 'accessing' }
 OTContext >> baggage [
 
@@ -82,13 +94,13 @@ OTContext >> properties: aDictionary [
 { #category : 'accessing' }
 OTContext >> propertyAt: aKey [
 
-	^ self propertyAt: aKey ifAbsent: [ nil ]
+	^ self valueAt: aKey
 ]
 
 { #category : 'accessing' }
 OTContext >> propertyAt: aKey ifAbsent: aBlock [
 
-	^ self properties at: aKey ifAbsent: aBlock
+	^ self valueAt: aKey ifAbsent: aBlock
 ]
 
 { #category : 'accessing' }
@@ -101,6 +113,18 @@ OTContext >> span [
 OTContext >> span: aSpan [
 
 	currentSpan := aSpan
+]
+
+{ #category : 'accessing' }
+OTContext >> valueAt: aKey [
+
+	^ self valueAt: aKey ifAbsent: [ nil ]
+]
+
+{ #category : 'accessing' }
+OTContext >> valueAt: aKey ifAbsent: aBlock [
+
+	^ self properties at: aKey ifAbsent: aBlock
 ]
 
 { #category : 'accessing' }
@@ -120,14 +144,7 @@ OTContext >> withCurrentSpan: aSpan [
 { #category : 'accessing' }
 OTContext >> withPropertyAt: aKey put: aValue [
 
-	| updatedProperties |
-	updatedProperties := self properties copy.
-	aValue
-		ifNil: [ updatedProperties removeKey: aKey ifAbsent: [ ] ]
-		ifNotNil: [ updatedProperties at: aKey put: aValue ].
-	^ self copy
-		properties: updatedProperties;
-		yourself
+	^ self withValueAt: aKey put: aValue
 ]
 
 { #category : 'accessing' }
@@ -139,6 +156,17 @@ OTContext >> withSpan: aSpan [
 ]
 
 { #category : 'accessing' }
+OTContext >> withValueAt: aKey put: aValue [
+
+	| updatedProperties |
+	updatedProperties := self properties copy.
+	aValue ifNil: [ updatedProperties removeKey: aKey ifAbsent: [ ] ] ifNotNil: [ updatedProperties at: aKey put: aValue ].
+	^ self copy
+		  properties: updatedProperties;
+		  yourself
+]
+
+{ #category : 'accessing' }
 OTContext >> withoutBaggage [
 
 	^ self withBaggage: OTBaggage empty
@@ -147,5 +175,11 @@ OTContext >> withoutBaggage [
 { #category : 'accessing' }
 OTContext >> withoutPropertyAt: aKey [
 
-	^ self withPropertyAt: aKey put: nil
+	^ self withoutValueAt: aKey
+]
+
+{ #category : 'accessing' }
+OTContext >> withoutValueAt: aKey [
+
+	^ self withValueAt: aKey put: nil
 ]
