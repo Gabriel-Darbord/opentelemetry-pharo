@@ -168,18 +168,22 @@ OTSpan class >> fromContext: aContext [
 OTSpan class >> fromSton: stonReader [
 	"enumeration"
 
-	| representation span scope |
+	| representation span scope traceFlags traceState |
 	representation := stonReader parseMap.
 	span := self newInternal.
-	span spanId: (representation at: #spanId).
-	span traceId: (representation at: #traceId).
+	traceFlags := representation at: #traceFlags ifAbsent: [ '01' ].
+	traceState := representation at: #traceState ifAbsent: [ nil ].
+	span spanContext: (OTSpanContext
+			 traceId: (representation at: #traceId)
+			 spanId: (representation at: #spanId)
+			 traceFlags: traceFlags
+			 traceState: traceState
+			 remote: false).
 	span name: (representation at: #name).
 	span context: (representation at: #context).
 	span kind: (representation at: #kind).
 	span startTime: (representation at: #startTime).
 	span status: (representation at: #status ifAbsent: [ self unset ]).
-	span traceFlags: (representation at: #traceFlags ifAbsent: [ '01' ]).
-	representation at: #traceState ifPresent: [ :aTraceState | span traceState: aTraceState ].
 	representation at: #statusDescription ifPresent: [ :description | span statusDescription: description ].
 	scope := representation
 		         at: #instrumentationScope
@@ -1142,31 +1146,31 @@ OTSpan >> statusDescription: aString [
 OTSpan >> stonOn: stonWriter [
 
 	stonWriter writeObject: self streamMap: [ :map |
-		map
-			at: #spanId put: spanId;
-			at: #traceId put: traceId;
-			at: #name put: name;
-			at: #context put: context;
-			at: #kind put: kind;
-			at: #startTime put: startTime;
-			at: #endTime put: endTime;
-			at: #status put: self status;
-			at: #traceFlags put: self traceFlags;
-			at: #instrumentationName put: self instrumentationName.
-		self instrumentationScope isEmpty ifFalse: [ map at: #instrumentationScope put: self instrumentationScope ].
-		self parentSpanContext ifNotNil: [ :parentContext |
 			map
-				at: #parentSpanContext put: parentContext;
-				at: #parentId put: parentContext spanId ].
-		self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
-		self statusDescription ifNotNil: [ :description | map at: #statusDescription put: description ].
-		attributes isEmptyOrNil ifFalse: [ map at: #attributes put: attributes ].
-		events isEmptyOrNil ifFalse: [ map at: #events put: events ].
-		self links ifNotEmpty: [ map at: #links put: self links ].
-		self resource isEmpty ifFalse: [ map at: #resource put: self resource ].
-		self droppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self droppedAttributesCount ].
-		self droppedEventsCount > 0 ifTrue: [ map at: #droppedEventsCount put: self droppedEventsCount ].
-		self droppedLinksCount > 0 ifTrue: [ map at: #droppedLinksCount put: self droppedLinksCount ] ]
+				at: #spanId put: self spanId;
+				at: #traceId put: self traceId;
+				at: #name put: name;
+				at: #context put: context;
+				at: #kind put: kind;
+				at: #startTime put: startTime;
+				at: #endTime put: endTime;
+				at: #status put: self status;
+				at: #traceFlags put: self traceFlags;
+				at: #instrumentationName put: self instrumentationName.
+			self instrumentationScope isEmpty ifFalse: [ map at: #instrumentationScope put: self instrumentationScope ].
+			self parentSpanContext ifNotNil: [ :parentContext |
+					map
+						at: #parentSpanContext put: parentContext;
+						at: #parentId put: parentContext spanId ].
+			self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
+			self statusDescription ifNotNil: [ :description | map at: #statusDescription put: description ].
+			attributes isEmptyOrNil ifFalse: [ map at: #attributes put: attributes ].
+			events isEmptyOrNil ifFalse: [ map at: #events put: events ].
+			self links ifNotEmpty: [ map at: #links put: self links ].
+			self resource isEmpty ifFalse: [ map at: #resource put: self resource ].
+			self droppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self droppedAttributesCount ].
+			self droppedEventsCount > 0 ifTrue: [ map at: #droppedEventsCount put: self droppedEventsCount ].
+			self droppedLinksCount > 0 ifTrue: [ map at: #droppedLinksCount put: self droppedLinksCount ] ]
 ]
 
 { #category : 'accessing' }

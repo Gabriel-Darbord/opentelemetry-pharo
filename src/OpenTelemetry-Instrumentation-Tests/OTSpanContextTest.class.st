@@ -63,18 +63,6 @@ OTSpanContextTest >> testBinaryConstructorRejectsMalformedByteArrays [
 ]
 
 { #category : 'tests' }
-OTSpanContextTest >> testGeneratedIdentifiersHaveSpecShape [
-
-	| spanId traceId |
-	traceId := OTSpanContext newTraceId.
-	spanId := OTSpanContext newSpanId.
-	self assert: (OTSpanContext isLowercaseHexString: traceId size: 32).
-	self assert: (OTSpanContext isLowercaseHexString: spanId size: 16).
-	self deny: (OTSpanContext isZeroHexIdentifier: traceId).
-	self deny: (OTSpanContext isZeroHexIdentifier: spanId)
-]
-
-{ #category : 'tests' }
 OTSpanContextTest >> testConstructorRejectsMalformedIdentifiers [
 
 	self
@@ -107,6 +95,18 @@ OTSpanContextTest >> testConstructorRejectsMalformedIdentifiers [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testGeneratedIdentifiersHaveSpecShape [
+
+	| spanId traceId |
+	traceId := OTSpanContext newTraceId.
+	spanId := OTSpanContext newSpanId.
+	self assert: (OTSpanContext isLowercaseHexString: traceId size: 32).
+	self assert: (OTSpanContext isLowercaseHexString: spanId size: 16).
+	self deny: (OTSpanContext isZeroHexIdentifier: traceId).
+	self deny: (OTSpanContext isZeroHexIdentifier: spanId)
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testIdentifiersNormalizeToLowercaseHex [
 
 	| spanContext |
@@ -123,6 +123,19 @@ OTSpanContextTest >> testIdentifiersNormalizeToLowercaseHex [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testInvalidContextUsesZeroIdentifiersAndUnsampledFlags [
+
+	| spanContext |
+	spanContext := OTSpanContext invalid.
+	self assert: spanContext traceIdHex equals: (String new: 32 withAll: $0).
+	self assert: spanContext spanIdHex equals: (String new: 16 withAll: $0).
+	self assert: spanContext traceFlags equals: '00'.
+	self deny: spanContext isSampled.
+	self deny: spanContext isValid.
+	self deny: spanContext isRemote
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
 
 	| spanContext |
@@ -136,16 +149,20 @@ OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
 ]
 
 { #category : 'tests' }
-OTSpanContextTest >> testInvalidContextUsesZeroIdentifiersAndUnsampledFlags [
+OTSpanContextTest >> testRecordingSpanStonRoundTripPreservesLocalSpanContext [
 
-	| spanContext |
-	spanContext := OTSpanContext invalid.
-	self assert: spanContext traceIdHex equals: (String new: 32 withAll: $0).
-	self assert: spanContext spanIdHex equals: (String new: 16 withAll: $0).
-	self assert: spanContext traceFlags equals: '00'.
-	self deny: spanContext isSampled.
-	self deny: spanContext isValid.
-	self deny: spanContext isRemote
+	| provider roundTripped span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span traceState: 'vendor=value'.
+	roundTripped := STON fromString: (STON toString: span).
+	self deny: roundTripped spanContext isRemote.
+	self assert: roundTripped spanContext traceId equals: span traceId.
+	self assert: roundTripped spanContext spanId equals: span spanId.
+	self assert: roundTripped spanContext traceFlags equals: span traceFlags.
+	self assert: roundTripped spanContext traceState equals: span traceState
 ]
 
 { #category : 'tests' }
@@ -186,23 +203,6 @@ OTSpanContextTest >> testTraceStateStringNormalizesToTraceStateObject [
 ]
 
 { #category : 'tests' }
-OTSpanContextTest >> testWithTraceStateReturnsCopiedImmutableContext [
-
-	| original updated |
-	original := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '01'
-		traceState: nil
-		remote: false.
-	updated := original withTraceState: 'vendor=value'.
-	self deny: updated identicalTo: original.
-	self assert: original traceState equals: nil.
-	self assert: updated traceState asHeaderValue equals: 'vendor=value'.
-	self deny: updated isRemote
-]
-
-{ #category : 'tests' }
 OTSpanContextTest >> testWithRemoteHelpersPreserveIdentityAndFlags [
 
 	| local remote |
@@ -221,4 +221,21 @@ OTSpanContextTest >> testWithRemoteHelpersPreserveIdentityAndFlags [
 	self assert: remote traceFlags equals: local traceFlags.
 	self assert: remote traceState asHeaderValue equals: local traceState asHeaderValue.
 	self assert: remote asLocal equals: local
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testWithTraceStateReturnsCopiedImmutableContext [
+
+	| original updated |
+	original := OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '01'
+		traceState: nil
+		remote: false.
+	updated := original withTraceState: 'vendor=value'.
+	self deny: updated identicalTo: original.
+	self assert: original traceState equals: nil.
+	self assert: updated traceState asHeaderValue equals: 'vendor=value'.
+	self deny: updated isRemote
 ]
