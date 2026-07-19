@@ -102,12 +102,6 @@ OTSpanContext class >> isZeroHexIdentifier: aString [
 	^ aString allSatisfy: [ :each | each = $0 ]
 ]
 
-{ #category : 'instance creation' }
-OTSpanContext class >> new [
-
-	Error signal: 'OpenTelemetry span contexts must be created via OTSpanContext factory messages'
-]
-
 { #category : 'private - id generation' }
 OTSpanContext class >> newHexIdentifierOfSize: anInteger [
 
@@ -268,12 +262,6 @@ OTSpanContext >> isValid [
 ]
 
 { #category : 'private' }
-OTSpanContext >> remote: aBoolean [
-
-	Error signal: 'Use #withRemote: to derive a new OpenTelemetry span context'
-]
-
-{ #category : 'private' }
 OTSpanContext >> restoreRemote: aBoolean [
 
 	remote := aBoolean = true
@@ -309,12 +297,6 @@ OTSpanContext >> spanId [
 	^ spanId ifNil: [ self class invalidSpanId ]
 ]
 
-{ #category : 'private' }
-OTSpanContext >> spanId: aSpanId [
-
-	Error signal: 'OpenTelemetry span contexts are immutable; use OTSpanContext factory messages'
-]
-
 { #category : 'accessing' }
 OTSpanContext >> spanIdBytes [
 
@@ -345,22 +327,10 @@ OTSpanContext >> traceFlags [
 	^ traceFlags ifNil: [ '00' ]
 ]
 
-{ #category : 'private' }
-OTSpanContext >> traceFlags: someTraceFlags [
-
-	Error signal: 'Use #withTraceFlags: to derive a new OpenTelemetry span context'
-]
-
 { #category : 'accessing' }
 OTSpanContext >> traceId [
 
 	^ traceId ifNil: [ self class invalidTraceId ]
-]
-
-{ #category : 'private' }
-OTSpanContext >> traceId: aTraceId [
-
-	Error signal: 'OpenTelemetry span contexts are immutable; use OTSpanContext factory messages'
 ]
 
 { #category : 'accessing' }
@@ -379,12 +349,6 @@ OTSpanContext >> traceIdHex [
 OTSpanContext >> traceState [
 
 	^ traceState
-]
-
-{ #category : 'private' }
-OTSpanContext >> traceState: aTraceState [
-
-	Error signal: 'Use #withTraceState: to derive a new OpenTelemetry span context'
 ]
 
 { #category : 'copying' }
