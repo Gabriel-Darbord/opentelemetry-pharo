@@ -63,6 +63,12 @@ OTSpanContextTest >> testBinaryConstructorRejectsMalformedByteArrays [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testClassNewIsRejected [
+
+	self should: [ OTSpanContext new ] raise: Error
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testConstructorRejectsMalformedIdentifiers [
 
 	self
@@ -92,6 +98,44 @@ OTSpanContextTest >> testConstructorRejectsMalformedIdentifiers [
 				traceState: nil
 				remote: false ]
 		raise: Error
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testCopyingOperationsReturnNewSpanContextsWithoutMutatingOriginal [
+
+	| original updatedFlags updatedRemote updatedState |
+	original := OTSpanContext
+		            traceId: '00112233445566778899aabbccddeeff'
+		            spanId: '1122334455667788'
+		            traceFlags: '01'
+		            traceState: 'vendor=value'
+		            remote: false.
+	updatedFlags := original withTraceFlags: '03'.
+	updatedState := original withTraceState: 'vendor=next'.
+	updatedRemote := original withRemote: true.
+	self assert: original traceFlags equals: '01'.
+	self assert: original traceState asHeaderValue equals: 'vendor=value'.
+	self deny: original isRemote.
+	self assert: updatedFlags traceFlags equals: '03'.
+	self assert: updatedState traceState asHeaderValue equals: 'vendor=next'.
+	self assert: updatedRemote isRemote
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testDirectMutatorsAreRejected [
+
+	| spanContext |
+	spanContext := OTSpanContext
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '01'
+		               traceState: 'vendor=value'
+		               remote: false.
+	self should: [ spanContext traceId: 'ffeeddccbbaa99887766554433221100' ] raise: Error.
+	self should: [ spanContext spanId: '8877665544332211' ] raise: Error.
+	self should: [ spanContext traceFlags: '03' ] raise: Error.
+	self should: [ spanContext traceState: 'vendor=next' ] raise: Error.
+	self should: [ spanContext remote: true ] raise: Error
 ]
 
 { #category : 'tests' }

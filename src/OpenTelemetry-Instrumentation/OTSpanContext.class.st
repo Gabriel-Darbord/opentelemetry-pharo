@@ -37,6 +37,19 @@ OTSpanContext class >> fromSpan: aSpan [
 	^ aSpan asSpanContext
 ]
 
+{ #category : 'ston persistence' }
+OTSpanContext class >> fromSton: stonReader [
+
+	| representation |
+	representation := stonReader parseMap.
+	^ self
+		  traceId: (representation at: #traceId)
+		  spanId: (representation at: #spanId)
+		  traceFlags: (representation at: #traceFlags ifAbsent: [ '00' ])
+		  traceState: (representation at: #traceState ifAbsent: [ nil ])
+		  remote: (representation at: #remote ifAbsent: [ false ])
+]
+
 { #category : 'private' }
 OTSpanContext class >> hexFromByteArray: aByteArray size: anInteger label: aLabelString [
 
@@ -89,6 +102,12 @@ OTSpanContext class >> isZeroHexIdentifier: aString [
 	^ aString allSatisfy: [ :each | each = $0 ]
 ]
 
+{ #category : 'instance creation' }
+OTSpanContext class >> new [
+
+	Error signal: 'OpenTelemetry span contexts must be created via OTSpanContext factory messages'
+]
+
 { #category : 'private - id generation' }
 OTSpanContext class >> newHexIdentifierOfSize: anInteger [
 
@@ -99,6 +118,12 @@ OTSpanContext class >> newHexIdentifierOfSize: anInteger [
 				stream nextPut: self randomHexDigit ] ].
 		self isZeroHexIdentifier: identifier ] whileTrue.
 	^ identifier
+]
+
+{ #category : 'private' }
+OTSpanContext class >> newInternal [
+
+	^ super new
 ]
 
 { #category : 'private - id generation' }
@@ -155,13 +180,13 @@ OTSpanContext class >> traceId: aTraceId spanId: aSpanId [
 { #category : 'instance creation' }
 OTSpanContext class >> traceId: aTraceId spanId: aSpanId traceFlags: someTraceFlags traceState: aTraceState remote: aBoolean [
 
-	^ self new
-		traceId: aTraceId;
-		spanId: aSpanId;
-		traceFlags: someTraceFlags;
-		traceState: aTraceState;
-		remote: aBoolean;
-		yourself
+	^ self newInternal
+		  restoreTraceId: aTraceId;
+		  restoreSpanId: aSpanId;
+		  restoreTraceFlags: someTraceFlags;
+		  restoreTraceState: aTraceState;
+		  restoreRemote: aBoolean;
+		  yourself
 ]
 
 { #category : 'instance creation' }
@@ -245,7 +270,37 @@ OTSpanContext >> isValid [
 { #category : 'private' }
 OTSpanContext >> remote: aBoolean [
 
+	Error signal: 'Use #withRemote: to derive a new OpenTelemetry span context'
+]
+
+{ #category : 'private' }
+OTSpanContext >> restoreRemote: aBoolean [
+
 	remote := aBoolean = true
+]
+
+{ #category : 'private' }
+OTSpanContext >> restoreSpanId: aSpanId [
+
+	spanId := self class normalizedHexIdentifier: aSpanId size: 16 label: 'SpanId'
+]
+
+{ #category : 'private' }
+OTSpanContext >> restoreTraceFlags: someTraceFlags [
+
+	traceFlags := self class normalizedTraceFlags: someTraceFlags
+]
+
+{ #category : 'private' }
+OTSpanContext >> restoreTraceId: aTraceId [
+
+	traceId := self class normalizedHexIdentifier: aTraceId size: 32 label: 'TraceId'
+]
+
+{ #category : 'private' }
+OTSpanContext >> restoreTraceState: aTraceState [
+
+	traceState := OTTraceState from: aTraceState
 ]
 
 { #category : 'accessing' }
@@ -257,7 +312,7 @@ OTSpanContext >> spanId [
 { #category : 'private' }
 OTSpanContext >> spanId: aSpanId [
 
-	spanId := self class normalizedHexIdentifier: aSpanId size: 16 label: 'SpanId'
+	Error signal: 'OpenTelemetry span contexts are immutable; use OTSpanContext factory messages'
 ]
 
 { #category : 'accessing' }
@@ -272,6 +327,18 @@ OTSpanContext >> spanIdHex [
 	^ self spanId
 ]
 
+{ #category : 'ston persistence' }
+OTSpanContext >> stonOn: stonWriter [
+
+	stonWriter writeObject: self streamMap: [ :map |
+			map
+				at: #traceId put: self traceId;
+				at: #spanId put: self spanId;
+				at: #traceFlags put: self traceFlags;
+				at: #remote put: self isRemote.
+			self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ] ]
+]
+
 { #category : 'accessing' }
 OTSpanContext >> traceFlags [
 
@@ -281,7 +348,7 @@ OTSpanContext >> traceFlags [
 { #category : 'private' }
 OTSpanContext >> traceFlags: someTraceFlags [
 
-	traceFlags := self class normalizedTraceFlags: someTraceFlags
+	Error signal: 'Use #withTraceFlags: to derive a new OpenTelemetry span context'
 ]
 
 { #category : 'accessing' }
@@ -293,7 +360,7 @@ OTSpanContext >> traceId [
 { #category : 'private' }
 OTSpanContext >> traceId: aTraceId [
 
-	traceId := self class normalizedHexIdentifier: aTraceId size: 32 label: 'TraceId'
+	Error signal: 'OpenTelemetry span contexts are immutable; use OTSpanContext factory messages'
 ]
 
 { #category : 'accessing' }
@@ -317,9 +384,7 @@ OTSpanContext >> traceState [
 { #category : 'private' }
 OTSpanContext >> traceState: aTraceState [
 
-	| normalized |
-	normalized := OTTraceState from: aTraceState.
-	traceState := normalized
+	Error signal: 'Use #withTraceState: to derive a new OpenTelemetry span context'
 ]
 
 { #category : 'copying' }
