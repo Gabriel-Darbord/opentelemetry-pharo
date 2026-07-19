@@ -15,16 +15,6 @@ OTContextTest >> testCreateKeyNamedReturnsDistinctKeysForTheSameName [
 ]
 
 { #category : 'tests' }
-OTContextTest >> testDirectMutatorsAreRejected [
-
-	| context |
-	context := OTContext new.
-	self should: [ context span: nil ] raise: Error.
-	self should: [ context currentSpan: nil ] raise: Error.
-	self should: [ context baggage: OTBaggage empty ] raise: Error
-]
-
-{ #category : 'tests' }
 OTContextTest >> testWithBaggageReturnsNewContextWithoutMutatingOriginal [
 
 	| baggage context updated |

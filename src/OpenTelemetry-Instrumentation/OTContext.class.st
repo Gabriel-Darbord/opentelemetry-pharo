@@ -29,21 +29,9 @@ OTContext >> baggage [
 ]
 
 { #category : 'accessing' }
-OTContext >> baggage: aBaggage [
-
-	Error signal: 'Use #withBaggage: to derive a new OpenTelemetry context'
-]
-
-{ #category : 'accessing' }
 OTContext >> currentSpan [
 
 	^ self span
-]
-
-{ #category : 'accessing' }
-OTContext >> currentSpan: aSpan [
-
-	Error signal: 'Use #withSpan: to derive a new OpenTelemetry context'
 ]
 
 { #category : 'testing' }
@@ -125,12 +113,6 @@ OTContext >> restoreSpan: aSpan [
 OTContext >> span [
 
 	^ currentSpan
-]
-
-{ #category : 'accessing' }
-OTContext >> span: aSpan [
-
-	Error signal: 'Use #withSpan: to derive a new OpenTelemetry context'
 ]
 
 { #category : 'accessing' }
