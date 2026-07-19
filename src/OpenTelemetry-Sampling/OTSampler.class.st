@@ -67,6 +67,12 @@ OTSampler class >> alwaysRecord: aSampler [
 ]
 
 { #category : 'instance creation' }
+OTSampler class >> composite: aComposableSampler [
+
+	^ OTCompositeSampler new delegate: aComposableSampler
+]
+
+{ #category : 'instance creation' }
 OTSampler class >> parentBased [
 
 	^ OTParentBasedSampler default

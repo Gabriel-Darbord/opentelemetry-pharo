@@ -17,7 +17,7 @@ Class {
 { #category : 'accessing' }
 OTProbabilisticSampler class >> minimumProbability [
 
-	^ 1 / (1 bitShift: 56)
+	^ OTConsistentProbability minimumProbability
 ]
 
 { #category : 'accessing' }
@@ -51,20 +51,16 @@ OTProbabilisticSampler >> probability: aNumber [
 	(aNumber isNumber and: [ aNumber between: self class minimumProbability and: 1 ]) ifFalse: [
 		Error signal: 'ProbabilitySampler ratio must be between 2^-56 and 1' ].
 	probability := aNumber.
-	threshold := self thresholdForProbability: probability.
+	threshold := OTConsistentProbability thresholdForProbability: probability.
 	self
 ]
 
 { #category : 'private' }
 OTProbabilisticSampler >> randomnessValueFromTraceId: aTraceId traceState: aTraceState [
 
-	| explicitRandomness |
-	explicitRandomness := aTraceState ifNotNil: [ aTraceState otelValueAt: 'rv' ].
-	(self usesExplicitRandomness: explicitRandomness) ifTrue: [
-		^ Integer readFrom: explicitRandomness readStream base: 16 ].
-	^ Integer
-		readFrom: ((aTraceId copyFrom: aTraceId size - 13 to: aTraceId size) readStream)
-		base: 16
+	^ OTConsistentProbability
+		randomnessValueFromTraceId: aTraceId
+		traceState: aTraceState
 ]
 
 { #category : 'sampling' }
@@ -119,7 +115,9 @@ OTProbabilisticSampler >> shouldSampleTraceId: aTraceId traceState: aTraceState 
 	randomness := self
 		randomnessValueFromTraceId: aTraceId
 		traceState: aTraceState.
-	^ randomness >= threshold
+	^ OTConsistentProbability
+		sampledWithRandomness: randomness
+		threshold: threshold
 ]
 
 { #category : 'private' }
@@ -127,20 +125,13 @@ OTProbabilisticSampler >> thresholdForProbability: aNumber [
 
 	aNumber = 1 ifTrue: [ ^ 0 ].
 	aNumber = 0 ifTrue: [ ^ 1 bitShift: 56 ].
-	^ (((1 - aNumber) asFraction * (1 bitShift: 56)) floor) asInteger
+	^ OTConsistentProbability thresholdForProbability: aNumber
 ]
 
 { #category : 'private' }
 OTProbabilisticSampler >> thresholdString [
 
-	| end padded |
-	padded := String streamContents: [ :string |
-		self
-			writeThreshold: self threshold
-			on: string ].
-	end := padded size.
-	[ end > 1 and: [ (padded at: end) = $0 ] ] whileTrue: [ end := end - 1 ].
-	^ padded copyFrom: 1 to: end
+	^ OTConsistentProbability thresholdStringFor: self threshold
 ]
 
 { #category : 'private' }
@@ -156,7 +147,7 @@ OTProbabilisticSampler >> traceStateWithThresholdFrom: aTraceState [
 { #category : 'private' }
 OTProbabilisticSampler >> usesExplicitRandomness: aString [
 
-	^ OTSpanContext isLowercaseHexString: aString size: 14
+	^ OTConsistentProbability usesExplicitRandomness: aString
 ]
 
 { #category : 'accessing' }

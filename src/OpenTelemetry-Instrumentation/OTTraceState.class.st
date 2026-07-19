@@ -346,6 +346,20 @@ OTTraceState >> withOtelValueAt: aKey put: aValue [
 ]
 
 { #category : 'updating' }
+OTTraceState >> withoutOtelValueAt: aKey [
+
+	| entries otValue |
+	entries := self otelEntries.
+	entries ifNil: [ ^ self ].
+	(entries includesKey: aKey) ifFalse: [ ^ self ].
+	entries := entries copy.
+	entries removeKey: aKey.
+	entries isEmpty ifTrue: [ ^ self withoutKey: 'ot' ].
+	otValue := self class otelValueFromEntries: entries.
+	^ self withKey: 'ot' value: otValue
+]
+
+{ #category : 'updating' }
 OTTraceState >> withoutKey: aKey [
 
 	| updatedEntries updatedTraceState |
