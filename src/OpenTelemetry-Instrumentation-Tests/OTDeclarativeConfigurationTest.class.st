@@ -875,29 +875,41 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileRejectsConflictingBatchProcessorSettingsForOneSignal [
+OTDeclarativeConfigurationTest >> testConfigFileSupportsDistinctBatchTraceProcessorSettings [
 
 	self
-		should: [
-			self
-				withConfigurationFileContents:
+		withConfigurationFileContents:
 'file_format: "1.1"
 tracer_provider:
   processors:
     - batch:
         schedule_delay: 111
+        export_timeout: 333
         exporter:
           otlp_http:
             endpoint: http://collector:4318/v1/traces
     - batch:
         schedule_delay: 222
+        export_timeout: 444
         exporter:
           zipkin:
             endpoint: http://zipkin.example:9411/api/v2/spans
 '
-				environmentValues: Dictionary new
-				during: [ OTConfigurationSource environmentValueAt: 'OTEL_TRACES_EXPORTER' ] ]
-		raise: Error
+		environmentValues: Dictionary new
+		during: [
+			| processors |
+			processors := OTTracerProvider current spanProcessors.
+			self assert: processors size equals: 2.
+			self assert: processors first class identicalTo: OTBatchSpanProcessor.
+			self assert: processors first scheduledDelayMillis equals: 111.
+			self assert: processors first exportTimeoutMillis equals: 333.
+			self
+				assert: processors first exporter class
+				identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self assert: processors second class identicalTo: OTBatchSpanProcessor.
+			self assert: processors second scheduledDelayMillis equals: 222.
+			self assert: processors second exportTimeoutMillis equals: 444.
+			self assert: processors second exporter class identicalTo: OTZipkinSpanExporter ]
 ]
 
 { #category : 'tests' }
@@ -922,12 +934,10 @@ meter_provider:
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileRejectsUnrepresentableSimpleTraceProcessor [
+OTDeclarativeConfigurationTest >> testConfigFileSupportsSimpleTraceProcessorWithOtlpExporter [
 
 	self
-		should: [
-			self
-				withConfigurationFileContents:
+		withConfigurationFileContents:
 'file_format: "1.1"
 tracer_provider:
   processors:
@@ -936,9 +946,43 @@ tracer_provider:
           otlp_http:
             endpoint: http://collector:4318/v1/traces
 '
-				environmentValues: Dictionary new
-				during: [ OTTracerProvider current ] ]
-		raise: Error
+		environmentValues: Dictionary new
+		during: [
+			| processor |
+			processor := OTTracerProvider current spanProcessors first.
+			self assert: processor class identicalTo: OTSimpleSpanProcessor.
+			self
+				assert: processor exporter class
+				identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self
+				assert: processor exporter configuration endpoint
+				equals: 'http://collector:4318/v1/traces' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsSimpleLogProcessorWithOtlpExporter [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/v1/logs
+'
+		environmentValues: Dictionary new
+		during: [
+			| processor |
+			processor := OTLoggerProvider current logRecordProcessors first.
+			self assert: processor class identicalTo: OTSimpleLogRecordProcessor.
+			self
+				assert: processor exporter class
+				identicalTo: OTOtlpHttpProtobufLogRecordExporter.
+			self
+				assert: processor exporter configuration endpoint
+				equals: 'http://collector:4318/v1/logs' ]
 ]
 
 { #category : 'tests' }

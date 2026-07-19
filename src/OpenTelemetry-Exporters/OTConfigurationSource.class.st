@@ -137,6 +137,19 @@ OTConfigurationSource class >> configuredLoggerConfigurator [
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredLogRecordProcessors [
+
+	| configuration loggerProvider processors |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ nil ].
+	loggerProvider := self dictionaryValueAt: 'logger_provider' in: configuration.
+	loggerProvider ifNil: [ ^ nil ].
+	processors := self sequenceValueAt: 'processors' in: loggerProvider.
+	processors ifNil: [ ^ nil ].
+	^ self logRecordProcessorsFrom: processors
+]
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> configuredMeterConfigurator [
 
 	| configuration meterProvider node |
@@ -171,6 +184,28 @@ OTConfigurationSource class >> configuredResource [
 	resource := self dictionaryValueAt: 'resource' in: configuration.
 	resource ifNil: [ ^ nil ].
 	^ self declarativeResourceFrom: resource
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredTraceExporters [
+
+	| processors |
+	processors := self configuredTraceProcessors.
+	processors ifNil: [ ^ nil ].
+	^ processors collect: [ :each | each exporter ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredTraceProcessors [
+
+	| configuration processors tracerProvider |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ nil ].
+	tracerProvider := self dictionaryValueAt: 'tracer_provider' in: configuration.
+	tracerProvider ifNil: [ ^ nil ].
+	processors := self sequenceValueAt: 'processors' in: tracerProvider.
+	processors ifNil: [ ^ nil ].
+	^ self traceProcessorsFrom: processors
 ]
 
 { #category : 'private - configuration file' }
@@ -223,6 +258,21 @@ OTConfigurationSource class >> environmentValueAt: aString [
 OTConfigurationSource class >> exportEnvironmentNameForSignalNamed: aString [
 
 	^ 'OTEL_', aString, '_EXPORTER'
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> headersDictionaryFrom: aCollection [
+
+	| headers |
+	headers := OrderedDictionary new.
+	aCollection ifNil: [ ^ headers ].
+	aCollection do: [ :each |
+		| key value |
+		key := self stringValueAt: 'name' in: each.
+		value := self stringValueAt: 'value' in: each.
+		(key isNil or: [ value isNil ]) ifFalse: [
+			headers at: key put: value ] ].
+	^ headers
 ]
 
 { #category : 'private - projection' }
@@ -935,21 +985,26 @@ OTConfigurationSource class >> projectProcessorSequenceFrom: aDictionary signalN
 	processors ifEmpty: [
 		anEnvironment at: (self exportEnvironmentNameForSignalNamed: aString) put: 'none'.
 		^ self ].
-	exporters := self
-		projectedExporterNodesFromProcessors: processors
-		signalNamed: aString.
-	batchSettings := self
-		sharedBatchProcessorSettingsFrom: processors.
-	batchSettings ifNotNil: [
-		self
-			projectBatchProcessorEnvironmentSettings: batchSettings
-			prefix: anotherString
-			into: anEnvironment ].
-	anEnvironment
-		at: (self exportEnvironmentNameForSignalNamed: aString)
-		put: (self projectedExporterSelectionFrom: exporters).
-	exporters values do: [ :each |
-		self projectExporterConfigurationNode: each signalNamed: aString into: anEnvironment ].
+	[
+		exporters := self
+			projectedExporterNodesFromProcessors: processors
+			signalNamed: aString.
+		batchSettings := self
+			sharedBatchProcessorSettingsFrom: processors.
+		batchSettings ifNotNil: [
+			self
+				projectBatchProcessorEnvironmentSettings: batchSettings
+				prefix: anotherString
+				into: anEnvironment ].
+		anEnvironment
+			at: (self exportEnvironmentNameForSignalNamed: aString)
+			put: (self projectedExporterSelectionFrom: exporters).
+		exporters values do: [ :each |
+			self projectExporterConfigurationNode: each signalNamed: aString into: anEnvironment ] ]
+		on: Error
+		do: [ :error |
+			(self shouldIgnoreProjectionError: error)
+				ifFalse: [ error pass ] ].
 	^ self
 ]
 
@@ -1386,6 +1441,45 @@ OTConfigurationSource class >> normalizedSamplerKind: aString [
 		ifFalse: [ aString copyFrom: 1 to: delimiter - 1 ]
 ]
 
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signalNamed: aString protocol: aProtocolString [
+
+	| compression configuration endpoint timeout |
+	configuration := OTOtlpExporterConfiguration new
+		signalName: aString;
+		relativePath: (OTOtlpExporterConfiguration defaultRelativePathForSignalNamed: aString);
+		protocol: aProtocolString;
+		headers: (self headersDictionaryFrom: (self sequenceValueAt: 'headers_list' in: aDictionary));
+		userAgent: OTOtlpExporterConfiguration defaultUserAgent;
+		yourself.
+	endpoint := self stringValueAt: 'endpoint' in: aDictionary.
+	endpoint := endpoint
+		ifNil: [
+			aProtocolString = 'grpc'
+				ifTrue: [
+					OTOtlpExporterConfiguration
+						normalizedSignalEndpoint: OTOtlpExporterConfiguration defaultBaseGrpcEndpoint ]
+				ifFalse: [
+					OTOtlpExporterConfiguration
+						normalizedBaseEndpoint: OTOtlpExporterConfiguration defaultBaseHttpEndpoint
+						appendingRelativePath: configuration relativePath ] ]
+		ifNotNil: [ OTOtlpExporterConfiguration normalizedSignalEndpoint: endpoint ].
+	configuration endpoint: endpoint.
+	compression := self stringValueAt: 'compression' in: aDictionary.
+	compression := compression
+		ifNil: [ OTOtlpExporterConfiguration defaultCompression ]
+		ifNotNil: [ compression asLowercase ].
+	(#( 'none' 'gzip' ) includes: compression) ifFalse: [
+		compression := OTOtlpExporterConfiguration defaultCompression ].
+	configuration compression: compression.
+	timeout := self
+		positiveIntegerValueAt: 'timeout'
+		in: aDictionary
+		default: OTOtlpExporterConfiguration defaultTimeoutMillis.
+	configuration timeoutMillis: timeout.
+	^ configuration
+]
+
 { #category : 'private - projection' }
 OTConfigurationSource class >> parentBasedSamplerEnvironmentPairFrom: aDictionary [
 
@@ -1590,6 +1684,84 @@ OTConfigurationSource class >> integerValueAt: aKey in: aDictionary [
 	^ self declarativeIntegerFrom: value
 ]
 
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> positiveIntegerValueAt: aKey in: aDictionary default: aDefaultValue [
+
+	| value |
+	value := self integerValueAt: aKey in: aDictionary.
+	^ ((value isInteger) and: [ value > 0 ])
+		ifTrue: [ value ]
+		ifFalse: [ aDefaultValue ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> nonNegativeIntegerValueAt: aKey in: aDictionary default: aDefaultValue [
+
+	| value |
+	value := self integerValueAt: aKey in: aDictionary.
+	^ ((value isInteger) and: [ value >= 0 ])
+		ifTrue: [ value ]
+		ifFalse: [ aDefaultValue ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> logRecordExporterFromNode: aDictionary [
+
+	| association exporterOptions exporterType |
+	aDictionary ifNil: [
+		Error signal: 'Declarative configuration processors require an exporter' ].
+	association := self
+		singleAssociationFrom: aDictionary
+		describedAs: 'exporter'.
+	exporterType := association key.
+	exporterOptions := association value ifNil: [ OrderedDictionary new ].
+	exporterType = 'console' ifTrue: [ ^ OTConsoleLogRecordExporter new ].
+	exporterType = 'otlp_grpc' ifTrue: [
+		^ OTOtlpGrpcLogRecordExporter
+			configuration: (self
+				otlpExporterConfigurationFrom: exporterOptions
+				signalNamed: 'LOGS'
+				protocol: 'grpc') ].
+	exporterType = 'otlp_http' ifTrue: [
+		^ OTOtlpHttpProtobufLogRecordExporter
+			configuration: (self
+				otlpExporterConfigurationFrom: exporterOptions
+				signalNamed: 'LOGS'
+				protocol: 'http/protobuf') ].
+	Error signal: 'Unsupported declarative exporter type: ', exporterType printString
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> logRecordProcessorFrom: aDictionary [
+
+	| exporter kind options processor processorAssociation |
+	processorAssociation := self
+		singleAssociationFrom: aDictionary
+		describedAs: 'processor'.
+	kind := self normalizedSamplerKind: processorAssociation key.
+	options := processorAssociation value ifNil: [ OrderedDictionary new ].
+	exporter := self
+		logRecordExporterFromNode: (self exporterNodeFromProcessorNode: options).
+	kind = 'simple' ifTrue: [
+		^ OTSimpleLogRecordProcessor new
+			exporter: exporter;
+			yourself ].
+	kind = 'batch' ifTrue: [
+		processor := OTBatchLogRecordProcessor new
+			exporter: exporter;
+			yourself.
+		^ self configureBatchLogRecordProcessor: processor from: options ].
+	Error signal:
+		'Unsupported declarative processor type: '
+			, processorAssociation key printString
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> logRecordProcessorsFrom: aCollection [
+
+	^ aCollection collect: [ :each | self logRecordProcessorFrom: each ]
+]
+
 { #category : 'private - projection' }
 OTConfigurationSource class >> declarativeBooleanFrom: anObject [
 
@@ -1667,6 +1839,17 @@ OTConfigurationSource class >> requiredDeclarativeValue: anObjectOrNil original:
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> shouldIgnoreProjectionError: anError [
+
+	| message |
+	message := anError messageText.
+	^ (message includesSubstring: 'not representable via SDK environment variables')
+		or: [
+			(message includesSubstring: 'representable for ')
+				or: [ message includesSubstring: 'configures incompatible batch processor settings for one signal' ] ]
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> validateParentBasedDelegateNamed: aString expectedSampler: anotherString in: aDictionary [
 
 	| delegate |
@@ -1677,6 +1860,122 @@ OTConfigurationSource class >> validateParentBasedDelegateNamed: aString expecte
 			'Declarative parent_based sampler delegate is not representable via SDK environment variables: '
 				, aString printString ].
 	^ self
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configureBatchLogRecordProcessor: anOTBatchLogRecordProcessor from: aDictionary [
+
+	| maxExportBatchSize maxQueueSize |
+	maxQueueSize := self
+		positiveIntegerValueAt: 'max_queue_size'
+		in: aDictionary
+		default: anOTBatchLogRecordProcessor maxQueueSize.
+	maxExportBatchSize := self
+		positiveIntegerValueAt: 'max_export_batch_size'
+		in: aDictionary
+		default: anOTBatchLogRecordProcessor maxExportBatchSize.
+	anOTBatchLogRecordProcessor
+		maxQueueSize: maxQueueSize;
+		maxExportBatchSize: (maxExportBatchSize min: maxQueueSize);
+		scheduledDelayMillis: (self
+			nonNegativeIntegerValueAt: 'schedule_delay'
+			in: aDictionary
+			default: anOTBatchLogRecordProcessor scheduledDelayMillis);
+		exportTimeoutMillis: (self
+			nonNegativeIntegerValueAt: 'export_timeout'
+			in: aDictionary
+			default: anOTBatchLogRecordProcessor exportTimeoutMillis).
+	^ anOTBatchLogRecordProcessor
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configureBatchSpanProcessor: anOTBatchSpanProcessor from: aDictionary [
+
+	| maxExportBatchSize maxQueueSize |
+	maxQueueSize := self
+		positiveIntegerValueAt: 'max_queue_size'
+		in: aDictionary
+		default: anOTBatchSpanProcessor maxQueueSize.
+	maxExportBatchSize := self
+		positiveIntegerValueAt: 'max_export_batch_size'
+		in: aDictionary
+		default: anOTBatchSpanProcessor batchSize.
+	anOTBatchSpanProcessor
+		maxQueueSize: maxQueueSize;
+		batchSize: (maxExportBatchSize min: maxQueueSize);
+		scheduledDelayMillis: (self
+			nonNegativeIntegerValueAt: 'schedule_delay'
+			in: aDictionary
+			default: anOTBatchSpanProcessor scheduledDelayMillis);
+		exportTimeoutMillis: (self
+			nonNegativeIntegerValueAt: 'export_timeout'
+			in: aDictionary
+			default: anOTBatchSpanProcessor exportTimeoutMillis).
+	^ anOTBatchSpanProcessor
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> traceExporterFromNode: aDictionary [
+
+	| association endpoint exporter exporterOptions exporterType timeout |
+	aDictionary ifNil: [
+		Error signal: 'Declarative configuration processors require an exporter' ].
+	association := self
+		singleAssociationFrom: aDictionary
+		describedAs: 'exporter'.
+	exporterType := association key.
+	exporterOptions := association value ifNil: [ OrderedDictionary new ].
+	exporterType = 'console' ifTrue: [ ^ OTConsoleSpanExporter new ].
+	exporterType = 'zipkin' ifTrue: [
+		exporter := OTSpanExporter defaultZipkinExporter.
+		endpoint := self stringValueAt: 'endpoint' in: exporterOptions.
+		endpoint ifNotNil: [ exporter httpClient url: endpoint ].
+		timeout := self
+			positiveIntegerValueAt: 'timeout'
+			in: exporterOptions
+			default: OTSpanExporter defaultZipkinTimeoutMillis.
+		exporter httpClient timeout: timeout.
+		^ exporter ].
+	exporterType = 'otlp_grpc' ifTrue: [
+		^ OTOtlpGrpcSpanExporter
+			configuration: (self
+				otlpExporterConfigurationFrom: exporterOptions
+				signalNamed: 'TRACES'
+				protocol: 'grpc') ].
+	exporterType = 'otlp_http' ifTrue: [
+		^ OTOtlpHttpProtobufSpanExporter
+			configuration: (self
+				otlpExporterConfigurationFrom: exporterOptions
+				signalNamed: 'TRACES'
+				protocol: 'http/protobuf') ].
+	Error signal: 'Unsupported declarative exporter type: ', exporterType printString
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> traceProcessorFrom: aDictionary [
+
+	| exporter kind options processor processorAssociation |
+	processorAssociation := self
+		singleAssociationFrom: aDictionary
+		describedAs: 'processor'.
+	kind := self normalizedSamplerKind: processorAssociation key.
+	options := processorAssociation value ifNil: [ OrderedDictionary new ].
+	exporter := self
+		traceExporterFromNode: (self exporterNodeFromProcessorNode: options).
+	kind = 'simple' ifTrue: [
+		^ OTSimpleSpanProcessor new exporter: exporter ].
+	kind = 'batch' ifTrue: [
+		processor := OTBatchSpanProcessor new exporter: exporter.
+		^ self configureBatchSpanProcessor: processor from: options ].
+	Error signal:
+		'Unsupported declarative processor type: '
+			, processorAssociation key printString
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> traceProcessorsFrom: aCollection [
+
+	^ aCollection collect: [ :each | self traceProcessorFrom: each ]
 ]
 
 { #category : 'private - projection' }

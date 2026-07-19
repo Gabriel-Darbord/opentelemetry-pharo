@@ -103,6 +103,8 @@ OTSpanProcessor class >> current: aSpanProcessor [
 { #category : 'instance creation' }
 OTSpanProcessor class >> configuredProcessors [
 
+	OTConfigurationSource configuredTraceProcessors ifNotNil: [ :processors |
+		^ processors ].
 	^ OTSpanExporter current componentExporters
 		collect: [ :each | self processorForExporter: each ]
 ]

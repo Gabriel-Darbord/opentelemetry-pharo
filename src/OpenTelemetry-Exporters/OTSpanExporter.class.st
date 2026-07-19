@@ -39,7 +39,9 @@ OTSpanExporter class >> current: aSpanExporter [
 { #category : 'instance creation' }
 OTSpanExporter class >> configuredExporters [
 
-	| configuredValue exporters |
+	| configuredExporters configuredValue exporters |
+	configuredExporters := OTConfigurationSource configuredTraceExporters.
+	configuredExporters ifNotNil: [ ^ configuredExporters ].
 	configuredValue := self environmentValueAt: 'OTEL_TRACES_EXPORTER'.
 	configuredValue ifNil: [ ^ { self defaultExporter } ].
 	exporters := self exportersFromConfigurationValue: configuredValue.

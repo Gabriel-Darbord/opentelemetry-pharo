@@ -264,13 +264,17 @@ OTLoggerProvider class >> normalizedLoggerNameFrom: aValue [
 { #category : 'instance creation' }
 OTLoggerProvider class >> readConfiguration [
 
-	| exporterNames provider |
+	| exporterNames processors provider |
 	provider := self new.
 	provider
 		resource: OTTracerProvider configuredResource;
 		logRecordLimits: self configuredLogRecordLimits;
 		loggerConfigurator: OTConfigurationSource configuredLoggerConfigurator.
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
+	processors := OTConfigurationSource configuredLogRecordProcessors.
+	processors ifNotNil: [
+		provider logRecordProcessors: processors.
+		^ provider ].
 	exporterNames := self configuredExporterNames.
 	exporterNames do: [ :each |
 		| exporter |
