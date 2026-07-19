@@ -13,6 +13,17 @@ OTTracerProviderTest >> sampleAttributes [
 		yourself
 ]
 
+{ #category : 'private' }
+OTTracerProviderTest >> setEnvironmentValue: aValue forKey: aKey [
+
+	| currentValue environment |
+	environment := Smalltalk os environment.
+	currentValue := environment at: aKey ifAbsent: [ nil ].
+	aValue
+		ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ]
+		ifNotNil: [ environment at: aKey put: aValue ]
+]
+
 { #category : 'running' }
 OTTracerProviderTest >> setUp [
 
@@ -82,6 +93,35 @@ OTTracerProviderTest >> withResourceConfigurationWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
+]
+
+{ #category : 'private' }
+OTTracerProviderTest >> withEnvironmentValues: aDictionary during: aBlock [
+
+	| absent effectiveValues environment managedKeys snapshot |
+	absent := Object new.
+	environment := Smalltalk os environment.
+	effectiveValues := aDictionary copy.
+	managedKeys := (environment keys
+		select: [ :each | each beginsWith: 'OTEL_' ])
+		asOrderedCollection.
+	effectiveValues keysDo: [ :each |
+		(managedKeys includes: each) ifFalse: [ managedKeys add: each ] ].
+	snapshot := Dictionary new.
+	managedKeys do: [ :key |
+		| value |
+		value := effectiveValues at: key ifAbsent: [ nil ].
+		snapshot at: key put: (environment at: key ifAbsent: [ absent ]).
+		self setEnvironmentValue: value forKey: key ].
+	[
+		^ aBlock value ]
+		ensure: [
+			managedKeys do: [ :key |
+				| value |
+				value := snapshot at: key.
+				self
+					setEnvironmentValue: (value == absent ifTrue: [ nil ] ifFalse: [ value ])
+					forKey: key ] ]
 ]
 
 { #category : 'tests' }
@@ -189,6 +229,43 @@ OTTracerProviderTest >> testCustomIdGeneratorControlsRootTraceAndSpanIds [
 	self assert: span spanId equals: generator generateSpanIdHex.
 	self assert: span spanContext traceFlags equals: '01'.
 	self deny: span spanContext isRandom
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testCurrentRebuildsAfterGlobalSpanExporterChange [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			| exporter firstProvider secondProvider |
+			OTSpanExporter current: OTNoopSpanExporter new.
+			firstProvider := OTTracerProvider current.
+			self assert: firstProvider spanProcessors isEmpty.
+			exporter := OTConsoleSpanExporter new.
+			exporter beCurrent.
+			secondProvider := OTTracerProvider current.
+			self deny: secondProvider identicalTo: firstProvider.
+			self assert: secondProvider spanProcessors size equals: 1.
+			self assert: secondProvider spanProcessors first exporter identicalTo: exporter ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testCurrentUsesExplicitGlobalSpanProcessorEvenAfterNoopExporterProviderWasBuilt [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			| firstProvider processor secondProvider |
+			OTSpanExporter current: OTNoopSpanExporter new.
+			firstProvider := OTTracerProvider current.
+			self assert: firstProvider spanProcessors isEmpty.
+			processor := OTSimpleSpanProcessor new
+				exporter: OTConsoleSpanExporter new;
+				yourself.
+			processor beCurrent.
+			secondProvider := OTTracerProvider current.
+			self deny: secondProvider identicalTo: firstProvider.
+			self assert: secondProvider spanProcessors asArray equals: { processor } ]
 ]
 
 { #category : 'tests' }

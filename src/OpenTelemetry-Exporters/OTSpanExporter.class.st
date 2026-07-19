@@ -21,7 +21,10 @@ OTSpanExporter class >> beCurrent [
 		ifFalse: [
 			^ self == Current class
 				  ifTrue: [ Current ]
-				  ifFalse: [ Current := self new ] ]
+				  ifFalse: [
+					  Current := self new.
+					  OTTracerProvider invalidateCurrent.
+					  Current ] ]
 ]
 
 { #category : 'accessing' }
@@ -33,7 +36,8 @@ OTSpanExporter class >> current [
 { #category : 'accessing' }
 OTSpanExporter class >> current: aSpanExporter [
 
-	Current := aSpanExporter
+	Current := aSpanExporter.
+	OTTracerProvider invalidateCurrent
 ]
 
 { #category : 'instance creation' }
@@ -324,10 +328,12 @@ OTSpanExporter class >> warningSink: aBlock [
 	^ self warningSink
 ]
 
-{ #category : 'accessing' }
+{ #category : 'actions' }
 OTSpanExporter >> beCurrent [
 
-	^ Current := self
+	Current := self.
+	OTTracerProvider invalidateCurrent.
+	self
 ]
 
 { #category : 'accessing' }

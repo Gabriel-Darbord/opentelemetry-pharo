@@ -85,7 +85,9 @@ OTSpanProcessor class >> beCurrent [
 				  ifTrue: [ Current ]
 				  ifFalse: [
 					  Current ifNotNil: [ Current flush ].
-					  Current := self new ] ]
+					  Current := self new.
+					  OTTracerProvider invalidateCurrent.
+					  Current ] ]
 ]
 
 { #category : 'accessing' }
@@ -95,9 +97,16 @@ OTSpanProcessor class >> current [
 ]
 
 { #category : 'accessing' }
+OTSpanProcessor class >> currentIfSet [
+
+	^ Current
+]
+
+{ #category : 'accessing' }
 OTSpanProcessor class >> current: aSpanProcessor [
 
-	Current := aSpanProcessor
+	Current := aSpanProcessor.
+	OTTracerProvider invalidateCurrent
 ]
 
 { #category : 'instance creation' }
@@ -323,10 +332,12 @@ OTSpanProcessor class >> strictPositiveIntegerFrom: aString [
 	^ value
 ]
 
-{ #category : 'accessing' }
+{ #category : 'actions' }
 OTSpanProcessor >> beCurrent [
 
-	^ Current := self
+	Current := self.
+	OTTracerProvider invalidateCurrent.
+	self
 ]
 
 { #category : 'accessing' }

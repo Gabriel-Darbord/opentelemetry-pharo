@@ -101,6 +101,13 @@ OTTracerProvider class >> current: aTracerProvider [
 	Current := aTracerProvider
 ]
 
+{ #category : 'private' }
+OTTracerProvider class >> invalidateCurrent [
+
+	Current ifNotNil: [ Current shutdown ].
+	Current := nil
+]
+
 { #category : 'instance creation' }
 OTTracerProvider class >> currentImagePath [
 
@@ -529,17 +536,23 @@ OTTracerProvider class >> processCommandLine [
 { #category : 'instance creation' }
 OTTracerProvider class >> readConfiguration [
 
-	| exporter provider resource |
+	| exporter explicitProcessor provider resource processors |
 	provider := self new.
 	exporter := OTSpanExporter current.
+	explicitProcessor := OTSpanProcessor currentIfSet.
 	resource := self configuredResource.
 	provider
 		resource: resource;
 		sampler: (self configuredSamplerForResource: resource);
 		spanLimits: self configuredSpanLimits;
 		tracerConfigurator: OTConfigurationSource configuredTracerConfigurator.
-	(self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
-		ifFalse: [ provider spanProcessors: OTSpanProcessor current componentProcessors ].
+	processors := explicitProcessor
+		ifNil: [
+			(self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
+				ifTrue: [ #() ]
+				ifFalse: [ OTSpanProcessor current componentProcessors ] ]
+		ifNotNil: [ explicitProcessor componentProcessors ].
+	provider spanProcessors: processors.
 	^ provider
 ]
 
