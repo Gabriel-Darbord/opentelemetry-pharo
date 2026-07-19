@@ -401,6 +401,51 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsProjectingAlwaysRecordSamplerToEnvironmentSurface [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    always_record:
+      root:
+        always_off:
+'
+		environmentValues: Dictionary new
+		during: [
+			self assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER') isNil ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsAlwaysRecordSampler [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    always_record:
+      root:
+        always_off:
+'
+		environmentValues: Dictionary new
+		during: [
+			| result sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTAlwaysRecordSampler.
+			self assert: sampler rootSampler class identicalTo: OTAlwaysOffSampler.
+			result := sampler
+				shouldSampleIn: OTContext new
+				traceId: '1234567890abcdef1234567890abcdef'
+				name: 'operation'
+				kind: OTSpan internal
+				attributes: #()
+				links: #().
+			self assert: result isRecordOnly ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileSupportsCompositeDevelopmentParentThresholdSampler [
 
 	self

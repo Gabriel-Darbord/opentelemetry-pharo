@@ -1548,12 +1548,17 @@ OTConfigurationSource class >> composableSamplerFrom: aDictionary [
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> samplerFrom: aDictionary resource: anOTResource [
 
-	| association kind options probability |
+	| association kind options probability root |
 	association := self samplerAssociationFrom: aDictionary.
 	kind := self normalizedSamplerKind: association key.
 	options := association value ifNil: [ OrderedDictionary new ].
 	kind = 'always_on' ifTrue: [ ^ OTAlwaysOnSampler new ].
 	kind = 'always_off' ifTrue: [ ^ OTAlwaysOffSampler new ].
+	kind = 'always_record' ifTrue: [
+		root := self dictionaryValueAt: 'root' in: options.
+		root ifNil: [
+			Error signal: 'Declarative always_record sampler requires a root sampler' ].
+		^ OTSampler alwaysRecord: (self samplerFrom: root resource: anOTResource) ].
 	kind = 'composite' ifTrue: [
 		^ OTSampler composite: (self composableSamplerFrom: options) ].
 	association key = 'probability/development' ifTrue: [
@@ -1588,6 +1593,9 @@ OTConfigurationSource class >> samplerEnvironmentPairFrom: aDictionary [
 	options := association value ifNil: [ OrderedDictionary new ].
 	kind = 'always_on' ifTrue: [ ^ #( 'always_on' nil ) ].
 	kind = 'always_off' ifTrue: [ ^ #( 'always_off' nil ) ].
+	kind = 'always_record' ifTrue: [
+		Error signal:
+			'Declarative always_record sampler is not representable via SDK environment variables' ].
 	kind = 'composite' ifTrue: [
 		Error signal:
 			'Declarative composite/development sampler is not representable via SDK environment variables' ].
