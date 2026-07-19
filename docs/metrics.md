@@ -55,6 +55,9 @@ The current metrics implementation does not yet provide:
 
 - Prometheus native histogram output, so exponential histograms are currently dropped from Prometheus scrapes
 
+Deferred Prometheus `MAY` and development-status follow-up work is tracked in
+[Prometheus Future Work](prometheus-future-work.md).
+
 ## Getting A Meter
 
 Use the global provider:

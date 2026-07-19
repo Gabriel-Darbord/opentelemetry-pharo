@@ -13,6 +13,9 @@ Start here:
   processors and exporters.
 - [Metrics API](metrics.md): get meters, create instruments, and understand the
   current metrics SDK, OTLP exporters, and Prometheus pull endpoint.
+- [Prometheus Future Work](prometheus-future-work.md): optional and
+  development-status Prometheus/OpenMetrics follow-up work that is intentionally
+  deferred while strict spec compliance stays the priority.
 - [Instrumentation API](instrumentation.md): build reusable Pharo
   instrumentations and choose an installation backend.
 
