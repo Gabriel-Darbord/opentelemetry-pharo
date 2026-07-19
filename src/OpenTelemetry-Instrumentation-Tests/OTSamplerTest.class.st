@@ -27,6 +27,15 @@ OTSamplerTest >> testFactoryMethodsReturnSamplerInstances [
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerAcceptsSpecificationMinimumRatio [
+
+	| minimum sampler |
+	minimum := OTProbabilisticSampler minimumProbability.
+	sampler := OTSampler probability: minimum.
+	self assert: sampler probability equals: minimum
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testParentBasedFactoryUsesConfiguredRootSampler [
 
 	| sampler |
@@ -151,6 +160,17 @@ OTSamplerTest >> testProbabilitySamplerAddsThresholdToOpenTelemetryTraceStateWhe
 	self assert: result isRecordAndSample.
 	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (result traceState otelValueAt: 'th') equals: '8'
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerRejectsRatiosBelowSpecificationMinimum [
+
+	self
+		should: [ OTSampler probability: OTProbabilisticSampler minimumProbability / 2 ]
+		raise: Error.
+	self
+		should: [ OTSampler probability: 0 ]
+		raise: Error
 ]
 
 { #category : 'tests' }

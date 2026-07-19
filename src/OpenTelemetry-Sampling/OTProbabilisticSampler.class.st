@@ -15,6 +15,12 @@ Class {
 }
 
 { #category : 'accessing' }
+OTProbabilisticSampler class >> minimumProbability [
+
+	^ 1 / (1 bitShift: 56)
+]
+
+{ #category : 'accessing' }
 OTProbabilisticSampler >> description [
 
 	^ 'ProbabilitySampler{', self probability printString, '}'
@@ -42,11 +48,11 @@ OTProbabilisticSampler >> probability [
 { #category : 'accessing' }
 OTProbabilisticSampler >> probability: aNumber [
 
-	(aNumber isNumber and: [ aNumber >= 0 and: [ aNumber <= 1 ] ]) ifFalse: [
-		Error signal: 'Sampling probability must be a number between 0 and 1' ].
+	(aNumber isNumber and: [ aNumber between: self class minimumProbability and: 1 ]) ifFalse: [
+		Error signal: 'ProbabilitySampler ratio must be between 2^-56 and 1' ].
 	probability := aNumber.
 	threshold := self thresholdForProbability: probability.
-	^ self
+	self
 ]
 
 { #category : 'private' }

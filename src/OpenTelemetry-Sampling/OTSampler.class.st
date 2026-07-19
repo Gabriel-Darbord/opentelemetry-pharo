@@ -80,7 +80,7 @@ OTSampler class >> parentBased: aSampler [
 
 { #category : 'instance creation' }
 OTSampler class >> probability: aNumber [
-	"A consistent probability sampler with a probability between 0 and 1"
+	"A consistent probability sampler with a probability between 2^-56 and 1"
 
 	^ OTProbabilisticSampler new probability: aNumber
 ]
@@ -101,7 +101,7 @@ OTSampler class >> withInterval: anInteger [
 
 { #category : 'instance creation' }
 OTSampler class >> withProbability: aNumber [
-	"A consistent probability sampler with a probability between 0 and 1"
+	"A consistent probability sampler with a probability between 2^-56 and 1"
 
 	^ self probability: aNumber
 ]

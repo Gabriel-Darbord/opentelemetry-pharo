@@ -401,6 +401,24 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsProbabilitySamplerRatioBelowSpecificationMinimum [
+
+	self
+		should: [
+			self
+				withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    probability:
+      ratio: 0
+'
+				environmentValues: Dictionary new
+				during: [ OTTracerProvider current sampler ] ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileSupportsJaegerRemoteSamplerWithStructuredInitialSampler [
 
 	self
