@@ -67,6 +67,122 @@ OTSpanBuilderTest >> testAsRootIgnoresImplicitCurrentSpan [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testAttributesGetterAnswersEmptyCollectionWhenUnset [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span attributes isEmpty
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testBulkAttributesSetterMergesWithExistingAttributes [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span attributeAt: 'existing' put: 'before'.
+	span attributes: (OrderedDictionary new
+			 at: 'existing' put: 'after';
+			 at: 'new' put: 7;
+			 yourself).
+	self assert: (span attributes at: 'existing') equals: 'after'.
+	self assert: (span attributes at: 'new') equals: 7.
+	self assert: span attributes size equals: 2
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testBulkEventSetterAppendsEventsInRecordOrder [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span addEventNamed: 'first'.
+	span events: { (OTSpanEvent named: 'second' attributes: #(  ) timestamp: DateAndTime unixEpoch) }.
+	self assert: span events size equals: 2.
+	self assert: span events first name equals: 'first'.
+	self assert: span events second name equals: 'second'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testBulkLinkSetterAppendsLinks [
+
+	| firstLink provider secondLink span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	firstLink := OTSpanLink
+		             spanContext: (OTSpanContext
+				              traceId: '00112233445566778899aabbccddeeff'
+				              spanId: '1122334455667788'
+				              traceFlags: '01'
+				              traceState: nil
+				              remote: true)
+		             attributes: #(  ).
+	secondLink := OTSpanLink
+		              spanContext: (OTSpanContext
+				               traceId: 'ffeeddccbbaa99887766554433221100'
+				               spanId: '8877665544332211'
+				               traceFlags: '01'
+				               traceState: nil
+				               remote: true)
+		              attributes: #(  ).
+	span addLink: firstLink.
+	span links: { secondLink }.
+	self assert: span links size equals: 2.
+	self assert: span links first spanContext equals: firstLink spanContext.
+	self assert: span links second spanContext equals: secondLink spanContext
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testDirectNameMutatorIsRejectedAfterStart [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'original') startSpan.
+	self should: [ span name: 'renamed' ] raise: Error.
+	self assert: span name equals: 'original'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testDirectStatusMutatorsAreRejected [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self should: [ span status: OTSpan error ] raise: Error.
+	self should: [ span statusDescription: 'boom' ] raise: Error.
+	self assert: span status equals: OTSpan unset.
+	self assert: span statusDescription isNil
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testDirectTimestampMutatorsAreRejectedAfterStart [
+
+	| originalStartTime provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	originalStartTime := span startTime.
+	self should: [ span startTime: DateAndTime unixEpoch ] raise: Error.
+	self should: [ span endTime: DateAndTime unixEpoch ] raise: Error.
+	self assert: span startTime equals: originalStartTime.
+	self assert: span endTime isNil
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 
 	| childSpan parentSpan provider tracer |
@@ -185,52 +301,6 @@ OTSpanBuilderTest >> testNoParentIgnoresParentContextForSamplingAndTraceIdentity
 ]
 
 { #category : 'tests' }
-OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
-
-	| linkedSpan provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	span addLinkSpan: linkedSpan attributes: (OrderedDictionary new
-		at: 'link.kind' put: 'follows_from';
-		yourself).
-	self assert: span links size equals: 1.
-	self assert: span links first spanContext equals: linkedSpan spanContext.
-	self assert: (span links first attributes at: 'link.kind') equals: 'follows_from'
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testDirectStatusMutatorsAreRejected [
-
-	| provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	self should: [ span status: OTSpan error ] raise: Error.
-	self should: [ span statusDescription: 'boom' ] raise: Error.
-	self assert: span status equals: OTSpan unset.
-	self assert: span statusDescription isNil
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testDirectTimestampMutatorsAreRejectedAfterStart [
-
-	| originalStartTime provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	originalStartTime := span startTime.
-	self should: [ span startTime: DateAndTime unixEpoch ] raise: Error.
-	self should: [ span endTime: DateAndTime unixEpoch ] raise: Error.
-	self assert: span startTime equals: originalStartTime.
-	self assert: span endTime isNil
-]
-
-{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 
 	| provider span tracer |
@@ -246,6 +316,23 @@ OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 	self assert: span events size equals: 1.
 	self assert: span events first name equals: 'exception'.
 	self assert: (span events first attributes at: 'exception.message') equals: 'boom'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
+
+	| linkedSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span addLinkSpan: linkedSpan attributes: (OrderedDictionary new
+		at: 'link.kind' put: 'follows_from';
+		yourself).
+	self assert: span links size equals: 1.
+	self assert: span links first spanContext equals: linkedSpan spanContext.
+	self assert: (span links first attributes at: 'link.kind') equals: 'follows_from'
 ]
 
 { #category : 'tests' }
@@ -266,59 +353,6 @@ OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 	self assert: firstContext traceState equals: span traceState.
 	span end.
 	self assert: span spanContext identicalTo: firstContext
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanBuilderStartTimestampControlsRecordedStartTime [
-
-	| provider requestedStartTime span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	requestedStartTime := DateAndTime unixEpoch + (Duration milliSeconds: 123).
-	span := ((tracer spanBuilderNamed: 'operation')
-		startTimestamp: requestedStartTime;
-		startSpan).
-	self assert: span startTime equals: requestedStartTime
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testUpdateNameChangesRecordingSpanName [
-
-	| provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'original') startSpan.
-	span updateName: 'renamed'.
-	self assert: span name equals: 'renamed'
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testUpdateNameDoesNothingAfterEnd [
-
-	| provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'original') startSpan.
-	span end.
-	span updateName: 'renamed'.
-	self assert: span name equals: 'original'
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
-
-	| provider roundTripped span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	span setErrorStatusDescription: 'boom'.
-	roundTripped := STON fromString: (STON toString: span).
-	self assert: roundTripped status equals: OTSpan error.
-	self assert: roundTripped statusDescription equals: 'boom'
 ]
 
 { #category : 'tests' }
@@ -359,6 +393,20 @@ OTSpanBuilderTest >> testSpanBuilderDefersImplicitCurrentContextUntilStart [
 		during: [ span := builder startSpan ].
 	self assert: span parent identicalTo: parentSpan.
 	self assert: span traceId equals: parentSpan traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderStartTimestampControlsRecordedStartTime [
+
+	| provider requestedStartTime span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	requestedStartTime := DateAndTime unixEpoch + (Duration milliSeconds: 123).
+	span := (tracer spanBuilderNamed: 'operation')
+		        startTimestamp: requestedStartTime;
+		        startSpan.
+	self assert: span startTime equals: requestedStartTime
 ]
 
 { #category : 'tests' }
@@ -428,6 +476,20 @@ OTSpanBuilderTest >> testStartedSpanExposesRemoteParentSpanContext [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
+
+	| provider roundTripped span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span setErrorStatusDescription: 'boom'.
+	roundTripped := STON fromString: (STON toString: span).
+	self assert: roundTripped status equals: OTSpan error.
+	self assert: roundTripped statusDescription equals: 'boom'
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 
 	| currentContext parentSpan provider span tracer |
@@ -446,6 +508,31 @@ OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 		during: [ span := tracer startSpanNamed: 'operation' ].
 	self assert: span parent identicalTo: parentSpan.
 	self assert: span traceId equals: parentSpan traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testUpdateNameChangesRecordingSpanName [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'original') startSpan.
+	span updateName: 'renamed'.
+	self assert: span name equals: 'renamed'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testUpdateNameDoesNothingAfterEnd [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'original') startSpan.
+	span end.
+	span updateName: 'renamed'.
+	self assert: span name equals: 'original'
 ]
 
 { #category : 'private' }

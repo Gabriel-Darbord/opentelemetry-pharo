@@ -24,10 +24,10 @@ OTZipkinSpanExporterTest >> spanWithKind: aSpanKind attributes: someAttributes [
 		spanProcessor: OTSimpleSpanProcessor new;
 		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	tracer := provider tracerNamed: 'exporter.test'.
-	span := ((tracer spanBuilderNamed: 'operation')
+	span := (tracer spanBuilderNamed: 'operation')
 		        kind: aSpanKind;
 		        startTimestamp: DateAndTime unixEpoch;
-		        startSpan).
+		        startSpan.
 	span
 		attributes: someAttributes;
 		resource: (OTResource attributes: (OrderedDictionary new

@@ -164,6 +164,36 @@ OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testRecordingSpanRejectsCreationStateMutationAfterStart [
+
+	| originalKind originalParentContext provider replacementParentContext span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	originalParentContext := OTSpanContext
+		                         traceId: '00112233445566778899aabbccddeeff'
+		                         spanId: '1122334455667788'
+		                         traceFlags: '01'
+		                         traceState: 'upstream=value'
+		                         remote: true.
+	span := (tracer spanBuilderNamed: 'operation')
+		        inContext: (OTContext new withSpan: originalParentContext asNonRecordingSpan);
+		        kind: OTSpan client;
+		        startSpan.
+	replacementParentContext := OTSpanContext
+		                            traceId: 'ffeeddccbbaa99887766554433221100'
+		                            spanId: '8877665544332211'
+		                            traceFlags: '03'
+		                            traceState: 'downstream=value'
+		                            remote: true.
+	originalKind := span kind.
+	self should: [ span kind: OTSpan server ] raise: Error.
+	self should: [ span parentSpanContext: replacementParentContext ] raise: Error.
+	self assert: span kind equals: originalKind.
+	self assert: span parentSpanContext equals: originalParentContext
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testRecordingSpanRejectsSpanContextMutationAfterStart [
 
 	| original provider span tracer |
@@ -176,36 +206,6 @@ OTSpanContextTest >> testRecordingSpanRejectsSpanContextMutationAfterStart [
 	self should: [ span spanContext: (original withTraceState: 'vendor=value') ] raise: Error.
 	self assert: span spanContext identicalTo: original.
 	self assert: span spanContext traceState equals: original traceState
-]
-
-{ #category : 'tests' }
-OTSpanContextTest >> testRecordingSpanRejectsCreationStateMutationAfterStart [
-
-	| originalKind originalParentContext provider replacementParentContext span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	originalParentContext := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '01'
-		traceState: 'upstream=value'
-		remote: true.
-	span := ((tracer spanBuilderNamed: 'operation')
-		inContext: (OTContext new withSpan: originalParentContext asNonRecordingSpan);
-		kind: OTSpan client;
-		startSpan).
-	replacementParentContext := OTSpanContext
-		traceId: 'ffeeddccbbaa99887766554433221100'
-		spanId: '8877665544332211'
-		traceFlags: '03'
-		traceState: 'downstream=value'
-		remote: true.
-	originalKind := span kind.
-	self should: [ span kind: OTSpan server ] raise: Error.
-	self should: [ span parentSpanContext: replacementParentContext ] raise: Error.
-	self assert: span kind equals: originalKind.
-	self assert: span parentSpanContext equals: originalParentContext
 ]
 
 { #category : 'tests' }

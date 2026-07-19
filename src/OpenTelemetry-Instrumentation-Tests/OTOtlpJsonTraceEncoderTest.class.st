@@ -104,10 +104,10 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 						  ifFalse: [ '2222222222222222' ])
 				 random: false).
 	tracer := provider tracerNamed: 'encoder.test'.
-	span := ((tracer spanBuilderNamed: aString)
+	span := (tracer spanBuilderNamed: aString)
 		        kind: OTSpan internal;
 		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
-		        startSpan).
+		        startSpan.
 	span
 		attributes: #(  );
 		events: #(  );
@@ -215,10 +215,10 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessag
 		spanProcessor: OTSimpleSpanProcessor new;
 		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	tracer := provider tracerNamed: 'encoder.test'.
-	span := ((tracer spanBuilderNamed: 'testSpan')
+	span := (tracer spanBuilderNamed: 'testSpan')
 		        kind: OTSpan internal;
 		        startTimestamp: DateAndTime unixEpoch;
-		        startSpan).
+		        startSpan.
 	span
 		attributes: #(  );
 		events: #(  );
@@ -236,7 +236,7 @@ OTOtlpJsonTraceEncoderTest >> testEncodeStonRoundTrippedSpanPreservesParentSpanC
 	| payload roundTripped span |
 	roundTripped := STON fromString: (STON toString: self buildPrimarySpan).
 	payload := encoder encodeSpans: { roundTripped }.
-	span := ((((payload at: 'resourceSpans') first at: 'scopeSpans') first at: 'spans') first).
+	span := (((payload at: 'resourceSpans') first at: 'scopeSpans') first at: 'spans') first.
 	self assert: (span at: 'parentSpanId') equals: 'bbbbbbbbbbbbbbbb'.
 	self assert: roundTripped parentSpanContext traceId equals: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.
 	self assert: roundTripped parentSpanContext isRemote

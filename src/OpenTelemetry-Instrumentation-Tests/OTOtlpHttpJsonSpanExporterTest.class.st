@@ -35,11 +35,11 @@ OTOtlpHttpJsonSpanExporterTest >> sampleSpan [
 			                  traceState: 'vendor=value'
 			                  remote: true) asNonRecordingSpan.
 	tracer := provider tracerNamed: 'exporter.test'.
-	span := ((tracer spanBuilderNamed: 'operation')
+	span := (tracer spanBuilderNamed: 'operation')
 		        kind: OTSpan client;
 		        inContext: parentContext;
 		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
-		        startSpan).
+		        startSpan.
 	span
 		attributes: (Dictionary new
 				 at: 'service.name' put: 'demo';

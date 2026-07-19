@@ -563,21 +563,22 @@ OTSpan >> attributeAt: key put: value [
 { #category : 'accessing' }
 OTSpan >> attributes [
 
-	^ attributes
+	^ attributes ifNil: [ OrderedDictionary new ]
 ]
 
 { #category : 'accessing' }
 OTSpan >> attributes: aDictionary [
 
-	| result |
+	| normalized |
 	self isRecording ifFalse: [ ^ self ].
-	result := OTAttributeNormalizer
-		normalizeAttributes: aDictionary
-		countLimit: self limits attributeCountLimit
-		valueLengthLimit: self limits attributeValueLengthLimit.
-	attributes := result first.
-	result second > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
-	self droppedAttributesCount: self droppedAttributesCount + result second
+	aDictionary ifNil: [ ^ self ].
+	normalized := OTAttributeNormalizer
+		              normalizeAttributes: aDictionary
+		              countLimit: self limits attributeCountLimit
+		              valueLengthLimit: self limits attributeValueLengthLimit.
+	normalized first associationsDo: [ :each | self attributeAt: each key put: each value ].
+	normalized second > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
+	self droppedAttributesCount: self droppedAttributesCount + normalized second
 ]
 
 { #category : 'private' }
@@ -648,8 +649,7 @@ OTSpan >> end: aDateAndTime [
 	self restoreEndTime: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]).
 	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ].
 	self markEnded.
-	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ].
-	^ self
+	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ]
 ]
 
 { #category : 'accessing' }
@@ -661,9 +661,15 @@ OTSpan >> endTime [
 { #category : 'accessing' }
 OTSpan >> endTime: aDateAndTime [
 
-	startTime ifNotNil: [
-		Error signal: 'Use #end or #end: to finish an OpenTelemetry span with an end timestamp' ].
+	startTime ifNotNil: [ Error signal: 'Use #end or #end: to finish an OpenTelemetry span with an end timestamp' ].
 	self restoreEndTime: aDateAndTime
+]
+
+{ #category : 'private' }
+OTSpan >> ensureMutableCreationState [
+
+	startTime ifNil: [ ^ self ].
+	Error signal: 'OpenTelemetry span creation state cannot change after the span has started'
 ]
 
 { #category : 'private' }
@@ -683,10 +689,8 @@ OTSpan >> events [
 OTSpan >> events: aCollection [
 
 	self isRecording ifFalse: [ ^ self ].
-	events := #().
 	aCollection ifNil: [ ^ self ].
-	aCollection do: [ :each | self addEvent: each ].
-	^ self
+	aCollection do: [ :each | self addEvent: each ]
 ]
 
 { #category : 'private' }
@@ -698,9 +702,7 @@ OTSpan >> exceptionMessageFor: anException [
 { #category : 'private' }
 OTSpan >> exceptionStacktraceFor: anException [
 
-	^ anException signalerContext
-		ifNil: [ '' ]
-		ifNotNil: [ :aContext | aContext longStack ]
+	^ anException signalerContext ifNil: [ '' ] ifNotNil: [ :aContext | aContext longStack ]
 ]
 
 { #category : 'private' }
@@ -826,13 +828,6 @@ OTSpan >> limitDiscardWarningMessage [
 ]
 
 { #category : 'private' }
-OTSpan >> ensureMutableCreationState [
-
-	startTime ifNil: [ ^ self ].
-	Error signal: 'OpenTelemetry span creation state cannot change after the span has started'
-]
-
-{ #category : 'private' }
 OTSpan >> limitedEventFrom: anEvent [
 
 	| limitedEvent |
@@ -883,10 +878,8 @@ OTSpan >> links [
 OTSpan >> links: aCollection [
 
 	self isRecording ifFalse: [ ^ self ].
-	links := #().
 	aCollection ifNil: [ ^ self ].
-	aCollection do: [ :each | self addLink: each ].
-	^ self
+	aCollection do: [ :each | self addLink: each ]
 ]
 
 { #category : 'private' }
@@ -913,7 +906,10 @@ OTSpan >> name [
 OTSpan >> name: aString [
 
 	self isRecording ifFalse: [ ^ self ].
-	name := aString
+	startTime ifNil: [
+			name := aString.
+			^ aString ].
+	Error signal: 'Use #updateName: to change a started OpenTelemetry span name'
 ]
 
 { #category : 'private' }
@@ -939,9 +935,7 @@ OTSpan >> normalizedExceptionAttributesFor: anException additionalAttributes: aC
 		at: 'exception.type' put: (self exceptionTypeFor: anException);
 		at: 'exception.message' put: (self exceptionMessageFor: anException);
 		at: 'exception.stacktrace' put: (self exceptionStacktraceFor: anException).
-	aCollection ifNotNil: [
-		aCollection associationsDo: [ :each |
-			attributesToRecord at: each key put: each value ] ].
+	aCollection ifNotNil: [ aCollection associationsDo: [ :each | attributesToRecord at: each key put: each value ] ].
 	^ attributesToRecord
 ]
 
@@ -993,7 +987,7 @@ OTSpan >> printOn: aStream [ [
 { #category : 'recording' }
 OTSpan >> recordException: anException [
 
-	^ self recordException: anException attributes: #()
+	^ self recordException: anException attributes: #(  )
 ]
 
 { #category : 'recording' }
@@ -1015,6 +1009,30 @@ OTSpan >> resource [
 OTSpan >> resource: anOTResource [
 
 	resource := anOTResource
+]
+
+{ #category : 'private' }
+OTSpan >> restoreEndTime: aDateAndTime [
+
+	endTime := aDateAndTime
+]
+
+{ #category : 'private' }
+OTSpan >> restoreStartTime: aDateAndTime [
+
+	startTime := aDateAndTime
+]
+
+{ #category : 'private' }
+OTSpan >> restoreStatus: aSymbol description: aString [
+
+	self validateStatusCode: aSymbol.
+	status := aSymbol = self class unset
+		          ifTrue: [ nil ]
+		          ifFalse: [ aSymbol ].
+	statusDescription := status = self class error
+		                     ifTrue: [ self normalizedStatusDescription: aString ]
+		                     ifFalse: [ nil ]
 ]
 
 { #category : 'recording' }
@@ -1057,30 +1075,6 @@ OTSpan >> setStatus: aSymbol description: aString [
 		^ self ].
 	status := self class error.
 	statusDescription := self normalizedStatusDescription: aString
-]
-
-{ #category : 'private' }
-OTSpan >> restoreStatus: aSymbol description: aString [
-
-	self validateStatusCode: aSymbol.
-	status := aSymbol = self class unset
-		          ifTrue: [ nil ]
-		          ifFalse: [ aSymbol ].
-	statusDescription := status = self class error
-		                     ifTrue: [ self normalizedStatusDescription: aString ]
-		                     ifFalse: [ nil ]
-]
-
-{ #category : 'private' }
-OTSpan >> restoreEndTime: aDateAndTime [
-
-	endTime := aDateAndTime
-]
-
-{ #category : 'private' }
-OTSpan >> restoreStartTime: aDateAndTime [
-
-	startTime := aDateAndTime
 ]
 
 { #category : 'accessing' }
@@ -1267,7 +1261,8 @@ OTSpan >> tracerProvider: aTracerProvider [
 { #category : 'recording' }
 OTSpan >> updateName: aString [
 
-	^ self name: aString
+	self isRecording ifFalse: [ ^ self ].
+	name := aString
 ]
 
 { #category : 'private' }

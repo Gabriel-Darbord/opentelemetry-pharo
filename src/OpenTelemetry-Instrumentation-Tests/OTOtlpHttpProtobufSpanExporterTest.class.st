@@ -28,10 +28,10 @@ OTOtlpHttpProtobufSpanExporterTest >> sampleSpan [
 		spanProcessor: OTSimpleSpanProcessor new;
 		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	tracer := provider tracerNamed: 'exporter.test'.
-	span := ((tracer spanBuilderNamed: 'operation')
+	span := (tracer spanBuilderNamed: 'operation')
 		        kind: OTSpan client;
 		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
-		        startSpan).
+		        startSpan.
 	span
 		attributes: (Dictionary new
 				 at: 'service.name' put: 'demo';
