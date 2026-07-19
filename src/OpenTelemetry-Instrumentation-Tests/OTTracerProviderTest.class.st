@@ -607,6 +607,18 @@ OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testShutdownShutsDownLifecycleManagedAlwaysRecordWrappedSampler [
+
+	| provider rootSampler |
+	provider := OTTracerProvider new.
+	rootSampler := OTLifecycleTrackingSampler new.
+	provider sampler: (OTSampler alwaysRecord: rootSampler).
+	self assert: provider shutdown.
+	self assert: rootSampler startCount equals: 1.
+	self assert: rootSampler shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testShutdownShutsDownLifecycleManagedSampler [
 
 	| provider rootSampler |
@@ -762,6 +774,21 @@ OTTracerProviderTest >> testReplacingSamplerShutsDownPreviousLifecycleManagedSam
 	secondProviderSampler := OTLifecycleTrackingSampler new.
 	provider sampler: (OTParentBasedSampler root: firstProviderSampler).
 	provider sampler: (OTParentBasedSampler root: secondProviderSampler).
+	self assert: firstProviderSampler startCount equals: 1.
+	self assert: firstProviderSampler shutdownCount equals: 1.
+	self assert: secondProviderSampler startCount equals: 1.
+	self assert: secondProviderSampler shutdownCount equals: 0
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testReplacingSamplerShutsDownPreviousAlwaysRecordWrappedSampler [
+
+	| firstProviderSampler provider secondProviderSampler |
+	provider := OTTracerProvider new.
+	firstProviderSampler := OTLifecycleTrackingSampler new.
+	secondProviderSampler := OTLifecycleTrackingSampler new.
+	provider sampler: (OTSampler alwaysRecord: firstProviderSampler).
+	provider sampler: (OTSampler alwaysRecord: secondProviderSampler).
 	self assert: firstProviderSampler startCount equals: 1.
 	self assert: firstProviderSampler shutdownCount equals: 1.
 	self assert: secondProviderSampler startCount equals: 1.
