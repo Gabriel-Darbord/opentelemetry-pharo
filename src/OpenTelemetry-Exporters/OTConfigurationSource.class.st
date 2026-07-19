@@ -266,7 +266,7 @@ OTConfigurationSource class >> dictionaryValueAt: aKey in: aDictionary [
 	| value |
 	aDictionary ifNil: [ ^ nil ].
 	value := aDictionary at: aKey ifAbsent: [ ^ nil ].
-	^ (value isKindOf: Dictionary) ifTrue: [ value ] ifFalse: [ nil ]
+	^ value isDictionary ifTrue: [ value ] ifFalse: [ nil ]
 ]
 
 { #category : 'private - projection' }
@@ -338,23 +338,17 @@ OTConfigurationSource class >> declarativeResourceAttributeValue: anObject type:
 					, anObject printString ].
 		^ anObject asString ].
 	aStringOrNil = 'bool' ifTrue: [
-		(OTAttributeNormalizer isBoolean: anObject) ifFalse: [
-			Error signal:
-				'Declarative resource attribute value does not match type bool: '
-					, anObject printString ].
-		^ anObject ].
+		^ self
+			requiredDeclarativeBoolean: anObject
+			type: aStringOrNil ].
 	aStringOrNil = 'int' ifTrue: [
-		anObject isInteger ifFalse: [
-			Error signal:
-				'Declarative resource attribute value does not match type int: '
-					, anObject printString ].
-		^ anObject ].
+		^ self
+			requiredDeclarativeInteger: anObject
+			type: aStringOrNil ].
 	aStringOrNil = 'double' ifTrue: [
-		anObject isNumber ifFalse: [
-			Error signal:
-				'Declarative resource attribute value does not match type double: '
-					, anObject printString ].
-		^ anObject asFloat ].
+		^ self
+			requiredDeclarativeNumber: anObject
+			type: aStringOrNil ].
 	aStringOrNil = 'string_array' ifTrue: [
 		^ self
 			declarativeResourceAttributeValues: anObject
@@ -364,20 +358,20 @@ OTConfigurationSource class >> declarativeResourceAttributeValue: anObject type:
 	aStringOrNil = 'bool_array' ifTrue: [
 		^ self
 			declarativeResourceAttributeValues: anObject
-			validatedBy: [ :each | OTAttributeNormalizer isBoolean: each ]
-			convertedBy: [ :each | each ]
+			validatedBy: [ :each | (self declarativeBooleanFrom: each) notNil ]
+			convertedBy: [ :each | self declarativeBooleanFrom: each ]
 			type: aStringOrNil ].
 	aStringOrNil = 'int_array' ifTrue: [
 		^ self
 			declarativeResourceAttributeValues: anObject
-			validatedBy: [ :each | each isInteger ]
-			convertedBy: [ :each | each ]
+			validatedBy: [ :each | (self declarativeIntegerFrom: each) notNil ]
+			convertedBy: [ :each | self declarativeIntegerFrom: each ]
 			type: aStringOrNil ].
 	aStringOrNil = 'double_array' ifTrue: [
 		^ self
 			declarativeResourceAttributeValues: anObject
-			validatedBy: [ :each | each isNumber ]
-			convertedBy: [ :each | each asFloat ]
+			validatedBy: [ :each | (self declarativeNumberFrom: each) notNil ]
+			convertedBy: [ :each | self declarativeNumberFrom: each ]
 			type: aStringOrNil ].
 	Error signal:
 		'Unsupported declarative resource attribute type: '
@@ -387,13 +381,15 @@ OTConfigurationSource class >> declarativeResourceAttributeValue: anObject type:
 { #category : 'private - projection' }
 OTConfigurationSource class >> declarativeResourceAttributeValues: anObject validatedBy: aValidationBlock convertedBy: aConversionBlock type: aString [
 
-	((anObject isSequenceable) and: [ anObject isString not ]) ifFalse: [
+	| values |
+	values := self declarativeSequenceFrom: anObject.
+	values ifNil: [
 		Error signal:
 			'Declarative resource attribute value does not match type '
 				, aString printString
 				, ': '
 				, anObject printString ].
-	^ anObject collect: [ :each |
+	^ values collect: [ :each |
 		(aValidationBlock value: each) ifFalse: [
 			Error signal:
 				'Declarative resource attribute value does not match type '
@@ -459,11 +455,14 @@ OTConfigurationSource class >> declarativeResourceFrom: aDictionary [
 
 	| detected detection explicitAttributes explicitResource explicitSchemaUrl |
 	detection := self dictionaryValueAt: 'detection/development' in: aDictionary.
-	detected := self
-		filteredDeclarativeResourceDetection:
-			(OTTracerProvider
-				resourceFromDetectors: (self declarativeResourceDetectorsFrom: detection))
-		with: detection.
+	detected := detection
+		ifNil: [ OTResource empty ]
+		ifNotNil: [
+			self
+				filteredDeclarativeResourceDetection:
+					(OTTracerProvider
+						resourceFromDetectors: (self declarativeResourceDetectorsFrom: detection))
+				with: detection ].
 	explicitAttributes := self declarativeResourceAttributesFrom: aDictionary.
 	explicitSchemaUrl := self stringValueAt: 'schema_url' in: aDictionary.
 	explicitResource := (explicitAttributes isEmpty and: [ explicitSchemaUrl isNil ])
@@ -494,6 +493,19 @@ OTConfigurationSource class >> declarativeServiceResource [
 			OTResource
 				attributes: attributes
 				schemaUrl: OTTracerProvider semanticConventionsSchemaUrl ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeSequenceFrom: anObject [
+
+	| text |
+	((anObject isSequenceable) and: [ anObject isString not ]) ifTrue: [ ^ anObject ].
+	((anObject isString) or: [ anObject isSymbol ]) ifFalse: [ ^ nil ].
+	text := anObject asString trimBoth.
+	((text size >= 2) and: [ text first = $[ and: [ text last = $] ] ]) ifFalse: [ ^ nil ].
+	text := (text copyFrom: 2 to: text size - 1) trimBoth.
+	text isEmpty ifTrue: [ ^ #() ].
+	^ (text substrings: ',') collect: [ :each | each trimBoth ]
 ]
 
 { #category : 'private - projection' }
@@ -1557,7 +1569,13 @@ OTConfigurationSource class >> explicitBucketHistogramAggregationParametersFrom:
 	| boundaries parameters |
 	parameters := OrderedDictionary new.
 	boundaries := self sequenceValueAt: 'boundaries' in: aDictionary.
-	boundaries ifNotNil: [ parameters at: 'boundaries' put: boundaries ].
+	boundaries ifNotNil: [
+		parameters
+			at: 'boundaries'
+			put: (boundaries collect: [ :each |
+				self
+					requiredDeclarativeNumber: each
+					type: 'double' ]) ].
 	(self booleanValueAt: 'record_min_max' in: aDictionary) ifNotNil: [ :value |
 		parameters at: 'record_min_max' put: value ].
 	^ parameters isEmpty ifTrue: [ nil ] ifFalse: [ parameters ]
@@ -1569,8 +1587,83 @@ OTConfigurationSource class >> integerValueAt: aKey in: aDictionary [
 	| value |
 	aDictionary ifNil: [ ^ nil ].
 	value := aDictionary at: aKey ifAbsent: [ ^ nil ].
-	value isInteger ifTrue: [ ^ value ].
+	^ self declarativeIntegerFrom: value
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeBooleanFrom: anObject [
+
+	| value |
+	(OTAttributeNormalizer isBoolean: anObject) ifTrue: [ ^ anObject ].
+	((anObject isString) or: [ anObject isSymbol ]) ifFalse: [ ^ nil ].
+	value := anObject asString trimBoth asLowercase.
+	value = 'true' ifTrue: [ ^ true ].
+	value = 'false' ifTrue: [ ^ false ].
 	^ nil
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeIntegerFrom: anObject [
+
+	| stream value |
+	anObject isInteger ifTrue: [ ^ anObject ].
+	((anObject isString) or: [ anObject isSymbol ]) ifFalse: [ ^ nil ].
+	stream := anObject asString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> declarativeNumberFrom: anObject [
+
+	| stream value |
+	anObject isNumber ifTrue: [ ^ anObject asFloat ].
+	((anObject isString) or: [ anObject isSymbol ]) ifFalse: [ ^ nil ].
+	stream := anObject asString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Number readFrom: stream ] on: Error do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	^ value asFloat
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> requiredDeclarativeBoolean: anObject type: aString [
+
+	^ self
+		requiredDeclarativeValue: (self declarativeBooleanFrom: anObject)
+		original: anObject
+		type: aString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> requiredDeclarativeInteger: anObject type: aString [
+
+	^ self
+		requiredDeclarativeValue: (self declarativeIntegerFrom: anObject)
+		original: anObject
+		type: aString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> requiredDeclarativeNumber: anObject type: aString [
+
+	^ self
+		requiredDeclarativeValue: (self declarativeNumberFrom: anObject)
+		original: anObject
+		type: aString
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> requiredDeclarativeValue: anObjectOrNil original: originalObject type: aString [
+
+	anObjectOrNil ifNotNil: [ ^ anObjectOrNil ].
+	Error signal:
+		'Declarative resource attribute value does not match type '
+			, aString
+			, ': '
+			, originalObject printString
 ]
 
 { #category : 'private - projection' }

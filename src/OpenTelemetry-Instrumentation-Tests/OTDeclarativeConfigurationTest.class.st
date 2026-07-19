@@ -318,7 +318,7 @@ logger_provider:
 			self assert: logProcessor scheduledDelayMillis equals: 2001.
 			self assert: logProcessor exportTimeoutMillis equals: 2002.
 			self assert: logProcessor maxQueueSize equals: 2003.
-			self assert: logProcessor maxExportBatchSize equals: 2004.
+			self assert: logProcessor maxExportBatchSize equals: 2003.
 			self
 				assert: logProcessor exporter configuration endpoint
 				equals: 'http://collector:4318/custom/logs'.

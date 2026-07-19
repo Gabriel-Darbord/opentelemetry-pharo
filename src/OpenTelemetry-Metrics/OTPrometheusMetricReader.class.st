@@ -18,7 +18,9 @@ OTPrometheusMetricReader >> bindingAddressForHost [
 	host ifNil: [ ^ #[127 0 0 1] ].
 	(host sameAs: 'localhost') ifTrue: [ ^ #[127 0 0 1] ].
 	host = '0.0.0.0' ifTrue: [ ^ nil ].
-	^ NetNameResolver addressForName: host timeout: 5
+	^ [ NetNameResolver addressForName: host timeout: 5 ]
+		on: NameLookupFailure
+		do: [ #[127 0 0 1] ]
 ]
 
 { #category : 'collecting' }
