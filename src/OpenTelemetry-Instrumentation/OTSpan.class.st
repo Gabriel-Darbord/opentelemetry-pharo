@@ -688,26 +688,23 @@ OTSpan >> events: aCollection [
 ]
 
 { #category : 'private' }
-OTSpan >> exceptionMessageFor: anException [ [
+OTSpan >> exceptionMessageFor: anException [
 
 	^ anException messageText ifNil: [ anException description ]
 ]
-]
 
 { #category : 'private' }
-OTSpan >> exceptionStacktraceFor: anException [ [
+OTSpan >> exceptionStacktraceFor: anException [
 
 	^ anException signalerContext
 		ifNil: [ '' ]
 		ifNotNil: [ :aContext | aContext longStack ]
 ]
-]
 
 { #category : 'private' }
-OTSpan >> exceptionTypeFor: anException [ [
+OTSpan >> exceptionTypeFor: anException [
 
 	^ anException class name asString
-]
 ]
 
 { #category : 'accessing' }
@@ -932,7 +929,7 @@ OTSpan >> normalizeEventCollection: aCollection [
 ]
 
 { #category : 'private' }
-OTSpan >> normalizedExceptionAttributesFor: anException additionalAttributes: aCollection [ [
+OTSpan >> normalizedExceptionAttributesFor: anException additionalAttributes: aCollection [
 
 	| attributesToRecord |
 	attributesToRecord := OrderedDictionary new.
@@ -944,7 +941,6 @@ OTSpan >> normalizedExceptionAttributesFor: anException additionalAttributes: aC
 		aCollection associationsDo: [ :each |
 			attributesToRecord at: each key put: each value ] ].
 	^ attributesToRecord
-]
 ]
 
 { #category : 'private' }
@@ -993,20 +989,18 @@ OTSpan >> printOn: aStream [ [
 ]
 
 { #category : 'recording' }
-OTSpan >> recordException: anException [ [
+OTSpan >> recordException: anException [
 
 	^ self recordException: anException attributes: #()
 ]
-]
 
 { #category : 'recording' }
-OTSpan >> recordException: anException attributes: aCollection [ [
+OTSpan >> recordException: anException attributes: aCollection [
 
+	| exceptionAttributes |
 	self isRecording ifFalse: [ ^ self ].
-	self setErrorStatusDescription: anException description.
-	self addEventNamed: 'exception' attributes: (self normalizedExceptionAttributesFor: anException additionalAttributes: aCollection).
-	^ self
-]
+	exceptionAttributes := (self normalizedExceptionAttributesFor: anException additionalAttributes: aCollection) associations.
+	self addEventNamed: 'exception' attributes: exceptionAttributes
 ]
 
 { #category : 'accessing' }

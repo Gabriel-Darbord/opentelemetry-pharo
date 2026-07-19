@@ -216,6 +216,24 @@ OTSpanBuilderTest >> testDirectStatusMutatorsAreRejected [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	[ Error signal: 'boom' ]
+		on: Error
+		do: [ :error | span recordException: error ].
+	self assert: span status equals: OTSpan unset.
+	self assert: span statusDescription isNil.
+	self assert: span events size equals: 1.
+	self assert: span events first name equals: 'exception'.
+	self assert: (span events first attributes at: 'exception.message') equals: 'boom'
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 
 	| firstContext provider secondContext span tracer |
