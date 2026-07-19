@@ -17,10 +17,7 @@ The current logging implementation provides:
 - `OTSimpleLogRecordProcessor`, `OTBatchLogRecordProcessor`, and `OTCompositeLogRecordProcessor`
 - `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, `OTOtlpStdoutLogRecordExporter`, `OTOtlpJsonFileLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
 - `OTTinyLoggerBridge` for forwarding TinyLogger records into OpenTelemetry loggers
-
-The current logging implementation does not yet provide:
-
-- bridges to Pharo logging libraries beyond TinyLogger
+- `OTBeaconSignalLogger` for forwarding Beacon signals into OpenTelemetry loggers
 
 ## Getting A Logger
 
@@ -160,6 +157,40 @@ bridge
 	eventNameBlock: [ :message | 'tiny.record' ].
 
 tinyLogger addLogger: bridge.
+```
+
+## Beacon Bridge
+
+If Beacon is loaded in the image, you can attach an OpenTelemetry logger as a
+`SignalLogger`:
+
+```smalltalk
+otelLogger := OpenTelemetry loggerNamed: 'MyApp'.
+beaconLogger := otelLogger asBeaconSignalLogger.
+
+beaconLogger runFor: StringSignal during: [
+	StringSignal emit: 'Started job' ].
+```
+
+The default Beacon mapping keeps the Beacon signal name as the OpenTelemetry
+`eventName`, uses the signal-specific one-line contents as the `body`, and
+adds prefixed Beacon metadata attributes such as:
+
+- `beacon.signal.name`
+- `beacon.signal.class`
+- `beacon.signal.process_id`
+- `beacon.signal.properties.*`
+
+You can customize the emitted record shape the same way as the TinyLogger
+bridge:
+
+```smalltalk
+bridge := otelLogger asBeaconSignalLogger.
+bridge
+	severityNumber: OTSeverity warn;
+	bodyBlock: [ :signal | signal target asUppercase ];
+	attributesBlock: [ :signal | { 'beacon.signal.source' -> 'beacon' } ];
+	eventNameBlock: [ :signal | 'beacon.record' ].
 ```
 
 ## Lifecycle

@@ -19,7 +19,7 @@ Start here:
 Current scope:
 
 - traces: supported
-- logs: API, batch processing, OTLP export, stdout export, and TinyLogger bridging supported
+- logs: API, batch processing, OTLP export, stdout export, and TinyLogger/Beacon bridging supported
 - baggage and text-map propagation: supported
 - metrics: synchronous/asynchronous instruments, views, OTLP export, and Prometheus pull export supported
 

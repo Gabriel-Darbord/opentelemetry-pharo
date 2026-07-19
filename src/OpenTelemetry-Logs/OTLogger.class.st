@@ -24,6 +24,12 @@ OTLogger class >> forProvider: anOTLoggerProvider instrumentationScope: anInstru
 ]
 
 { #category : 'adapting' }
+OTLogger >> asBeaconSignalLogger [
+
+	^ OTBeaconSignalLogger forLogger: self
+]
+
+{ #category : 'adapting' }
 OTLogger >> asTinyLoggerBridge [
 
 	^ OTTinyLoggerBridge forLogger: self
