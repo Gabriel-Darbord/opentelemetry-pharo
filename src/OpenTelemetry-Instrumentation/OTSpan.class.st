@@ -182,9 +182,6 @@ OTSpan class >> fromSton: stonReader [
 	span name: (representation at: #name).
 	span context: (representation at: #context).
 	span kind: (representation at: #kind).
-	span startTime: (representation at: #startTime).
-	span status: (representation at: #status ifAbsent: [ self unset ]).
-	representation at: #statusDescription ifPresent: [ :description | span statusDescription: description ].
 	scope := representation
 		         at: #instrumentationScope
 		         ifAbsent: [ OTInstrumentationScope named: (representation at: #instrumentationName ifAbsent: [ '' ]) ].
@@ -198,6 +195,9 @@ OTSpan class >> fromSton: stonReader [
 								 traceId: span traceId
 								 traceFlags: span traceFlags
 								 traceState: span traceState) ] ].
+	span startTime: (representation at: #startTime).
+	span status: (representation at: #status ifAbsent: [ self unset ]).
+	representation at: #statusDescription ifPresent: [ :description | span statusDescription: description ].
 	representation at: #attributes ifPresent: [ :attributes | span attributes: attributes ].
 	representation at: #events ifPresent: [ :events | span events: events ].
 	representation at: #links ifPresent: [ :links | span links: links ].
@@ -809,7 +809,7 @@ OTSpan >> kind [
 { #category : 'accessing' }
 OTSpan >> kind: aSpanKind [
 
-	self isRecording ifFalse: [ ^ self ].
+	self ensureMutableCreationState.
 	kind := aSpanKind
 ]
 
@@ -823,6 +823,13 @@ OTSpan >> limitDiscardWarningMessage [
 			nextPutAll: self name;
 			nextPut: $";
 			nextPutAll: '. Further warnings for this span are suppressed.' ]
+]
+
+{ #category : 'private' }
+OTSpan >> ensureMutableCreationState [
+
+	startTime ifNil: [ ^ self ].
+	Error signal: 'OpenTelemetry span creation state cannot change after the span has started'
 ]
 
 { #category : 'private' }
@@ -955,6 +962,7 @@ OTSpan >> parent [
 { #category : 'accessing' }
 OTSpan >> parent: aSpan [
 
+	self ensureMutableCreationState.
 	parent := aSpan
 ]
 
@@ -967,6 +975,7 @@ OTSpan >> parentSpanContext [
 { #category : 'accessing' }
 OTSpan >> parentSpanContext: anObject [
 
+	self ensureMutableCreationState.
 	parent := anObject ifNotNil: [ anObject asSpanContext asNonRecordingSpan ]
 ]
 
