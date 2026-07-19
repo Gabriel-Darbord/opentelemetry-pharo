@@ -53,7 +53,9 @@ OTTracerProvider class >> configuredSampler [
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredSamplerForResource: anOTResource [
 
-	| samplerName samplerArgument |
+	| configuredSampler samplerName samplerArgument |
+	configuredSampler := OTConfigurationSource configuredSamplerForResource: anOTResource.
+	configuredSampler ifNotNil: [ ^ configuredSampler ].
 	samplerName := self environmentValueAt: 'OTEL_TRACES_SAMPLER'.
 	samplerName ifNil: [ ^ self defaultSampler ].
 	samplerArgument := self environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG'.

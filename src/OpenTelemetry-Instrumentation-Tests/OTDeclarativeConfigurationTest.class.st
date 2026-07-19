@@ -401,6 +401,70 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsJaegerRemoteSamplerWithStructuredInitialSampler [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    jaeger_remote:
+      endpoint: http://jaeger.example:14250
+      interval: 5000
+      initial_sampler:
+        parent_based:
+          root:
+            trace_id_ratio_based:
+              ratio: 0.25
+'
+		environmentValues: Dictionary new
+		during: [
+			| initialSampler sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTJaegerRemoteSampler.
+			self assert: sampler endpoint equals: 'http://jaeger.example:14250'.
+			self assert: sampler pollingIntervalMillis equals: 5000.
+			initialSampler := sampler currentSampler.
+			self assert: initialSampler class identicalTo: OTParentBasedSampler.
+			self assert: initialSampler rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: initialSampler rootSampler probability equals: 0.25 ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsParentBasedSamplerWithExplicitDelegates [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    parent_based:
+      root:
+        always_off:
+      remote_parent_sampled:
+        trace_id_ratio_based:
+          ratio: 0.1
+      local_parent_not_sampled:
+        trace_id_ratio_based:
+          ratio: 0.2
+'
+		environmentValues: Dictionary new
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTParentBasedSampler.
+			self assert: sampler rootSampler class identicalTo: OTAlwaysOffSampler.
+			self
+				assert: sampler remoteParentSampledSampler class
+				identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler remoteParentSampledSampler probability equals: 0.1.
+			self
+				assert: sampler localParentNotSampledSampler class
+				identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler localParentNotSampledSampler probability equals: 0.2 ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileProjectsTraceProcessorSequenceWhenRepresentable [
 
 	self

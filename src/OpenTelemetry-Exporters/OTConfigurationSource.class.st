@@ -200,6 +200,19 @@ OTConfigurationSource class >> configuredResource [
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredSamplerForResource: anOTResource [
+
+	| configuration sampler tracerProvider |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ nil ].
+	tracerProvider := self dictionaryValueAt: 'tracer_provider' in: configuration.
+	tracerProvider ifNil: [ ^ nil ].
+	sampler := self dictionaryValueAt: 'sampler' in: tracerProvider.
+	sampler ifNil: [ ^ nil ].
+	^ self samplerFrom: sampler resource: anOTResource
+]
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> configuredTraceExporters [
 
 	| processors |
@@ -1161,10 +1174,15 @@ OTConfigurationSource class >> projectTraceSamplerFrom: aDictionary into: anEnvi
 	| sampler samplerPair |
 	sampler := self dictionaryValueAt: 'sampler' in: aDictionary.
 	sampler ifNil: [ ^ self ].
-	samplerPair := self samplerEnvironmentPairFrom: sampler.
-	anEnvironment at: 'OTEL_TRACES_SAMPLER' put: samplerPair first.
-	samplerPair second ifNotNil: [
-		anEnvironment at: 'OTEL_TRACES_SAMPLER_ARG' put: samplerPair second ].
+	[
+		samplerPair := self samplerEnvironmentPairFrom: sampler.
+		anEnvironment at: 'OTEL_TRACES_SAMPLER' put: samplerPair first.
+		samplerPair second ifNotNil: [
+			anEnvironment at: 'OTEL_TRACES_SAMPLER_ARG' put: samplerPair second ] ]
+		on: Error
+		do: [ :error |
+			(self shouldIgnoreProjectionError: error)
+				ifFalse: [ error pass ] ].
 	^ self
 ]
 
@@ -1396,6 +1414,27 @@ OTConfigurationSource class >> samplerAssociationFrom: aDictionary [
 	^ self singleAssociationFrom: aDictionary describedAs: 'sampler'
 ]
 
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> samplerFrom: aDictionary resource: anOTResource [
+
+	| association kind options probability |
+	association := self samplerAssociationFrom: aDictionary.
+	kind := self normalizedSamplerKind: association key.
+	options := association value ifNil: [ OrderedDictionary new ].
+	kind = 'always_on' ifTrue: [ ^ OTAlwaysOnSampler new ].
+	kind = 'always_off' ifTrue: [ ^ OTAlwaysOffSampler new ].
+	((kind = 'probability') or: [ kind = 'trace_id_ratio_based' ]) ifTrue: [
+		probability := self declarativeNumberFrom: (options at: 'ratio' ifAbsent: [ nil ]).
+		probability ifNil: [
+			Error signal: 'Declarative configuration probability samplers require a ratio' ].
+		^ OTSampler traceIdRatioBased: probability ].
+	kind = 'parent_based' ifTrue: [
+		^ self parentBasedSamplerFrom: options resource: anOTResource ].
+	kind = 'jaeger_remote' ifTrue: [
+		^ self jaegerRemoteSamplerFrom: options resource: anOTResource ].
+	Error signal: 'Unsupported declarative sampler type: ', association key printString
+]
+
 { #category : 'private - projection' }
 OTConfigurationSource class >> samplerEnvironmentPairFrom: aDictionary [
 
@@ -1449,6 +1488,31 @@ OTConfigurationSource class >> jaegerRemoteSamplerArgumentFrom: aDictionary [
 		stream nextPutAll: ',initialSamplingRate='; nextPutAll: initialSampler ]
 ]
 
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> jaegerRemoteSamplerFrom: aDictionary resource: anOTResource [
+
+	| sampler serviceName |
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [
+		OTTracerProvider noteMissingGrpcDependencyForSampler: 'jaeger_remote'.
+		^ OTTracerProvider defaultSampler ].
+	serviceName := anOTResource
+		ifNil: [ OTTracerProvider defaultServiceName ]
+		ifNotNil: [
+			anOTResource serviceName
+				ifNil: [ OTTracerProvider defaultServiceName ]
+				ifNotNil: [ anOTResource serviceName ] ].
+	sampler := OTJaegerRemoteSampler serviceName: serviceName.
+	(self stringValueAt: 'endpoint' in: aDictionary) ifNotNil: [ :value |
+		sampler endpoint: value ].
+	sampler pollingIntervalMillis: (self
+		positiveIntegerValueAt: 'interval'
+		in: aDictionary
+		default: sampler pollingIntervalMillis).
+	(self dictionaryValueAt: 'initial_sampler' in: aDictionary) ifNotNil: [ :value |
+		sampler initialSampler: (self samplerFrom: value resource: anOTResource) ].
+	^ sampler
+]
+
 { #category : 'private - projection' }
 OTConfigurationSource class >> normalizedSamplerKind: aString [
 
@@ -1496,6 +1560,24 @@ OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signal
 		default: OTOtlpExporterConfiguration defaultTimeoutMillis.
 	configuration timeoutMillis: timeout.
 	^ configuration
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> parentBasedSamplerFrom: aDictionary resource: anOTResource [
+
+	| sampler |
+	sampler := OTParentBasedSampler default.
+	(self dictionaryValueAt: 'root' in: aDictionary) ifNotNil: [ :value |
+		sampler rootSampler: (self samplerFrom: value resource: anOTResource) ].
+	(self dictionaryValueAt: 'remote_parent_sampled' in: aDictionary) ifNotNil: [ :value |
+		sampler remoteParentSampledSampler: (self samplerFrom: value resource: anOTResource) ].
+	(self dictionaryValueAt: 'remote_parent_not_sampled' in: aDictionary) ifNotNil: [ :value |
+		sampler remoteParentNotSampledSampler: (self samplerFrom: value resource: anOTResource) ].
+	(self dictionaryValueAt: 'local_parent_sampled' in: aDictionary) ifNotNil: [ :value |
+		sampler localParentSampledSampler: (self samplerFrom: value resource: anOTResource) ].
+	(self dictionaryValueAt: 'local_parent_not_sampled' in: aDictionary) ifNotNil: [ :value |
+		sampler localParentNotSampledSampler: (self samplerFrom: value resource: anOTResource) ].
+	^ sampler
 ]
 
 { #category : 'private - projection' }
