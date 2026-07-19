@@ -216,6 +216,21 @@ OTSpanBuilderTest >> testDirectStatusMutatorsAreRejected [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testDirectTimestampMutatorsAreRejectedAfterStart [
+
+	| originalStartTime provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	originalStartTime := span startTime.
+	self should: [ span startTime: DateAndTime unixEpoch ] raise: Error.
+	self should: [ span endTime: DateAndTime unixEpoch ] raise: Error.
+	self assert: span startTime equals: originalStartTime.
+	self assert: span endTime isNil
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 
 	| provider span tracer |
@@ -251,6 +266,20 @@ OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 	self assert: firstContext traceState equals: span traceState.
 	span end.
 	self assert: span spanContext identicalTo: firstContext
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderStartTimestampControlsRecordedStartTime [
+
+	| provider requestedStartTime span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	requestedStartTime := DateAndTime unixEpoch + (Duration milliSeconds: 123).
+	span := ((tracer spanBuilderNamed: 'operation')
+		startTimestamp: requestedStartTime;
+		startSpan).
+	self assert: span startTime equals: requestedStartTime
 ]
 
 { #category : 'tests' }

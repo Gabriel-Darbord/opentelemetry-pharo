@@ -195,7 +195,7 @@ OTSpan class >> fromSton: stonReader [
 								 traceId: span traceId
 								 traceFlags: span traceFlags
 								 traceState: span traceState) ] ].
-	span startTime: (representation at: #startTime).
+	span restoreStartTime: (representation at: #startTime).
 	span
 		restoreStatus: (representation at: #status ifAbsent: [ self unset ])
 		description: (representation at: #statusDescription ifAbsent: [ nil ]).
@@ -206,7 +206,7 @@ OTSpan class >> fromSton: stonReader [
 	span droppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ span droppedAttributesCount ]).
 	span droppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ span droppedEventsCount ]).
 	span droppedLinksCount: (representation at: #droppedLinksCount ifAbsent: [ span droppedLinksCount ]).
-	span endTime: (representation at: #endTime).
+	span restoreEndTime: (representation at: #endTime).
 	span endTime ifNotNil: [ span markEnded ].
 	^ span
 ]
@@ -645,7 +645,7 @@ OTSpan >> end [
 OTSpan >> end: aDateAndTime [
 
 	self isEnded ifTrue: [ ^ self ].
-	self endTime: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]).
+	self restoreEndTime: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]).
 	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ].
 	self markEnded.
 	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ].
@@ -661,7 +661,9 @@ OTSpan >> endTime [
 { #category : 'accessing' }
 OTSpan >> endTime: aDateAndTime [
 
-	endTime := aDateAndTime
+	startTime ifNotNil: [
+		Error signal: 'Use #end or #end: to finish an OpenTelemetry span with an end timestamp' ].
+	self restoreEndTime: aDateAndTime
 ]
 
 { #category : 'private' }
@@ -1069,6 +1071,18 @@ OTSpan >> restoreStatus: aSymbol description: aString [
 		                     ifFalse: [ nil ]
 ]
 
+{ #category : 'private' }
+OTSpan >> restoreEndTime: aDateAndTime [
+
+	endTime := aDateAndTime
+]
+
+{ #category : 'private' }
+OTSpan >> restoreStartTime: aDateAndTime [
+
+	startTime := aDateAndTime
+]
+
 { #category : 'accessing' }
 OTSpan >> spanContext [
 
@@ -1113,7 +1127,7 @@ OTSpan >> start [
 
 	self isEnded ifTrue: [ ^ self ].
 	OTSpan currentContext: self context.
-	self startTime: DateAndTime now
+	self restoreStartTime: DateAndTime now
 ]
 
 { #category : 'accessing' }
@@ -1125,7 +1139,9 @@ OTSpan >> startTime [
 { #category : 'accessing' }
 OTSpan >> startTime: aDateAndTime [
 
-	startTime := aDateAndTime
+	startTime ifNotNil: [
+		Error signal: 'Use OTSpanBuilder>>startTime: or startTimestamp: to configure OpenTelemetry span start time' ].
+	self restoreStartTime: aDateAndTime
 ]
 
 { #category : 'accessing' }

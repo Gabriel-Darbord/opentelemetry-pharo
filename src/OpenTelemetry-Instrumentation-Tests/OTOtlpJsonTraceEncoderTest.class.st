@@ -45,8 +45,8 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 		parent: parentContext asNonRecordingSpan;
 		name: 'testSpan';
 		kind: OTSpan client;
-		startTime: DateAndTime unixEpoch + (Duration nanoSeconds: 100);
-		endTime: DateAndTime unixEpoch + (Duration nanoSeconds: 1100);
+		restoreStartTime: DateAndTime unixEpoch + (Duration nanoSeconds: 100);
+		restoreEndTime: DateAndTime unixEpoch + (Duration nanoSeconds: 1100);
 		attributes: (OrderedDictionary new
 				 at: 'animal' put: 'cat';
 				 at: 'bytes' put: #[ 1 2 3 ];
@@ -104,12 +104,11 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 						  ifFalse: [ '2222222222222222' ])
 				 random: false).
 	tracer := provider tracerNamed: 'encoder.test'.
-	span := (tracer spanBuilderNamed: aString)
+	span := ((tracer spanBuilderNamed: aString)
 		        kind: OTSpan internal;
-		        startSpan.
+		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		        startSpan).
 	span
-		startTime: DateAndTime unixEpoch + (Duration milliSeconds: 1);
-		endTime: DateAndTime unixEpoch + (Duration milliSeconds: 2);
 		attributes: #(  );
 		events: #(  );
 		links: #(  );
@@ -122,7 +121,8 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 				 named: aScopeName
 				 version: '1'
 				 schemaUrl: ''
-				 attributes: #(  )).
+				 attributes: #(  ));
+		end: DateAndTime unixEpoch + (Duration milliSeconds: 2).
 	^ span
 ]
 
@@ -215,17 +215,17 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessag
 		spanProcessor: OTSimpleSpanProcessor new;
 		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	tracer := provider tracerNamed: 'encoder.test'.
-	span := (tracer spanBuilderNamed: 'testSpan')
+	span := ((tracer spanBuilderNamed: 'testSpan')
 		        kind: OTSpan internal;
-		        startSpan.
+		        startTimestamp: DateAndTime unixEpoch;
+		        startSpan).
 	span
-		startTime: DateAndTime unixEpoch;
-		endTime: DateAndTime unixEpoch;
 		attributes: #(  );
 		events: #(  );
 		links: #(  );
 		resource: OTResource empty;
-		instrumentationScope: (OTInstrumentationScope named: '').
+		instrumentationScope: (OTInstrumentationScope named: '');
+		end: DateAndTime unixEpoch.
 	payload := encoder encodeSpans: { span }.
 	self assert: ((((payload at: 'resourceSpans') first at: 'scopeSpans') first at: 'spans') first at: 'status') isEmpty
 ]

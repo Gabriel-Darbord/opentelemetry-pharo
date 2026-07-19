@@ -43,13 +43,12 @@ OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 		spanProcessor: OTSimpleSpanProcessor new;
 		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	tracer := provider tracerNamed: 'encoder.test'.
-	span := (tracer spanBuilderNamed: 'operation')
+	span := ((tracer spanBuilderNamed: 'operation')
 		        kind: OTSpan client;
 		        inContext: parentContext;
-		        startSpan.
+		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		        startSpan).
 	span
-		startTime: DateAndTime unixEpoch + (Duration milliSeconds: 1);
-		endTime: DateAndTime unixEpoch + (Duration milliSeconds: 2);
 		attributes: (OrderedDictionary new
 				 at: 'service.name' put: 'demo';
 				 at: 'attempt' put: 7;
@@ -77,7 +76,8 @@ OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 		setErrorStatusDescription: 'boom';
 		droppedAttributesCount: 2;
 		droppedEventsCount: 3;
-		droppedLinksCount: 4.
+		droppedLinksCount: 4;
+		end: DateAndTime unixEpoch + (Duration milliSeconds: 2).
 	^ span
 ]
 
