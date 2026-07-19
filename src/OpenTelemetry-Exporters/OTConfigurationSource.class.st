@@ -1413,6 +1413,139 @@ OTConfigurationSource class >> samplerAssociationFrom: aDictionary [
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> composableRuleAssociationFrom: aDictionary [
+
+	| sampler |
+	sampler := self dictionaryValueAt: 'sampler' in: aDictionary.
+	sampler ifNil: [
+		Error signal: 'Declarative composite rule_based rules require a sampler' ].
+	^ (self composableRulePredicateFrom: aDictionary)
+		-> (self composableSamplerFrom: sampler)
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> composableRuleAssociationsFrom: aDictionary [
+
+	| rules |
+	rules := self sequenceValueAt: 'rules' in: aDictionary.
+	rules ifNil: [ ^ #() ].
+	^ rules collect: [ :each | self composableRuleAssociationFrom: each ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> composableRuleAttributePatternsPredicateFrom: aDictionary [
+
+	| excluded included key patterns |
+	patterns := self dictionaryValueAt: 'attribute_patterns' in: aDictionary.
+	patterns ifNil: [ ^ nil ].
+	key := self stringValueAt: 'key' in: patterns.
+	key ifNil: [
+		Error signal: 'Declarative composite rule_based attribute_patterns require a key' ].
+	included := self sequenceValueAt: 'included' in: patterns.
+	excluded := self sequenceValueAt: 'excluded' in: patterns.
+	^ [ :context :spanName :kind :attributes :links |
+		| matchesExcluded matchesIncluded values |
+		values := self samplerAttributeStringValuesNamed: key in: attributes.
+		values ifEmpty: [ false ] ifNotEmpty: [
+			matchesIncluded := included isNil or: [
+				values anySatisfy: [ :each | self wildcardPatterns: included match: each ] ].
+			matchesExcluded := excluded notNil and: [
+				values anySatisfy: [ :each | self wildcardPatterns: excluded match: each ] ].
+			matchesIncluded and: [ matchesExcluded not ] ]
+	]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> composableRuleAttributeValuesPredicateFrom: aDictionary [
+
+	| attributeValues key values |
+	attributeValues := self dictionaryValueAt: 'attribute_values' in: aDictionary.
+	attributeValues ifNil: [ ^ nil ].
+	key := self stringValueAt: 'key' in: attributeValues.
+	key ifNil: [
+		Error signal: 'Declarative composite rule_based attribute_values require a key' ].
+	values := self sequenceValueAt: 'values' in: attributeValues.
+	(values isNil or: [ values isEmpty ]) ifTrue: [
+		Error signal: 'Declarative composite rule_based attribute_values require values' ].
+	values := values collect: [ :each | each asString ] as: Set.
+	^ [ :context :spanName :kind :attributes :links |
+		(self samplerAttributeStringValuesNamed: key in: attributes) anySatisfy: [ :each |
+			values includes: each ] ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> composableRuleParentPredicateFrom: aDictionary [
+
+	| parents |
+	parents := self sequenceValueAt: 'parent' in: aDictionary.
+	parents ifNil: [ ^ nil ].
+	parents := parents collect: [ :each | each asString asLowercase asSymbol ] as: Set.
+	^ [ :context :spanName :kind :attributes :links |
+		parents includes: (self samplerParentTypeForContext: context) ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> composableRulePredicateFrom: aDictionary [
+
+	| predicates |
+	predicates := OrderedCollection new.
+	{
+		self composableRuleAttributeValuesPredicateFrom: aDictionary.
+		self composableRuleAttributePatternsPredicateFrom: aDictionary.
+		self composableRuleParentPredicateFrom: aDictionary.
+		self composableRuleSpanKindsPredicateFrom: aDictionary } do: [ :each |
+		each ifNotNil: [ predicates add: each ] ].
+	predicates ifEmpty: [ ^ [ true ] ].
+	^ [ :context :spanName :kind :attributes :links |
+		predicates allSatisfy: [ :each |
+			each valueWithArguments: {
+				context.
+				spanName.
+				kind.
+				attributes.
+				links } ] ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> composableRuleSpanKindsPredicateFrom: aDictionary [
+
+	| kinds |
+	kinds := self sequenceValueAt: 'span_kinds' in: aDictionary.
+	kinds ifNil: [ ^ nil ].
+	kinds := kinds collect: [ :each | each asString asLowercase asSymbol ] as: Set.
+	^ [ :context :spanName :kind :attributes :links |
+		kinds includes: kind ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> composableSamplerAssociationFrom: aDictionary [
+
+	^ self singleAssociationFrom: aDictionary describedAs: 'composable sampler'
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> composableSamplerFrom: aDictionary [
+
+	| association kind options probability root |
+	association := self composableSamplerAssociationFrom: aDictionary.
+	kind := self normalizedSamplerKind: association key.
+	options := association value ifNil: [ OrderedDictionary new ].
+	kind = 'always_on' ifTrue: [ ^ OTComposableSampler alwaysOn ].
+	kind = 'always_off' ifTrue: [ ^ OTComposableSampler alwaysOff ].
+	kind = 'probability' ifTrue: [
+		probability := self optionalSamplerProbabilityFrom: options default: 1.
+		^ OTComposableSampler probability: probability ].
+	kind = 'parent_threshold' ifTrue: [
+		root := self dictionaryValueAt: 'root' in: options.
+		root ifNil: [
+			Error signal: 'Declarative composite parent_threshold sampler requires a root sampler' ].
+		^ OTComposableSampler parentThreshold: (self composableSamplerFrom: root) ].
+	kind = 'rule_based' ifTrue: [
+		^ OTComposableSampler ruleBased: (self composableRuleAssociationsFrom: options) ].
+	Error signal: 'Unsupported declarative composable sampler type: ', association key printString
+]
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> samplerFrom: aDictionary resource: anOTResource [
 
 	| association kind options probability |
@@ -1421,18 +1554,26 @@ OTConfigurationSource class >> samplerFrom: aDictionary resource: anOTResource [
 	options := association value ifNil: [ OrderedDictionary new ].
 	kind = 'always_on' ifTrue: [ ^ OTAlwaysOnSampler new ].
 	kind = 'always_off' ifTrue: [ ^ OTAlwaysOffSampler new ].
+	kind = 'composite' ifTrue: [
+		^ OTSampler composite: (self composableSamplerFrom: options) ].
+	association key = 'probability/development' ifTrue: [
+		probability := self optionalSamplerProbabilityFrom: options default: 1.
+		^ OTSampler probabilityOrAlwaysOff: probability ].
 	kind = 'probability' ifTrue: [
 		probability := self declarativeNumberFrom: (options at: 'ratio' ifAbsent: [ nil ]).
 		probability ifNil: [
 			Error signal: 'Declarative configuration probability samplers require a ratio' ].
 		^ OTSampler probability: probability ].
 	kind = 'trace_id_ratio_based' ifTrue: [
-		probability := self declarativeNumberFrom: (options at: 'ratio' ifAbsent: [ nil ]).
-		probability ifNil: [
-			Error signal: 'Declarative configuration probability samplers require a ratio' ].
+		probability := self optionalSamplerProbabilityFrom: options default: 1.
 		^ OTSampler traceIdRatioBased: probability ].
 	kind = 'parent_based' ifTrue: [
 		^ self parentBasedSamplerFrom: options resource: anOTResource ].
+	association key = 'jaeger_remote/development' ifTrue: [
+		^ self
+			jaegerRemoteSamplerFrom: options
+			resource: anOTResource
+			requireInitialSampler: true ].
 	kind = 'jaeger_remote' ifTrue: [
 		^ self jaegerRemoteSamplerFrom: options resource: anOTResource ].
 	Error signal: 'Unsupported declarative sampler type: ', association key printString
@@ -1447,13 +1588,18 @@ OTConfigurationSource class >> samplerEnvironmentPairFrom: aDictionary [
 	options := association value ifNil: [ OrderedDictionary new ].
 	kind = 'always_on' ifTrue: [ ^ #( 'always_on' nil ) ].
 	kind = 'always_off' ifTrue: [ ^ #( 'always_off' nil ) ].
+	kind = 'composite' ifTrue: [
+		Error signal:
+			'Declarative composite/development sampler is not representable via SDK environment variables' ].
+	association key = 'probability/development' ifTrue: [
+		Error signal:
+			'Declarative probability/development sampler is not representable via SDK environment variables' ].
 	kind = 'probability' ifTrue: [
 		Error signal:
 			'Declarative probability sampler is not representable via SDK environment variables' ].
 	kind = 'trace_id_ratio_based' ifTrue: [
 		ratio := self stringValueAt: 'ratio' in: options.
-		ratio ifNil: [
-			Error signal: 'Declarative configuration probability samplers require a ratio' ].
+		ratio ifNil: [ ratio := '1' ].
 		^ { 'traceidratio'. ratio } ].
 	kind = 'parent_based' ifTrue: [
 		^ self parentBasedSamplerEnvironmentPairFrom: options ].
@@ -1497,7 +1643,16 @@ OTConfigurationSource class >> jaegerRemoteSamplerArgumentFrom: aDictionary [
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> jaegerRemoteSamplerFrom: aDictionary resource: anOTResource [
 
-	| sampler serviceName |
+	^ self
+		jaegerRemoteSamplerFrom: aDictionary
+		resource: anOTResource
+		requireInitialSampler: false
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> jaegerRemoteSamplerFrom: aDictionary resource: anOTResource requireInitialSampler: aBoolean [
+
+	| endpoint sampler serviceName |
 	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [
 		OTTracerProvider noteMissingGrpcDependencyForSampler: 'jaeger_remote'.
 		^ OTTracerProvider defaultSampler ].
@@ -1508,12 +1663,16 @@ OTConfigurationSource class >> jaegerRemoteSamplerFrom: aDictionary resource: an
 				ifNil: [ OTTracerProvider defaultServiceName ]
 				ifNotNil: [ anOTResource serviceName ] ].
 	sampler := OTJaegerRemoteSampler serviceName: serviceName.
-	(self stringValueAt: 'endpoint' in: aDictionary) ifNotNil: [ :value |
-		sampler endpoint: value ].
+	endpoint := self stringValueAt: 'endpoint' in: aDictionary.
+	(aBoolean and: [ endpoint isNil ]) ifTrue: [
+		Error signal: 'Declarative jaeger_remote/development sampler requires an endpoint' ].
+	endpoint ifNotNil: [ sampler endpoint: endpoint ].
 	sampler pollingIntervalMillis: (self
 		positiveIntegerValueAt: 'interval'
 		in: aDictionary
 		default: sampler pollingIntervalMillis).
+	(aBoolean and: [ (self dictionaryValueAt: 'initial_sampler' in: aDictionary) isNil ]) ifTrue: [
+		Error signal: 'Declarative jaeger_remote/development sampler requires an initial_sampler' ].
 	(self dictionaryValueAt: 'initial_sampler' in: aDictionary) ifNotNil: [ :value |
 		sampler initialSampler: (self samplerFrom: value resource: anOTResource) ].
 	^ sampler
@@ -1527,6 +1686,18 @@ OTConfigurationSource class >> normalizedSamplerKind: aString [
 	^ delimiter = 0
 		ifTrue: [ aString ]
 		ifFalse: [ aString copyFrom: 1 to: delimiter - 1 ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> optionalSamplerProbabilityFrom: aDictionary default: aNumber [
+
+	| rawValue value |
+	rawValue := aDictionary at: 'ratio' ifAbsent: [ ^ aNumber ].
+	rawValue ifNil: [ ^ aNumber ].
+	value := self declarativeNumberFrom: rawValue.
+	value ifNil: [
+		Error signal: 'Declarative sampler ratio must be numeric' ].
+	^ value
 ]
 
 { #category : 'private - configuration file' }
@@ -1616,6 +1787,51 @@ OTConfigurationSource class >> parentBasedSamplerEnvironmentPairFrom: aDictionar
 	rootPair first = 'jaeger_remote' ifTrue: [ ^ { 'parentbased_jaeger_remote'. rootPair second } ].
 	Error signal:
 		'Declarative parent_based sampler root is not representable via SDK environment variables'
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> samplerAttributeStringValuesFrom: anObject [
+
+	anObject ifNil: [ ^ #() ].
+	(anObject isCollection and: [
+		anObject isString not and: [ anObject isDictionary not ] ]) ifTrue: [
+		^ anObject collect: [ :each | each asString ] as: Array ].
+	^ { anObject asString }
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> samplerAttributeStringValuesNamed: aString in: attributes [
+
+	| value |
+	attributes ifNil: [ ^ #() ].
+	value := (attributes isDictionary
+		ifTrue: [ attributes at: aString ifAbsent: [ nil ] ]
+		ifFalse: [
+			attributes
+				detect: [ :each | each isAssociation and: [ each key = aString ] ]
+				ifFound: [ :each | each value ]
+				ifNone: [ nil ] ]).
+	^ self samplerAttributeStringValuesFrom: value
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> samplerParentTypeForContext: aContext [
+
+	| parentSpan spanContext |
+	aContext ifNil: [ ^ #none ].
+	parentSpan := aContext span.
+	parentSpan ifNil: [ ^ #none ].
+	spanContext := parentSpan spanContext.
+	spanContext isValid ifFalse: [ ^ #none ].
+	^ spanContext isRemote
+		ifTrue: [ #remote ]
+		ifFalse: [ #local ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> wildcardPatterns: patterns match: aString [
+
+	^ patterns anySatisfy: [ :each | self wildcardPattern: each matches: aString ]
 ]
 
 { #category : 'private - projection' }

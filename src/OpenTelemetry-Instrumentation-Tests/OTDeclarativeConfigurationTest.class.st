@@ -401,6 +401,243 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsCompositeDevelopmentParentThresholdSampler [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    composite/development:
+      parent_threshold:
+        root:
+          always_off:
+'
+		environmentValues: Dictionary new
+		during: [
+			| childResult rootResult sampler |
+			sampler := OTTracerProvider current sampler.
+			rootResult := sampler
+				shouldSampleIn: OTContext new
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'root'
+				kind: OTSpan internal
+				attributes: OrderedDictionary new
+				links: #().
+			childResult := sampler
+				shouldSampleIn: (OTContext new
+						withSpan: ((OTSpanContext
+							traceId: '00112233445566778899aabbccddeeff'
+							spanId: '1122334455667788'
+							traceFlags: '01'
+							traceState: nil
+							remote: true) asNonRecordingSpan))
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'child'
+				kind: OTSpan internal
+				attributes: OrderedDictionary new
+				links: #().
+			self assert: sampler class identicalTo: OTCompositeSampler.
+			self assert: rootResult isDrop.
+			self assert: childResult isRecordAndSample ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsCompositeDevelopmentRuleBasedAttributePatterns [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    composite/development:
+      rule_based:
+        rules:
+          - attribute_patterns:
+              key: http.path
+              included:
+                - /internal/*
+              excluded:
+                - /internal/special/*
+            sampler:
+              always_on:
+          - sampler:
+              always_off:
+'
+		environmentValues: Dictionary new
+		during: [
+			| excludedResult includedResult sampler |
+			sampler := OTTracerProvider current sampler.
+			includedResult := sampler
+				shouldSampleIn: OTContext new
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'request'
+				kind: OTSpan server
+				attributes: (OrderedDictionary new
+						at: 'http.path' put: '/internal/orders';
+						yourself)
+				links: #().
+			excludedResult := sampler
+				shouldSampleIn: OTContext new
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'request'
+				kind: OTSpan server
+				attributes: (OrderedDictionary new
+						at: 'http.path' put: '/internal/special/orders';
+						yourself)
+				links: #().
+			self assert: sampler class identicalTo: OTCompositeSampler.
+			self assert: includedResult isRecordAndSample.
+			self assert: excludedResult isDrop ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsCompositeDevelopmentRuleBasedAttributeValues [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    composite/development:
+      rule_based:
+        rules:
+          - attribute_values:
+              key: http.method
+              values:
+                - GET
+            sampler:
+              always_on:
+          - sampler:
+              always_off:
+'
+		environmentValues: Dictionary new
+		during: [
+			| droppedResult sampledResult sampler |
+			sampler := OTTracerProvider current sampler.
+			sampledResult := sampler
+				shouldSampleIn: OTContext new
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'request'
+				kind: OTSpan server
+				attributes: (OrderedDictionary new
+						at: 'http.method' put: 'GET';
+						yourself)
+				links: #().
+			droppedResult := sampler
+				shouldSampleIn: OTContext new
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'request'
+				kind: OTSpan server
+				attributes: (OrderedDictionary new
+						at: 'http.method' put: 'POST';
+						yourself)
+				links: #().
+			self assert: sampler class identicalTo: OTCompositeSampler.
+			self assert: sampledResult isRecordAndSample.
+			self assert: droppedResult isDrop ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsCompositeDevelopmentRuleBasedParentAndSpanKinds [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    composite/development:
+      rule_based:
+        rules:
+          - parent:
+              - none
+            span_kinds:
+              - client
+            sampler:
+              always_on:
+          - sampler:
+              always_off:
+'
+		environmentValues: Dictionary new
+		during: [
+			| localChildResult rootClientResult rootServerResult sampler |
+			sampler := OTTracerProvider current sampler.
+			rootClientResult := sampler
+				shouldSampleIn: OTContext new
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'client-root'
+				kind: OTSpan client
+				attributes: OrderedDictionary new
+				links: #().
+			rootServerResult := sampler
+				shouldSampleIn: OTContext new
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'server-root'
+				kind: OTSpan server
+				attributes: OrderedDictionary new
+				links: #().
+			localChildResult := sampler
+				shouldSampleIn: (OTContext new
+						withSpan: ((OTSpanContext
+							traceId: '00112233445566778899aabbccddeeff'
+							spanId: '1122334455667788'
+							traceFlags: '01'
+							traceState: nil
+							remote: false) asNonRecordingSpan))
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'client-child'
+				kind: OTSpan client
+				attributes: OrderedDictionary new
+				links: #().
+			self assert: sampler class identicalTo: OTCompositeSampler.
+			self assert: rootClientResult isRecordAndSample.
+			self assert: rootServerResult isDrop.
+			self assert: localChildResult isDrop ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsDevelopmentJaegerRemoteSamplerAlias [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    jaeger_remote/development:
+      endpoint: http://jaeger.example:14250
+      interval: 5000
+      initial_sampler:
+        always_off:
+'
+		environmentValues: Dictionary new
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTJaegerRemoteSampler.
+			self assert: sampler endpoint equals: 'http://jaeger.example:14250'.
+			self assert: sampler pollingIntervalMillis equals: 5000.
+			self assert: sampler currentSampler class identicalTo: OTAlwaysOffSampler ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsDevelopmentProbabilitySamplerDefaultRatio [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    probability/development:
+'
+		environmentValues: Dictionary new
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTProbabilisticSampler.
+			self assert: sampler probability equals: 1 ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsProbabilitySamplerRatioBelowSpecificationMinimum [
 
 	self
