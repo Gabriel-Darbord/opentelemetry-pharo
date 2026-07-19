@@ -372,9 +372,12 @@ OTSpan class >> rootInInternal: aContext [
 	span := self newInternal.
 	span
 		context: aContext;
-		traceId: self newTraceId;
-		traceFlags: '01';
-		traceState: nil.
+		spanContext: (OTSpanContext
+				 traceId: self newTraceId
+				 spanId: span spanId
+				 traceFlags: '01'
+				 traceState: nil
+				 remote: false).
 	^ span
 ]
 
@@ -400,9 +403,12 @@ OTSpan class >> underInternal: parentSpan [
 	span
 		parent: parentSpan;
 		context: parentSpan context;
-		traceId: parentSpan traceId;
-		traceFlags: parentSpanContext traceFlags;
-		traceState: parentSpanContext traceState.
+		spanContext: (OTSpanContext
+				 traceId: parentSpanContext traceId
+				 spanId: span spanId
+				 traceFlags: parentSpanContext traceFlags
+				 traceState: parentSpanContext traceState
+				 remote: false).
 	^ span
 ]
 
@@ -1040,6 +1046,24 @@ OTSpan >> setStatus: aSymbol description: aString [
 OTSpan >> spanContext [
 
 	^ spanContext ifNil: [ spanContext := OTSpanContext fromSpan: self ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> spanContext: anOTSpanContext [
+
+	| normalized |
+	anOTSpanContext ifNil: [
+			spanContext := nil.
+			^ nil ].
+	normalized := anOTSpanContext isRemote
+		              ifTrue: [ anOTSpanContext asLocal ]
+		              ifFalse: [ anOTSpanContext ].
+	spanContext := normalized.
+	traceId := normalized traceId.
+	spanId := normalized spanId.
+	traceFlags := normalized traceFlags.
+	traceState := normalized traceState.
+	^ spanContext
 ]
 
 { #category : 'accessing' }

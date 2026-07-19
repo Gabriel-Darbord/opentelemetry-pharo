@@ -212,6 +212,11 @@ OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 	firstContext := span spanContext.
 	secondContext := span spanContext.
 	self assert: secondContext identicalTo: firstContext.
+	self deny: firstContext isRemote.
+	self assert: firstContext traceId equals: span traceId.
+	self assert: firstContext spanId equals: span spanId.
+	self assert: firstContext traceFlags equals: span traceFlags.
+	self assert: firstContext traceState equals: span traceState.
 	span end.
 	self assert: span spanContext identicalTo: firstContext
 ]
