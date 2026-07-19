@@ -632,6 +632,29 @@ OTTracerProviderTest >> testParentBasedSamplerPreservesConsistentInheritedParent
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testParentBasedSamplerRemovesInheritedThresholdForUnsampledChild [
+
+	| parentContext provider span |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		sampler: OTSampler parentBased.
+	parentContext := OTContext new
+		withSpan: ((OTSpanContext
+			traceId: '00112233445566778899aabbccddeeff'
+			spanId: '1122334455667788'
+			traceFlags: '00'
+			traceState: 'ot=rv:80000000000000;th:8'
+			remote: true) asNonRecordingSpan).
+	span := ((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
+		inContext: parentContext;
+		startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: (span spanContext traceState otelValueAt: 'rv') equals: '80000000000000'.
+	self assert: (span spanContext traceState otelValueAt: 'th') equals: nil
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testUnsampledChildSpanPreservesParentRandomFlag [
 
 	| provider tracer parentContext span |

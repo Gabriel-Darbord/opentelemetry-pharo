@@ -216,6 +216,9 @@ OTParentBasedSampler >> normalizedSamplingResult: aSamplingResult parentSpanCont
 	normalizedTraceState := self
 		normalizedInheritedTraceStateForParentSpanContext: aSpanContext
 		traceState: aTraceState.
+	aSamplingResult isRecordAndSample ifFalse: [
+		normalizedTraceState := normalizedTraceState ifNotNil: [ :traceState |
+			traceState withoutOtelValueAt: 'th' ] ].
 	normalizedTraceState == aTraceState ifTrue: [ ^ aSamplingResult ].
 	^ OTSamplingResult
 		decision: aSamplingResult decision
