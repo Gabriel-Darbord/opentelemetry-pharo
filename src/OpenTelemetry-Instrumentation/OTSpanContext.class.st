@@ -31,6 +31,12 @@ OTSpanContext class >> byteArrayFromHex: aString size: anInteger [
 	^ bytes
 ]
 
+{ #category : 'instance creation' }
+OTSpanContext class >> fromSpan: aSpan [
+
+	^ aSpan asSpanContext
+]
+
 { #category : 'private' }
 OTSpanContext class >> hexFromByteArray: aByteArray size: anInteger label: aLabelString [
 
@@ -43,17 +49,6 @@ OTSpanContext class >> hexFromByteArray: aByteArray size: anInteger label: aLabe
 			stream
 				nextPut: ('0123456789abcdef' at: ((each bitShift: -4) bitAnd: 16rF) + 1);
 				nextPut: ('0123456789abcdef' at: (each bitAnd: 16rF) + 1) ] ]
-]
-
-{ #category : 'instance creation' }
-OTSpanContext class >> fromSpan: aSpan [
-
-	^ self
-		traceId: aSpan traceId
-		spanId: aSpan spanId
-		traceFlags: aSpan traceFlags
-		traceState: aSpan traceState
-		remote: false
 ]
 
 { #category : 'instance creation' }
@@ -79,12 +74,6 @@ OTSpanContext class >> invalidTraceId [
 	^ String new: 32 withAll: $0
 ]
 
-{ #category : 'private - id generation' }
-OTSpanContext class >> isZeroHexIdentifier: aString [
-
-	^ aString allSatisfy: [ :each | each = $0 ]
-]
-
 { #category : 'private' }
 OTSpanContext class >> isLowercaseHexString: aString size: anInteger [
 
@@ -94,26 +83,10 @@ OTSpanContext class >> isLowercaseHexString: aString size: anInteger [
 		each isDigit or: [ 'abcdef' includes: each ] ]
 ]
 
-{ #category : 'private' }
-OTSpanContext class >> normalizedHexIdentifier: anIdentifier size: anInteger label: aLabelString [
+{ #category : 'private - id generation' }
+OTSpanContext class >> isZeroHexIdentifier: aString [
 
-	| normalized |
-	anIdentifier ifNil: [ ^ nil ].
-	normalized := anIdentifier asString asLowercase.
-	(self isLowercaseHexString: normalized size: anInteger) ifFalse: [
-		Error signal: aLabelString , ' must be a ' , anInteger asString , '-character lowercase hex string' ].
-	^ normalized
-]
-
-{ #category : 'private' }
-OTSpanContext class >> normalizedTraceFlags: someTraceFlags [
-
-	| normalized |
-	someTraceFlags ifNil: [ ^ nil ].
-	normalized := someTraceFlags asString asLowercase.
-	(self isLowercaseHexString: normalized size: 2) ifFalse: [
-		Error signal: 'TraceFlags must be a 2-character lowercase hex string' ].
-	^ normalized
+	^ aString allSatisfy: [ :each | each = $0 ]
 ]
 
 { #category : 'private - id generation' }
@@ -138,6 +111,28 @@ OTSpanContext class >> newSpanId [
 OTSpanContext class >> newTraceId [
 
 	^ self newHexIdentifierOfSize: 32
+]
+
+{ #category : 'private' }
+OTSpanContext class >> normalizedHexIdentifier: anIdentifier size: anInteger label: aLabelString [
+
+	| normalized |
+	anIdentifier ifNil: [ ^ nil ].
+	normalized := anIdentifier asString asLowercase.
+	(self isLowercaseHexString: normalized size: anInteger) ifFalse: [
+		Error signal: aLabelString , ' must be a ' , anInteger asString , '-character lowercase hex string' ].
+	^ normalized
+]
+
+{ #category : 'private' }
+OTSpanContext class >> normalizedTraceFlags: someTraceFlags [
+
+	| normalized |
+	someTraceFlags ifNil: [ ^ nil ].
+	normalized := someTraceFlags asString asLowercase.
+	(self isLowercaseHexString: normalized size: 2) ifFalse: [
+		Error signal: 'TraceFlags must be a 2-character lowercase hex string' ].
+	^ normalized
 ]
 
 { #category : 'private - id generation' }
@@ -193,27 +188,27 @@ OTSpanContext >> = anObject [
 ]
 
 { #category : 'converting' }
-OTSpanContext >> asNonRecordingSpan [
-
-	^ OTSpan wrapping: self
-]
-
-{ #category : 'converting' }
-OTSpanContext >> asSpanContext [
-
-	^ self
-]
-
-{ #category : 'converting' }
 OTSpanContext >> asLocal [
 
 	^ self withRemote: false
 ]
 
 { #category : 'converting' }
+OTSpanContext >> asNonRecordingSpan [
+
+	^ OTSpan wrapping: self
+]
+
+{ #category : 'converting' }
 OTSpanContext >> asRemote [
 
 	^ self withRemote: true
+]
+
+{ #category : 'converting' }
+OTSpanContext >> asSpanContext [
+
+	^ self
 ]
 
 { #category : 'comparing' }
@@ -223,15 +218,15 @@ OTSpanContext >> hash [
 ]
 
 { #category : 'testing' }
-OTSpanContext >> isRemote [
-
-	^ remote = true
-]
-
-{ #category : 'testing' }
 OTSpanContext >> isRandom [
 
 	^ ((Integer readFrom: self traceFlags readStream base: 16) bitAnd: 2) = 2
+]
+
+{ #category : 'testing' }
+OTSpanContext >> isRemote [
+
+	^ remote = true
 ]
 
 { #category : 'testing' }

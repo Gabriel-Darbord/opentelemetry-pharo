@@ -95,6 +95,21 @@ OTSpanContextTest >> testConstructorRejectsMalformedIdentifiers [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testFromSpanPreservesRemoteWrappedSpanContext [
+
+	| remoteContext wrappedSpan |
+	remoteContext := OTSpanContext
+		                 traceId: '00112233445566778899aabbccddeeff'
+		                 spanId: '1122334455667788'
+		                 traceFlags: '01'
+		                 traceState: 'vendor=value'
+		                 remote: true.
+	wrappedSpan := remoteContext asNonRecordingSpan.
+	self assert: (OTSpanContext fromSpan: wrappedSpan) identicalTo: remoteContext.
+	self assert: (OTSpanContext fromSpan: wrappedSpan) isRemote
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testGeneratedIdentifiersHaveSpecShape [
 
 	| spanId traceId |
