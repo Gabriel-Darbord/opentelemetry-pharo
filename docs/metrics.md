@@ -191,6 +191,7 @@ Current metric behavior:
 - Prometheus scrapes export summary quantiles on the base metric name plus `_sum` and `_count` companion samples
 - gauge-like metrics with `prometheus.type` metadata now preserve `unknown`, `info`, and `stateset` compatibility hints during Prometheus export, using the negotiated format's closest supported representation
 - conflicting Prometheus family `TYPE` metadata drops the whole exported family with a diagnostic warning, while conflicting `HELP` or `UNIT` metadata keeps the samples and emits only one metadata line
+- Prometheus samples that collapse to the same final sample identity after name and label normalization are dropped with a diagnostic warning rather than emitted as duplicate samples
 
 Meters do already preserve instrument registration identity:
 

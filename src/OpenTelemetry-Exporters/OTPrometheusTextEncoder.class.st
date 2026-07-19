@@ -1,12 +1,32 @@
 Class {
 	#name : 'OTPrometheusTextEncoder',
+	#superclass : 'Object',
 	#instVars : [
 		'warningSink'
 	],
-	#superclass : 'Object',
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
 }
+
+{ #category : 'private - logging' }
+OTPrometheusTextEncoder >> defaultWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> duplicateSampleIdentityIn: sampleSpecifications against: seenSampleIdentities [
+
+	| localSampleIdentities |
+	localSampleIdentities := Set new.
+	sampleSpecifications do: [ :each |
+			| sampleIdentity |
+			sampleIdentity := self sampleIdentityFor: each.
+			((localSampleIdentities includes: sampleIdentity) or: [ seenSampleIdentities includes: sampleIdentity ]) ifTrue: [
+				^ sampleIdentity ].
+			localSampleIdentities add: sampleIdentity ].
+	^ nil
+]
 
 { #category : 'encoding' }
 OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot [
@@ -22,12 +42,6 @@ OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot format: aFormatSym
 			writeSnapshot: anOTMetricSnapshot
 			format: aFormatSymbol
 			on: stream ]
-]
-
-{ #category : 'private - logging' }
-OTPrometheusTextEncoder >> defaultWarningSink [
-
-	^ OTDiagnosticLogger defaultWarningSink
 ]
 
 { #category : 'initialization' }
@@ -70,6 +84,35 @@ OTPrometheusTextEncoder >> isPrometheusNameStartCharacter: aCharacter [
 ]
 
 { #category : 'private - formatting' }
+OTPrometheusTextEncoder >> jobLabelForResource: anOTResource [
+
+	| namespace serviceName |
+	namespace := anOTResource attributeAt: 'service.namespace' ifAbsent: [ '' ].
+	serviceName := anOTResource attributeAt: 'service.name' ifAbsent: [ '' ].
+	namespace isEmpty ifTrue: [ ^ serviceName ].
+	serviceName isEmpty ifTrue: [ ^ namespace ].
+	^ namespace , '/' , serviceName
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> joinValues: someValues [
+
+	^ String streamContents: [ :stream |
+		someValues doWithIndex: [ :each :index |
+			index > 1 ifTrue: [ stream nextPut: $; ].
+			stream nextPutAll: each ] ]
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> labelsByAdding: aLabelName value: aValue to: someLabels [
+
+	| labels |
+	labels := someLabels copy.
+	labels at: aLabelName put: aValue.
+	^ labels
+]
+
+{ #category : 'private - formatting' }
 OTPrometheusTextEncoder >> normalizedPrometheusNameFrom: aString allowingColon: aBoolean [
 
 	| normalized previousUnderscore stream |
@@ -94,6 +137,132 @@ OTPrometheusTextEncoder >> normalizedPrometheusNameFrom: aString allowingColon: 
 	(self isPrometheusNameStartCharacter: normalized first)
 		ifTrue: [ ^ normalized ].
 	^ '_' , normalized
+]
+
+{ #category : 'private - logging' }
+OTPrometheusTextEncoder >> noteDroppedMetricFamilyNamed: aMetricName dueToConflictingTypes: someTypes [
+
+	self warningSink value:
+		'OpenTelemetry dropped Prometheus metric family due to conflicting types for '
+			, aMetricName printString
+			, ': '
+			, (String streamContents: [ :stream |
+				(someTypes asArray sort)
+					doWithIndex: [ :each :index |
+						index > 1 ifTrue: [ stream nextPutAll: ', ' ].
+						stream nextPutAll: each asString ] ])
+]
+
+{ #category : 'private - logging' }
+OTPrometheusTextEncoder >> noteDroppedMetricNamed: aMetricName dueToDuplicatePrometheusSample: aSampleIdentity [
+
+	self warningSink value:
+		'OpenTelemetry dropped Prometheus metric due to duplicate sample identity for ' , aMetricName printString , ': '
+		, aSampleIdentity
+]
+
+{ #category : 'private - logging' }
+OTPrometheusTextEncoder >> noteIgnoredConflictingMetadataNamed: aMetadataName forMetricFamily: aMetricName values: someValues [
+
+	self warningSink value:
+		'OpenTelemetry ignored conflicting Prometheus '
+			, aMetadataName
+			, ' metadata for '
+			, aMetricName printString
+			, ': '
+			, (String streamContents: [ :stream |
+				(someValues asArray sort)
+					doWithIndex: [ :each :index |
+						index > 1 ifTrue: [ stream nextPutAll: ', ' ].
+						stream nextPutAll: each printString ] ])
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> pointLabels: someAttributes scope: anOTInstrumentationScope [
+
+	| rawLabels reservedScopeLabels |
+	rawLabels := OrderedCollection new.
+	someAttributes associationsDo: [ :each |
+		rawLabels add: each key asString -> (self prometheusStringValueFor: each value) ].
+	rawLabels
+		add: 'otel_scope_name' -> anOTInstrumentationScope name;
+		add: 'otel_scope_version' -> anOTInstrumentationScope version;
+		add: 'otel_scope_schema_url' -> anOTInstrumentationScope schemaUrl.
+	reservedScopeLabels := Set withAll: #( 'otel_scope_name' 'otel_scope_version' 'otel_scope_schema_url' ).
+	anOTInstrumentationScope allAttributes associationsDo: [ :each |
+		| prefixed normalized |
+		prefixed := 'otel_scope_' , each key asString.
+		normalized := self prometheusLabelNameFor: prefixed.
+		(reservedScopeLabels includes: normalized) ifFalse: [
+			rawLabels add: prefixed -> (self prometheusStringValueFor: each value) ] ].
+	^ self prometheusLabelsFromAssociations: rawLabels
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusBoundaryStringFor: aNumber [
+
+	aNumber = Float infinity ifTrue: [ ^ '+Inf' ].
+	aNumber = Float negativeInfinity ifTrue: [ ^ '-Inf' ].
+	^ aNumber printString
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusGaugeLikeMetricTypeFor: anOTMetricData format: aFormatSymbol [
+
+	| hint |
+	hint := self prometheusTypeHintFor: anOTMetricData.
+	hint = #unknown ifTrue: [
+		^ aFormatSymbol = #openMetricsText100
+			ifTrue: [ #unknown ]
+			ifFalse: [ #untyped ] ].
+	hint = #info ifTrue: [
+		^ aFormatSymbol = #openMetricsText100
+			ifTrue: [ #info ]
+			ifFalse: [ #infoGauge ] ].
+	hint = #stateset ifTrue: [
+		^ aFormatSymbol = #openMetricsText100
+			ifTrue: [ #stateset ]
+			ifFalse: [ #statesetGauge ] ].
+	^ #gauge
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusHelpStringFor: aString [
+
+	^ String streamContents: [ :stream |
+		aString asString do: [ :each |
+			each = $\ ifTrue: [ stream nextPutAll: '\\' ].
+			each = Character lf ifTrue: [ stream nextPutAll: '\n' ].
+			each = Character cr ifTrue: [ stream nextPutAll: '\n' ].
+			((each ~= $\) and: [ each ~= Character lf and: [ each ~= Character cr ] ])
+								ifTrue: [ stream nextPut: each ] ] ]
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusLabelNameFor: aString [
+
+	^ self normalizedPrometheusNameFrom: aString allowingColon: false
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusLabelsFromAssociations: someAssociations [
+
+	| grouped result |
+	grouped := Dictionary new.
+	someAssociations do: [ :each |
+		| normalized values |
+		normalized := self prometheusLabelNameFor: each key.
+		values := grouped at: normalized ifAbsentPut: [ OrderedCollection new ].
+		values add: each ].
+	result := OrderedDictionary new.
+	(grouped keys asSortedCollection) do: [ :eachLabel |
+		| values |
+		values := (grouped at: eachLabel) asSortedCollection: [ :left :right |
+			left key asString <= right key asString ].
+		result
+			at: eachLabel
+			put: (self joinValues: (values collect: [ :each | each value ])) ].
+	^ result
 ]
 
 { #category : 'private - formatting' }
@@ -137,12 +306,6 @@ OTPrometheusTextEncoder >> prometheusMetricStemFor: anOTMetricData type: aTypeSy
 ]
 
 { #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusLabelNameFor: aString [
-
-	^ self normalizedPrometheusNameFrom: aString allowingColon: false
-]
-
-{ #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData [
 
 	^ self
@@ -153,15 +316,7 @@ OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData [
 { #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData format: aFormatSymbol [
 
-	anOTMetricData class = OTGaugeMetricData ifTrue: [
-		^ self prometheusGaugeLikeMetricTypeFor: anOTMetricData format: aFormatSymbol ].
-	anOTMetricData class = OTSumMetricData ifTrue: [
-		^ anOTMetricData monotonic
-			ifTrue: [ #counter ]
-			ifFalse: [ self prometheusGaugeLikeMetricTypeFor: anOTMetricData format: aFormatSymbol ] ].
-	anOTMetricData class = OTHistogramMetricData ifTrue: [ ^ #histogram ].
-	anOTMetricData class = OTSummaryMetricData ifTrue: [ ^ #summary ].
-	^ #drop
+	^ anOTMetricData prometheusMetricTypeWith: self format: aFormatSymbol
 ]
 
 { #category : 'private - formatting' }
@@ -178,23 +333,11 @@ OTPrometheusTextEncoder >> prometheusMetricTypeStringFor: aTypeSymbol [
 ]
 
 { #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusGaugeLikeMetricTypeFor: anOTMetricData format: aFormatSymbol [
+OTPrometheusTextEncoder >> prometheusStringValueFor: anObject [
 
-	| hint |
-	hint := self prometheusTypeHintFor: anOTMetricData.
-	hint = #unknown ifTrue: [
-		^ aFormatSymbol = #openMetricsText100
-			ifTrue: [ #unknown ]
-			ifFalse: [ #untyped ] ].
-	hint = #info ifTrue: [
-		^ aFormatSymbol = #openMetricsText100
-			ifTrue: [ #info ]
-			ifFalse: [ #infoGauge ] ].
-	hint = #stateset ifTrue: [
-		^ aFormatSymbol = #openMetricsText100
-			ifTrue: [ #stateset ]
-			ifFalse: [ #statesetGauge ] ].
-	^ #gauge
+	anObject ifNil: [ ^ '' ].
+	anObject isString ifTrue: [ ^ anObject ].
+	^ anObject printString
 ]
 
 { #category : 'private - formatting' }
@@ -209,40 +352,6 @@ OTPrometheusTextEncoder >> prometheusTypeHintFor: anOTMetricData [
 	(#( 'gauge' 'unknown' 'info' 'stateset' ) includes: normalized)
 		ifFalse: [ ^ nil ].
 	^ normalized asSymbol
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusStringValueFor: anObject [
-
-	anObject ifNil: [ ^ '' ].
-	anObject isString ifTrue: [ ^ anObject ].
-	^ anObject printString
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusValueStringFor: aNumber [
-
-	^ aNumber printString
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusBoundaryStringFor: aNumber [
-
-	aNumber = Float infinity ifTrue: [ ^ '+Inf' ].
-	aNumber = Float negativeInfinity ifTrue: [ ^ '-Inf' ].
-	^ aNumber printString
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusHelpStringFor: aString [
-
-	^ String streamContents: [ :stream |
-		aString asString do: [ :each |
-			each = $\ ifTrue: [ stream nextPutAll: '\\' ].
-			each = Character lf ifTrue: [ stream nextPutAll: '\n' ].
-			each = Character cr ifTrue: [ stream nextPutAll: '\n' ].
-			((each ~= $\) and: [ each ~= Character lf and: [ each ~= Character cr ] ])
-								ifTrue: [ stream nextPut: each ] ] ]
 ]
 
 { #category : 'private - formatting' }
@@ -320,6 +429,19 @@ OTPrometheusTextEncoder >> prometheusUnitWordFrom: aString [
 ]
 
 { #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusValueForGaugeLikePoint: anOTNumberDataPoint type: aTypeSymbol [
+
+	(#( #info #infoGauge ) includes: aTypeSymbol) ifTrue: [ ^ 1 ].
+	^ anOTNumberDataPoint value
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusValueStringFor: aNumber [
+
+	^ aNumber printString
+]
+
+{ #category : 'private - formatting' }
 OTPrometheusTextEncoder >> quotedPrometheusValueFor: aString [
 
 	^ String streamContents: [ :stream |
@@ -334,105 +456,309 @@ OTPrometheusTextEncoder >> quotedPrometheusValueFor: aString [
 								ifTrue: [ stream nextPut: each ] ] ]
 ]
 
-{ #category : 'private - logging' }
-OTPrometheusTextEncoder >> noteDroppedMetricFamilyNamed: aMetricName dueToConflictingTypes: someTypes [
-
-	self warningSink value:
-		'OpenTelemetry dropped Prometheus metric family due to conflicting types for '
-			, aMetricName printString
-			, ': '
-			, (String streamContents: [ :stream |
-				(someTypes asArray sort)
-					doWithIndex: [ :each :index |
-						index > 1 ifTrue: [ stream nextPutAll: ', ' ].
-						stream nextPutAll: each asString ] ])
-]
-
-{ #category : 'private - logging' }
-OTPrometheusTextEncoder >> noteIgnoredConflictingMetadataNamed: aMetadataName forMetricFamily: aMetricName values: someValues [
-
-	self warningSink value:
-		'OpenTelemetry ignored conflicting Prometheus '
-			, aMetadataName
-			, ' metadata for '
-			, aMetricName printString
-			, ': '
-			, (String streamContents: [ :stream |
-				(someValues asArray sort)
-					doWithIndex: [ :each :index |
-						index > 1 ifTrue: [ stream nextPutAll: ', ' ].
-						stream nextPutAll: each printString ] ])
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> joinValues: someValues [
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> sampleIdentityFor: aSampleSpecification [
 
 	^ String streamContents: [ :stream |
-		someValues doWithIndex: [ :each :index |
-			index > 1 ifTrue: [ stream nextPut: $; ].
-			stream nextPutAll: each ] ]
+			  stream nextPutAll: aSampleSpecification first.
+			  stream nextPut: Character tab.
+			  aSampleSpecification second associationsDo: [ :each |
+					  stream
+						  nextPutAll: each key;
+						  nextPut: $=;
+						  nextPutAll: each value asString;
+						  nextPut: Character tab ] ]
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> sampleSpecificationNamed: aMetricName labels: someLabels value: aValue [
+
+	^ {
+		  aMetricName.
+		  someLabels.
+		  aValue }
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> sampleSpecificationsForGauge: anOTGaugeMetricData type: aTypeSymbol format: aFormatSymbol [
+
+	| metricName sampleSpecifications |
+	metricName := self prometheusMetricNameFor: anOTGaugeMetricData type: aTypeSymbol format: aFormatSymbol.
+	sampleSpecifications := OrderedCollection new: anOTGaugeMetricData points size.
+	anOTGaugeMetricData points do: [ :each |
+			sampleSpecifications add: (self
+					 sampleSpecificationNamed: metricName
+					 labels: (self pointLabels: each attributes scope: anOTGaugeMetricData instrumentationScope)
+					 value: (self prometheusValueForGaugeLikePoint: each type: aTypeSymbol)) ].
+	^ sampleSpecifications
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> sampleSpecificationsForHistogram: anOTHistogramMetricData [
+
+	| metricName sampleSpecifications |
+	metricName := self prometheusMetricNameFor: anOTHistogramMetricData type: #histogram.
+	sampleSpecifications := OrderedCollection new.
+	anOTHistogramMetricData points do: [ :eachPoint |
+			| baseLabels cumulative |
+			baseLabels := self pointLabels: eachPoint attributes scope: anOTHistogramMetricData instrumentationScope.
+			cumulative := 0.
+			1 to: eachPoint explicitBounds size do: [ :index |
+					cumulative := cumulative + (eachPoint bucketCounts at: index ifAbsent: [ 0 ]).
+					sampleSpecifications add: (self
+							 sampleSpecificationNamed: metricName , '_bucket'
+							 labels:
+							 (self labelsByAdding: 'le' value: (self prometheusBoundaryStringFor: (eachPoint explicitBounds at: index)) to: baseLabels)
+							 value: cumulative) ].
+			cumulative := cumulative + (eachPoint bucketCounts at: eachPoint explicitBounds size + 1 ifAbsent: [ 0 ]).
+			sampleSpecifications
+				add: (self
+						 sampleSpecificationNamed: metricName , '_bucket'
+						 labels: (self labelsByAdding: 'le' value: '+Inf' to: baseLabels)
+						 value: cumulative);
+				add: (self sampleSpecificationNamed: metricName , '_sum' labels: baseLabels value: eachPoint sum);
+				add: (self sampleSpecificationNamed: metricName , '_count' labels: baseLabels value: eachPoint count) ].
+	^ sampleSpecifications
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> sampleSpecificationsForMetric: anOTMetricData format: aFormatSymbol [
+
+	| type |
+	type := self prometheusMetricTypeFor: anOTMetricData format: aFormatSymbol.
+	type = #drop ifTrue: [ ^ #(  ) ].
+	^ anOTMetricData prometheusSampleSpecificationsWith: self type: type format: aFormatSymbol
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> sampleSpecificationsForSum: anOTSumMetricData type: aTypeSymbol format: aFormatSymbol [
+
+	aTypeSymbol = #counter ifFalse: [ ^ self sampleSpecificationsForGauge: anOTSumMetricData type: aTypeSymbol format: aFormatSymbol ].
+	^ anOTSumMetricData points
+		  collect: [ :each |
+				  self
+					  sampleSpecificationNamed: (self prometheusMetricNameFor: anOTSumMetricData type: #counter format: aFormatSymbol)
+					  labels: (self pointLabels: each attributes scope: anOTSumMetricData instrumentationScope)
+					  value: each value ]
+		  as: OrderedCollection
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> sampleSpecificationsForSummary: anOTSummaryMetricData [
+
+	| metricName sampleSpecifications |
+	metricName := self prometheusMetricNameFor: anOTSummaryMetricData type: #summary.
+	sampleSpecifications := OrderedCollection new.
+	anOTSummaryMetricData points do: [ :eachPoint |
+			| baseLabels |
+			baseLabels := self pointLabels: eachPoint attributes scope: anOTSummaryMetricData instrumentationScope.
+			eachPoint quantileValues do: [ :eachQuantile |
+					sampleSpecifications add: (self
+							 sampleSpecificationNamed: metricName
+							 labels: (self labelsByAdding: 'quantile' value: (self prometheusValueStringFor: eachQuantile quantile) to: baseLabels)
+							 value: eachQuantile value) ].
+			sampleSpecifications
+				add: (self sampleSpecificationNamed: metricName , '_sum' labels: baseLabels value: eachPoint sum);
+				add: (self sampleSpecificationNamed: metricName , '_count' labels: baseLabels value: eachPoint count) ].
+	^ sampleSpecifications
 ]
 
 { #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusLabelsFromAssociations: someAssociations [
+OTPrometheusTextEncoder >> suffixForPrometheusMetricType: aTypeSymbol format: aFormatSymbol [
 
-	| grouped result |
-	grouped := Dictionary new.
-	someAssociations do: [ :each |
-		| normalized values |
-		normalized := self prometheusLabelNameFor: each key.
-		values := grouped at: normalized ifAbsentPut: [ OrderedCollection new ].
-		values add: each ].
-	result := OrderedDictionary new.
-	(grouped keys asSortedCollection) do: [ :eachLabel |
-		| values |
-		values := (grouped at: eachLabel) asSortedCollection: [ :left :right |
-			left key asString <= right key asString ].
-		result
-			at: eachLabel
-			put: (self joinValues: (values collect: [ :each | each value ])) ].
-	^ result
+	aTypeSymbol = #counter ifTrue: [ ^ '_total' ].
+	(#( #info #infoGauge ) includes: aTypeSymbol) ifTrue: [ ^ '_info' ].
+	^ ''
 ]
 
 { #category : 'private - formatting' }
-OTPrometheusTextEncoder >> pointLabels: someAttributes scope: anOTInstrumentationScope [
+OTPrometheusTextEncoder >> supportsUnitMetadataInFormat: aFormatSymbol [
 
-	| rawLabels reservedScopeLabels |
-	rawLabels := OrderedCollection new.
-	someAttributes associationsDo: [ :each |
-		rawLabels add: each key asString -> (self prometheusStringValueFor: each value) ].
-	rawLabels
-		add: 'otel_scope_name' -> anOTInstrumentationScope name;
-		add: 'otel_scope_version' -> anOTInstrumentationScope version;
-		add: 'otel_scope_schema_url' -> anOTInstrumentationScope schemaUrl.
-	reservedScopeLabels := Set withAll: #( 'otel_scope_name' 'otel_scope_version' 'otel_scope_schema_url' ).
-	anOTInstrumentationScope allAttributes associationsDo: [ :each |
-		| prefixed normalized |
-		prefixed := 'otel_scope_' , each key asString.
-		normalized := self prometheusLabelNameFor: prefixed.
-		(reservedScopeLabels includes: normalized) ifFalse: [
-			rawLabels add: prefixed -> (self prometheusStringValueFor: each value) ] ].
-	^ self prometheusLabelsFromAssociations: rawLabels
+	^ aFormatSymbol ~= #prometheusText004
 ]
 
 { #category : 'private - formatting' }
-OTPrometheusTextEncoder >> labelsByAdding: aLabelName value: aValue to: someLabels [
+OTPrometheusTextEncoder >> typeUsesPrometheusUnitSuffix: aTypeSymbol [
 
-	| labels |
-	labels := someLabels copy.
-	labels at: aLabelName put: aValue.
-	^ labels
+	^ (#( #info #infoGauge #stateset #statesetGauge ) includes: aTypeSymbol) not
 ]
 
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> jobLabelForResource: anOTResource [
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> warningSink [
 
-	| namespace serviceName |
-	namespace := anOTResource attributeAt: 'service.namespace' ifAbsent: [ '' ].
-	serviceName := anOTResource attributeAt: 'service.name' ifAbsent: [ '' ].
-	namespace isEmpty ifTrue: [ ^ serviceName ].
-	serviceName isEmpty ifTrue: [ ^ namespace ].
-	^ namespace , '/' , serviceName
+	^ warningSink ifNil: [ warningSink := self defaultWarningSink ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> warningSink: aBlockClosure [
+
+	warningSink := aBlockClosure ifNil: [ self defaultWarningSink ] ifNotNil: [ aBlockClosure ].
+	^ self warningSink
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData on: aStream [
+
+	^ self
+		writeGauge: anOTGaugeMetricData
+		type: #gauge
+		format: #prometheusText004
+		on: aStream
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData type: aTypeSymbol format: aFormatSymbol on: aStream [
+
+	| metricName |
+	metricName := self
+		prometheusMetricNameFor: anOTGaugeMetricData
+		type: aTypeSymbol
+		format: aFormatSymbol.
+	anOTGaugeMetricData points do: [ :each |
+		self
+			writeSampleNamed: metricName
+			labels: (self
+				pointLabels: each attributes
+				scope: anOTGaugeMetricData instrumentationScope)
+			value: (self prometheusValueForGaugeLikePoint: each type: aTypeSymbol)
+			on: aStream ]
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeHistogram: anOTHistogramMetricData on: aStream [
+
+	| metricName |
+	metricName := self prometheusMetricNameFor: anOTHistogramMetricData type: #histogram.
+	anOTHistogramMetricData points do: [ :eachPoint |
+		| baseLabels cumulative |
+		baseLabels := self
+			pointLabels: eachPoint attributes
+			scope: anOTHistogramMetricData instrumentationScope.
+		cumulative := 0.
+		1 to: eachPoint explicitBounds size do: [ :index |
+			cumulative := cumulative + (eachPoint bucketCounts at: index ifAbsent: [ 0 ]).
+			self
+				writeSampleNamed: metricName , '_bucket'
+				labels: (self
+					labelsByAdding: 'le'
+					value: (self prometheusBoundaryStringFor: (eachPoint explicitBounds at: index))
+					to: baseLabels)
+				value: cumulative
+				on: aStream ].
+		cumulative := cumulative
+			+ (eachPoint bucketCounts
+				at: eachPoint explicitBounds size + 1
+				ifAbsent: [ 0 ]).
+		self
+			writeSampleNamed: metricName , '_bucket'
+			labels: (self labelsByAdding: 'le' value: '+Inf' to: baseLabels)
+			value: cumulative
+			on: aStream.
+		self
+			writeSampleNamed: metricName , '_sum'
+			labels: baseLabels
+			value: eachPoint sum
+			on: aStream.
+		self
+			writeSampleNamed: metricName , '_count'
+			labels: baseLabels
+			value: eachPoint count
+			on: aStream ]
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeLabels: someLabels on: aStream [
+
+	| associations |
+	associations := someLabels associations asArray.
+	aStream nextPut: ${.
+	associations doWithIndex: [ :each :index |
+		aStream
+			nextPutAll: each key;
+			nextPutAll: '="';
+			nextPutAll: (self quotedPrometheusValueFor: each value);
+			nextPut: $".
+		index < associations size ifTrue: [ aStream nextPut: $, ] ].
+	aStream nextPut: $}
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeMetric: anOTMetricData format: aFormatSymbol on: aStream [
+
+	| type |
+	type := self prometheusMetricTypeFor: anOTMetricData format: aFormatSymbol.
+	anOTMetricData
+		writePrometheusWith: self
+		type: type
+		format: aFormatSymbol
+		on: aStream
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeMetric: anOTMetricData on: aStream [
+
+	^ self
+		writeMetric: anOTMetricData
+		format: #prometheusText004
+		on: aStream
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetrics format: aFormatSymbol on: aStream [
+
+	| chosenDescription chosenType chosenUnit descriptions sampleIdentity typeSymbols types unitValues writtenSampleIdentities |
+	typeSymbols := OrderedCollection new.
+	someMetrics do: [ :each |
+			| type |
+			type := self prometheusMetricTypeFor: each format: aFormatSymbol.
+			type ~= #drop ifTrue: [ typeSymbols add: type ] ].
+	typeSymbols isEmpty ifTrue: [ ^ self ].
+	types := typeSymbols asSet.
+	types size > 1 ifTrue: [
+			self noteDroppedMetricFamilyNamed: aMetricName dueToConflictingTypes: types.
+			^ self ].
+	descriptions := Set new.
+	unitValues := Set new.
+	someMetrics do: [ :each |
+			| unitWord |
+			each description isNotEmpty ifTrue: [ descriptions add: each description ].
+			unitWord := (self typeUsesPrometheusUnitSuffix: typeSymbols first)
+				            ifTrue: [ self prometheusUnitWordFrom: each unit ]
+				            ifFalse: [ nil ].
+			(unitWord notNil and: [ unitWord isNotEmpty ]) ifTrue: [ unitValues add: unitWord ] ].
+	descriptions size > 1 ifTrue: [
+		self noteIgnoredConflictingMetadataNamed: 'HELP' forMetricFamily: aMetricName values: descriptions ].
+	unitValues size > 1 ifTrue: [ self noteIgnoredConflictingMetadataNamed: 'UNIT' forMetricFamily: aMetricName values: unitValues ].
+	chosenType := self prometheusMetricTypeStringFor: typeSymbols first.
+	chosenDescription := ''.
+	someMetrics do: [ :each |
+		(chosenDescription isEmpty and: [ each description isNotEmpty ]) ifTrue: [ chosenDescription := each description ] ].
+	chosenUnit := nil.
+	someMetrics do: [ :each |
+			| unitWord |
+			unitWord := (self typeUsesPrometheusUnitSuffix: typeSymbols first)
+				            ifTrue: [ self prometheusUnitWordFrom: each unit ]
+				            ifFalse: [ nil ].
+			(chosenUnit isNil and: [ unitWord notNil and: [ unitWord isNotEmpty ] ]) ifTrue: [ chosenUnit := unitWord ] ].
+	self
+		writeMetricHeaderNamed: aMetricName
+		help: chosenDescription
+		unit: chosenUnit
+		type: chosenType
+		format: aFormatSymbol
+		on: aStream.
+	writtenSampleIdentities := Set new.
+	someMetrics do: [ :each |
+			| duplicateSampleIdentity sampleSpecifications |
+			sampleSpecifications := self sampleSpecificationsForMetric: each format: aFormatSymbol.
+			duplicateSampleIdentity := self duplicateSampleIdentityIn: sampleSpecifications against: writtenSampleIdentities.
+			duplicateSampleIdentity
+				ifNil: [
+						sampleSpecifications do: [ :specification |
+								self writeSampleSpecification: specification on: aStream.
+								sampleIdentity := self sampleIdentityFor: specification.
+								writtenSampleIdentities add: sampleIdentity ] ]
+				ifNotNil: [ self noteDroppedMetricNamed: each name dueToDuplicatePrometheusSample: duplicateSampleIdentity ] ]
 ]
 
 { #category : 'private - writing' }
@@ -479,22 +805,6 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 ]
 
 { #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeLabels: someLabels on: aStream [
-
-	| associations |
-	associations := someLabels associations asArray.
-	aStream nextPut: ${.
-	associations doWithIndex: [ :each :index |
-		aStream
-			nextPutAll: each key;
-			nextPutAll: '="';
-			nextPutAll: (self quotedPrometheusValueFor: each value);
-			nextPut: $".
-		index < associations size ifTrue: [ aStream nextPut: $, ] ].
-	aStream nextPut: $}
-]
-
-{ #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeSampleNamed: aMetricName labels: someLabels value: aValue on: aStream [
 
 	aStream nextPutAll: aMetricName.
@@ -506,31 +816,42 @@ OTPrometheusTextEncoder >> writeSampleNamed: aMetricName labels: someLabels valu
 ]
 
 { #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData on: aStream [
+OTPrometheusTextEncoder >> writeSampleSpecification: aSampleSpecification on: aStream [
 
-	^ self
-		writeGauge: anOTGaugeMetricData
-		type: #gauge
-		format: #prometheusText004
+	self
+		writeSampleNamed: aSampleSpecification first
+		labels: aSampleSpecification second
+		value: aSampleSpecification third
 		on: aStream
 ]
 
 { #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData type: aTypeSymbol format: aFormatSymbol on: aStream [
+OTPrometheusTextEncoder >> writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: aStream [
 
-	| metricName |
-	metricName := self
-		prometheusMetricNameFor: anOTGaugeMetricData
-		type: aTypeSymbol
-		format: aFormatSymbol.
-	anOTGaugeMetricData points do: [ :each |
+	| metricFamilies |
+	self writeTargetInfoFor: anOTMetricSnapshot resource on: aStream.
+	metricFamilies := OrderedDictionary new.
+	anOTMetricSnapshot metrics do: [ :each |
+		| type familyName |
+		type := self prometheusMetricTypeFor: each format: aFormatSymbol.
+		type = #drop ifFalse: [
+			familyName := self
+				prometheusMetricNameFor: each
+				type: type
+				format: aFormatSymbol.
+			(metricFamilies
+				at: familyName
+				ifAbsentPut: [ OrderedCollection new ]) add: each ] ].
+	metricFamilies associationsDo: [ :each |
 		self
-			writeSampleNamed: metricName
-			labels: (self
-				pointLabels: each attributes
-				scope: anOTGaugeMetricData instrumentationScope)
-			value: (self prometheusValueForGaugeLikePoint: each type: aTypeSymbol)
-			on: aStream ]
+			writeMetricFamilyNamed: each key
+			metrics: each value
+			format: aFormatSymbol
+			on: aStream ].
+	aFormatSymbol = #openMetricsText100 ifTrue: [
+		aStream
+			nextPutAll: '# EOF';
+			lf ]
 ]
 
 { #category : 'private - writing' }
@@ -558,35 +879,24 @@ OTPrometheusTextEncoder >> writeSum: anOTSumMetricData type: aTypeSymbol format:
 ]
 
 { #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeHistogram: anOTHistogramMetricData on: aStream [
+OTPrometheusTextEncoder >> writeSummary: anOTSummaryMetricData on: aStream [
 
 	| metricName |
-	metricName := self prometheusMetricNameFor: anOTHistogramMetricData type: #histogram.
-	anOTHistogramMetricData points do: [ :eachPoint |
-		| baseLabels cumulative |
+	metricName := self prometheusMetricNameFor: anOTSummaryMetricData type: #summary.
+	anOTSummaryMetricData points do: [ :eachPoint |
+		| baseLabels |
 		baseLabels := self
 			pointLabels: eachPoint attributes
-			scope: anOTHistogramMetricData instrumentationScope.
-		cumulative := 0.
-		1 to: eachPoint explicitBounds size do: [ :index |
-			cumulative := cumulative + (eachPoint bucketCounts at: index ifAbsent: [ 0 ]).
+			scope: anOTSummaryMetricData instrumentationScope.
+		eachPoint quantileValues do: [ :eachQuantile |
 			self
-				writeSampleNamed: metricName , '_bucket'
+				writeSampleNamed: metricName
 				labels: (self
-					labelsByAdding: 'le'
-					value: (self prometheusBoundaryStringFor: (eachPoint explicitBounds at: index))
+					labelsByAdding: 'quantile'
+					value: (self prometheusValueStringFor: eachQuantile quantile)
 					to: baseLabels)
-				value: cumulative
+				value: eachQuantile value
 				on: aStream ].
-		cumulative := cumulative
-			+ (eachPoint bucketCounts
-				at: eachPoint explicitBounds size + 1
-				ifAbsent: [ 0 ]).
-		self
-			writeSampleNamed: metricName , '_bucket'
-			labels: (self labelsByAdding: 'le' value: '+Inf' to: baseLabels)
-			value: cumulative
-			on: aStream.
 		self
 			writeSampleNamed: metricName , '_sum'
 			labels: baseLabels
@@ -625,187 +935,4 @@ OTPrometheusTextEncoder >> writeTargetInfoFor: anOTResource on: aStream [
 		labels: labels
 		value: 1
 		on: aStream
-]
-
-{ #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeMetric: anOTMetricData on: aStream [
-
-	^ self
-		writeMetric: anOTMetricData
-		format: #prometheusText004
-		on: aStream
-]
-
-{ #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeMetric: anOTMetricData format: aFormatSymbol on: aStream [
-
-	| type |
-	type := self prometheusMetricTypeFor: anOTMetricData format: aFormatSymbol.
-	anOTMetricData class = OTGaugeMetricData ifTrue: [
-		^ self writeGauge: anOTMetricData type: type format: aFormatSymbol on: aStream ].
-	anOTMetricData class = OTSumMetricData ifTrue: [
-		^ self writeSum: anOTMetricData type: type format: aFormatSymbol on: aStream ].
-	anOTMetricData class = OTHistogramMetricData ifTrue: [
-		^ self writeHistogram: anOTMetricData on: aStream ].
-	anOTMetricData class = OTSummaryMetricData ifTrue: [
-		^ self writeSummary: anOTMetricData on: aStream ].
-	anOTMetricData class = OTExponentialHistogramMetricData ifTrue: [ ^ self ].
-	^ self
-]
-
-{ #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeSummary: anOTSummaryMetricData on: aStream [
-
-	| metricName |
-	metricName := self prometheusMetricNameFor: anOTSummaryMetricData type: #summary.
-	anOTSummaryMetricData points do: [ :eachPoint |
-		| baseLabels |
-		baseLabels := self
-			pointLabels: eachPoint attributes
-			scope: anOTSummaryMetricData instrumentationScope.
-		eachPoint quantileValues do: [ :eachQuantile |
-			self
-				writeSampleNamed: metricName
-				labels: (self
-					labelsByAdding: 'quantile'
-					value: (self prometheusValueStringFor: eachQuantile quantile)
-					to: baseLabels)
-				value: eachQuantile value
-				on: aStream ].
-		self
-			writeSampleNamed: metricName , '_sum'
-			labels: baseLabels
-			value: eachPoint sum
-			on: aStream.
-		self
-			writeSampleNamed: metricName , '_count'
-			labels: baseLabels
-			value: eachPoint count
-			on: aStream ]
-]
-
-{ #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetrics format: aFormatSymbol on: aStream [
-
-	| descriptions typeSymbols types unitValues chosenDescription chosenType chosenUnit |
-	typeSymbols := OrderedCollection new.
-	someMetrics do: [ :each |
-		| type |
-		type := self prometheusMetricTypeFor: each format: aFormatSymbol.
-		type ~= #drop ifTrue: [ typeSymbols add: type ] ].
-	typeSymbols isEmpty ifTrue: [ ^ self ].
-	types := typeSymbols asSet.
-	types size > 1 ifTrue: [
-		self noteDroppedMetricFamilyNamed: aMetricName dueToConflictingTypes: types.
-		^ self ].
-	descriptions := Set new.
-	unitValues := Set new.
-	someMetrics do: [ :each |
-		| unitWord |
-		each description isNotEmpty ifTrue: [ descriptions add: each description ].
-		unitWord := (self typeUsesPrometheusUnitSuffix: typeSymbols first)
-			ifTrue: [ self prometheusUnitWordFrom: each unit ]
-			ifFalse: [ nil ].
-		(unitWord notNil and: [ unitWord isNotEmpty ]) ifTrue: [
-			unitValues add: unitWord ] ].
-	descriptions size > 1 ifTrue: [
-		self
-			noteIgnoredConflictingMetadataNamed: 'HELP'
-			forMetricFamily: aMetricName
-			values: descriptions ].
-	unitValues size > 1 ifTrue: [
-		self
-			noteIgnoredConflictingMetadataNamed: 'UNIT'
-			forMetricFamily: aMetricName
-			values: unitValues ].
-	chosenType := self prometheusMetricTypeStringFor: typeSymbols first.
-	chosenDescription := ''.
-	someMetrics do: [ :each |
-		(chosenDescription isEmpty and: [ each description isNotEmpty ]) ifTrue: [
-			chosenDescription := each description ] ].
-	chosenUnit := nil.
-	someMetrics do: [ :each |
-		| unitWord |
-		unitWord := (self typeUsesPrometheusUnitSuffix: typeSymbols first)
-			ifTrue: [ self prometheusUnitWordFrom: each unit ]
-			ifFalse: [ nil ].
-		(chosenUnit isNil and: [ unitWord notNil and: [ unitWord isNotEmpty ] ]) ifTrue: [
-			chosenUnit := unitWord ] ].
-	self
-		writeMetricHeaderNamed: aMetricName
-		help: chosenDescription
-		unit: chosenUnit
-		type: chosenType
-		format: aFormatSymbol
-		on: aStream.
-	someMetrics do: [ :each | self writeMetric: each format: aFormatSymbol on: aStream ]
-]
-
-{ #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: aStream [
-
-	| metricFamilies |
-	self writeTargetInfoFor: anOTMetricSnapshot resource on: aStream.
-	metricFamilies := OrderedDictionary new.
-	anOTMetricSnapshot metrics do: [ :each |
-		| type familyName |
-		type := self prometheusMetricTypeFor: each format: aFormatSymbol.
-		type = #drop ifFalse: [
-			familyName := self
-				prometheusMetricNameFor: each
-				type: type
-				format: aFormatSymbol.
-			(metricFamilies
-				at: familyName
-				ifAbsentPut: [ OrderedCollection new ]) add: each ] ].
-	metricFamilies associationsDo: [ :each |
-		self
-			writeMetricFamilyNamed: each key
-			metrics: each value
-			format: aFormatSymbol
-			on: aStream ].
-	aFormatSymbol = #openMetricsText100 ifTrue: [
-		aStream
-			nextPutAll: '# EOF';
-			lf ]
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> supportsUnitMetadataInFormat: aFormatSymbol [
-
-	^ aFormatSymbol ~= #prometheusText004
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> suffixForPrometheusMetricType: aTypeSymbol format: aFormatSymbol [
-
-	aTypeSymbol = #counter ifTrue: [ ^ '_total' ].
-	(#( #info #infoGauge ) includes: aTypeSymbol) ifTrue: [ ^ '_info' ].
-	^ ''
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> typeUsesPrometheusUnitSuffix: aTypeSymbol [
-
-	^ (#( #info #infoGauge #stateset #statesetGauge ) includes: aTypeSymbol) not
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusValueForGaugeLikePoint: anOTNumberDataPoint type: aTypeSymbol [
-
-	(#( #info #infoGauge ) includes: aTypeSymbol) ifTrue: [ ^ 1 ].
-	^ anOTNumberDataPoint value
-]
-
-{ #category : 'accessing' }
-OTPrometheusTextEncoder >> warningSink [
-
-	^ warningSink ifNil: [ warningSink := self defaultWarningSink ]
-]
-
-{ #category : 'accessing' }
-OTPrometheusTextEncoder >> warningSink: aBlockClosure [
-
-	warningSink := aBlockClosure ifNil: [ self defaultWarningSink ] ifNotNil: [ aBlockClosure ].
-	^ self warningSink
 ]
