@@ -431,6 +431,20 @@ OTEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterAndSimpleProcess
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesLoggingAliasWithSimpleProcessorForTraceExport [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_EXPORTER' put: 'logging';
+			yourself)
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTConsoleSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTSimpleSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTSimpleSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTConsoleSpanExporter ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentUsesNoopPropagatorWhenConfiguredAsNone [
 
 	self

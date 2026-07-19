@@ -128,6 +128,9 @@ Smalltalk os environment
 meter := OpenTelemetry meterNamed: 'MyApp'.
 ```
 
+`OTEL_METRICS_EXPORTER=logging` is also accepted as the deprecated
+console-exporter alias.
+
 Meters are cached by the full instrumentation-scope tuple
 `(name, version, schemaUrl, attributes)`. Repeating the same request returns
 the same meter object, while changing any of those values returns a distinct

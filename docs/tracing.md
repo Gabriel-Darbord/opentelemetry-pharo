@@ -213,7 +213,8 @@ Or let the library read environment configuration:
 `OTEL_TRACES_EXPORTER` defaults to `otlp`. This implementation also accepts a
 comma-separated list of exporters and installs exporter-specific processors for
 each configured exporter. Console export uses `OTSimpleSpanProcessor`; the
-other built-in exporters use `OTBatchSpanProcessor`.
+other built-in exporters use `OTBatchSpanProcessor`. `OTEL_TRACES_EXPORTER=logging`
+is accepted as the deprecated console-exporter alias.
 
 If you change exporter-related environment variables at runtime, reset the
 singleton objects before reading them again:

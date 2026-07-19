@@ -284,6 +284,24 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterWhenCon
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesLoggingAliasWithConsoleExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_METRICS_EXPORTER' put: 'logging';
+			yourself)
+		during: [
+			| provider reader |
+			provider := OTMeterProvider current.
+			self assert: provider metricReaders size equals: 1.
+			reader := provider metricReaders first.
+			self assert: reader class identicalTo: OTPeriodicExportingMetricReader.
+			self assert: reader exporter class identicalTo: OTConsoleMetricExporter.
+			self assert: reader exportIntervalMillis equals: 10000.
+			self assert: reader exportTimeoutMillis equals: 30000 ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidMetricReaderEnvironmentValuesAndUsesDefaults [
 
 	self withWarningsDo: [ :warnings |
