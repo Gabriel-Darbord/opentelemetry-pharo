@@ -638,6 +638,83 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsParentBasedSamplerWithDevelopmentProbabilityDelegate [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    parent_based:
+      root:
+        trace_id_ratio_based:
+      remote_parent_not_sampled:
+        probability/development:
+          ratio: 0.1
+'
+		environmentValues: Dictionary new
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTParentBasedSampler.
+			self assert: sampler rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler rootSampler probability equals: 1.
+			self
+				assert: sampler remoteParentNotSampledSampler class
+				identicalTo: OTProbabilisticSampler.
+			self assert: sampler remoteParentNotSampledSampler probability equals: 0.1 ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDevelopmentJaegerRemoteSamplerAliasToEnvironmentSurface [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    jaeger_remote/development:
+      endpoint: http://jaeger.example:14250
+      interval: 5000
+      initial_sampler:
+        trace_id_ratio_based:
+          ratio: 0.25
+'
+		environmentValues: Dictionary new
+		during: [
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER')
+				equals: 'jaeger_remote'.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG')
+				equals: 'endpoint=http://jaeger.example:14250,pollingIntervalMs=5000,initialSamplingRate=0.25' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsTraceIdRatioSamplerDefaultRatio [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    trace_id_ratio_based:
+'
+		environmentValues: Dictionary new
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler probability equals: 1.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER')
+				equals: 'traceidratio'.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG')
+				equals: '1' ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsProbabilitySamplerRatioBelowSpecificationMinimum [
 
 	self
