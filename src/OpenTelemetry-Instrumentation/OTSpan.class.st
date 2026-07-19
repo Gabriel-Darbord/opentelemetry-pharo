@@ -1265,10 +1265,9 @@ OTSpan >> tracerProvider: aTracerProvider [
 ]
 
 { #category : 'recording' }
-OTSpan >> updateName: aString [ [
+OTSpan >> updateName: aString [
 
 	^ self name: aString
-]
 ]
 
 { #category : 'private' }

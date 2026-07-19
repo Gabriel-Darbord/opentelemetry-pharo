@@ -283,6 +283,31 @@ OTSpanBuilderTest >> testSpanBuilderStartTimestampControlsRecordedStartTime [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testUpdateNameChangesRecordingSpanName [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'original') startSpan.
+	span updateName: 'renamed'.
+	self assert: span name equals: 'renamed'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testUpdateNameDoesNothingAfterEnd [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'original') startSpan.
+	span end.
+	span updateName: 'renamed'.
+	self assert: span name equals: 'original'
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
 
 	| provider roundTripped span tracer |
