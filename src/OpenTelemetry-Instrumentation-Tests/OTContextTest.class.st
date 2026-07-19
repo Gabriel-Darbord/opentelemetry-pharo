@@ -15,6 +15,38 @@ OTContextTest >> testCreateKeyNamedReturnsDistinctKeysForTheSameName [
 ]
 
 { #category : 'tests' }
+OTContextTest >> testDirectMutatorsAreRejected [
+
+	| context |
+	context := OTContext new.
+	self should: [ context span: nil ] raise: Error.
+	self should: [ context currentSpan: nil ] raise: Error.
+	self should: [ context baggage: OTBaggage empty ] raise: Error
+]
+
+{ #category : 'tests' }
+OTContextTest >> testWithBaggageReturnsNewContextWithoutMutatingOriginal [
+
+	| baggage context updated |
+	context := OTContext new.
+	baggage := OTBaggage empty withEntryNamed: 'user.id' value: '42'.
+	updated := context withBaggage: baggage.
+	self assert: updated baggage equals: baggage.
+	self assert: context baggage isEmpty
+]
+
+{ #category : 'tests' }
+OTContextTest >> testWithSpanReturnsNewContextWithoutMutatingOriginal [
+
+	| context span updated |
+	context := OTContext new.
+	span := OTSpanContext invalid asNonRecordingSpan.
+	updated := context withSpan: span.
+	self assert: updated span identicalTo: span.
+	self assert: context span isNil
+]
+
+{ #category : 'tests' }
 OTContextTest >> testWithValueAtPutReturnsNewContextWithoutMutatingOriginal [
 
 	| context key updated |

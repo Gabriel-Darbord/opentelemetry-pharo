@@ -31,7 +31,7 @@ OTContext >> baggage [
 { #category : 'accessing' }
 OTContext >> baggage: aBaggage [
 
-	baggage := aBaggage ifNil: [ OTBaggage empty ]
+	Error signal: 'Use #withBaggage: to derive a new OpenTelemetry context'
 ]
 
 { #category : 'accessing' }
@@ -43,7 +43,7 @@ OTContext >> currentSpan [
 { #category : 'accessing' }
 OTContext >> currentSpan: aSpan [
 
-	self span: aSpan
+	Error signal: 'Use #withSpan: to derive a new OpenTelemetry context'
 ]
 
 { #category : 'testing' }
@@ -103,6 +103,24 @@ OTContext >> propertyAt: aKey ifAbsent: aBlock [
 	^ self valueAt: aKey ifAbsent: aBlock
 ]
 
+{ #category : 'private' }
+OTContext >> restoreBaggage: aBaggage [
+
+	baggage := aBaggage ifNil: [ OTBaggage empty ]
+]
+
+{ #category : 'private' }
+OTContext >> restoreProperties: aDictionary [
+
+	properties := aDictionary ifNil: [ Dictionary new ] ifNotNil: [ aDictionary ]
+]
+
+{ #category : 'private' }
+OTContext >> restoreSpan: aSpan [
+
+	currentSpan := aSpan
+]
+
 { #category : 'accessing' }
 OTContext >> span [
 
@@ -112,7 +130,7 @@ OTContext >> span [
 { #category : 'accessing' }
 OTContext >> span: aSpan [
 
-	currentSpan := aSpan
+	Error signal: 'Use #withSpan: to derive a new OpenTelemetry context'
 ]
 
 { #category : 'accessing' }
@@ -131,8 +149,8 @@ OTContext >> valueAt: aKey ifAbsent: aBlock [
 OTContext >> withBaggage: aBaggage [
 
 	^ self copy
-		baggage: aBaggage;
-		yourself
+		  restoreBaggage: aBaggage;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -151,8 +169,8 @@ OTContext >> withPropertyAt: aKey put: aValue [
 OTContext >> withSpan: aSpan [
 
 	^ self copy
-		span: aSpan;
-		yourself
+		  restoreSpan: aSpan;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -162,7 +180,7 @@ OTContext >> withValueAt: aKey put: aValue [
 	updatedProperties := self properties copy.
 	aValue ifNil: [ updatedProperties removeKey: aKey ifAbsent: [ ] ] ifNotNil: [ updatedProperties at: aKey put: aValue ].
 	^ self copy
-		  properties: updatedProperties;
+		  restoreProperties: updatedProperties;
 		  yourself
 ]
 
