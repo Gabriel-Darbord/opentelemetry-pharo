@@ -15,7 +15,7 @@ The current logging implementation provides:
 - `OTLoggerConfig`: per-logger filtering configuration
 - `OTLogRecord`: readable/writeable SDK log record
 - `OTSimpleLogRecordProcessor`, `OTBatchLogRecordProcessor`, and `OTCompositeLogRecordProcessor`
-- `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, `OTOtlpStdoutLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
+- `OTConsoleLogRecordExporter`, `OTNoopLogRecordExporter`, `OTOtlpStdoutLogRecordExporter`, `OTOtlpJsonFileLogRecordExporter`, and OTLP log exporters over HTTP JSON, HTTP protobuf, and gRPC
 - `OTTinyLoggerBridge` for forwarding TinyLogger records into OpenTelemetry loggers
 
 The current logging implementation does not yet provide:

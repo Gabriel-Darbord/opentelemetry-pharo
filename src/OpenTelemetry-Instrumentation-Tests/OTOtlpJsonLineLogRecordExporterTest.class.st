@@ -36,6 +36,22 @@ OTOtlpJsonLineLogRecordExporterTest >> setUp [
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineLogRecordExporterTest >> testFileExporterAppendsOneJsonLinePerExport [
+
+	| fileExporter lines outputFile |
+	outputFile := FileLocator temp / ('otlp-json-lines-logs-', UUID new asString36, '.jsonl').
+	[
+		fileExporter := OTOtlpJsonFileLogRecordExporter new.
+		fileExporter fileReference: outputFile.
+		self assert: (fileExporter export: { self sampleLogRecord }).
+		self assert: (fileExporter export: { self sampleLogRecord }).
+		lines := outputFile contents lines.
+		self assert: lines size equals: 2.
+		self assert: ((STONJSON fromString: lines first) at: 'resourceLogs') size equals: 1 ]
+		ensure: [ outputFile ensureDelete ]
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineLogRecordExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerExport [
 
 	| line payload |

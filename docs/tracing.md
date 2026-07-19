@@ -195,6 +195,7 @@ Available built-in exporters include:
 - `OTNoopSpanExporter`
 - `OTZipkinSpanExporter`
 - `OTOtlpHttpJsonSpanExporter`
+- `OTOtlpJsonFileSpanExporter`
 - `OTJSONFileSpanExporter`
 - `OTOtlpStdoutSpanExporter`
 

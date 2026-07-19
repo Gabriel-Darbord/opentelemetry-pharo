@@ -39,7 +39,7 @@ The current metrics implementation provides:
 - exemplar sampling with `always_on`, `always_off`, and `trace_based` filters
 - default exemplar reservoirs for sums, gauges, explicit histograms, and exponential histograms
 - reader-scoped asynchronous callback timeout and failure isolation
-- `OTNoopMetricExporter`, `OTConsoleMetricExporter`, `OTOtlpStdoutMetricExporter`
+- `OTNoopMetricExporter`, `OTConsoleMetricExporter`, `OTOtlpStdoutMetricExporter`, `OTOtlpJsonFileMetricExporter`
 - OTLP metric exporters over HTTP JSON, HTTP protobuf, and gRPC
 - legacy summary metric data objects for compatibility surfaces:
   `OTSummaryMetricData`, `OTSummaryDataPoint`, and `OTSummaryQuantileValue`
