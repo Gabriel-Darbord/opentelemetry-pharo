@@ -261,7 +261,7 @@ OTSpanBuilder >> startSpan [
 				 remote: false);
 		resource: tracer provider resource;
 		context: (effectiveParentContext withSpan: span);
-		name: spanName;
+		restoreName: spanName;
 		kind: spanKind;
 		instrumentationScope: tracer instrumentationScope;
 		tracerProvider: tracer provider;

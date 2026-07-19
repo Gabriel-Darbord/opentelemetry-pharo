@@ -163,9 +163,7 @@ OTSpan class >> fromContext: aContext [
 
 	| span |
 	span := aContext ifNotNil: [ aContext span ].
-	^ span
-		ifNil: [ self wrapping: OTSpanContext invalid ]
-		ifNotNil: [ span ]
+	^ span ifNil: [ self wrapping: OTSpanContext invalid ] ifNotNil: [ span ]
 ]
 
 { #category : 'recording' }
@@ -183,7 +181,7 @@ OTSpan class >> fromSton: stonReader [
 			 traceFlags: traceFlags
 			 traceState: traceState
 			 remote: false).
-	span name: (representation at: #name).
+	span restoreName: (representation at: #name).
 	span context: (representation at: #context).
 	span kind: (representation at: #kind).
 	scope := representation
@@ -277,12 +275,6 @@ OTSpan class >> linkFromSpanContext: aSpanContext attributes: aDictionary [
 	^ OTSpanLink spanContext: aSpanContext attributes: aDictionary
 ]
 
-{ #category : 'instance creation' }
-OTSpan class >> new [
-
-	Error signal: 'OpenTelemetry spans must be created via an OTTracer or wrapped from an OTSpanContext'
-]
-
 { #category : 'private - id generation' }
 OTSpan class >> newHexIdentifierOfSize: anInteger [
 
@@ -368,12 +360,6 @@ OTSpan class >> resetLimitWarningState [
 		ifAbsent: [  ]
 ]
 
-{ #category : 'instance creation' }
-OTSpan class >> rootIn: aContext [
-
-	Error signal: 'OpenTelemetry spans must be created via an OTTracer'
-]
-
 { #category : 'private' }
 OTSpan class >> rootInInternal: aContext [
 
@@ -395,12 +381,6 @@ OTSpan class >> server [
 	"Indicates that the span covers server-side handling of an RPC or other remote request."
 
 	^ #server
-]
-
-{ #category : 'instance creation' }
-OTSpan class >> under: parentSpan [
-
-	Error signal: 'OpenTelemetry spans must be created via an OTTracer'
 ]
 
 { #category : 'private' }
@@ -662,13 +642,6 @@ OTSpan >> endTime [
 	^ endTime
 ]
 
-{ #category : 'accessing' }
-OTSpan >> endTime: aDateAndTime [
-
-	startTime ifNotNil: [ Error signal: 'Use #end or #end: to finish an OpenTelemetry span with an end timestamp' ].
-	self restoreEndTime: aDateAndTime
-]
-
 { #category : 'private' }
 OTSpan >> ensureMutableCreationState [
 
@@ -906,16 +879,6 @@ OTSpan >> name [
 	^ name
 ]
 
-{ #category : 'accessing' }
-OTSpan >> name: aString [
-
-	self isRecording ifFalse: [ ^ self ].
-	startTime ifNil: [
-			name := aString.
-			^ aString ].
-	Error signal: 'Use #updateName: to change a started OpenTelemetry span name'
-]
-
 { #category : 'private' }
 OTSpan >> normalizeEventCollection: aCollection [
 
@@ -1022,6 +985,12 @@ OTSpan >> restoreEndTime: aDateAndTime [
 ]
 
 { #category : 'private' }
+OTSpan >> restoreName: aString [
+
+	name := aString
+]
+
+{ #category : 'private' }
 OTSpan >> restoreStartTime: aDateAndTime [
 
 	startTime := aDateAndTime
@@ -1112,14 +1081,6 @@ OTSpan >> spanId [
 	^ spanId
 ]
 
-{ #category : 'accessing' }
-OTSpan >> spanId: anIdentifier [
-
-	self ensureMutableSpanContextState.
-	spanId := anIdentifier.
-	spanContext := nil
-]
-
 { #category : 'control' }
 OTSpan >> start [
 
@@ -1135,24 +1096,9 @@ OTSpan >> startTime [
 ]
 
 { #category : 'accessing' }
-OTSpan >> startTime: aDateAndTime [
-
-	startTime ifNotNil: [
-		Error signal: 'Use OTSpanBuilder>>startTime: or startTimestamp: to configure OpenTelemetry span start time' ].
-	self restoreStartTime: aDateAndTime
-]
-
-{ #category : 'accessing' }
 OTSpan >> status [
 
 	^ status ifNil: [ self class unset ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> status: aSymbol [
-	"Use `setStatus:` or `setStatus:description:` for normal span status mutation."
-
-	Error signal: 'Use setStatus: or setStatus:description: to mutate OpenTelemetry span status'
 ]
 
 { #category : 'accessing' }
@@ -1167,12 +1113,6 @@ OTSpan >> statusDescription [
 	^ self status = self class error
 		  ifTrue: [ statusDescription ]
 		  ifFalse: [ nil ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> statusDescription: aString [
-
-	Error signal: 'Use setStatus:description: to mutate OpenTelemetry span status description'
 ]
 
 { #category : 'ston persistence' }
@@ -1213,41 +1153,15 @@ OTSpan >> traceFlags [
 ]
 
 { #category : 'accessing' }
-OTSpan >> traceFlags: aString [
-
-	self ensureMutableSpanContextState.
-	traceFlags := aString.
-	spanContext := nil
-]
-
-{ #category : 'accessing' }
 OTSpan >> traceId [
 
 	^ traceId
 ]
 
 { #category : 'accessing' }
-OTSpan >> traceId: id [
-
-	self ensureMutableSpanContextState.
-	traceId := id.
-	spanContext := nil
-]
-
-{ #category : 'accessing' }
 OTSpan >> traceState [
 
 	^ traceState
-]
-
-{ #category : 'accessing' }
-OTSpan >> traceState: aTraceState [
-
-	| normalized |
-	self ensureMutableSpanContextState.
-	normalized := OTTraceState from: aTraceState.
-	traceState := normalized.
-	spanContext := nil
 ]
 
 { #category : 'accessing' }

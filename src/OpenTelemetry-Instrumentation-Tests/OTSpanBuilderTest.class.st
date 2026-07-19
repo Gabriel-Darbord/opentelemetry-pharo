@@ -142,47 +142,6 @@ OTSpanBuilderTest >> testBulkLinkSetterAppendsLinks [
 ]
 
 { #category : 'tests' }
-OTSpanBuilderTest >> testDirectNameMutatorIsRejectedAfterStart [
-
-	| provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'original') startSpan.
-	self should: [ span name: 'renamed' ] raise: Error.
-	self assert: span name equals: 'original'
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testDirectStatusMutatorsAreRejected [
-
-	| provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	self should: [ span status: OTSpan error ] raise: Error.
-	self should: [ span statusDescription: 'boom' ] raise: Error.
-	self assert: span status equals: OTSpan unset.
-	self assert: span statusDescription isNil
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testDirectTimestampMutatorsAreRejectedAfterStart [
-
-	| originalStartTime provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	originalStartTime := span startTime.
-	self should: [ span startTime: DateAndTime unixEpoch ] raise: Error.
-	self should: [ span endTime: DateAndTime unixEpoch ] raise: Error.
-	self assert: span startTime equals: originalStartTime.
-	self assert: span endTime isNil
-]
-
-{ #category : 'tests' }
 OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 
 	| childSpan parentSpan provider tracer |
@@ -428,31 +387,6 @@ OTSpanBuilderTest >> testSpanBuilderUsesImplicitCurrentContextByDefault [
 		during: [ span := (tracer spanBuilderNamed: 'operation') startSpan ].
 	self assert: span parent identicalTo: parentSpan.
 	self assert: span traceId equals: parentSpan traceId
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanClassNewIsRejected [
-
-	self should: [ OTSpan new ] raise: Error
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanClassRootInIsRejected [
-
-	self should: [ OTSpan rootIn: OTContext new ] raise: Error
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanClassUnderIsRejected [
-
-	| parentSpan |
-	parentSpan := (OTSpanContext
-		               traceId: '00112233445566778899aabbccddeeff'
-		               spanId: '1122334455667788'
-		               traceFlags: '01'
-		               traceState: nil
-		               remote: false) asNonRecordingSpan.
-	self should: [ OTSpan under: parentSpan ] raise: Error
 ]
 
 { #category : 'tests' }

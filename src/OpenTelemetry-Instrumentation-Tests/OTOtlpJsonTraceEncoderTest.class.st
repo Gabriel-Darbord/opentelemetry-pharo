@@ -43,7 +43,7 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 				 traceState: 'vendor=value'
 				 remote: false);
 		parent: parentContext asNonRecordingSpan;
-		name: 'testSpan';
+		restoreName: 'testSpan';
 		kind: OTSpan client;
 		restoreStartTime: DateAndTime unixEpoch + (Duration nanoSeconds: 100);
 		restoreEndTime: DateAndTime unixEpoch + (Duration nanoSeconds: 1100);

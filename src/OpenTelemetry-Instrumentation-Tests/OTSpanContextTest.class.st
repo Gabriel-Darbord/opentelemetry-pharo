@@ -223,7 +223,6 @@ OTSpanContextTest >> testRecordingSpanRejectsSpanContextMutationAfterStart [
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	original := span spanContext.
-	self should: [ span traceState: 'vendor=value' ] raise: Error.
 	self should: [ span spanContext: (original withTraceState: 'vendor=value') ] raise: Error.
 	self assert: span spanContext identicalTo: original.
 	self assert: span spanContext traceState equals: original traceState
