@@ -192,6 +192,7 @@ Current metric behavior:
 - Prometheus-exported metric family names include translated unit suffixes when the OpenTelemetry unit maps cleanly to Prometheus unit words
 - Prometheus 1.0 and OpenMetrics 1.0 scrapes include `# UNIT` metadata when a translated unit is available
 - Prometheus scrapes export summary quantiles on the base metric name plus `_sum` and `_count` companion samples
+- OpenMetrics scrapes now emit exemplars for monotonic counter samples and histogram bucket samples, including trace/span identifiers when present and respecting the OpenMetrics exemplar label budget
 - gauge-like metrics with `prometheus.type` metadata now preserve `unknown`, `info`, and `stateset` compatibility hints during Prometheus export, using the negotiated format's closest supported representation
 - conflicting Prometheus family `TYPE` metadata drops the whole exported family with a diagnostic warning, while conflicting `HELP` or `UNIT` metadata keeps the samples and emits only one metadata line
 - Prometheus samples that collapse to the same final sample identity after name and label normalization are dropped with a diagnostic warning rather than emitted as duplicate samples

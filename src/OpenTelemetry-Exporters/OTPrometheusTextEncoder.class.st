@@ -44,6 +44,13 @@ OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot format: aFormatSym
 			on: stream ]
 ]
 
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> histogramBucketIndexForExemplar: anOTMetricExemplar bounds: someBounds [
+
+	1 to: someBounds size do: [ :index | anOTMetricExemplar value <= (someBounds at: index) ifTrue: [ ^ index ] ].
+	^ someBounds size + 1
+]
+
 { #category : 'initialization' }
 OTPrometheusTextEncoder >> initialize [
 
@@ -110,6 +117,29 @@ OTPrometheusTextEncoder >> labelsByAdding: aLabelName value: aValue to: someLabe
 	labels := someLabels copy.
 	labels add: aLabelName -> aValue.
 	^ labels
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> latestExemplarIn: someExemplars [
+
+	| latest |
+	latest := nil.
+	someExemplars do: [ :each |
+		latest ifNil: [ latest := each ] ifNotNil: [ latest timestamp <= each timestamp ifTrue: [ latest := each ] ] ].
+	^ latest
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> latestHistogramExemplarsByBucketFor: anOTHistogramDataPoint [
+
+	| exemplarsByBucket |
+	exemplarsByBucket := Dictionary new.
+	anOTHistogramDataPoint exemplars do: [ :each |
+			| bucketIndex current |
+			bucketIndex := self histogramBucketIndexForExemplar: each bounds: anOTHistogramDataPoint explicitBounds.
+			current := exemplarsByBucket at: bucketIndex ifAbsent: [ nil ].
+			(current isNil or: [ current timestamp <= each timestamp ]) ifTrue: [ exemplarsByBucket at: bucketIndex put: each ] ].
+	^ exemplarsByBucket
 ]
 
 { #category : 'private - formatting' }
@@ -202,6 +232,47 @@ OTPrometheusTextEncoder >> prometheusBoundaryStringFor: aNumber [
 	aNumber = Float infinity ifTrue: [ ^ '+Inf' ].
 	aNumber = Float negativeInfinity ifTrue: [ ^ '-Inf' ].
 	^ aNumber printString
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusExemplarLabelLimitForFormat: aFormatSymbol [
+
+	^ aFormatSymbol = #openMetricsText100
+		  ifTrue: [ 128 ]
+		  ifFalse: [ nil ]
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusExemplarLabelSizeFor: anAssociation [
+
+	^ anAssociation key utf8Encoded size + anAssociation value asString utf8Encoded size
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusExemplarLabelsFor: anOTMetricExemplar format: aFormatSymbol [
+
+	| currentSize filteredRawLabels finalLabels labelLimit requiredLabels trimmedLabels |
+	requiredLabels := OrderedDictionary new.
+	anOTMetricExemplar traceId ifNotNil: [ requiredLabels at: 'trace_id' put: anOTMetricExemplar traceId ].
+	anOTMetricExemplar spanId ifNotNil: [ requiredLabels at: 'span_id' put: anOTMetricExemplar spanId ].
+	filteredRawLabels := OrderedCollection new.
+	anOTMetricExemplar filteredAttributes associationsDo: [ :each |
+			| normalized |
+			normalized := self prometheusLabelNameFor: each key.
+			(requiredLabels includesKey: normalized) ifFalse: [
+				filteredRawLabels add: each key asString -> (self prometheusStringValueFor: each value) ] ].
+	trimmedLabels := self prometheusLabelsFromAssociations: filteredRawLabels.
+	labelLimit := self prometheusExemplarLabelLimitForFormat: aFormatSymbol.
+	finalLabels := OrderedDictionary new.
+	currentSize := 0.
+	requiredLabels associationsDo: [ :each |
+			finalLabels at: each key put: each value.
+			currentSize := currentSize + (self prometheusExemplarLabelSizeFor: each) ].
+	trimmedLabels associationsDo: [ :each |
+			(labelLimit isNil or: [ currentSize + (self prometheusExemplarLabelSizeFor: each) <= labelLimit ]) ifTrue: [
+					finalLabels at: each key put: each value.
+					currentSize := currentSize + (self prometheusExemplarLabelSizeFor: each) ] ].
+	^ finalLabels
 ]
 
 { #category : 'private - formatting' }
@@ -339,6 +410,20 @@ OTPrometheusTextEncoder >> prometheusStringValueFor: anObject [
 ]
 
 { #category : 'private - formatting' }
+OTPrometheusTextEncoder >> prometheusTimestampStringFor: aDateAndTime [
+
+	| fraction micros microseconds seconds |
+	microseconds := (aDateAndTime ifNil: [ DateAndTime unixEpoch ]) asUnixMicroseconds.
+	seconds := microseconds quo: 1000000.
+	micros := microseconds \\ 1000000.
+	micros = 0 ifTrue: [ ^ seconds asString ].
+	fraction := micros printString.
+	fraction size < 6 ifTrue: [ fraction := (String new: 6 - fraction size withAll: $0) , fraction ].
+	[ fraction isNotEmpty and: [ fraction last = $0 ] ] whileTrue: [ fraction := fraction allButLast ].
+	^ seconds asString , '.' , fraction
+]
+
+{ #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusTypeHintFor: anOTMetricData [
 
 	| normalized |
@@ -473,10 +558,21 @@ OTPrometheusTextEncoder >> sampleIdentityFor: aSampleSpecification [
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> sampleSpecificationNamed: aMetricName labels: someLabels value: aValue [
 
+	^ self
+		  sampleSpecificationNamed: aMetricName
+		  labels: someLabels
+		  value: aValue
+		  exemplar: nil
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> sampleSpecificationNamed: aMetricName labels: someLabels value: aValue exemplar: anOTMetricExemplarOrNil [
+
 	^ {
 		  aMetricName.
 		  someLabels.
-		  aValue }
+		  aValue.
+		  anOTMetricExemplarOrNil }
 ]
 
 { #category : 'private - writing' }
@@ -500,8 +596,9 @@ OTPrometheusTextEncoder >> sampleSpecificationsForHistogram: anOTHistogramMetric
 	metricName := self prometheusMetricNameFor: anOTHistogramMetricData type: #histogram.
 	sampleSpecifications := OrderedCollection new.
 	anOTHistogramMetricData points do: [ :eachPoint |
-			| baseLabels cumulative |
+			| baseLabels bucketExemplars cumulative |
 			baseLabels := self pointLabels: eachPoint attributes scope: anOTHistogramMetricData instrumentationScope.
+			bucketExemplars := self latestHistogramExemplarsByBucketFor: eachPoint.
 			cumulative := 0.
 			1 to: eachPoint explicitBounds size do: [ :index |
 					cumulative := cumulative + (eachPoint bucketCounts at: index ifAbsent: [ 0 ]).
@@ -509,13 +606,15 @@ OTPrometheusTextEncoder >> sampleSpecificationsForHistogram: anOTHistogramMetric
 							 sampleSpecificationNamed: metricName , '_bucket'
 							 labels:
 							 (self labelsByAdding: 'le' value: (self prometheusBoundaryStringFor: (eachPoint explicitBounds at: index)) to: baseLabels)
-							 value: cumulative) ].
+							 value: cumulative
+							 exemplar: (bucketExemplars at: index ifAbsent: [ nil ])) ].
 			cumulative := cumulative + (eachPoint bucketCounts at: eachPoint explicitBounds size + 1 ifAbsent: [ 0 ]).
 			sampleSpecifications
 				add: (self
 						 sampleSpecificationNamed: metricName , '_bucket'
 						 labels: (self labelsByAdding: 'le' value: '+Inf' to: baseLabels)
-						 value: cumulative);
+						 value: cumulative
+						 exemplar: (bucketExemplars at: eachPoint explicitBounds size + 1 ifAbsent: [ nil ]));
 				add: (self sampleSpecificationNamed: metricName , '_sum' labels: baseLabels value: eachPoint sum);
 				add: (self sampleSpecificationNamed: metricName , '_count' labels: baseLabels value: eachPoint count) ].
 	^ sampleSpecifications
@@ -539,7 +638,8 @@ OTPrometheusTextEncoder >> sampleSpecificationsForSum: anOTSumMetricData type: a
 				  self
 					  sampleSpecificationNamed: (self prometheusMetricNameFor: anOTSumMetricData type: #counter format: aFormatSymbol)
 					  labels: (self pointLabels: each attributes scope: anOTSumMetricData instrumentationScope)
-					  value: each value ]
+					  value: each value
+					  exemplar: (self latestExemplarIn: each exemplars) ]
 		  as: OrderedCollection
 ]
 
@@ -569,6 +669,12 @@ OTPrometheusTextEncoder >> suffixForPrometheusMetricType: aTypeSymbol format: aF
 	aTypeSymbol = #counter ifTrue: [ ^ '_total' ].
 	(#( #info #infoGauge ) includes: aTypeSymbol) ifTrue: [ ^ '_info' ].
 	^ ''
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> supportsPrometheusExemplarsInFormat: aFormatSymbol [
+
+	^ aFormatSymbol = #openMetricsText100
 ]
 
 { #category : 'private - formatting' }
@@ -755,7 +861,7 @@ OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetr
 			duplicateSampleIdentity
 				ifNil: [
 						sampleSpecifications do: [ :specification |
-								self writeSampleSpecification: specification on: aStream.
+								self writeSampleSpecification: specification on: aStream format: aFormatSymbol.
 								sampleIdentity := self sampleIdentityFor: specification.
 								writtenSampleIdentities add: sampleIdentity ] ]
 				ifNotNil: [ self noteDroppedMetricNamed: each name dueToDuplicatePrometheusSample: duplicateSampleIdentity ] ]
@@ -805,6 +911,24 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 ]
 
 { #category : 'private - writing' }
+OTPrometheusTextEncoder >> writePrometheusExemplar: anOTMetricExemplar format: aFormatSymbol on: aStream [
+
+	| labels |
+	(self supportsPrometheusExemplarsInFormat: aFormatSymbol) ifFalse: [ ^ self ].
+	anOTMetricExemplar ifNil: [ ^ self ].
+	labels := self prometheusExemplarLabelsFor: anOTMetricExemplar format: aFormatSymbol.
+	aStream nextPutAll: ' # '.
+	self writeLabels: labels on: aStream.
+	aStream
+		space;
+		nextPutAll: (self prometheusValueStringFor: anOTMetricExemplar value).
+	anOTMetricExemplar timestamp ifNotNil: [
+			aStream
+				space;
+				nextPutAll: (self prometheusTimestampStringFor: anOTMetricExemplar timestamp) ]
+]
+
+{ #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeSampleNamed: aMetricName labels: someLabels value: aValue on: aStream [
 
 	| labels |
@@ -820,11 +944,21 @@ OTPrometheusTextEncoder >> writeSampleNamed: aMetricName labels: someLabels valu
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeSampleSpecification: aSampleSpecification on: aStream [
 
-	self
-		writeSampleNamed: aSampleSpecification first
-		labels: aSampleSpecification second
-		value: aSampleSpecification third
-		on: aStream
+	self writeSampleSpecification: aSampleSpecification on: aStream format: #prometheusText004
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writeSampleSpecification: aSampleSpecification on: aStream format: aFormatSymbol [
+
+	| labels |
+	labels := self prometheusLabelsFromAssociations: aSampleSpecification second.
+	aStream nextPutAll: aSampleSpecification first.
+	labels isEmpty ifFalse: [ self writeLabels: labels on: aStream ].
+	aStream
+		space;
+		nextPutAll: (self prometheusValueStringFor: aSampleSpecification third).
+	self writePrometheusExemplar: (aSampleSpecification at: 4 ifAbsent: [ nil ]) format: aFormatSymbol on: aStream.
+	aStream lf
 ]
 
 { #category : 'private - writing' }

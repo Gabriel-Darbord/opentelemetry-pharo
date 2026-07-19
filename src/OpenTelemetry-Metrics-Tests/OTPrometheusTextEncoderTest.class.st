@@ -24,6 +24,18 @@ OTPrometheusTextEncoderTest >> occurrencesOfSubstring: aSubstring in: aString [
 ]
 
 { #category : 'private' }
+OTPrometheusTextEncoderTest >> sampleExemplarValue: aNumber timestamp: aDateAndTime [
+
+	| exemplar |
+	exemplar := OTMetricExemplar new.
+	exemplar
+		value: aNumber;
+		timestamp: aDateAndTime;
+		filteredAttributes: #(  ).
+	^ exemplar
+]
+
+{ #category : 'private' }
 OTPrometheusTextEncoderTest >> sampleResource [
 
 	^ OTResource attributes:
@@ -259,6 +271,143 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsMetricWhenPrometheusSample
 	self assert: (text includesSubstring: 'http_method="GET"').
 	self assert: warnings size equals: 1.
 	self assert: (warnings first includesSubstring: 'duplicate sample identity')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotEmitsCounterExemplarForOpenMetrics [
+
+	| exemplar metric openMetricsText point prometheusText snapshot timestamp |
+	timestamp := DateAndTime unixEpoch + (Duration seconds: 1520879607) + (Duration milliSeconds: 789).
+	exemplar := self sampleExemplarValue: 1 timestamp: timestamp.
+	exemplar
+		traceId: '0123456789abcdef0123456789abcdef';
+		spanId: '89abcdef01234567';
+		filteredAttributes: { ('user' -> 'alice') }.
+	point := OTNumberDataPoint
+		         attributes: { ('status' -> '200') }
+		         value: 1
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	point exemplars: { exemplar }.
+	metric := OTSumMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Requests';
+		unit: '1';
+		points: { point };
+		monotonic: true;
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	prometheusText := encoder encodeSnapshot: snapshot format: #prometheusText100.
+	self assert: (openMetricsText includesSubstring: ' # {').
+	self assert: (openMetricsText includesSubstring: 'trace_id="0123456789abcdef0123456789abcdef"').
+	self assert: (openMetricsText includesSubstring: 'span_id="89abcdef01234567"').
+	self assert: (openMetricsText includesSubstring: 'user="alice"').
+	self assert: (openMetricsText includesSubstring: ' 1 1520879607.789').
+	self deny: (prometheusText includesSubstring: ' # {')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotEmitsHistogramExemplarsPerBucketForOpenMetrics [
+
+	| earlierExemplar laterExemplar metric point snapshot text upperBucketExemplar overflowBucketExemplar |
+	earlierExemplar := self
+		                   sampleExemplarValue: 5
+		                   timestamp: DateAndTime unixEpoch + (Duration seconds: 1520879607) + (Duration milliSeconds: 456).
+	laterExemplar := self
+		                 sampleExemplarValue: 7
+		                 timestamp: DateAndTime unixEpoch + (Duration seconds: 1520879607) + (Duration milliSeconds: 789).
+	upperBucketExemplar := self
+		                       sampleExemplarValue: 15
+		                       timestamp: DateAndTime unixEpoch + (Duration seconds: 1520879608) + (Duration milliSeconds: 123).
+	overflowBucketExemplar := self
+		                          sampleExemplarValue: 25
+		                          timestamp: DateAndTime unixEpoch + (Duration seconds: 1520879608) + (Duration milliSeconds: 456).
+	point := OTHistogramDataPoint
+		         attributes: { ('http.method' -> 'GET') }
+		         count: 10
+		         sum: 42
+		         min: 1
+		         max: 25
+		         explicitBounds: #( 10 20 )
+		         bucketCounts: #( 2 3 5 )
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	point exemplars: {
+			earlierExemplar.
+			laterExemplar.
+			upperBucketExemplar.
+			overflowBucketExemplar }.
+	metric := OTHistogramMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'request.duration';
+		description: 'Request duration';
+		unit: 'ms';
+		points: { point };
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	text := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (self occurrencesOfSubstring: ' # {' in: text) equals: 3.
+	self assert: (text includesSubstring: 'le="10"').
+	self assert: (text includesSubstring: '# {} 7 1520879607.789').
+	self assert: (text includesSubstring: 'le="20"').
+	self assert: (text includesSubstring: '# {} 15 1520879608.123').
+	self assert: (text includesSubstring: 'le="+Inf"').
+	self assert: (text includesSubstring: '# {} 25 1520879608.456')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotLimitsExemplarLabelsAndPreservesTraceIdentifierPrecedence [
+
+	| exemplar longValue metric point snapshot text |
+	longValue := String new: 150 withAll: $x.
+	exemplar := self
+		            sampleExemplarValue: 1
+		            timestamp: DateAndTime unixEpoch + (Duration seconds: 1520879607) + (Duration milliSeconds: 789).
+	exemplar
+		traceId: '0123456789abcdef0123456789abcdef';
+		spanId: '89abcdef01234567';
+		filteredAttributes: {
+				('trace.id' -> 'wrong-trace-id').
+				('user' -> 'alice').
+				('overflow' -> longValue) }.
+	point := OTNumberDataPoint
+		         attributes: { ('status' -> '200') }
+		         value: 1
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	point exemplars: { exemplar }.
+	metric := OTSumMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Requests';
+		unit: '1';
+		points: { point };
+		monotonic: true;
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	text := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (text includesSubstring: 'trace_id="0123456789abcdef0123456789abcdef"').
+	self assert: (text includesSubstring: 'span_id="89abcdef01234567"').
+	self assert: (text includesSubstring: 'user="alice"').
+	self deny: (text includesSubstring: 'wrong-trace-id').
+	self deny: (text includesSubstring: 'overflow=')
 ]
 
 { #category : 'tests' }
