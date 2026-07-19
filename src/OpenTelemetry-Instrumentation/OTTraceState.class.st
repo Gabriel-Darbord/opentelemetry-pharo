@@ -50,6 +50,27 @@ OTTraceState class >> fromOrderedEntries: anOrderedDictionary [
 ]
 
 { #category : 'private' }
+OTTraceState class >> isValidOtelSubkey: aString [
+
+	aString ifNil: [ ^ false ].
+	aString isEmpty ifTrue: [ ^ false ].
+	(aString first between: $a and: $z) ifFalse: [ ^ false ].
+	^ aString allSatisfy: [ :each |
+		(each between: $a and: $z) or: [ each isDigit ] ]
+]
+
+{ #category : 'private' }
+OTTraceState class >> isValidOtelSubvalue: aString [
+
+	aString ifNil: [ ^ false ].
+	^ aString allSatisfy: [ :each |
+		each isDigit
+			or: [
+				each isLetter
+					or: [ '._-' includes: each ] ] ]
+]
+
+{ #category : 'private' }
 OTTraceState class >> hasValidEntries: anOrderedDictionary [
 
 	anOrderedDictionary size <= 32 ifFalse: [ ^ false ].
@@ -143,6 +164,48 @@ OTTraceState class >> parseListMember: aString into: anOrderedDictionary [
 	^ true
 ]
 
+{ #category : 'private' }
+OTTraceState class >> parseOtelListMember: aString into: anOrderedDictionary [
+
+	| key separator value |
+	separator := aString indexOf: $: ifAbsent: [ ^ false ].
+	separator = 1 ifTrue: [ ^ false ].
+	separator = aString size ifTrue: [ ^ false ].
+	(aString indexOf: $: startingAt: separator + 1 ifAbsent: [ 0 ]) > 0 ifTrue: [ ^ false ].
+	key := aString copyFrom: 1 to: separator - 1.
+	value := aString copyFrom: separator + 1 to: aString size.
+	((self isValidOtelSubkey: key) and: [ self isValidOtelSubvalue: value ]) ifFalse: [ ^ false ].
+	(anOrderedDictionary includesKey: key) ifTrue: [ ^ false ].
+	anOrderedDictionary at: key put: value.
+	^ true
+]
+
+{ #category : 'private' }
+OTTraceState class >> otelEntriesFromValue: aString [
+
+	| entries |
+	aString ifNil: [ ^ OrderedDictionary new ].
+	aString size <= 256 ifFalse: [ ^ nil ].
+	entries := OrderedDictionary new.
+	(aString substrings: ';') do: [ :each |
+		each ifEmpty: [ ^ nil ].
+		(self parseOtelListMember: each into: entries) ifFalse: [ ^ nil ] ].
+	^ entries
+]
+
+{ #category : 'private' }
+OTTraceState class >> otelValueFromEntries: anOrderedDictionary [
+
+	^ String streamContents: [ :stream |
+		anOrderedDictionary associations
+			do: [ :each |
+				stream
+					nextPutAll: each key;
+					nextPut: $:;
+					nextPutAll: each value ]
+			separatedBy: [ stream nextPut: $; ] ]
+]
+
 { #category : 'comparing' }
 OTTraceState >> = anObject [
 
@@ -155,6 +218,22 @@ OTTraceState >> = anObject [
 OTTraceState >> allEntries [
 
 	^ entriesByKey associations asArray
+]
+
+{ #category : 'accessing' }
+OTTraceState >> otelEntries [
+
+	^ self class
+		otelEntriesFromValue: (entriesByKey at: 'ot' ifAbsent: [ nil ])
+]
+
+{ #category : 'accessing' }
+OTTraceState >> otelValueAt: aString [
+
+	| entries |
+	entries := self otelEntries.
+	entries ifNil: [ ^ nil ].
+	^ entries at: aString ifAbsent: [ nil ]
 ]
 
 { #category : 'converting' }
@@ -249,6 +328,21 @@ OTTraceState >> withKey: aKey value: aValue [
 			updatedEntries at: each key put: each value ] ].
 	updatedTraceState := self class fromOrderedEntries: updatedEntries.
 	^ updatedTraceState ifNil: [ self ]
+]
+
+{ #category : 'updating' }
+OTTraceState >> withOtelValueAt: aKey put: aValue [
+
+	| entries otValue |
+	entries := self otelEntries.
+	entries ifNil: [ ^ self ].
+	((self class isValidOtelSubkey: aKey) and: [ self class isValidOtelSubvalue: aValue ]) ifFalse: [
+		^ self ].
+	entries := entries copy.
+	entries at: aKey put: aValue.
+	otValue := self class otelValueFromEntries: entries.
+	otValue size > 256 ifTrue: [ ^ self ].
+	^ self withKey: 'ot' value: otValue
 ]
 
 { #category : 'updating' }

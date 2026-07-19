@@ -1421,7 +1421,12 @@ OTConfigurationSource class >> samplerFrom: aDictionary resource: anOTResource [
 	options := association value ifNil: [ OrderedDictionary new ].
 	kind = 'always_on' ifTrue: [ ^ OTAlwaysOnSampler new ].
 	kind = 'always_off' ifTrue: [ ^ OTAlwaysOffSampler new ].
-	((kind = 'probability') or: [ kind = 'trace_id_ratio_based' ]) ifTrue: [
+	kind = 'probability' ifTrue: [
+		probability := self declarativeNumberFrom: (options at: 'ratio' ifAbsent: [ nil ]).
+		probability ifNil: [
+			Error signal: 'Declarative configuration probability samplers require a ratio' ].
+		^ OTSampler probability: probability ].
+	kind = 'trace_id_ratio_based' ifTrue: [
 		probability := self declarativeNumberFrom: (options at: 'ratio' ifAbsent: [ nil ]).
 		probability ifNil: [
 			Error signal: 'Declarative configuration probability samplers require a ratio' ].
@@ -1442,7 +1447,10 @@ OTConfigurationSource class >> samplerEnvironmentPairFrom: aDictionary [
 	options := association value ifNil: [ OrderedDictionary new ].
 	kind = 'always_on' ifTrue: [ ^ #( 'always_on' nil ) ].
 	kind = 'always_off' ifTrue: [ ^ #( 'always_off' nil ) ].
-	((kind = 'probability') or: [ kind = 'trace_id_ratio_based' ]) ifTrue: [
+	kind = 'probability' ifTrue: [
+		Error signal:
+			'Declarative probability sampler is not representable via SDK environment variables' ].
+	kind = 'trace_id_ratio_based' ifTrue: [
 		ratio := self stringValueAt: 'ratio' in: options.
 		ratio ifNil: [
 			Error signal: 'Declarative configuration probability samplers require a ratio' ].

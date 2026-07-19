@@ -10,6 +10,8 @@ OTSamplerTest >> testFactoryMethodsReturnSamplerInstances [
 
 	self assert: (OTSampler withInterval: 1000) class identicalTo: OTTimeIntervalSampler.
 	self assert: (OTSampler withRate: 2) class identicalTo: OTFixedRateSampler.
+	self assert: (OTSampler probability: 0.5) class identicalTo: OTProbabilisticSampler.
+	self assert: (OTSampler withProbability: 0.5) class identicalTo: OTProbabilisticSampler.
 	self assert: (OTSampler traceIdRatioBased: 0.5) class identicalTo: OTTraceIdRatioBasedSampler.
 	self assert: OTSampler parentBased class identicalTo: OTParentBasedSampler.
 	self assert: (OTSampler parentBased: OTAlwaysOffSampler new) class identicalTo: OTParentBasedSampler
@@ -92,6 +94,18 @@ OTSamplerTest >> testParentBasedSamplerDelegatesByParentSamplingStateAndOrigin [
 ]
 
 { #category : 'private' }
+OTSamplerTest >> contextWithTraceFlags: aTraceFlags traceState: aTraceState [
+
+	^ OTContext new
+		withSpan: ((OTSpanContext
+			traceId: '00112233445566778899aabbccddeeff'
+			spanId: '1122334455667788'
+			traceFlags: aTraceFlags
+			traceState: aTraceState
+			remote: false) asNonRecordingSpan)
+]
+
+{ #category : 'private' }
 OTSamplerTest >> samplingResultFrom: aSampler parentTraceFlags: aTraceFlags traceState: aTraceState remote: aBoolean [
 
 	| context |
@@ -109,6 +123,44 @@ OTSamplerTest >> samplingResultFrom: aSampler parentTraceFlags: aTraceFlags trac
 		kind: OTSpan internal
 		attributes: #()
 		links: #()
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerAddsThresholdToOpenTelemetryTraceStateWhenSampled [
+
+	| result sampler |
+	sampler := OTSampler probability: 0.5.
+	result := sampler
+		shouldSampleIn: (self
+				contextWithTraceFlags: '00'
+				traceState: 'ot=rv:80000000000000')
+		traceId: '00112233445566778899aabbccddeeff'
+		name: 'operation'
+		kind: OTSpan internal
+		attributes: #()
+		links: #().
+	self assert: result isRecordAndSample.
+	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
+	self assert: (result traceState otelValueAt: 'th') equals: '8'
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
+
+	| result sampler |
+	sampler := OTSampler probability: 0.5.
+	result := sampler
+		shouldSampleIn: (self
+				contextWithTraceFlags: '00'
+				traceState: 'ot=rv:7fffffffffffff')
+		traceId: '00112233445566778899aabbccddeeff'
+		name: 'operation'
+		kind: OTSpan internal
+		attributes: #()
+		links: #().
+	self assert: result isDrop.
+	self assert: (result traceState otelValueAt: 'rv') equals: '7fffffffffffff'.
+	self assert: (result traceState otelValueAt: 'th') equals: nil
 ]
 
 { #category : 'tests' }

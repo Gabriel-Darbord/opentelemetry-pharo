@@ -27,6 +27,17 @@ OTTraceStateTest >> testDeleteRemovesKeyWithoutChangingRemainingOrder [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testOpenTelemetrySubkeyUpdatesPreserveExistingValues [
+
+	| traceState updated |
+	traceState := OTTraceState fromHeader: 'vendor=one,ot=rv:7fffffffffffff'.
+	updated := traceState withOtelValueAt: 'th' put: '8'.
+	self assert: (updated valueAt: 'vendor') equals: 'one'.
+	self assert: (updated otelValueAt: 'rv') equals: '7fffffffffffff'.
+	self assert: (updated otelValueAt: 'th') equals: '8'
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testInvalidMutationLeavesTraceStateUnchanged [
 
 	| traceState |

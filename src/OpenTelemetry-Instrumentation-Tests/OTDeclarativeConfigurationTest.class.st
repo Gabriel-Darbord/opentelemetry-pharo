@@ -389,14 +389,14 @@ OTDeclarativeConfigurationTest >> testConfigFileProjectsStructuredProbabilitySam
 'file_format: "1.1"
 tracer_provider:
   sampler:
-    trace_id_ratio_based:
+    probability:
       ratio: 0.25
 '
 		environmentValues: Dictionary new
 		during: [
 			| sampler |
 			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler class identicalTo: OTProbabilisticSampler.
 			self assert: sampler probability equals: 0.25 ]
 ]
 

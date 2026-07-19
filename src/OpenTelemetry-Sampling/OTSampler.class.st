@@ -31,6 +31,13 @@ OTSampler class >> parentBased: aSampler [
 ]
 
 { #category : 'instance creation' }
+OTSampler class >> probability: aNumber [
+	"A consistent probability sampler with a probability between 0 and 1"
+
+	^ OTProbabilisticSampler new probability: aNumber
+]
+
+{ #category : 'instance creation' }
 OTSampler class >> traceIdRatioBased: aNumber [
 	"A deterministic trace-id-ratio sampler with a probability between 0 and 1"
 
@@ -46,9 +53,9 @@ OTSampler class >> withInterval: anInteger [
 
 { #category : 'instance creation' }
 OTSampler class >> withProbability: aNumber [
-	"A deterministic trace-id-ratio sampler with a probability between 0 and 1"
+	"A consistent probability sampler with a probability between 0 and 1"
 
-	^ self traceIdRatioBased: aNumber
+	^ self probability: aNumber
 ]
 
 { #category : 'instance creation' }
