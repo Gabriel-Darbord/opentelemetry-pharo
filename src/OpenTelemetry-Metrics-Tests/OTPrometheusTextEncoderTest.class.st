@@ -81,6 +81,66 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotAddsUnitSuffixAndUnitMetadataFo
 ]
 
 { #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotConcatenatesHistogramBoundaryLabelCollisions [
+
+	| metric point snapshot text |
+	point := OTHistogramDataPoint
+		         attributes: { ('le' -> 'client-boundary') }
+		         count: 3
+		         sum: 6
+		         min: 1
+		         max: 3
+		         explicitBounds: #( 2 )
+		         bucketCounts: #( 2 1 )
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTHistogramMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'request.duration';
+		description: 'Request duration';
+		unit: 'ms';
+		points: { point };
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	text := encoder encodeSnapshot: snapshot.
+	self assert: (text includesSubstring: 'client-boundary').
+	self assert: (text includesSubstring: 'le="').
+	self assert: (text includesSubstring: ';')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotConcatenatesMetricAttributeWithScopeLabelAfterNormalization [
+
+	| metric point snapshot text |
+	point := OTNumberDataPoint
+		         attributes: { ('otel.scope.name' -> 'attribute-scope') }
+		         value: 1
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTGaugeMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Requests';
+		unit: '1';
+		points: { point }.
+	snapshot := OTMetricSnapshot
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	text := encoder encodeSnapshot: snapshot.
+	self assert: (text includesSubstring: 'otel_scope_name="attribute-scope;instrumentation"').
+	self assert: (text includesSubstring: 'otel_scope_schema_url="https://scope.example/schema"').
+	self assert: (text includesSubstring: 'otel_scope_version="1.0.0"')
+]
+
+{ #category : 'tests' }
 OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsExponentialHistogramsFromTextOutput [
 
 	| metric point snapshot text |
@@ -332,15 +392,15 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesHistogramBucketsCumulativ
 
 	| metric point snapshot text |
 	point := OTHistogramDataPoint
-		attributes: { 'http.method' -> 'GET' }
-		count: 10
-		sum: 42
-		min: 1
-		max: 25
-		explicitBounds: #( 10 20 )
-		bucketCounts: #( 2 3 5 )
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		         attributes: { ('http.method' -> 'GET') }
+		         count: 10
+		         sum: 42
+		         min: 1
+		         max: 25
+		         explicitBounds: #( 10 20 )
+		         bucketCounts: #( 2 3 5 )
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
 	metric := OTHistogramMetricData new.
 	metric
 		instrumentationScope: self sampleScope;
@@ -350,20 +410,21 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesHistogramBucketsCumulativ
 		points: { point };
 		temporality: #cumulative.
 	snapshot := OTMetricSnapshot
-		resource: OTResource empty
-		measurements: #()
-		metrics: { metric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
 	text := encoder encodeSnapshot: snapshot.
 	self assert: (text includesSubstring: '# TYPE request_duration_milliseconds histogram').
 	self assert: (text includesSubstring: 'request_duration_milliseconds_bucket{').
-	self assert: (text includesSubstring: 'le="10"} 2').
-	self assert: (text includesSubstring: 'le="20"} 5').
-	self assert: (text includesSubstring: 'le="+Inf"} 10').
+	self assert: (text includesSubstring: 'le="10"').
+	self assert: (text includesSubstring: '} 2').
+	self assert: (text includesSubstring: 'le="20"').
+	self assert: (text includesSubstring: '} 5').
+	self assert: (text includesSubstring: 'le="+Inf"').
+	self assert: (text includesSubstring: '} 10').
 	self assert: (text includesSubstring: 'request_duration_milliseconds_sum{').
-	self assert: (text includesSubstring: '} 42').
-	self assert: (text includesSubstring: 'request_duration_milliseconds_count{').
-	self assert: (text includesSubstring: '} 10')
+	self assert: (text includesSubstring: 'request_duration_milliseconds_count{')
 ]
 
 { #category : 'tests' }

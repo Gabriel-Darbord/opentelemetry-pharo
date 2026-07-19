@@ -108,7 +108,7 @@ OTPrometheusTextEncoder >> labelsByAdding: aLabelName value: aValue to: someLabe
 
 	| labels |
 	labels := someLabels copy.
-	labels at: aLabelName put: aValue.
+	labels add: aLabelName -> aValue.
 	^ labels
 ]
 
@@ -182,20 +182,18 @@ OTPrometheusTextEncoder >> pointLabels: someAttributes scope: anOTInstrumentatio
 
 	| rawLabels reservedScopeLabels |
 	rawLabels := OrderedCollection new.
-	someAttributes associationsDo: [ :each |
-		rawLabels add: each key asString -> (self prometheusStringValueFor: each value) ].
+	someAttributes associationsDo: [ :each | rawLabels add: each key asString -> (self prometheusStringValueFor: each value) ].
 	rawLabels
 		add: 'otel_scope_name' -> anOTInstrumentationScope name;
 		add: 'otel_scope_version' -> anOTInstrumentationScope version;
 		add: 'otel_scope_schema_url' -> anOTInstrumentationScope schemaUrl.
 	reservedScopeLabels := Set withAll: #( 'otel_scope_name' 'otel_scope_version' 'otel_scope_schema_url' ).
 	anOTInstrumentationScope allAttributes associationsDo: [ :each |
-		| prefixed normalized |
-		prefixed := 'otel_scope_' , each key asString.
-		normalized := self prometheusLabelNameFor: prefixed.
-		(reservedScopeLabels includes: normalized) ifFalse: [
-			rawLabels add: prefixed -> (self prometheusStringValueFor: each value) ] ].
-	^ self prometheusLabelsFromAssociations: rawLabels
+			| prefixed normalized |
+			prefixed := 'otel_scope_' , each key asString.
+			normalized := self prometheusLabelNameFor: prefixed.
+			(reservedScopeLabels includes: normalized) ifFalse: [ rawLabels add: prefixed -> (self prometheusStringValueFor: each value) ] ].
+	^ rawLabels
 ]
 
 { #category : 'private - formatting' }
@@ -459,10 +457,12 @@ OTPrometheusTextEncoder >> quotedPrometheusValueFor: aString [
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> sampleIdentityFor: aSampleSpecification [
 
+	| labels |
+	labels := self prometheusLabelsFromAssociations: aSampleSpecification second.
 	^ String streamContents: [ :stream |
 			  stream nextPutAll: aSampleSpecification first.
 			  stream nextPut: Character tab.
-			  aSampleSpecification second associationsDo: [ :each |
+			  labels associationsDo: [ :each |
 					  stream
 						  nextPutAll: each key;
 						  nextPut: $=;
@@ -807,8 +807,10 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeSampleNamed: aMetricName labels: someLabels value: aValue on: aStream [
 
+	| labels |
+	labels := self prometheusLabelsFromAssociations: someLabels.
 	aStream nextPutAll: aMetricName.
-	someLabels isEmpty ifFalse: [ self writeLabels: someLabels on: aStream ].
+	labels isEmpty ifFalse: [ self writeLabels: labels on: aStream ].
 	aStream
 		space;
 		nextPutAll: (self prometheusValueStringFor: aValue);
@@ -912,19 +914,15 @@ OTPrometheusTextEncoder >> writeSummary: anOTSummaryMetricData on: aStream [
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeTargetInfoFor: anOTResource on: aStream [
 
-	| labels rawLabels |
+	| rawLabels |
 	anOTResource ifNil: [ ^ self ].
 	anOTResource isEmpty ifTrue: [ ^ self ].
 	rawLabels := OrderedCollection new.
 	rawLabels
 		add: 'job' -> (self jobLabelForResource: anOTResource);
-		add: 'instance'
-			-> (self
-				prometheusStringValueFor:
-					(anOTResource attributeAt: 'service.instance.id' ifAbsent: [ '' ])).
+		add: 'instance' -> (self prometheusStringValueFor: (anOTResource attributeAt: 'service.instance.id' ifAbsent: [ '' ])).
 	anOTResource allAttributes associationsDo: [ :each |
 		rawLabels add: each key asString -> (self prometheusStringValueFor: each value) ].
-	labels := self prometheusLabelsFromAssociations: rawLabels.
 	self
 		writeMetricHeaderNamed: 'target_info'
 		help: 'Target metadata'
@@ -932,7 +930,7 @@ OTPrometheusTextEncoder >> writeTargetInfoFor: anOTResource on: aStream [
 		on: aStream.
 	self
 		writeSampleNamed: 'target_info'
-		labels: labels
+		labels: rawLabels
 		value: 1
 		on: aStream
 ]
