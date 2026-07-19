@@ -70,8 +70,7 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 						  at: 'link-attribute' put: 'value';
 						  yourself)
 				 droppedAttributesCount: 2) };
-		status: OTSpan error;
-		statusDescription: 'boom';
+		setErrorStatusDescription: 'boom';
 		resource: (OTResource
 				 attributes: (OrderedDictionary new
 						  at: 'service.name' put: 'demo';

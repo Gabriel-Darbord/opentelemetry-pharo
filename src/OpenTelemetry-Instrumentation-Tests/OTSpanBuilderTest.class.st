@@ -202,6 +202,20 @@ OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testDirectStatusMutatorsAreRejected [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self should: [ span status: OTSpan error ] raise: Error.
+	self should: [ span statusDescription: 'boom' ] raise: Error.
+	self assert: span status equals: OTSpan unset.
+	self assert: span statusDescription isNil
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 
 	| firstContext provider secondContext span tracer |
@@ -219,6 +233,20 @@ OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 	self assert: firstContext traceState equals: span traceState.
 	span end.
 	self assert: span spanContext identicalTo: firstContext
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
+
+	| provider roundTripped span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span setErrorStatusDescription: 'boom'.
+	roundTripped := STON fromString: (STON toString: span).
+	self assert: roundTripped status equals: OTSpan error.
+	self assert: roundTripped statusDescription equals: 'boom'
 ]
 
 { #category : 'tests' }

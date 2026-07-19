@@ -196,8 +196,9 @@ OTSpan class >> fromSton: stonReader [
 								 traceFlags: span traceFlags
 								 traceState: span traceState) ] ].
 	span startTime: (representation at: #startTime).
-	span status: (representation at: #status ifAbsent: [ self unset ]).
-	representation at: #statusDescription ifPresent: [ :description | span statusDescription: description ].
+	span
+		restoreStatus: (representation at: #status ifAbsent: [ self unset ])
+		description: (representation at: #statusDescription ifAbsent: [ nil ]).
 	representation at: #attributes ifPresent: [ :attributes | span attributes: attributes ].
 	representation at: #events ifPresent: [ :events | span events: events ].
 	representation at: #links ifPresent: [ :links | span links: links ].
@@ -1062,6 +1063,18 @@ OTSpan >> setStatus: aSymbol description: aString [
 	statusDescription := self normalizedStatusDescription: aString
 ]
 
+{ #category : 'private' }
+OTSpan >> restoreStatus: aSymbol description: aString [
+
+	self validateStatusCode: aSymbol.
+	status := aSymbol = self class unset
+		          ifTrue: [ nil ]
+		          ifFalse: [ aSymbol ].
+	statusDescription := status = self class error
+		                     ifTrue: [ self normalizedStatusDescription: aString ]
+		                     ifFalse: [ nil ]
+]
+
 { #category : 'accessing' }
 OTSpan >> spanContext [
 
@@ -1131,12 +1144,7 @@ OTSpan >> status [
 OTSpan >> status: aSymbol [
 	"Use `setStatus:` or `setStatus:description:` for normal span status mutation."
 
-	self isRecording ifFalse: [ ^ self ].
-	self validateStatusCode: aSymbol.
-	status := aSymbol = self class unset
-		          ifTrue: [ nil ]
-		          ifFalse: [ aSymbol ].
-	status = self class error ifFalse: [ statusDescription := nil ]
+	Error signal: 'Use setStatus: or setStatus:description: to mutate OpenTelemetry span status'
 ]
 
 { #category : 'accessing' }
@@ -1156,8 +1164,7 @@ OTSpan >> statusDescription [
 { #category : 'accessing' }
 OTSpan >> statusDescription: aString [
 
-	self isRecording ifFalse: [ ^ self ].
-	statusDescription := self normalizedStatusDescription: aString
+	Error signal: 'Use setStatus:description: to mutate OpenTelemetry span status description'
 ]
 
 { #category : 'ston persistence' }
