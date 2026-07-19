@@ -15,6 +15,29 @@ OTContextTest >> testCreateKeyNamedReturnsDistinctKeysForTheSameName [
 ]
 
 { #category : 'tests' }
+OTContextTest >> testCurrentSpanDefaultsToInvalidNonRecordingSpan [
+
+	| currentSpan |
+	OpenTelemetry resetCurrentContext.
+	currentSpan := OpenTelemetry currentSpan.
+	self deny: currentSpan isRecording.
+	self deny: currentSpan spanContext isValid
+]
+
+{ #category : 'tests' }
+OTContextTest >> testSpanFromContextReturnsInvalidNonRecordingSpanWhenContextHasNoSpan [
+
+	| currentSpan extractedSpan |
+	OpenTelemetry resetCurrentContext.
+	extractedSpan := OTSpan fromContext: OTContext new.
+	currentSpan := OTSpan fromContext: nil.
+	self deny: extractedSpan isRecording.
+	self deny: extractedSpan spanContext isValid.
+	self deny: currentSpan isRecording.
+	self deny: currentSpan spanContext isValid
+]
+
+{ #category : 'tests' }
 OTContextTest >> testWithBaggageReturnsNewContextWithoutMutatingOriginal [
 
 	| baggage context updated |

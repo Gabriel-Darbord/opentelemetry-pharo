@@ -484,19 +484,21 @@ OTMeterProvider >> exemplarFilter: anOTMetricExemplarFilter [
 { #category : 'recording' }
 OTMeterProvider >> measurementFor: anOTMetricInstrument value: aNumber attributes: aCollection [
 
-	| measurement span spanContext |
+	| measurement spanContext traceId spanId |
 	measurement := OTMetricMeasurement
 		instrument: anOTMetricInstrument
 		value: aNumber
 		attributes: aCollection.
 	self exemplarFilter capturesMeasurements ifFalse: [ ^ measurement ].
-	span := OpenTelemetry currentSpan.
-	spanContext := span ifNil: [ nil ] ifNotNil: [ span spanContext ].
+	spanContext := OpenTelemetry currentSpan spanContext.
+	spanContext isValid ifFalse: [ spanContext := nil ].
+	traceId := spanContext ifNotNil: [ spanContext traceId ].
+	spanId := spanContext ifNotNil: [ spanContext spanId ].
 	measurement
 		exemplarEligible:
 			(self exemplarFilter isMeasurementEligibleWithSpanContext: spanContext);
-		exemplarTraceId: (spanContext ifNil: [ nil ] ifNotNil: [ spanContext traceId ]);
-		exemplarSpanId: (spanContext ifNil: [ nil ] ifNotNil: [ spanContext spanId ]).
+		exemplarTraceId: traceId;
+		exemplarSpanId: spanId.
 	^ measurement
 ]
 

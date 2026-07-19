@@ -100,7 +100,7 @@ Unlike client and server, there is no direct critical path latency relationship 
 { #category : 'accessing' }
 OTSpan class >> current [
 
-	^ self currentContext span
+	^ self fromContext: self currentContext
 ]
 
 { #category : 'accessing' }
@@ -161,7 +161,11 @@ OTSpan class >> error [
 { #category : 'accessing' }
 OTSpan class >> fromContext: aContext [
 
-	^ aContext ifNotNil: [ aContext span ]
+	| span |
+	span := aContext ifNotNil: [ aContext span ].
+	^ span
+		ifNil: [ self wrapping: OTSpanContext invalid ]
+		ifNotNil: [ span ]
 ]
 
 { #category : 'recording' }
@@ -338,7 +342,7 @@ OTSpan class >> randomHexDigit [
 { #category : 'recording' }
 OTSpan class >> recordException: anException [
 
-	self current ifNotNil: [ :currentSpan | currentSpan recordException: anException ]
+	self current recordException: anException
 ]
 
 { #category : 'class initialization' }

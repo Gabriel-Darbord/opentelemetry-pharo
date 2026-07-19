@@ -78,7 +78,7 @@ OpenTelemetry class >> currentContext: aContext [
 { #category : 'accessing' }
 OpenTelemetry class >> currentSpan [
 
-	^ self currentContext span
+	^ OTSpan current
 ]
 
 { #category : 'accessing' }

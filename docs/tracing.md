@@ -100,6 +100,9 @@ Useful messages include:
 - `addLinkSpanContext:`
 - `startSpan`
 
+Prefer setting attributes on the builder before `startSpan`. Samplers can only
+see attributes that are already present during span creation.
+
 Example:
 
 ```smalltalk
@@ -151,6 +154,10 @@ previousToken := OpenTelemetry attachContext: context.
 
 `detachContext:` answers a boolean so callers can detect wrong-order or
 wrong-process detach attempts.
+
+When no span is active, `OpenTelemetry currentSpan` answers an empty
+non-recording span with an invalid `SpanContext` rather than `nil`. This keeps
+context extraction and no-op flows aligned with the OpenTelemetry API rules.
 
 ## Generic Context Values
 
