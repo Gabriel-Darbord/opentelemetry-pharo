@@ -251,18 +251,28 @@ OTLoggerEnvironmentConfigurationTest >> testCurrentFallsBackToHttpProtobufWhenOt
 { #category : 'private' }
 OTLoggerEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary during: aBlock [
 
-	| absent environment snapshot |
+	| absent effectiveValues environment managedKeys snapshot |
 	absent := Object new.
 	environment := Smalltalk os environment.
+	effectiveValues := aDictionary copy.
+	managedKeys := (environment keys
+		select: [ :each | each beginsWith: 'OTEL_' ])
+		asOrderedCollection.
+	effectiveValues keysDo: [ :each |
+		(managedKeys includes: each) ifFalse: [ managedKeys add: each ] ].
 	snapshot := Dictionary new.
-	aDictionary keysAndValuesDo: [ :key :value |
+	managedKeys do: [ :key |
+		| value |
+		value := effectiveValues at: key ifAbsent: [ nil ].
 		snapshot at: key put: (environment at: key ifAbsent: [ absent ]).
 		self setEnvironmentValue: value forKey: key ].
 	[
 		OTLoggerProvider current: nil.
 		^ aBlock value ]
 		ensure: [
-			snapshot keysAndValuesDo: [ :key :value |
+			managedKeys do: [ :key |
+				| value |
+				value := snapshot at: key.
 				self
 					setEnvironmentValue: (value == absent ifTrue: [ nil ] ifFalse: [ value ])
 					forKey: key ].
