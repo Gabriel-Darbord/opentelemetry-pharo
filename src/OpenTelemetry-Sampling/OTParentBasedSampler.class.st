@@ -75,6 +75,18 @@ OTParentBasedSampler >> componentSamplers [
 	^ delegates
 ]
 
+{ #category : 'private' }
+OTParentBasedSampler >> isConsistentThreshold: aThreshold forParentSpanContext: aSpanContext traceState: aTraceState [
+
+	| sampled |
+	sampled := OTConsistentProbability
+		sampledWithRandomness: (OTConsistentProbability
+				randomnessValueFromTraceId: aSpanContext traceId
+				traceState: aTraceState)
+		threshold: aThreshold.
+	^ sampled = aSpanContext isSampled
+]
+
 { #category : 'initialization' }
 OTParentBasedSampler >> initialize [
 
@@ -182,11 +194,40 @@ OTParentBasedSampler >> sampledParentSampler: aSampler [
 	^ aSampler
 ]
 
+{ #category : 'private' }
+OTParentBasedSampler >> normalizedInheritedTraceStateForParentSpanContext: aSpanContext traceState: aTraceState [
+
+	| threshold |
+	aTraceState ifNil: [ ^ nil ].
+	threshold := OTConsistentProbability thresholdFromTraceState: aTraceState.
+	threshold ifNil: [ ^ aTraceState ].
+	(self
+		isConsistentThreshold: threshold
+		forParentSpanContext: aSpanContext
+		traceState: aTraceState) ifTrue: [ ^ aTraceState ].
+	^ aTraceState withoutOtelValueAt: 'th'
+]
+
+{ #category : 'private' }
+OTParentBasedSampler >> normalizedSamplingResult: aSamplingResult parentSpanContext: aSpanContext traceState: aTraceState [
+
+	| normalizedTraceState |
+	aSamplingResult traceState ifNotNil: [ ^ aSamplingResult ].
+	normalizedTraceState := self
+		normalizedInheritedTraceStateForParentSpanContext: aSpanContext
+		traceState: aTraceState.
+	normalizedTraceState == aTraceState ifTrue: [ ^ aSamplingResult ].
+	^ OTSamplingResult
+		decision: aSamplingResult decision
+		attributes: aSamplingResult attributes
+		traceState: normalizedTraceState
+]
+
 { #category : 'sampling' }
 OTParentBasedSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
-	| parentSpan parentSpanContext delegate |
-	parentSpan := aContext ifNil: [ nil ] ifNotNil: [ aContext span ].
+	| parentSpan parentSpanContext delegate result |
+	parentSpan := aContext ifNotNil: [ aContext span ].
 	parentSpan ifNil: [
 		^ rootSampler
 			shouldSampleIn: aContext
@@ -213,13 +254,17 @@ OTParentBasedSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString
 			parentSpanContext isSampled
 				ifTrue: [ localParentSampledSampler ]
 				ifFalse: [ localParentNotSampledSampler ] ].
-	^ delegate
+	result := delegate
 		shouldSampleIn: aContext
 		traceId: aTraceId
 		name: aString
 		kind: aSpanKind
 		attributes: someAttributes
-		links: someLinks
+		links: someLinks.
+	^ self
+		normalizedSamplingResult: result
+		parentSpanContext: parentSpanContext
+		traceState: parentSpan traceState
 ]
 
 { #category : 'accessing' }
