@@ -8,6 +8,7 @@ Class {
 		'tracer',
 		'spanName',
 		'parentContext',
+		'usesCurrentContext',
 		'spanKind',
 		'attributes',
 		'startTime',
@@ -150,6 +151,7 @@ OTSpanBuilder >> attributes: aCollection [
 OTSpanBuilder >> inContext: aContext [
 
 	parentContext := self class normalizedParentContextFrom: aContext.
+	usesCurrentContext := false.
 	rootRequested := false.
 	^ self
 ]
@@ -157,7 +159,8 @@ OTSpanBuilder >> inContext: aContext [
 { #category : 'configuring' }
 OTSpanBuilder >> inCurrentContext [
 
-	parentContext := OTSpan currentContext.
+	parentContext := nil.
+	usesCurrentContext := true.
 	rootRequested := false.
 	^ self
 ]
@@ -166,7 +169,8 @@ OTSpanBuilder >> inCurrentContext [
 OTSpanBuilder >> initialize [
 
 	super initialize.
-	parentContext := OTContext new.
+	parentContext := nil.
+	usesCurrentContext := true.
 	spanKind := OTSpan internal.
 	attributes := OrderedDictionary new.
 	links := OrderedCollection new.
@@ -212,7 +216,9 @@ OTSpanBuilder >> spanName: aString [
 OTSpanBuilder >> startSpan [
 
 	| effectiveParentContext effectiveTraceFlags idGenerator parentSpan samplingResult span traceId |
-	effectiveParentContext := self class normalizedParentContextFrom: parentContext.
+	effectiveParentContext := usesCurrentContext
+		ifTrue: [ OTSpan currentContext ]
+		ifFalse: [ self class normalizedParentContextFrom: parentContext ].
 	rootRequested ifTrue: [ effectiveParentContext := effectiveParentContext withSpan: nil ].
 	(tracer
 		enabledForSpanNamed: spanName
