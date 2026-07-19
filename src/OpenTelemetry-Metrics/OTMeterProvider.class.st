@@ -36,7 +36,7 @@ OTMeterProvider class >> current: anOTMeterProvider [
 { #category : 'instance creation' }
 OTMeterProvider class >> readConfiguration [
 
-	| exporterNames provider views |
+	| exporterNames provider readers views |
 	provider := self new.
 	provider
 		resource: OTTracerProvider configuredResource;
@@ -45,6 +45,10 @@ OTMeterProvider class >> readConfiguration [
 	views := OTConfigurationSource configuredMetricViews.
 	views do: [ :each | provider addView: each ].
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
+	readers := OTConfigurationSource configuredMetricReaders.
+	readers ifNotNil: [
+		readers do: [ :each | provider addMetricReader: each ].
+		^ provider ].
 	exporterNames := self configuredExporterNames.
 	exporterNames do: [ :each |
 		each = 'prometheus'

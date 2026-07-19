@@ -788,6 +788,96 @@ meter_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsDistinctPeriodicMetricReaderSettings [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        interval: 1111
+        timeout: 2222
+        exporter:
+          console:
+    - periodic:
+        interval: 3333
+        timeout: 4444
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/custom/metrics
+            temporality_preference: delta
+            default_histogram_aggregation: base2_exponential_bucket_histogram
+'
+		environmentValues: Dictionary new
+		during: [
+			| counter histogram readers provider |
+			provider := OTMeterProvider current.
+			readers := provider metricReaders.
+			counter := (provider meterNamed: 'config.metrics')
+				counterNamed: 'requests.total'.
+			histogram := (provider meterNamed: 'config.metrics')
+				histogramNamed: 'request.duration'.
+			self assert: readers size equals: 2.
+			self assert: readers first class identicalTo: OTPeriodicExportingMetricReader.
+			self assert: readers first exporter class identicalTo: OTConsoleMetricExporter.
+			self assert: readers first exportIntervalMillis equals: 1111.
+			self assert: readers first exportTimeoutMillis equals: 2222.
+			self assert: readers second class identicalTo: OTPeriodicExportingMetricReader.
+			self
+				assert: readers second exporter class
+				identicalTo: OTOtlpHttpProtobufMetricExporter.
+			self assert: readers second exportIntervalMillis equals: 3333.
+			self assert: readers second exportTimeoutMillis equals: 4444.
+			self
+				assert: readers second exporter configuration endpoint
+				equals: 'http://collector:4318/custom/metrics'.
+			self assert: (readers second temporalityFor: counter) equals: #delta.
+			self
+				assert: (readers second aggregationFor: histogram)
+				equals: #base2ExponentialBucketHistogram ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsMultipleOtlpMetricReadersWithDistinctSettings [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        interval: 1111
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/reader-a/metrics
+            temporality_preference: cumulative
+    - periodic:
+        interval: 2222
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/reader-b/metrics
+            temporality_preference: delta
+'
+		environmentValues: Dictionary new
+		during: [
+			| counter readers provider |
+			provider := OTMeterProvider current.
+			readers := provider metricReaders.
+			counter := (provider meterNamed: 'config.metrics')
+				counterNamed: 'requests.total'.
+			self assert: readers size equals: 2.
+			self
+				assert: readers first exporter configuration endpoint
+				equals: 'http://collector:4318/reader-a/metrics'.
+			self
+				assert: readers second exporter configuration endpoint
+				equals: 'http://collector:4318/reader-b/metrics'.
+			self assert: (readers first temporalityFor: counter) equals: #cumulative.
+			self assert: (readers second temporalityFor: counter) equals: #delta ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsExcludedOnlyDeclarativeMetricViewAttributeKeys [
 
 	self

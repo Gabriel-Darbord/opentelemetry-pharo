@@ -164,6 +164,19 @@ OTConfigurationSource class >> configuredMeterConfigurator [
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> configuredMetricReaders [
+
+	| configuration meterProvider readers |
+	configuration := self configuredConfiguration.
+	configuration ifNil: [ ^ nil ].
+	meterProvider := self dictionaryValueAt: 'meter_provider' in: configuration.
+	meterProvider ifNil: [ ^ nil ].
+	readers := self sequenceValueAt: 'readers' in: meterProvider.
+	readers ifNil: [ ^ nil ].
+	^ self metricReadersFrom: readers
+]
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> configuredMetricViews [
 
 	| configuration meterProvider views |
@@ -1028,28 +1041,33 @@ OTConfigurationSource class >> projectMetricReadersFrom: aDictionary into: anEnv
 	readers ifEmpty: [
 		anEnvironment at: 'OTEL_METRICS_EXPORTER' put: 'none'.
 		^ self ].
-	exporters := self projectedMetricExporterNodesFromReaders: readers.
-	periodicSettings := self sharedPeriodicMetricReaderSettingsFrom: readers.
-	periodicSettings ifNotNil: [
-		self put: 'OTEL_METRIC_EXPORT_INTERVAL' from: 'interval' in: periodicSettings into: anEnvironment.
-		self put: 'OTEL_METRIC_EXPORT_TIMEOUT' from: 'timeout' in: periodicSettings into: anEnvironment ].
-	metricExporterSettings := self sharedOtlpMetricExporterSettingsFromReaders: readers.
-	metricExporterSettings ifNotNil: [
-		self
-			put: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'
-			from: 'temporality_preference'
-			in: metricExporterSettings
-			into: anEnvironment.
-		self
-			put: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION'
-			from: 'default_histogram_aggregation'
-			in: metricExporterSettings
-			into: anEnvironment ].
-	anEnvironment
-		at: 'OTEL_METRICS_EXPORTER'
-		put: (self projectedExporterSelectionFrom: exporters).
-	exporters values do: [ :each |
-		self projectExporterConfigurationNode: each signalNamed: 'METRICS' into: anEnvironment ].
+	[
+		exporters := self projectedMetricExporterNodesFromReaders: readers.
+		periodicSettings := self sharedPeriodicMetricReaderSettingsFrom: readers.
+		periodicSettings ifNotNil: [
+			self put: 'OTEL_METRIC_EXPORT_INTERVAL' from: 'interval' in: periodicSettings into: anEnvironment.
+			self put: 'OTEL_METRIC_EXPORT_TIMEOUT' from: 'timeout' in: periodicSettings into: anEnvironment ].
+		metricExporterSettings := self sharedOtlpMetricExporterSettingsFromReaders: readers.
+		metricExporterSettings ifNotNil: [
+			self
+				put: 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'
+				from: 'temporality_preference'
+				in: metricExporterSettings
+				into: anEnvironment.
+			self
+				put: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION'
+				from: 'default_histogram_aggregation'
+				in: metricExporterSettings
+				into: anEnvironment ].
+		anEnvironment
+			at: 'OTEL_METRICS_EXPORTER'
+			put: (self projectedExporterSelectionFrom: exporters).
+		exporters values do: [ :each |
+			self projectExporterConfigurationNode: each signalNamed: 'METRICS' into: anEnvironment ] ]
+		on: Error
+		do: [ :error |
+			(self shouldIgnoreProjectionError: error)
+				ifFalse: [ error pass ] ].
 	^ self
 ]
 
@@ -1762,6 +1780,89 @@ OTConfigurationSource class >> logRecordProcessorsFrom: aCollection [
 	^ aCollection collect: [ :each | self logRecordProcessorFrom: each ]
 ]
 
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> metricAggregationPreferenceFrom: aStringOrNil [
+
+	| value |
+	aStringOrNil ifNil: [ ^ #explicitBucketHistogram ].
+	value := aStringOrNil asLowercase.
+	value = 'explicit_bucket_histogram' ifTrue: [ ^ #explicitBucketHistogram ].
+	value = 'base2_exponential_bucket_histogram' ifTrue: [
+		^ #base2ExponentialBucketHistogram ].
+	OTOtlpHttpJsonMetricExporter noteInvalidHistogramAggregationPreference: value.
+	^ #explicitBucketHistogram
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> metricExporterFromNode: aDictionary [
+
+	| association exporter exporterOptions exporterType |
+	aDictionary ifNil: [
+		Error signal: 'Declarative configuration metric readers require an exporter' ].
+	association := self
+		singleAssociationFrom: aDictionary
+		describedAs: 'exporter'.
+	exporterType := association key.
+	exporterOptions := association value ifNil: [ OrderedDictionary new ].
+	exporterType = 'console' ifTrue: [ ^ OTConsoleMetricExporter new ].
+	exporterType = 'otlp_grpc' ifTrue: [
+		exporter := OTOtlpGrpcMetricExporter
+			configuration: (self
+				otlpExporterConfigurationFrom: exporterOptions
+				signalNamed: 'METRICS'
+				protocol: 'grpc').
+		^ self configureOtlpMetricExporter: exporter from: exporterOptions ].
+	exporterType = 'otlp_http' ifTrue: [
+		exporter := OTOtlpHttpProtobufMetricExporter
+			configuration: (self
+				otlpExporterConfigurationFrom: exporterOptions
+				signalNamed: 'METRICS'
+				protocol: 'http/protobuf').
+		^ self configureOtlpMetricExporter: exporter from: exporterOptions ].
+	exporterType = 'prometheus' ifTrue: [
+		Error signal: 'Declarative periodic metric readers are not representable for Prometheus exporters via SDK environment variables' ].
+	Error signal: 'Unsupported declarative exporter type: ', exporterType printString
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> metricReaderFrom: aDictionary [
+
+	| exporter kind options reader readerAssociation |
+	readerAssociation := self
+		singleAssociationFrom: aDictionary
+		describedAs: 'metric reader'.
+	kind := self normalizedSamplerKind: readerAssociation key.
+	options := readerAssociation value ifNil: [ OrderedDictionary new ].
+	kind = 'periodic' ifTrue: [
+		exporter := self
+			metricExporterFromNode: (self exporterNodeFromProcessorNode: options).
+		reader := OTPeriodicExportingMetricReader exporter: exporter.
+		^ self configurePeriodicMetricReader: reader from: options ].
+	kind = 'pull' ifTrue: [ ^ self pullMetricReaderFrom: options ].
+	Error signal:
+		'Unsupported declarative metric reader type: '
+			, readerAssociation key printString
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> metricReadersFrom: aCollection [
+
+	^ aCollection collect: [ :each | self metricReaderFrom: each ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> metricTemporalityPreferenceFrom: aStringOrNil [
+
+	| value |
+	aStringOrNil ifNil: [ ^ #cumulative ].
+	value := aStringOrNil asLowercase.
+	value = 'cumulative' ifTrue: [ ^ #cumulative ].
+	value = 'delta' ifTrue: [ ^ #delta ].
+	value = 'lowmemory' ifTrue: [ ^ #lowMemory ].
+	OTOtlpHttpJsonMetricExporter noteInvalidTemporalityPreference: value.
+	^ #cumulative
+]
+
 { #category : 'private - projection' }
 OTConfigurationSource class >> declarativeBooleanFrom: anObject [
 
@@ -1846,7 +1947,11 @@ OTConfigurationSource class >> shouldIgnoreProjectionError: anError [
 	^ (message includesSubstring: 'not representable via SDK environment variables')
 		or: [
 			(message includesSubstring: 'representable for ')
-				or: [ message includesSubstring: 'configures incompatible batch processor settings for one signal' ] ]
+				or: [
+					(message includesSubstring: 'incompatible batch processor settings')
+						or: [
+							(message includesSubstring: 'incompatible OTLP reader settings')
+								or: [ message includesSubstring: 'incompatible periodic reader settings' ] ] ] ]
 ]
 
 { #category : 'private - projection' }
@@ -1915,6 +2020,36 @@ OTConfigurationSource class >> configureBatchSpanProcessor: anOTBatchSpanProcess
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> configureOtlpMetricExporter: anOTMetricExporter from: aDictionary [
+
+	| aggregationPreference temporalityPreference |
+	temporalityPreference := self
+		metricTemporalityPreferenceFrom: (self stringValueAt: 'temporality_preference' in: aDictionary).
+	anOTMetricExporter temporalitySelector: [ :instrument |
+		instrument otlpTemporalityForPreference: temporalityPreference ].
+	aggregationPreference := self
+		metricAggregationPreferenceFrom: (self stringValueAt: 'default_histogram_aggregation' in: aDictionary).
+	anOTMetricExporter aggregationSelector: [ :instrument |
+		instrument otlpAggregationForPreference: aggregationPreference ].
+	^ anOTMetricExporter
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> configurePeriodicMetricReader: anOTPeriodicExportingMetricReader from: aDictionary [
+
+	anOTPeriodicExportingMetricReader
+		exportIntervalMillis: (self
+			positiveIntegerValueAt: 'interval'
+			in: aDictionary
+			default: anOTPeriodicExportingMetricReader exportIntervalMillis);
+		exportTimeoutMillis: (self
+			positiveIntegerValueAt: 'timeout'
+			in: aDictionary
+			default: anOTPeriodicExportingMetricReader exportTimeoutMillis).
+	^ anOTPeriodicExportingMetricReader
+]
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> traceExporterFromNode: aDictionary [
 
 	| association endpoint exporter exporterOptions exporterType timeout |
@@ -1949,6 +2084,34 @@ OTConfigurationSource class >> traceExporterFromNode: aDictionary [
 				signalNamed: 'TRACES'
 				protocol: 'http/protobuf') ].
 	Error signal: 'Unsupported declarative exporter type: ', exporterType printString
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> pullMetricReaderFrom: aDictionary [
+
+	| association exporterOptions exporterType reader |
+	(self stringValueAt: 'interval' in: aDictionary) ifNotNil: [
+		Error signal:
+			'Declarative pull metric readers are not representable with interval or timeout settings via SDK environment variables' ].
+	(self stringValueAt: 'timeout' in: aDictionary) ifNotNil: [
+		Error signal:
+			'Declarative pull metric readers are not representable with interval or timeout settings via SDK environment variables' ].
+	association := self
+		singleAssociationFrom: (self exporterNodeFromProcessorNode: aDictionary)
+		describedAs: 'exporter'.
+	exporterType := association key.
+	exporterOptions := association value ifNil: [ OrderedDictionary new ].
+	exporterType = 'prometheus' ifFalse: [
+		Error signal:
+			'Declarative pull metric readers are only representable for Prometheus exporters via SDK environment variables' ].
+	reader := OTPrometheusMetricReader new.
+	(self stringValueAt: 'host' in: exporterOptions) ifNotNil: [ :value |
+		reader host: value ].
+	reader port: (self
+		nonNegativeIntegerValueAt: 'port'
+		in: exporterOptions
+		default: reader port).
+	^ reader
 ]
 
 { #category : 'private - configuration file' }
