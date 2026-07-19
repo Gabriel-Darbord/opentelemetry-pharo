@@ -362,6 +362,12 @@ OTSpan class >> resetLimitWarningState [
 { #category : 'instance creation' }
 OTSpan class >> rootIn: aContext [
 
+	Error signal: 'OpenTelemetry spans must be created via an OTTracer'
+]
+
+{ #category : 'private' }
+OTSpan class >> rootInInternal: aContext [
+
 	| span |
 	span := self newInternal.
 	span
@@ -381,6 +387,12 @@ OTSpan class >> server [
 
 { #category : 'instance creation' }
 OTSpan class >> under: parentSpan [
+
+	Error signal: 'OpenTelemetry spans must be created via an OTTracer'
+]
+
+{ #category : 'private' }
+OTSpan class >> underInternal: parentSpan [
 
 	| parentSpanContext span |
 	parentSpanContext := parentSpan spanContext.

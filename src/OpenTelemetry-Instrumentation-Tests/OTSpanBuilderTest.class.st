@@ -284,6 +284,25 @@ OTSpanBuilderTest >> testSpanClassNewIsRejected [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanClassRootInIsRejected [
+
+	self should: [ OTSpan rootIn: OTContext new ] raise: Error
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanClassUnderIsRejected [
+
+	| parentSpan |
+	parentSpan := (OTSpanContext
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '01'
+		               traceState: nil
+		               remote: false) asNonRecordingSpan.
+	self should: [ OTSpan under: parentSpan ] raise: Error
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testStartedSpanExposesRemoteParentSpanContext [
 
 	| parentContext provider span tracer |
