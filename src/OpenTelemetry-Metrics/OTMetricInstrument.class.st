@@ -43,6 +43,14 @@ OTMetricInstrument >> advice: aDictionary [
 	advice := aDictionary
 ]
 
+{ #category : 'aggregating' }
+OTMetricInstrument >> attributeFilter [
+
+	^ OTMetricAttributeFilter
+		included: self retainedAttributeKeys
+		excluded: nil
+]
+
 { #category : 'binding' }
 OTMetricInstrument >> bind: aCollection [
 
@@ -199,24 +207,28 @@ OTMetricInstrument >> name: aString [
 { #category : 'aggregating' }
 OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement [
 
-	| normalized retainedKeys |
-	normalized := self
+	^ self
 		normalizedAttributesForMeasurement: anOTMetricMeasurement
-		retainingKeys: self retainedAttributeKeys.
-	^ normalized
+		usingAttributeFilter: self attributeFilter
 ]
 
 { #category : 'aggregating' }
 OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement retainingKeys: someKeys [
 
+	^ self
+		normalizedAttributesForMeasurement: anOTMetricMeasurement
+		usingAttributeFilter: (OTMetricAttributeFilter
+				included: someKeys
+				excluded: nil)
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement usingAttributeFilter: anOTMetricAttributeFilter [
+
 	| normalized |
 	normalized := OTAttributeNormalizer normalizeAttributes: anOTMetricMeasurement attributes.
-	someKeys ifNil: [ ^ normalized ].
-	^ someKeys inject: OrderedDictionary new into: [ :selected :each |
-		normalized
-			at: each asString
-			ifPresent: [ :value | selected at: each asString put: value ].
-		selected ]
+	anOTMetricAttributeFilter ifNil: [ ^ normalized ].
+	^ anOTMetricAttributeFilter selectedAttributesFrom: normalized
 ]
 
 { #category : 'aggregating' }

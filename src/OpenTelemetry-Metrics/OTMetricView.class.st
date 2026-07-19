@@ -11,6 +11,7 @@ Class {
 		'streamName',
 		'streamDescription',
 		'attributeKeys',
+		'excludedAttributeKeys',
 		'aggregation',
 		'cardinalityLimit',
 		'aggregationParameters',
@@ -194,6 +195,20 @@ OTMetricView >> attributeKeys: aCollection [
 ]
 
 { #category : 'accessing' }
+OTMetricView >> excludedAttributeKeys [
+
+	^ excludedAttributeKeys
+]
+
+{ #category : 'accessing' }
+OTMetricView >> excludedAttributeKeys: aCollection [
+
+	excludedAttributeKeys := aCollection
+		ifNil: [ nil ]
+		ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+]
+
+{ #category : 'accessing' }
 OTMetricView >> instrumentType [
 
 	^ instrumentType
@@ -352,10 +367,19 @@ OTMetricView >> resolvedCardinalityLimitFor: anOTMetricInstrument reader: anOTMe
 ]
 
 { #category : 'resolving' }
+OTMetricView >> resolvedAttributeFilterFor: anOTMetricInstrument [
+
+	(attributeKeys isNil and: [ excludedAttributeKeys isNil ]) ifTrue: [
+		^ anOTMetricInstrument attributeFilter ].
+	^ OTMetricAttributeFilter
+		included: attributeKeys
+		excluded: excludedAttributeKeys
+]
+
+{ #category : 'resolving' }
 OTMetricView >> resolvedRetainedAttributeKeysFor: anOTMetricInstrument [
 
-	attributeKeys ifNotNil: [ ^ attributeKeys ].
-	^ anOTMetricInstrument retainedAttributeKeys
+	^ (self resolvedAttributeFilterFor: anOTMetricInstrument) includedKeys
 ]
 
 { #category : 'accessing' }

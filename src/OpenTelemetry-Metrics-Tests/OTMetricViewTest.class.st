@@ -195,6 +195,31 @@ OTMetricViewTest >> testViewCanOverrideExplicitHistogramBoundariesAndMinMax [
 ]
 
 { #category : 'tests' }
+OTMetricViewTest >> testViewCanExcludeAttributesWithoutExplicitIncludeList [
+
+	| metric point provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider
+		addMetricReader: reader;
+		addView: ((OTMetricView named: 'requests.total')
+				excludedAttributeKeys: #( 'user' );
+				yourself).
+	((provider meterNamed: 'demo.metrics')
+		counterNamed: 'requests.total')
+		add: 2
+		attributes: {
+			'status' -> '200'.
+			'user' -> 'alice'.
+			'region' -> 'eu' }.
+	metric := reader collectSnapshot metrics first.
+	point := metric points first.
+	self assert: (point attributes at: 'status') equals: '200'.
+	self assert: (point attributes at: 'region') equals: 'eu'.
+	self deny: (point attributes includesKey: 'user')
+]
+
+{ #category : 'tests' }
 OTMetricViewTest >> testViewCanRenameFilterAttributesAndOverrideCardinalityLimit [
 
 	| metric overflowPoint point provider reader |

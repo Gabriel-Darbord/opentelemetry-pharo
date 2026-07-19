@@ -810,20 +810,18 @@ OTConfigurationSource class >> metricViewAggregationParametersFor: anAssociation
 ]
 
 { #category : 'private - projection' }
-OTConfigurationSource class >> metricViewAttributeKeysFrom: aDictionary [
+OTConfigurationSource class >> metricViewAttributeFilterFrom: aDictionary [
 
-	| attributeKeys excluded included |
+	| attributeKeys excluded filter included |
 	attributeKeys := self dictionaryValueAt: 'attribute_keys' in: aDictionary.
 	attributeKeys ifNil: [ ^ nil ].
 	included := self stringCollectionValueAt: 'included' in: attributeKeys.
 	excluded := self stringCollectionValueAt: 'excluded' in: attributeKeys.
-	included ifNil: [
-		excluded ifNotNil: [
-			Error signal:
-				'Declarative metric views with excluded-only attribute_keys are not representable by OTMetricView' ].
-		^ nil ].
-	excluded ifNil: [ ^ included ].
-	^ included reject: [ :each | excluded includes: each ]
+	filter := OTMetricAttributeFilter
+		included: included
+		excluded: excluded.
+	filter isAll ifTrue: [ ^ nil ].
+	^ filter
 ]
 
 { #category : 'private - projection' }
@@ -1729,15 +1727,18 @@ OTConfigurationSource class >> configureMetricView: anOTMetricView selectorFrom:
 { #category : 'private - projection' }
 OTConfigurationSource class >> configureMetricView: anOTMetricView streamFrom: aDictionary [
 
-	| attributeKeys |
+	| attributeFilter |
 	(self stringValueAt: 'name' in: aDictionary) ifNotNil: [ :value |
 		anOTMetricView streamName: value ].
 	(self stringValueAt: 'description' in: aDictionary) ifNotNil: [ :value |
 		anOTMetricView streamDescription: value ].
 	(self integerValueAt: 'aggregation_cardinality_limit' in: aDictionary) ifNotNil: [ :value |
 		anOTMetricView aggregationCardinalityLimit: value ].
-	attributeKeys := self metricViewAttributeKeysFrom: aDictionary.
-	attributeKeys ifNotNil: [ anOTMetricView attributeKeys: attributeKeys ].
+	attributeFilter := self metricViewAttributeFilterFrom: aDictionary.
+	attributeFilter ifNotNil: [
+		anOTMetricView
+			attributeKeys: attributeFilter includedKeys;
+			excludedAttributeKeys: attributeFilter excludedKeys ].
 	self configureMetricView: anOTMetricView aggregationFrom: aDictionary.
 	^ anOTMetricView
 ]

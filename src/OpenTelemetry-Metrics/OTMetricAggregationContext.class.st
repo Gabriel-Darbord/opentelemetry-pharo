@@ -182,6 +182,18 @@ OTMetricAggregationContext >> collectedAt: aDateAndTime [
 ]
 
 { #category : 'accessing' }
+OTMetricAggregationContext >> attributeFilter [
+
+	^ retainedAttributeKeys
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> attributeFilter: anOTMetricAttributeFilter [
+
+	retainedAttributeKeys := anOTMetricAttributeFilter
+]
+
+{ #category : 'accessing' }
 OTMetricAggregationContext >> cardinalityLimit [
 
 	^ cardinalityLimit ifNil: [ 2000 ]
@@ -198,13 +210,13 @@ OTMetricAggregationContext >> cardinalityLimit: anInteger [
 { #category : 'accessing' }
 OTMetricAggregationContext >> retainedAttributeKeys [
 
-	^ retainedAttributeKeys
+	^ self attributeFilter
 ]
 
 { #category : 'accessing' }
 OTMetricAggregationContext >> retainedAttributeKeys: aCollection [
 
-	retainedAttributeKeys := aCollection
+	self attributeFilter: aCollection
 ]
 
 { #category : 'accessing' }

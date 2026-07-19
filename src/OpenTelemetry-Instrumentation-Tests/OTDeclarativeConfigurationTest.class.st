@@ -942,12 +942,10 @@ meter_provider:
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileRejectsExcludedOnlyDeclarativeMetricViewAttributeKeys [
+OTDeclarativeConfigurationTest >> testConfigFileSupportsExcludedOnlyDeclarativeMetricViewAttributeKeys [
 
 	self
-		should: [
-			self
-				withConfigurationFileContents:
+		withConfigurationFileContents:
 'file_format: "1.1"
 meter_provider:
   readers:
@@ -962,9 +960,23 @@ meter_provider:
           excluded:
             - user
 '
-				environmentValues: Dictionary new
-				during: [ OTMeterProvider current ] ]
-		raise: Error
+		environmentValues: Dictionary new
+		during: [
+			| metric point provider reader |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			((provider meterNamed: 'config.metrics')
+				counterNamed: 'requests.total')
+				add: 2
+				attributes: {
+					'status' -> '200'.
+					'user' -> 'alice'.
+					'region' -> 'eu' }.
+			metric := reader collectSnapshot metrics first.
+			point := metric points first.
+			self assert: (point attributes at: 'status') equals: '200'.
+			self assert: (point attributes at: 'region') equals: 'eu'.
+			self deny: (point attributes includesKey: 'user') ]
 ]
 
 { #category : 'tests' }

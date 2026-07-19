@@ -111,17 +111,17 @@ OTMetricReader >> aggregationSelector: aBlockOrNil [
 { #category : 'collecting' }
 OTMetricReader >> cardinalityLimitedMeasurementsFrom: someMeasurements for: anOTMetricInstrument using: anOTMetricAggregationContext stateKey: aStateKey [
 
-	| limit limitedMeasurements overflowAttributes retainedKeys selectedAttributeSets |
+	| attributeFilter limit limitedMeasurements overflowAttributes selectedAttributeSets |
 	limit := anOTMetricAggregationContext cardinalityLimit.
 	limitedMeasurements := OrderedCollection new: someMeasurements size.
 	overflowAttributes := self overflowAttributes.
-	retainedKeys := anOTMetricAggregationContext retainedAttributeKeys.
+	attributeFilter := anOTMetricAggregationContext attributeFilter.
 	selectedAttributeSets := self selectedAttributeSetsForStateKey: aStateKey.
 	someMeasurements do: [ :each |
 		| knownAttributes normalizedAttributes |
 		normalizedAttributes := anOTMetricInstrument
 			normalizedAttributesForMeasurement: each
-			retainingKeys: retainedKeys.
+			usingAttributeFilter: attributeFilter.
 		knownAttributes := self
 			selectedAttributeSetMatching: normalizedAttributes
 			within: selectedAttributeSets.
@@ -406,7 +406,7 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument collectedAt:
 { #category : 'collecting' }
 OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMetricViewOrNil collectedAt: aDateAndTime [
 
-	| aggregation previousCollection retainedAttributeKeys startTimestamp temporality |
+	| aggregation attributeFilter previousCollection startTimestamp temporality |
 	temporality := self temporalityFor: anOTMetricInstrument.
 	previousCollection := self lastCollectionTimestampFor: anOTMetricInstrument.
 	startTimestamp := anOTMetricInstrument
@@ -416,15 +416,15 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMe
 		ifNil: [ self aggregationFor: anOTMetricInstrument ]
 		ifNotNil: [ anOTMetricViewOrNil resolvedAggregationFor: anOTMetricInstrument reader: self ].
 	(anOTMetricInstrument supportsAggregation: aggregation) ifFalse: [ ^ nil ].
-	retainedAttributeKeys := anOTMetricViewOrNil
-		ifNil: [ anOTMetricInstrument retainedAttributeKeys ]
-		ifNotNil: [ anOTMetricViewOrNil resolvedRetainedAttributeKeysFor: anOTMetricInstrument ].
+	attributeFilter := anOTMetricViewOrNil
+		ifNil: [ anOTMetricInstrument attributeFilter ]
+		ifNotNil: [ anOTMetricViewOrNil resolvedAttributeFilterFor: anOTMetricInstrument ].
 	^ OTMetricAggregationContext
 		collectedAt: aDateAndTime
 		startTimestamp: startTimestamp
 		temporality: temporality
 		aggregation: aggregation
-		retainedAttributeKeys: retainedAttributeKeys
+		retainedAttributeKeys: attributeFilter
 		cardinalityLimit: (anOTMetricViewOrNil
 				ifNil: [ self cardinalityLimitFor: anOTMetricInstrument ]
 				ifNotNil: [
