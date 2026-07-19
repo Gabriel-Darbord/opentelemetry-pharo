@@ -11,6 +11,54 @@ Class {
 	#package : 'OpenTelemetry-Sampling'
 }
 
+{ #category : 'private - logging' }
+OTSampler class >> compatibilityWarningSink [
+
+	^ OTClassStateStore
+		valueAt: #otCompatibilityWarningSink
+		forClass: self
+		ifAbsent: [ self defaultCompatibilityWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTSampler class >> compatibilityWarningSink: aBlock [
+
+	aBlock
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otCompatibilityWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otCompatibilityWarningSink
+				forClass: self
+				put: aBlock ].
+	^ self compatibilityWarningSink
+]
+
+{ #category : 'private - logging' }
+OTSampler class >> defaultCompatibilityWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private - logging' }
+OTSampler class >> emittedCompatibilityWarningsBySampler [
+
+	^ OTClassStateStore
+		valueAt: #otCompatibilityWarningsBySampler
+		forClass: self
+		ifAbsent: [
+			| warningsBySampler |
+			warningsBySampler := WeakIdentityKeyDictionary new.
+			OTClassStateStore
+				valueAt: #otCompatibilityWarningsBySampler
+				forClass: self
+				put: warningsBySampler.
+			warningsBySampler ]
+]
+
 { #category : 'instance creation' }
 OTSampler class >> alwaysRecord: aSampler [
 	"Wrap a sampler so DROP becomes RECORD_ONLY while preserving the original sampling rate"
@@ -63,6 +111,33 @@ OTSampler class >> withRate: anInteger [
 	"A fixed-rate sampler with a positive rate"
 
 	^ OTFixedRateSampler new rate: anInteger
+]
+
+{ #category : 'private - logging' }
+OTSampler class >> noteCompatibilityWarning: aString kind: aSymbol for: aSampler [
+
+	| emittedWarnings |
+	emittedWarnings := self
+		emittedCompatibilityWarningsBySampler
+		at: aSampler
+		ifAbsentPut: [ Set new ].
+	(emittedWarnings includes: aSymbol) ifTrue: [ ^ false ].
+	emittedWarnings add: aSymbol.
+	self compatibilityWarningSink value: aString.
+	^ true
+]
+
+{ #category : 'private - logging' }
+OTSampler class >> resetCompatibilityWarningState [
+
+	OTClassStateStore
+		removeValueAt: #otCompatibilityWarningsBySampler
+		forClass: self
+		ifAbsent: [  ].
+	OTClassStateStore
+		removeValueAt: #otCompatibilityWarningSink
+		forClass: self
+		ifAbsent: [  ]
 ]
 
 { #category : 'accessing' }

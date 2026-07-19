@@ -5,6 +5,15 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
+{ #category : 'running' }
+OTSamplerTest >> tearDown [
+
+	OTProbabilisticSampler resetCompatibilityWarningState.
+	OTTraceIdRatioBasedSampler resetCompatibilityWarningState.
+	OTDiagnosticLogger reset.
+	super tearDown
+]
+
 { #category : 'tests' }
 OTSamplerTest >> testFactoryMethodsReturnSamplerInstances [
 
@@ -145,6 +154,26 @@ OTSamplerTest >> testProbabilitySamplerAddsThresholdToOpenTelemetryTraceStateWhe
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerDoesNotWarnWhenExplicitRandomnessIsPresent [
+
+	| sampler warnings |
+	warnings := OrderedCollection new.
+	OTProbabilisticSampler compatibilityWarningSink: [ :message |
+		warnings add: message ].
+	sampler := OTSampler probability: 0.5.
+	sampler
+		shouldSampleIn: (self
+				contextWithTraceFlags: '00'
+				traceState: 'ot=rv:80000000000000')
+		traceId: '00112233445566778899aabbccddeeff'
+		name: 'operation'
+		kind: OTSpan internal
+		attributes: #()
+		links: #().
+	self assert: warnings isEmpty
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
 
 	| result sampler |
@@ -161,6 +190,30 @@ OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
 	self assert: result isDrop.
 	self assert: (result traceState otelValueAt: 'rv') equals: '7fffffffffffff'.
 	self assert: (result traceState otelValueAt: 'th') equals: nil
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerWarnsOnceWhenParentTraceIsNotMarkedRandom [
+
+	| sampler warnings |
+	warnings := OrderedCollection new.
+	OTProbabilisticSampler compatibilityWarningSink: [ :message |
+		warnings add: message ].
+	sampler := OTSampler probability: 0.5.
+	2 timesRepeat: [
+		sampler
+			shouldSampleIn: (self
+					contextWithTraceFlags: '01'
+					traceState: nil)
+			traceId: '00112233445566778899aabbccddeeff'
+			name: 'operation'
+			kind: OTSpan internal
+			attributes: #()
+			links: #() ].
+	self
+		assert: warnings asArray
+		equals: {
+				'WARNING: The ProbabilitySampler sampler is presuming TraceIDs are random and expects the Trace random flag to be set in confirmation.  Please upgrade your caller(s) to use W3C Trace Context Level 2.' }
 ]
 
 { #category : 'tests' }
@@ -184,6 +237,53 @@ OTSamplerTest >> testTraceIdRatioBasedSamplerIsDeterministicForSameTraceId [
 		attributes: #()
 		links: #().
 	self assert: first decision equals: second decision
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testTraceIdRatioBasedSamplerWarnsOnceWhenParentUsesProbabilitySampler [
+
+	| sampler warnings |
+	warnings := OrderedCollection new.
+	OTTraceIdRatioBasedSampler compatibilityWarningSink: [ :message |
+		warnings add: message ].
+	sampler := OTSampler traceIdRatioBased: 0.5.
+	2 timesRepeat: [
+		sampler
+			shouldSampleIn: (self
+					contextWithTraceFlags: '01'
+					traceState: 'ot=th:8')
+			traceId: '00112233445566778899aabbccddeeff'
+			name: 'operation'
+			kind: OTSpan internal
+			attributes: #()
+			links: #() ].
+	self
+		assert: warnings asArray
+		equals: {
+				'WARNING: The TraceIdRatioBased sampler is operating as a child sampler and a parent is using ProbabilitySampler. Please upgrade this SDK configuration to use ProbabilitySampler.' }
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testTraceIdRatioBasedSamplerWarnsWhenUsedAsChildSampler [
+
+	| sampler warnings |
+	warnings := OrderedCollection new.
+	OTTraceIdRatioBasedSampler compatibilityWarningSink: [ :message |
+		warnings add: message ].
+	sampler := OTSampler traceIdRatioBased: 0.5.
+	sampler
+		shouldSampleIn: (self
+				contextWithTraceFlags: '01'
+				traceState: nil)
+		traceId: '00112233445566778899aabbccddeeff'
+		name: 'operation'
+		kind: OTSpan internal
+		attributes: #()
+		links: #().
+	self
+		assert: warnings asArray
+		equals: {
+				'WARNING: The TraceIdRatioBased sampler is operating as a child sampler; the behavior is subject to change. Please upgrade this SDK configuration to use ProbabilitySampler.' }
 ]
 
 { #category : 'tests' }
