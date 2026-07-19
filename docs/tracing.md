@@ -65,6 +65,16 @@ span := (tracer spanBuilderNamed: 'http.request')
 ]
 ```
 
+`inContext:` expects a full `OTContext`. If you have a parent span, wrap it
+first:
+
+```smalltalk
+parentContext := OTContext new withSpan: parentSpan.
+span := (tracer spanBuilderNamed: 'child')
+  inContext: parentContext;
+  startSpan.
+```
+
 For a root span that ignores the current parent span:
 
 ```smalltalk

@@ -41,8 +41,8 @@ OTSpanBuilder class >> normalizedParentContextFrom: aContext [
 
 	aContext ifNil: [ ^ OTContext new ].
 	(aContext isKindOf: OTContext) ifTrue: [ ^ aContext ].
-	self noteInvalidParentContext: aContext.
-	^ OTContext new
+	Error signal:
+		'OpenTelemetry span builders require an OTContext parent. Wrap spans with #inContext: on OTSpan or use OTContext>>withSpan:.'
 ]
 
 { #category : 'private - logging' }

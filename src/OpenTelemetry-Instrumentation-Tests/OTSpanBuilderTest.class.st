@@ -85,51 +85,33 @@ OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 { #category : 'tests' }
 OTSpanBuilderTest >> testInContextIgnoresInvalidSpanAsParentContext [
 
-	self
-		withParentContextWarningsDo: [ :warnings |
-			| parentSpan provider span tracer |
-			provider := OTTracerProvider new.
-			provider spanProcessor: OTSimpleSpanProcessor new.
-			tracer := provider tracerNamed: 'demo.scope'.
-			parentSpan := (OTSpanContext
-				traceId: '00112233445566778899aabbccddeeff'
-				spanId: '1122334455667788'
-				traceFlags: '03'
-				traceState: nil
-				remote: true) asNonRecordingSpan.
-			span := ((tracer spanBuilderNamed: 'operation')
-				inContext: parentSpan;
-				startSpan).
-			self assert: span parent isNil.
-			self assert: warnings size equals: 1.
-			self assert: warnings first equals:
-				'OpenTelemetry span builder ignored an invalid parent context and used a root context instead: '
-					, parentSpan printString ]
+	| parentSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (OTSpanContext
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '03'
+		               traceState: nil
+		               remote: true) asNonRecordingSpan.
+	self should: [ (tracer spanBuilderNamed: 'operation') inContext: parentSpan ] raise: Error
 ]
 
 { #category : 'tests' }
 OTSpanBuilderTest >> testInContextIgnoresInvalidSpanContextAsParentContext [
 
-	self
-		withParentContextWarningsDo: [ :warnings |
-			| provider span spanContext tracer |
-			provider := OTTracerProvider new.
-			provider spanProcessor: OTSimpleSpanProcessor new.
-			tracer := provider tracerNamed: 'demo.scope'.
-			spanContext := OTSpanContext
-				traceId: '00112233445566778899aabbccddeeff'
-				spanId: '1122334455667788'
-				traceFlags: '03'
-				traceState: nil
-				remote: true.
-			span := ((tracer spanBuilderNamed: 'operation')
-				inContext: spanContext;
-				startSpan).
-			self assert: span parent isNil.
-			self assert: warnings size equals: 1.
-			self assert: warnings first equals:
-				'OpenTelemetry span builder ignored an invalid parent context and used a root context instead: '
-					, spanContext printString ]
+	| provider spanContext tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	spanContext := OTSpanContext
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '03'
+		               traceState: nil
+		               remote: true.
+	self should: [ (tracer spanBuilderNamed: 'operation') inContext: spanContext ] raise: Error
 ]
 
 { #category : 'tests' }
@@ -168,49 +150,6 @@ OTSpanBuilderTest >> testInCurrentContextUsesImplicitCurrentSpanAsParent [
 			span := ((tracer spanBuilderNamed: 'operation')
 				inCurrentContext;
 				startSpan) ].
-	self assert: span parent identicalTo: parentSpan.
-	self assert: span traceId equals: parentSpan traceId
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanBuilderDefersImplicitCurrentContextUntilStart [
-
-	| builder currentContext parentSpan provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	builder := tracer spanBuilderNamed: 'operation'.
-	parentSpan := (OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '03'
-		traceState: nil
-		remote: false) asNonRecordingSpan.
-	currentContext := OTContext new withSpan: parentSpan.
-	OpenTelemetry
-		useContext: currentContext
-		during: [ span := builder startSpan ].
-	self assert: span parent identicalTo: parentSpan.
-	self assert: span traceId equals: parentSpan traceId
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanBuilderUsesImplicitCurrentContextByDefault [
-
-	| currentContext parentSpan provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	parentSpan := (OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '03'
-		traceState: nil
-		remote: false) asNonRecordingSpan.
-	currentContext := OTContext new withSpan: parentSpan.
-	OpenTelemetry
-		useContext: currentContext
-		during: [ span := (tracer spanBuilderNamed: 'operation') startSpan ].
 	self assert: span parent identicalTo: parentSpan.
 	self assert: span traceId equals: parentSpan traceId
 ]
@@ -278,6 +217,67 @@ OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderCanAddLinkFromAnotherSpan [
+
+	| linkedSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
+	span := ((tracer spanBuilderNamed: 'operation')
+		addLinkSpan: linkedSpan attributes: (OrderedDictionary new
+			at: 'link.kind' put: 'caused_by';
+			yourself);
+		startSpan).
+	self assert: span links size equals: 1.
+	self assert: span links first spanContext equals: linkedSpan spanContext.
+	self assert: (span links first attributes at: 'link.kind') equals: 'caused_by'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderDefersImplicitCurrentContextUntilStart [
+
+	| builder currentContext parentSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	builder := tracer spanBuilderNamed: 'operation'.
+	parentSpan := (OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: nil
+		remote: false) asNonRecordingSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	OpenTelemetry
+		useContext: currentContext
+		during: [ span := builder startSpan ].
+	self assert: span parent identicalTo: parentSpan.
+	self assert: span traceId equals: parentSpan traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderUsesImplicitCurrentContextByDefault [
+
+	| currentContext parentSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (OTSpanContext
+		traceId: '00112233445566778899aabbccddeeff'
+		spanId: '1122334455667788'
+		traceFlags: '03'
+		traceState: nil
+		remote: false) asNonRecordingSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	OpenTelemetry
+		useContext: currentContext
+		during: [ span := (tracer spanBuilderNamed: 'operation') startSpan ].
+	self assert: span parent identicalTo: parentSpan.
+	self assert: span traceId equals: parentSpan traceId
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testStartedSpanExposesRemoteParentSpanContext [
 
 	| parentContext provider span tracer |
@@ -295,24 +295,6 @@ OTSpanBuilderTest >> testStartedSpanExposesRemoteParentSpanContext [
 		startSpan).
 	self assert: span parentSpanContext equals: parentContext.
 	self assert: span parentSpanContext isRemote
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanBuilderCanAddLinkFromAnotherSpan [
-
-	| linkedSpan provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
-	span := ((tracer spanBuilderNamed: 'operation')
-		addLinkSpan: linkedSpan attributes: (OrderedDictionary new
-			at: 'link.kind' put: 'caused_by';
-			yourself);
-		startSpan).
-	self assert: span links size equals: 1.
-	self assert: span links first spanContext equals: linkedSpan spanContext.
-	self assert: (span links first attributes at: 'link.kind') equals: 'caused_by'
 ]
 
 { #category : 'tests' }
