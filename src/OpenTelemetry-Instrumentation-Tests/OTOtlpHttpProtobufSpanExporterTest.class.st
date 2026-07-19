@@ -11,53 +11,36 @@ Class {
 }
 
 { #category : 'private' }
+OTOtlpHttpProtobufSpanExporterTest >> assertReader: aReader readsField: aFieldNumber wireType: aWireType [
+
+	| tag |
+	tag := aReader readTag.
+	self assert: tag first equals: aFieldNumber.
+	self assert: tag second equals: aWireType
+]
+
+{ #category : 'private' }
 OTOtlpHttpProtobufSpanExporterTest >> sampleSpan [
 
-	| span |
-	span := OTSpan new.
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'exporter.test'.
+	span := tracer startSpanNamed: 'operation'.
 	span
 		traceId: '12345678876543211234567887654321';
 		spanId: '8765432112345678';
 		name: 'operation';
 		kind: OTSpan client;
-		startTime: (DateAndTime unixEpoch + (Duration milliSeconds: 1));
-		endTime: (DateAndTime unixEpoch + (Duration milliSeconds: 2));
+		startTime: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		endTime: DateAndTime unixEpoch + (Duration milliSeconds: 2);
 		traceFlags: '01';
-		attributes: (Dictionary new at: 'service.name' put: 'demo'; yourself);
-		events: #();
-		links: #().
+		attributes: (Dictionary new
+				 at: 'service.name' put: 'demo';
+				 yourself);
+		events: #(  );
+		links: #(  ).
 	^ span
-]
-
-{ #category : 'private' }
-OTOtlpHttpProtobufSpanExporterTest >> successResponseWithRejectedSpans: aCount message: aString [
-
-	| writer |
-	writer := OTProtobufWriter withBytes.
-	writer
-		writeTag: 1 wireType: 2;
-		writeEmbedded: [ :partialSuccess |
-			partialSuccess
-				writeTag: 1 wireType: 0;
-				writeVarint: aCount.
-			aString ifNotEmpty: [
-				partialSuccess
-					writeTag: 2 wireType: 2;
-					writeString: aString ] ].
-	^ writer contents
-]
-
-{ #category : 'private' }
-OTOtlpHttpProtobufSpanExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
-
-	| retrySleeps warnings |
-	retrySleeps := OrderedCollection new.
-	warnings := OrderedCollection new.
-	exporter
-		sleepStrategy: [ :delayMillis | retrySleeps add: delayMillis ];
-		retryJitterBlock: [ :delayMillis | delayMillis ];
-		warningSink: [ :message | warnings add: message ].
-	^ aBlock value: retrySleeps value: warnings
 ]
 
 { #category : 'running' }
@@ -78,6 +61,24 @@ OTOtlpHttpProtobufSpanExporterTest >> setUp [
 	exporter := OTOtlpHttpProtobufSpanExporter configuration: configuration.
 	exporter httpClient: client.
 	client responseContents: #[]
+]
+
+{ #category : 'private' }
+OTOtlpHttpProtobufSpanExporterTest >> successResponseWithRejectedSpans: aCount message: aString [
+
+	| writer |
+	writer := OTProtobufWriter withBytes.
+	writer
+		writeTag: 1 wireType: 2;
+		writeEmbedded: [ :partialSuccess |
+			partialSuccess
+				writeTag: 1 wireType: 0;
+				writeVarint: aCount.
+			aString ifNotEmpty: [
+				partialSuccess
+					writeTag: 2 wireType: 2;
+					writeString: aString ] ].
+	^ writer contents
 ]
 
 { #category : 'tests' }
@@ -114,10 +115,14 @@ OTOtlpHttpProtobufSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 ]
 
 { #category : 'private' }
-OTOtlpHttpProtobufSpanExporterTest >> assertReader: aReader readsField: aFieldNumber wireType: aWireType [
+OTOtlpHttpProtobufSpanExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
 
-	| tag |
-	tag := aReader readTag.
-	self assert: tag first equals: aFieldNumber.
-	self assert: tag second equals: aWireType
+	| retrySleeps warnings |
+	retrySleeps := OrderedCollection new.
+	warnings := OrderedCollection new.
+	exporter
+		sleepStrategy: [ :delayMillis | retrySleeps add: delayMillis ];
+		retryJitterBlock: [ :delayMillis | delayMillis ];
+		warningSink: [ :message | warnings add: message ].
+	^ aBlock value: retrySleeps value: warnings
 ]

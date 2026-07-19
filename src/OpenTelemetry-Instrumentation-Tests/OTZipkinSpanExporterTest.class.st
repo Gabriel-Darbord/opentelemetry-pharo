@@ -8,38 +8,35 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
+{ #category : 'running' }
+OTZipkinSpanExporterTest >> setUp [
+
+	super setUp.
+	exporter := OTZipkinSpanExporter new
+]
+
 { #category : 'private' }
 OTZipkinSpanExporterTest >> spanWithKind: aSpanKind attributes: someAttributes [
 
-	| span |
-	span := OTSpan new.
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'exporter.test'.
+	span := tracer startSpanNamed: 'operation'.
 	span
 		traceId: '12345678876543211234567887654321';
 		spanId: '8765432112345678';
 		name: 'operation';
 		kind: aSpanKind;
 		startTime: DateAndTime unixEpoch;
-		endTime: (DateAndTime unixEpoch + 1 second);
+		endTime: DateAndTime unixEpoch + 1 second;
 		traceFlags: '01';
 		attributes: someAttributes;
 		resource: (OTResource attributes: (OrderedDictionary new
-			at: 'service.name' put: 'local-service';
-			yourself));
+						  at: 'service.name' put: 'local-service';
+						  yourself));
 		instrumentationScope: (OTInstrumentationScope named: 'demo.scope').
 	^ span
-]
-
-{ #category : 'private' }
-OTZipkinSpanExporterTest >> transformedSpanForKind: aSpanKind attributes: someAttributes [
-
-	^ (exporter transform: { (self spanWithKind: aSpanKind attributes: someAttributes) }) first
-]
-
-{ #category : 'running' }
-OTZipkinSpanExporterTest >> setUp [
-
-	super setUp.
-	exporter := OTZipkinSpanExporter new
 ]
 
 { #category : 'tests' }
@@ -100,4 +97,10 @@ OTZipkinSpanExporterTest >> testUsesDefaultResourceServiceNameWhenSpanResourceHa
 	self
 		assert: ((transformed at: 'localEndpoint') at: 'serviceName')
 		equals: OTTracerProvider defaultResource serviceName
+]
+
+{ #category : 'private' }
+OTZipkinSpanExporterTest >> transformedSpanForKind: aSpanKind attributes: someAttributes [
+
+	^ (exporter transform: { (self spanWithKind: aSpanKind attributes: someAttributes) }) first
 ]

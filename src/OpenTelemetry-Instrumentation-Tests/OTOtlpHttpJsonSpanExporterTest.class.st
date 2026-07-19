@@ -21,35 +21,27 @@ OTOtlpHttpJsonSpanExporterTest >> payloadFromClientEntity [
 ]
 
 { #category : 'private' }
-OTOtlpHttpJsonSpanExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
-
-	| retrySleeps warnings |
-	retrySleeps := OrderedCollection new.
-	warnings := OrderedCollection new.
-	exporter
-		sleepStrategy: [ :delayMillis | retrySleeps add: delayMillis ];
-		retryJitterBlock: [ :delayMillis | delayMillis ];
-		warningSink: [ :message | warnings add: message ].
-	^ aBlock value: retrySleeps value: warnings
-]
-
-{ #category : 'private' }
 OTOtlpHttpJsonSpanExporterTest >> sampleSpan [
 
-	| span |
-	span := OTSpan new.
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'exporter.test'.
+	span := tracer startSpanNamed: 'operation'.
 	span
 		traceId: '12345678876543211234567887654321';
 		spanId: '8765432112345678';
 		name: 'operation';
 		kind: OTSpan client;
-		startTime: (DateAndTime unixEpoch + (Duration milliSeconds: 1));
-		endTime: (DateAndTime unixEpoch + (Duration milliSeconds: 2));
+		startTime: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		endTime: DateAndTime unixEpoch + (Duration milliSeconds: 2);
 		traceFlags: '01';
 		traceState: 'vendor=value';
-		attributes: (Dictionary new at: 'service.name' put: 'demo'; yourself);
-		events: #();
-		links: #().
+		attributes: (Dictionary new
+				 at: 'service.name' put: 'demo';
+				 yourself);
+		events: #(  );
+		links: #(  ).
 	^ span
 ]
 
@@ -134,6 +126,20 @@ OTOtlpHttpJsonSpanExporterTest >> testExportCompressesPayloadWhenConfigured [
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHeader [
+
+	configuration headers: (OrderedDictionary new
+			at: 'User-Agent' put: 'CustomAgent/1.0';
+			yourself).
+	self
+		assert: (exporter export: { self sampleSpan })
+		description: 'custom user-agent export should succeed'.
+	self
+		assert: (client headers at: 'User-Agent') = 'CustomAgent/1.0'
+		description: 'explicit user-agent should win'
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testExportRetriesRetryableHttpResponsesUntilSuccess [
 
 	client
@@ -177,20 +183,6 @@ OTOtlpHttpJsonSpanExporterTest >> testExportRetriesTransportFailuresUntilSuccess
 				assert: retrySleeps asArray = #( 1000 )
 				description: 'first backoff delay should be used'.
 			self assert: warnings isEmpty ]
-]
-
-{ #category : 'tests' }
-OTOtlpHttpJsonSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHeader [
-
-	configuration headers: (OrderedDictionary new
-			at: 'User-Agent' put: 'CustomAgent/1.0';
-			yourself).
-	self
-		assert: (exporter export: { self sampleSpan })
-		description: 'custom user-agent export should succeed'.
-	self
-		assert: (client headers at: 'User-Agent') = 'CustomAgent/1.0'
-		description: 'explicit user-agent should win'
 ]
 
 { #category : 'tests' }
@@ -241,4 +233,17 @@ OTOtlpHttpJsonSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 			self assert: retrySleeps isEmpty.
 			self assert: warnings size = 1.
 			self assert: (warnings first includesSubstring: 'partial success') ]
+]
+
+{ #category : 'private' }
+OTOtlpHttpJsonSpanExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
+
+	| retrySleeps warnings |
+	retrySleeps := OrderedCollection new.
+	warnings := OrderedCollection new.
+	exporter
+		sleepStrategy: [ :delayMillis | retrySleeps add: delayMillis ];
+		retryJitterBlock: [ :delayMillis | delayMillis ];
+		warningSink: [ :message | warnings add: message ].
+	^ aBlock value: retrySleeps value: warnings
 ]

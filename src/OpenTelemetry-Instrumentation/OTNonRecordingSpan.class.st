@@ -25,7 +25,7 @@ OTNonRecordingSpan class >> spanContext: aSpanContext context: aContext parent: 
 OTNonRecordingSpan class >> spanContext: aSpanContext context: aContext parent: aSpan instrumentationScope: anInstrumentationScope [
 
 	| span |
-	span := self new.
+	span := self newInternal.
 	span
 		wrappedSpanContext: aSpanContext;
 		context: aContext;
@@ -37,9 +37,9 @@ OTNonRecordingSpan class >> spanContext: aSpanContext context: aContext parent: 
 { #category : 'instance creation' }
 OTNonRecordingSpan class >> withSpanContext: aSpanContext [
 
-	^ self new
-		wrappedSpanContext: aSpanContext;
-		yourself
+	^ self newInternal
+		  wrappedSpanContext: aSpanContext;
+		  yourself
 ]
 
 { #category : 'control' }

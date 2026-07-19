@@ -278,6 +278,12 @@ OTSpanBuilderTest >> testSpanBuilderUsesImplicitCurrentContextByDefault [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanClassNewIsRejected [
+
+	self should: [ OTSpan new ] raise: Error
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testStartedSpanExposesRemoteParentSpanContext [
 
 	| parentContext provider span tracer |

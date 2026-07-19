@@ -170,7 +170,7 @@ OTSpan class >> fromSton: stonReader [
 
 	| representation span scope |
 	representation := stonReader parseMap.
-	span := self new.
+	span := self newInternal.
 	span spanId: (representation at: #spanId).
 	span traceId: (representation at: #traceId).
 	span name: (representation at: #name).
@@ -179,57 +179,31 @@ OTSpan class >> fromSton: stonReader [
 	span startTime: (representation at: #startTime).
 	span status: (representation at: #status ifAbsent: [ self unset ]).
 	span traceFlags: (representation at: #traceFlags ifAbsent: [ '01' ]).
-	representation
-		at: #traceState
-		ifPresent: [ :aTraceState | span traceState: aTraceState ].
-	representation
-		at: #statusDescription
-		ifPresent: [ :description | span statusDescription: description ].
+	representation at: #traceState ifPresent: [ :aTraceState | span traceState: aTraceState ].
+	representation at: #statusDescription ifPresent: [ :description | span statusDescription: description ].
 	scope := representation
-		at: #instrumentationScope
-		ifAbsent: [ OTInstrumentationScope named: (representation at: #instrumentationName ifAbsent: [ '' ]) ].
+		         at: #instrumentationScope
+		         ifAbsent: [ OTInstrumentationScope named: (representation at: #instrumentationName ifAbsent: [ '' ]) ].
 	span instrumentationScope: scope.
 	(representation includesKey: #parentSpanContext)
 		ifTrue: [ span parentSpanContext: (representation at: #parentSpanContext) ]
 		ifFalse: [
-			representation
-				at: #parentId
-				ifPresent: [ :parentId |
-					span
-						parentSpanContext: (self
-							legacyParentSpanContextFromParentId: parentId
-							traceId: span traceId
-							traceFlags: span traceFlags
-							traceState: span traceState) ] ].
-	representation
-		at: #attributes
-		ifPresent: [ :attributes | span attributes: attributes ].
-	representation
-		at: #events
-		ifPresent: [ :events | span events: events ].
-	representation
-		at: #links
-		ifPresent: [ :links | span links: links ].
-	representation
-		at: #resource
-		ifPresent: [ :aResource | span resource: aResource ].
+				representation at: #parentId ifPresent: [ :parentId |
+						span parentSpanContext: (self
+								 legacyParentSpanContextFromParentId: parentId
+								 traceId: span traceId
+								 traceFlags: span traceFlags
+								 traceState: span traceState) ] ].
+	representation at: #attributes ifPresent: [ :attributes | span attributes: attributes ].
+	representation at: #events ifPresent: [ :events | span events: events ].
+	representation at: #links ifPresent: [ :links | span links: links ].
+	representation at: #resource ifPresent: [ :aResource | span resource: aResource ].
 	span droppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ span droppedAttributesCount ]).
 	span droppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ span droppedEventsCount ]).
 	span droppedLinksCount: (representation at: #droppedLinksCount ifAbsent: [ span droppedLinksCount ]).
 	span endTime: (representation at: #endTime).
 	span endTime ifNotNil: [ span markEnded ].
 	^ span
-]
-
-{ #category : 'private' }
-OTSpan class >> legacyParentSpanContextFromParentId: aParentId traceId: aTraceId traceFlags: someTraceFlags traceState: aTraceState [
-
-	^ OTSpanContext
-		traceId: aTraceId
-		spanId: aParentId
-		traceFlags: someTraceFlags
-		traceState: aTraceState
-		remote: false
 ]
 
 { #category : 'enumeration' }
@@ -243,6 +217,17 @@ OTSpan class >> internal [
 OTSpan class >> isZeroHexIdentifier: aString [
 
 	^ OTSpanContext isZeroHexIdentifier: aString
+]
+
+{ #category : 'private' }
+OTSpan class >> legacyParentSpanContextFromParentId: aParentId traceId: aTraceId traceFlags: someTraceFlags traceState: aTraceState [
+
+	^ OTSpanContext
+		traceId: aTraceId
+		spanId: aParentId
+		traceFlags: someTraceFlags
+		traceState: aTraceState
+		remote: false
 ]
 
 { #category : 'private - logging' }
@@ -283,10 +268,22 @@ OTSpan class >> linkFromSpanContext: aSpanContext attributes: aDictionary [
 	^ OTSpanLink spanContext: aSpanContext attributes: aDictionary
 ]
 
+{ #category : 'instance creation' }
+OTSpan class >> new [
+
+	Error signal: 'OpenTelemetry spans must be created via an OTTracer or wrapped from an OTSpanContext'
+]
+
 { #category : 'private - id generation' }
 OTSpan class >> newHexIdentifierOfSize: anInteger [
 
 	^ OTSpanContext newHexIdentifierOfSize: anInteger
+]
+
+{ #category : 'private' }
+OTSpan class >> newInternal [
+
+	^ super new
 ]
 
 { #category : 'private - id generation' }
@@ -366,7 +363,7 @@ OTSpan class >> resetLimitWarningState [
 OTSpan class >> rootIn: aContext [
 
 	| span |
-	span := self new.
+	span := self newInternal.
 	span
 		context: aContext;
 		traceId: self newTraceId;
@@ -387,7 +384,7 @@ OTSpan class >> under: parentSpan [
 
 	| parentSpanContext span |
 	parentSpanContext := parentSpan spanContext.
-	span := self new.
+	span := self newInternal.
 	span
 		parent: parentSpan;
 		context: parentSpan context;
@@ -487,12 +484,6 @@ OTSpan >> addLink: aSpanLink [
 ]
 
 { #category : 'accessing' }
-OTSpan >> addLinkSpanContext: aSpanContext [
-
-	^ self addLinkSpanContext: aSpanContext attributes: nil
-]
-
-{ #category : 'accessing' }
 OTSpan >> addLinkSpan: aSpan [
 
 	^ self addLinkSpan: aSpan attributes: nil
@@ -502,6 +493,12 @@ OTSpan >> addLinkSpan: aSpan [
 OTSpan >> addLinkSpan: aSpan attributes: aDictionary [
 
 	^ self addLink: (OTSpanLink span: aSpan attributes: aDictionary)
+]
+
+{ #category : 'accessing' }
+OTSpan >> addLinkSpanContext: aSpanContext [
+
+	^ self addLinkSpanContext: aSpanContext attributes: nil
 ]
 
 { #category : 'accessing' }
@@ -515,6 +512,12 @@ OTSpan >> addLinks: aCollection [
 
 	self isRecording ifFalse: [ ^ self ].
 	aCollection do: [ :each | self addLink: each ]
+]
+
+{ #category : 'converting' }
+OTSpan >> asSpanContext [
+
+	^ self spanContext
 ]
 
 { #category : 'accessing' }
@@ -768,13 +771,6 @@ OTSpan >> isRecording [
 	^ self isEnded not
 ]
 
-{ #category : 'private' }
-OTSpan >> markEnded [
-
-	ended := true.
-	^ self
-]
-
 { #category : 'accessing' }
 OTSpan >> kind [
 
@@ -854,6 +850,13 @@ OTSpan >> links: aCollection [
 	links := #().
 	aCollection ifNil: [ ^ self ].
 	aCollection do: [ :each | self addLink: each ].
+	^ self
+]
+
+{ #category : 'private' }
+OTSpan >> markEnded [
+
+	ended := true.
 	^ self
 ]
 
@@ -979,18 +982,6 @@ OTSpan >> resource: anOTResource [
 	resource := anOTResource
 ]
 
-{ #category : 'accessing' }
-OTSpan >> tracerProvider [
-
-	^ tracerProvider
-]
-
-{ #category : 'accessing' }
-OTSpan >> tracerProvider: aTracerProvider [
-
-	tracerProvider := aTracerProvider
-]
-
 { #category : 'recording' }
 OTSpan >> setErrorStatus [
 	"Specification: https://opentelemetry.io/docs/specs/otel/trace/api/#set-status
@@ -1037,12 +1028,6 @@ OTSpan >> setStatus: aSymbol description: aString [
 OTSpan >> spanContext [
 
 	^ spanContext ifNil: [ spanContext := OTSpanContext fromSpan: self ]
-]
-
-{ #category : 'converting' }
-OTSpan >> asSpanContext [
-
-	^ self spanContext
 ]
 
 { #category : 'accessing' }
@@ -1187,6 +1172,18 @@ OTSpan >> traceState: aTraceState [
 	normalized := OTTraceState from: aTraceState.
 	traceState := normalized.
 	spanContext := nil
+]
+
+{ #category : 'accessing' }
+OTSpan >> tracerProvider [
+
+	^ tracerProvider
+]
+
+{ #category : 'accessing' }
+OTSpan >> tracerProvider: aTracerProvider [
+
+	tracerProvider := aTracerProvider
 ]
 
 { #category : 'recording' }

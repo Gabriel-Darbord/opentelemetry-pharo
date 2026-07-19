@@ -20,49 +20,62 @@ OTOtlpProtobufTraceEncoderTest >> assertReader: aReader readsField: aFieldNumber
 { #category : 'private' }
 OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 
-	| link parentContext span |
+	| link parentContext provider span tracer |
 	parentContext := OTSpanContext
-		traceId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-		spanId: 'bbbbbbbbbbbbbbbb'
-		traceFlags: '01'
-		traceState: 'upstream=value'
-		remote: true.
+		                 traceId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+		                 spanId: 'bbbbbbbbbbbbbbbb'
+		                 traceFlags: '01'
+		                 traceState: 'upstream=value'
+		                 remote: true.
 	link := OTSpanLink
-		spanContext: (OTSpanContext
-			 traceId: '11111111111111111111111111111111'
-			 spanId: '2222222222222222'
-			 traceFlags: '01'
-			 traceState: 'linked=value'
-			 remote: true)
-		attributes: (OrderedDictionary new at: 'link.attr' put: 'link-value'; yourself)
-		droppedAttributesCount: 1.
-	span := OTSpan new.
+		        spanContext: (OTSpanContext
+				         traceId: '11111111111111111111111111111111'
+				         spanId: '2222222222222222'
+				         traceFlags: '01'
+				         traceState: 'linked=value'
+				         remote: true)
+		        attributes: (OrderedDictionary new
+				         at: 'link.attr' put: 'link-value';
+				         yourself)
+		        droppedAttributesCount: 1.
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'encoder.test'.
+	span := tracer startSpanNamed: 'operation'.
 	span
 		traceId: '12345678876543211234567887654321';
 		spanId: '8765432112345678';
 		parent: parentContext asNonRecordingSpan;
 		name: 'operation';
 		kind: OTSpan client;
-		startTime: (DateAndTime unixEpoch + (Duration milliSeconds: 1));
-		endTime: (DateAndTime unixEpoch + (Duration milliSeconds: 2));
+		startTime: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		endTime: DateAndTime unixEpoch + (Duration milliSeconds: 2);
 		traceFlags: '01';
 		traceState: 'vendor=value';
-		attributes: (OrderedDictionary new at: 'service.name' put: 'demo'; at: 'attempt' put: 7; yourself);
-		events: {
-				(OTSpanEvent
-					 named: 'tick'
-					 attributes: (OrderedDictionary new at: 'count' put: 3; yourself)
-					 timestamp: (DateAndTime unixEpoch + (Duration milliSeconds: 1))
-					 droppedAttributesCount: 1) };
+		attributes: (OrderedDictionary new
+				 at: 'service.name' put: 'demo';
+				 at: 'attempt' put: 7;
+				 yourself);
+		events: { (OTSpanEvent
+				 named: 'tick'
+				 attributes: (OrderedDictionary new
+						  at: 'count' put: 3;
+						  yourself)
+				 timestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1)
+				 droppedAttributesCount: 1) };
 		links: { link };
 		resource: (OTResource
-			 attributes: (OrderedDictionary new at: 'service.name' put: 'demo-service'; yourself)
-			 schemaUrl: 'https://resource.example/schema');
+				 attributes: (OrderedDictionary new
+						  at: 'service.name' put: 'demo-service';
+						  yourself)
+				 schemaUrl: 'https://resource.example/schema');
 		instrumentationScope: (OTInstrumentationScope
-			 named: 'demo.scope'
-			 version: '1.2.3'
-			 schemaUrl: 'https://scope.example/schema'
-			 attributes: (OrderedDictionary new at: 'scope.attr' put: true; yourself));
+				 named: 'demo.scope'
+				 version: '1.2.3'
+				 schemaUrl: 'https://scope.example/schema'
+				 attributes: (OrderedDictionary new
+						  at: 'scope.attr' put: true;
+						  yourself));
 		status: OTSpan error;
 		statusDescription: 'boom';
 		droppedAttributesCount: 2;

@@ -21,62 +21,71 @@ OTOtlpJsonTraceEncoderTest >> attributeValuesByKeyFrom: someKeyValueDictionaries
 { #category : 'private' }
 OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 
-	| span parentContext linkContext |
+	| span parentContext linkContext provider tracer |
 	parentContext := OTSpanContext
-		traceId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-		spanId: 'bbbbbbbbbbbbbbbb'
-		traceFlags: '01'
-		traceState: 'parent=remote'
-		remote: true.
+		                 traceId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+		                 spanId: 'bbbbbbbbbbbbbbbb'
+		                 traceFlags: '01'
+		                 traceState: 'parent=remote'
+		                 remote: true.
 	linkContext := OTSpanContext
-		traceId: 'cccccccccccccccccccccccccccccccc'
-		spanId: 'dddddddddddddddd'
-		traceFlags: '03'
-		traceState: 'link=value'
-		remote: false.
-	span := OTSpan new.
+		               traceId: 'cccccccccccccccccccccccccccccccc'
+		               spanId: 'dddddddddddddddd'
+		               traceFlags: '03'
+		               traceState: 'link=value'
+		               remote: false.
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'encoder.test'.
+	span := tracer startSpanNamed: 'testSpan'.
 	span
 		traceId: '12345678876543211234567887654321';
 		spanId: '8765432112345678';
 		parent: parentContext asNonRecordingSpan;
 		name: 'testSpan';
 		kind: OTSpan client;
-		startTime: (DateAndTime unixEpoch + (Duration nanoSeconds: 100));
-		endTime: (DateAndTime unixEpoch + (Duration nanoSeconds: 1100));
+		startTime: DateAndTime unixEpoch + (Duration nanoSeconds: 100);
+		endTime: DateAndTime unixEpoch + (Duration nanoSeconds: 1100);
 		traceFlags: '01';
 		traceState: 'vendor=value';
 		attributes: (OrderedDictionary new
-			at: 'animal' put: 'cat';
-			at: 'bytes' put: #[1 2 3];
-			at: 'empty' put: nil;
-			at: 'heterogeneousArray' put: #('string' 123);
-			at: 'lives' put: 9;
-			at: 'map' put: (OrderedDictionary new at: 'nested' put: 'value'; yourself);
-			yourself);
-		events: {
-				(OTSpanEvent
-					named: 'somethingHappenedHere'
-					attributes: (Dictionary new at: 'important' put: true; yourself)
-					timestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 600))
-					droppedAttributesCount: 1) };
-		links: {
-				(OTSpanLink
-					spanContext: linkContext
-					attributes: (Dictionary new at: 'link-attribute' put: 'value'; yourself)
-					droppedAttributesCount: 2) };
+				 at: 'animal' put: 'cat';
+				 at: 'bytes' put: #[ 1 2 3 ];
+				 at: 'empty' put: nil;
+				 at: 'heterogeneousArray' put: #( 'string' 123 );
+				 at: 'lives' put: 9;
+				 at: 'map' put: (OrderedDictionary new
+						  at: 'nested' put: 'value';
+						  yourself);
+				 yourself);
+		events: { (OTSpanEvent
+				 named: 'somethingHappenedHere'
+				 attributes: (Dictionary new
+						  at: 'important' put: true;
+						  yourself)
+				 timestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 600)
+				 droppedAttributesCount: 1) };
+		links: { (OTSpanLink
+				 spanContext: linkContext
+				 attributes: (Dictionary new
+						  at: 'link-attribute' put: 'value';
+						  yourself)
+				 droppedAttributesCount: 2) };
 		status: OTSpan error;
 		statusDescription: 'boom';
 		resource: (OTResource
-			attributes: (OrderedDictionary new
-				at: 'service.name' put: 'demo';
-				at: 'resource-attr' put: 'resource-value';
-				yourself)
-			schemaUrl: 'https://opentelemetry.io/schemas/1.24.0');
+				 attributes: (OrderedDictionary new
+						  at: 'service.name' put: 'demo';
+						  at: 'resource-attr' put: 'resource-value';
+						  yourself)
+				 schemaUrl: 'https://opentelemetry.io/schemas/1.24.0');
 		instrumentationScope: (OTInstrumentationScope
-			named: 'instrumentation'
-			version: '1.0.0'
-			schemaUrl: 'https://opentelemetry.io/schemas/1.25.0'
-			attributes: (OrderedDictionary new at: 'scope-key' put: 'scope-value'; yourself));
+				 named: 'instrumentation'
+				 version: '1.0.0'
+				 schemaUrl: 'https://opentelemetry.io/schemas/1.25.0'
+				 attributes: (OrderedDictionary new
+						  at: 'scope-key' put: 'scope-value';
+						  yourself));
 		droppedAttributesCount: 3;
 		droppedEventsCount: 4;
 		droppedLinksCount: 5.
@@ -86,31 +95,43 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 { #category : 'private' }
 OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeName [
 
-	| span |
-	span := OTSpan new.
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'encoder.test'.
+	span := tracer startSpanNamed: aString.
 	span
 		traceId: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 		spanId: (aScopeName = 'scope-a'
-			ifTrue: [ '1111111111111111' ]
-			ifFalse: [ '2222222222222222' ]);
+				 ifTrue: [ '1111111111111111' ]
+				 ifFalse: [ '2222222222222222' ]);
 		name: aString;
 		kind: OTSpan internal;
-		startTime: (DateAndTime unixEpoch + (Duration milliSeconds: 1));
-		endTime: (DateAndTime unixEpoch + (Duration milliSeconds: 2));
+		startTime: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		endTime: DateAndTime unixEpoch + (Duration milliSeconds: 2);
 		traceFlags: '01';
 		traceState: nil;
-		attributes: #();
-		events: #();
-		links: #();
+		attributes: #(  );
+		events: #(  );
+		links: #(  );
 		resource: (OTResource
-			attributes: (OrderedDictionary new at: 'service.name' put: 'shared'; yourself)
-			schemaUrl: 'https://resource.example/schema');
+				 attributes: (OrderedDictionary new
+						  at: 'service.name' put: 'shared';
+						  yourself)
+				 schemaUrl: 'https://resource.example/schema');
 		instrumentationScope: (OTInstrumentationScope
-			named: aScopeName
-			version: '1'
-			schemaUrl: ''
-			attributes: #()).
+				 named: aScopeName
+				 version: '1'
+				 schemaUrl: ''
+				 attributes: #(  )).
 	^ span
+]
+
+{ #category : 'running' }
+OTOtlpJsonTraceEncoderTest >> setUp [
+
+	super setUp.
+	encoder := OTOtlpJsonTraceEncoder new
 ]
 
 { #category : 'tests' }
@@ -187,6 +208,31 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansProducesSpecShapedOtlpJsonPayload [
 ]
 
 { #category : 'tests' }
+OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessage [
+
+	| payload provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'encoder.test'.
+	span := tracer startSpanNamed: 'testSpan'.
+	span
+		traceId: '12345678876543211234567887654321';
+		spanId: '8765432112345678';
+		name: 'testSpan';
+		kind: OTSpan internal;
+		startTime: DateAndTime unixEpoch;
+		endTime: DateAndTime unixEpoch;
+		traceFlags: '01';
+		attributes: #(  );
+		events: #(  );
+		links: #(  );
+		resource: OTResource empty;
+		instrumentationScope: (OTInstrumentationScope named: '').
+	payload := encoder encodeSpans: { span }.
+	self assert: ((((payload at: 'resourceSpans') first at: 'scopeSpans') first at: 'spans') first at: 'status') isEmpty
+]
+
+{ #category : 'tests' }
 OTOtlpJsonTraceEncoderTest >> testEncodeStonRoundTrippedSpanPreservesParentSpanContext [
 
 	| payload roundTripped span |
@@ -196,33 +242,4 @@ OTOtlpJsonTraceEncoderTest >> testEncodeStonRoundTrippedSpanPreservesParentSpanC
 	self assert: (span at: 'parentSpanId') equals: 'bbbbbbbbbbbbbbbb'.
 	self assert: roundTripped parentSpanContext traceId equals: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.
 	self assert: roundTripped parentSpanContext isRemote
-]
-
-{ #category : 'tests' }
-OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessage [
-
-	| payload span |
-	span := OTSpan new.
-	span
-		traceId: '12345678876543211234567887654321';
-		spanId: '8765432112345678';
-		name: 'testSpan';
-		kind: OTSpan internal;
-		startTime: DateAndTime unixEpoch;
-		endTime: DateAndTime unixEpoch;
-		traceFlags: '01';
-		attributes: #();
-		events: #();
-		links: #();
-		resource: OTResource empty;
-		instrumentationScope: (OTInstrumentationScope named: '').
-	payload := encoder encodeSpans: { span }.
-	self assert: ((((payload at: 'resourceSpans') first at: 'scopeSpans') first at: 'spans') first at: 'status') isEmpty
-]
-
-{ #category : 'running' }
-OTOtlpJsonTraceEncoderTest >> setUp [
-
-	super setUp.
-	encoder := OTOtlpJsonTraceEncoder new
 ]
