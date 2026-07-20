@@ -673,7 +673,7 @@ OTTracerProviderTest >> testSpanEndUsesSpanProcessorOnEndLifecycle [
 	exportRecord := span asExportRecord.
 	self assert: processor endingSpans asArray equals: { span }.
 	self assert: processor endedSpans asArray equals: { span }.
-	self assert: span isEnded.
+	self deny: span isRecording.
 	self assert: ((exportRecord at: #attributes) at: 'processor.onEnding') equals: true
 ]
 

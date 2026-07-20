@@ -626,7 +626,7 @@ OTSpan >> end [
 { #category : 'control' }
 OTSpan >> end: aDateAndTime [
 
-	self isEnded ifTrue: [ ^ self ].
+	ended ifTrue: [ ^ self ].
 	self restoreEndTime: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]).
 	tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ].
 	self markEnded.
@@ -685,15 +685,9 @@ OTSpan >> initialize [
 ]
 
 { #category : 'testing' }
-OTSpan >> isEnded [
-
-	^ ended = true
-]
-
-{ #category : 'testing' }
 OTSpan >> isRecording [
 
-	^ self isEnded not
+	^ ended not
 ]
 
 { #category : 'private - logging' }
@@ -744,7 +738,7 @@ OTSpan >> markEnded [
 { #category : 'private' }
 OTSpan >> markStarted [
 
-	self isEnded ifTrue: [ ^ self ].
+	ended ifTrue: [ ^ self ].
 	OTSpan currentContext: self effectiveContext.
 	self restoreStartTime: DateAndTime now
 ]
