@@ -37,8 +37,11 @@ OTInstrumenterTest >> testCurrentContextFailureInvokesDiagnosticErrorHandler [
 	| handled instrumenter provider span |
 	handled := OrderedCollection new.
 	OTDiagnosticLogger current: (OTDiagnosticLogger new
-		errorHandler: [ :error :message | handled add: { error messageText. message } ];
-		yourself).
+			 errorHandler: [ :error :message |
+					 handled add: {
+								 error messageText.
+								 message } ];
+			 yourself).
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
@@ -46,18 +49,14 @@ OTInstrumenterTest >> testCurrentContextFailureInvokesDiagnosticErrorHandler [
 		tracerProvider: provider;
 		contextProducer: [ Error signal: 'boom' ].
 	span := instrumenter startRequest: 'request'.
-	self assert: span parent isNil.
-	self
-		assert: handled asArray
-		equals: {
-			{ 'boom'. 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } }
+	self deny: (span asExportRecord includesKey: #parentSpanContext).
+	self assert: handled asArray equals: { { 'boom'. 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } }
 ]
 
 { #category : 'tests' }
 OTInstrumenterTest >> testCurrentContextFallsBackToEmptyContextWhenContextProducerFails [
 
-	self
-		withInstrumenterWarningsDo: [ :warnings |
+	self withInstrumenterWarningsDo: [ :warnings |
 			| instrumenter provider span |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
@@ -66,9 +65,8 @@ OTInstrumenterTest >> testCurrentContextFallsBackToEmptyContextWhenContextProduc
 				tracerProvider: provider;
 				contextProducer: [ Error signal: 'boom' ].
 			span := instrumenter startRequest: 'request'.
-			self assert: span parent isNil.
-			self assert: warnings asArray equals:
-				{ 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } ]
+			self deny: (span asExportRecord includesKey: #parentSpanContext).
+			self assert: warnings asArray equals: { 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } ]
 ]
 
 { #category : 'tests' }

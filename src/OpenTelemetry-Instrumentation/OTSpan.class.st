@@ -445,7 +445,7 @@ OTSpan >> addEvent: anOTSpanEvent [
 	| currentEvents limitedEvent |
 	self isRecording ifFalse: [ ^ self ].
 	currentEvents := events ifNil: [ #(  ) ].
-	(self attributesCountWithinLimit: self limits eventCountLimit currentSize: currentEvents size) ifFalse: [
+	(self attributesCountWithinLimit: self effectiveLimits eventCountLimit currentSize: currentEvents size) ifFalse: [
 			self warnOnceAboutDiscardedData.
 			self restoreDroppedEventsCount: self droppedEventsCount + 1.
 			^ self ].
@@ -476,21 +476,6 @@ OTSpan >> addEventNamed: aString attributes: aCollection timestamp: aDateAndTime
 OTSpan >> addEventNamed: aString timestamp: aDateAndTime [
 
 	^ self addEventNamed: aString attributes: #() timestamp: aDateAndTime
-]
-
-{ #category : 'accessing' }
-OTSpan >> addLink: aSpanLink [
-
-	| currentLinks limitedLink |
-	self isRecording ifFalse: [ ^ self ].
-	currentLinks := self effectiveLinks.
-	(self attributesCountWithinLimit: self limits linkCountLimit currentSize: currentLinks size) ifFalse: [
-			self warnOnceAboutDiscardedData.
-			self restoreDroppedLinksCount: self droppedLinksCount + 1.
-			^ self ].
-	limitedLink := self limitedLinkFrom: aSpanLink.
-	links := currentLinks copyWith: limitedLink.
-	^ limitedLink
 ]
 
 { #category : 'private - exporting' }
@@ -545,7 +530,9 @@ OTSpan >> attributeAt: key put: value [
 	| normalizedKey normalizedValue |
 	self isRecording ifFalse: [ ^ self ].
 	normalizedKey := OTAttributeNormalizer normalizeAttributeKey: key.
-	normalizedValue := OTAttributeNormalizer normalizeAttributeValue: value lengthLimit: self limits attributeValueLengthLimit.
+	normalizedValue := OTAttributeNormalizer
+		                   normalizeAttributeValue: value
+		                   lengthLimit: self effectiveLimits attributeValueLengthLimit.
 	attributes ifNil: [ attributes := OrderedDictionary new ].
 	(self mayAddAttributeNamed: normalizedKey)
 		ifTrue: [ attributes at: normalizedKey put: normalizedValue ]
@@ -593,6 +580,12 @@ OTSpan >> effectiveInstrumentationScope [
 ]
 
 { #category : 'private' }
+OTSpan >> effectiveLimits [
+
+	^ limits ifNil: [ OTSpanLimits default ]
+]
+
+{ #category : 'private' }
 OTSpan >> effectiveLinks [
 
 	^ links ifNil: [ #(  ) ]
@@ -635,9 +628,9 @@ OTSpan >> end: aDateAndTime [
 
 	self isEnded ifTrue: [ ^ self ].
 	self restoreEndTime: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]).
-	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ].
+	tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ].
 	self markEnded.
-	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ]
+	tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ]
 ]
 
 { #category : 'private' }
@@ -722,10 +715,9 @@ OTSpan >> limitedEventFrom: anEvent [
 	(anEvent isNil or: [ (anEvent isKindOf: OTSpanEvent) not ]) ifTrue: [
 		Error signal: 'OpenTelemetry spans require OTSpanEvent instances' ].
 	limitedEvent := anEvent
-		withAttributeCountLimit: self limits attributePerEventCountLimit
-		valueLengthLimit: self limits attributeValueLengthLimit.
-	limitedEvent droppedAttributesCount > anEvent droppedAttributesCount ifTrue: [
-		self warnOnceAboutDiscardedData ].
+		                withAttributeCountLimit: self effectiveLimits attributePerEventCountLimit
+		                valueLengthLimit: self effectiveLimits attributeValueLengthLimit.
+	limitedEvent droppedAttributesCount > anEvent droppedAttributesCount ifTrue: [ self warnOnceAboutDiscardedData ].
 	^ limitedEvent
 ]
 
@@ -736,17 +728,10 @@ OTSpan >> limitedLinkFrom: aLink [
 	(aLink isNil or: [ (aLink isKindOf: OTSpanLink) not ]) ifTrue: [
 		Error signal: 'OpenTelemetry spans require OTSpanLink instances' ].
 	limitedLink := aLink
-		withAttributeCountLimit: self limits attributePerLinkCountLimit
-		valueLengthLimit: self limits attributeValueLengthLimit.
-	limitedLink droppedAttributesCount > aLink droppedAttributesCount ifTrue: [
-		self warnOnceAboutDiscardedData ].
+		               withAttributeCountLimit: self effectiveLimits attributePerLinkCountLimit
+		               valueLengthLimit: self effectiveLimits attributeValueLengthLimit.
+	limitedLink droppedAttributesCount > aLink droppedAttributesCount ifTrue: [ self warnOnceAboutDiscardedData ].
 	^ limitedLink
-]
-
-{ #category : 'accessing' }
-OTSpan >> limits [
-
-	^ limits ifNil: [ OTSpanLimits default ]
 ]
 
 { #category : 'private' }
@@ -767,8 +752,10 @@ OTSpan >> markStarted [
 { #category : 'private' }
 OTSpan >> mayAddAttributeNamed: aKey [
 
-	^ (attributes notNil and: [ attributes includesKey: aKey ])
-		or: [ self attributesCountWithinLimit: self limits attributeCountLimit currentSize: (attributes ifNil: [ 0 ] ifNotNil: [ attributes size ]) ]
+	^ (attributes notNil and: [ attributes includesKey: aKey ]) or: [
+			  self
+				  attributesCountWithinLimit: self effectiveLimits attributeCountLimit
+				  currentSize: (attributes ifNil: [ 0 ] ifNotNil: [ attributes size ]) ]
 ]
 
 { #category : 'private' }
@@ -803,12 +790,6 @@ OTSpan >> normalizedStatusDescription: aString [
 
 	(aString isNil or: [ aString isEmpty ]) ifTrue: [ ^ nil ].
 	^ aString
-]
-
-{ #category : 'accessing' }
-OTSpan >> parent [
-
-	^ parent
 ]
 
 { #category : 'printing' }
@@ -847,8 +828,8 @@ OTSpan >> restoreAttributes: aDictionary [
 	aDictionary ifNil: [ ^ self ].
 	normalized := OTAttributeNormalizer
 		              normalizeAttributes: aDictionary
-		              countLimit: self limits attributeCountLimit
-		              valueLengthLimit: self limits attributeValueLengthLimit.
+		              countLimit: self effectiveLimits attributeCountLimit
+		              valueLengthLimit: self effectiveLimits attributeValueLengthLimit.
 	normalized first associationsDo: [ :each | self attributeAt: each key put: each value ].
 	normalized second > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
 	self restoreDroppedAttributesCount: self droppedAttributesCount + normalized second
@@ -919,9 +900,18 @@ OTSpan >> restoreLimits: someLimits [
 { #category : 'private' }
 OTSpan >> restoreLinks: aCollection [
 
+	| currentLinks limitedLink |
 	self isRecording ifFalse: [ ^ self ].
 	aCollection ifNil: [ ^ self ].
-	aCollection do: [ :each | self addLink: each ]
+	aCollection do: [ :each |
+			currentLinks := self effectiveLinks.
+			(self attributesCountWithinLimit: self effectiveLimits linkCountLimit currentSize: currentLinks size)
+				ifFalse: [
+						self warnOnceAboutDiscardedData.
+						self restoreDroppedLinksCount: self droppedLinksCount + 1 ]
+				ifTrue: [
+						limitedLink := self limitedLinkFrom: each.
+						links := currentLinks copyWith: limitedLink ] ]
 ]
 
 { #category : 'private' }
@@ -1058,12 +1048,6 @@ OTSpan >> stonOn: stonWriter [
 			self droppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self droppedAttributesCount ].
 			self droppedEventsCount > 0 ifTrue: [ map at: #droppedEventsCount put: self droppedEventsCount ].
 			self droppedLinksCount > 0 ifTrue: [ map at: #droppedLinksCount put: self droppedLinksCount ] ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> tracerProvider [
-
-	^ tracerProvider
 ]
 
 { #category : 'recording' }

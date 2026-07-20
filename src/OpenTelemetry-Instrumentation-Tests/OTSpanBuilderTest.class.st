@@ -60,7 +60,6 @@ OTSpanBuilderTest >> testAsRootIgnoresImplicitCurrentSpan [
 				            startSpan ].
 	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
 	self assert: rootSpan spanContext isValid.
-	self assert: rootSpan parent isNil.
 	self deny: rootSpan spanContext traceId equals: parentSpan spanContext traceId
 ]
 
@@ -88,7 +87,7 @@ OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 	childSpan := (tracer spanBuilderNamed: 'child')
 		             inContext: (OTContext new withSpan: parentSpan);
 		             startSpan.
-	self assert: childSpan parent identicalTo: parentSpan.
+	self assert: (childSpan asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: childSpan spanContext traceId equals: parentSpan spanContext traceId
 ]
 
@@ -127,16 +126,15 @@ OTSpanBuilderTest >> testInContextIgnoresInvalidSpanContextAsParentContext [
 { #category : 'tests' }
 OTSpanBuilderTest >> testInContextNilUsesEmptyContextWithoutWarning [
 
-	self
-		withParentContextWarningsDo: [ :warnings |
+	self withParentContextWarningsDo: [ :warnings |
 			| provider span tracer |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
 			tracer := provider tracerNamed: 'demo.scope'.
-			span := ((tracer spanBuilderNamed: 'operation')
-				inContext: nil;
-				startSpan).
-			self assert: span parent isNil.
+			span := (tracer spanBuilderNamed: 'operation')
+				        inContext: nil;
+				        startSpan.
+			self deny: (span asExportRecord includesKey: #parentSpanContext).
 			self assert: warnings isEmpty ]
 ]
 
@@ -158,7 +156,7 @@ OTSpanBuilderTest >> testInCurrentContextUsesImplicitCurrentSpanAsParent [
 			span := (tracer spanBuilderNamed: 'operation')
 				        inCurrentContext;
 				        startSpan ].
-	self assert: span parent identicalTo: parentSpan.
+	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: span spanContext traceId equals: parentSpan spanContext traceId
 ]
 
@@ -185,9 +183,9 @@ OTSpanBuilderTest >> testNoParentIgnoresParentContextForSamplingAndTraceIdentity
 		            startSpan.
 	self assert: tracedChild isRecording.
 	self assert: tracedChild spanContext traceId equals: parentSpan spanContext traceId.
+	self assert: (tracedChild asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
 	self assert: rootSpan spanContext isValid.
-	self assert: rootSpan parent isNil.
 	self deny: rootSpan spanContext traceId equals: parentSpan spanContext traceId.
 	self assert: rootSpan context baggage equals: baggage
 ]
@@ -220,10 +218,11 @@ OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	span addLink: (OTSpanLink span: linkedSpan attributes: (OrderedDictionary new
-				  at: 'link.kind' put: 'follows_from';
-				  yourself)).
+	span := (tracer spanBuilderNamed: 'operation')
+		        addLinkSpan: linkedSpan attributes: (OrderedDictionary new
+				         at: 'link.kind' put: 'follows_from';
+				         yourself);
+		        startSpan.
 	exportRecord := span asExportRecord.
 	linksToExport := exportRecord at: #links.
 	self assert: linksToExport size equals: 1.
@@ -358,7 +357,7 @@ OTSpanBuilderTest >> testSpanBuilderDefersImplicitCurrentContextUntilStart [
 		               remote: false) asNonRecordingSpan.
 	currentContext := OTContext new withSpan: parentSpan.
 	OpenTelemetry useContext: currentContext during: [ span := builder startSpan ].
-	self assert: span parent identicalTo: parentSpan.
+	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: span spanContext traceId equals: parentSpan spanContext traceId
 ]
 
@@ -391,7 +390,7 @@ OTSpanBuilderTest >> testSpanBuilderUsesImplicitCurrentContextByDefault [
 		               remote: false) asNonRecordingSpan.
 	currentContext := OTContext new withSpan: parentSpan.
 	OpenTelemetry useContext: currentContext during: [ span := (tracer spanBuilderNamed: 'operation') startSpan ].
-	self assert: span parent identicalTo: parentSpan.
+	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: span spanContext traceId equals: parentSpan spanContext traceId
 ]
 
@@ -446,7 +445,7 @@ OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 		               remote: false) asNonRecordingSpan.
 	currentContext := OTContext new withSpan: parentSpan.
 	OpenTelemetry useContext: currentContext during: [ span := tracer startSpanNamed: 'operation' ].
-	self assert: span parent identicalTo: parentSpan.
+	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: span spanContext traceId equals: parentSpan spanContext traceId
 ]
 
