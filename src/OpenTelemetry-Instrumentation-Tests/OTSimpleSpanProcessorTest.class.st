@@ -54,6 +54,26 @@ OTSimpleSpanProcessorTest >> testForceFlushReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTSimpleSpanProcessorTest >> testOnEndAcceptsRecordOnlySpanWithoutExporting [
+
+	| provider span tracer |
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTRecordingSpanProcessor new;
+		sampler: (OTSamplingResultSampler result: OTSamplingResult recordOnly).
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span isRecording.
+	self deny: span spanContext isSampled.
+	span end.
+	self assert: (processor onEnd: span).
+	self assert: exporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
 OTSimpleSpanProcessorTest >> testOnEndAfterShutdownIsIgnoredWithoutExporting [
 
 	exporter := OTRecordingSpanExporter new.

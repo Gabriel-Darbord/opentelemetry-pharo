@@ -34,13 +34,13 @@ OTBatchSpanProcessorTest >> setUp [
 OTBatchSpanProcessorTest >> tearDown [
 
 	[
-		(exporter isKindOf: OTBlockingSpanExporter) ifTrue: [
-			exporter allowBlockedExport ].
+		(exporter isKindOf: OTBlockingSpanExporter) ifTrue: [ exporter allowBlockedExport ].
+		(exporter isKindOf: OTBlockingForceFlushSpanExporter) ifTrue: [ exporter allowForceFlush ].
+		(exporter isKindOf: OTBlockingShutdownSpanExporter) ifTrue: [ exporter allowShutdown ].
 		processor ifNotNil: [ processor shutdown ].
 		exporter ifNotNil: [ exporter shutdown ].
 		OTSpanProcessor current: nil.
-		OTSpanExporter current: nil ]
-		ensure: [ super tearDown ]
+		OTSpanExporter current: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -65,6 +65,21 @@ OTBatchSpanProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExport
 	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter exportedBatches first size equals: 1.
 	self assert: exporter exportedBatches first first class identicalTo: OTSpanSnapshot
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testForceFlushHonorsExportTimeoutWhenExporterForceFlushIsBlocked [
+
+	| elapsed startedAt |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor exportTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	self deny: processor forceFlush.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200)
 ]
 
 { #category : 'tests' }
@@ -97,6 +112,29 @@ OTBatchSpanProcessorTest >> testForceFlushUsesExplicitExporterInsteadOfGlobalExp
 	self assert: processor forceFlush.
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: globalExporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testOnEndAcceptsRecordOnlySpanWithoutExporting [
+
+	| provider span tracer |
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 1;
+		scheduledDelayMillis: 1000.
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTRecordingSpanProcessor new;
+		sampler: (OTSamplingResultSampler result: OTSamplingResult recordOnly).
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span isRecording.
+	self deny: span spanContext isSampled.
+	span end.
+	self assert: (processor onEnd: span).
+	self assert: exporter exportedBatches isEmpty
 ]
 
 { #category : 'tests' }
@@ -179,6 +217,27 @@ OTBatchSpanProcessorTest >> testShutdownFlushesPendingBatchAndShutsDownExporter 
 	self assert: processor shutdown.
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testShutdownHonorsExportTimeoutWhenExporterShutdownIsBlocked [
+
+	| elapsed startedAt |
+	exporter := OTBlockingShutdownSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		exportTimeoutMillis: 25;
+		scheduledDelayMillis: 1000.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	startedAt := Time millisecondClockValue.
+	self deny: processor shutdown.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200).
+	self assert: exporter exportedBatches size equals: 1.
+	self assert: processor isShutdown
 ]
 
 { #category : 'private' }
