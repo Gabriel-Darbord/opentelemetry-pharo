@@ -143,6 +143,26 @@ OTSpanBuilderTest >> testEndedSpanIgnoresLateMutationsWhileKeepingStableContext 
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testEndingParentSpanDoesNotAffectChildSpan [
+
+	| childSpan parentSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := tracer startSpanNamed: 'parent'.
+	childSpan := (tracer spanBuilderNamed: 'child')
+		             inContext: (OTContext new withSpan: parentSpan);
+		             startSpan.
+	parentSpan end.
+	self assert: childSpan isRecording.
+	childSpan
+		updateName: 'child.after-parent-end';
+		attributeAt: 'state' put: 'running'.
+	self assert: (childSpan asExportRecord at: #name) equals: 'child.after-parent-end'.
+	self assert: ((childSpan asExportRecord at: #attributes) at: 'state') equals: 'running'
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testEventTimestampsOutsideSpanRangeArePreserved [
 
 	| afterEnd beforeStart eventsToExport exportRecord provider requestedEndTime requestedStartTime span tracer |
