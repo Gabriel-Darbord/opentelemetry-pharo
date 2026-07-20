@@ -83,7 +83,7 @@ OTSpanLink >> = anObject [
 { #category : 'accessing' }
 OTSpanLink >> attributes [
 
-	^ attributes ifNil: [ #() ]
+	^ OTAttributeNormalizer normalizeAttributes: attributes
 ]
 
 { #category : 'accessing' }

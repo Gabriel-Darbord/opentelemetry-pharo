@@ -91,7 +91,7 @@ OTSpanEvent >> attributeAt: aKey ifAbsent: aBlock [
 { #category : 'accessing' }
 OTSpanEvent >> attributes [
 
-	^ attributes ifNil: [ OrderedDictionary new ]
+	^ OTAttributeNormalizer normalizeAttributes: attributes
 ]
 
 { #category : 'accessing' }
