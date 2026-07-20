@@ -116,13 +116,6 @@ OTSpanContextTest >> testCopyingOperationsReturnNewSpanContextsWithoutMutatingOr
 ]
 
 { #category : 'tests' }
-OTSpanContextTest >> testFreshSpanWithoutAssignedContextReturnsInvalidSpanContext [
-
-	self deny: OTSpan new spanContext isValid.
-	self deny: (OTSpanContext fromSpan: OTSpan new) isValid
-]
-
-{ #category : 'tests' }
 OTSpanContextTest >> testFromSpanPreservesRemoteWrappedSpanContext [
 
 	| remoteContext wrappedSpan |
@@ -259,6 +252,13 @@ OTSpanContextTest >> testRecordingSpanStonRoundTripPreservesLocalSpanContext [
 	self assert: roundTripped spanContext spanId equals: span spanContext spanId.
 	self assert: roundTripped spanContext traceFlags equals: span spanContext traceFlags.
 	self assert: roundTripped spanContext traceState equals: span spanContext traceState
+]
+
+{ #category : 'tests' }
+OTSpanContextTest >> testSpanClassesCannotBeInstantiatedDirectly [
+
+	self should: [ OTSpan new ] raise: Error.
+	self should: [ OTNonRecordingSpan new ] raise: Error
 ]
 
 { #category : 'tests' }

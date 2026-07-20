@@ -681,6 +681,22 @@ OTSpanBuilderTest >> testStartedSpanExposesRemoteParentSpanContext [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testStartingSpanDoesNotActivateCreatedSpan [
+
+	| childSpan currentContext parentSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := self sampledParentSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	OpenTelemetry useContext: currentContext during: [
+			childSpan := tracer startSpanNamed: 'child'.
+			self assert: OpenTelemetry currentSpan identicalTo: parentSpan.
+			self assert: OpenTelemetry currentContext identicalTo: currentContext ].
+	self assert: childSpan spanContext traceId equals: parentSpan spanContext traceId
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
 
 	| exportRecord provider roundTripped span tracer |

@@ -967,6 +967,27 @@ OTTracerProviderTest >> testSpanProcessorFailureInvokesDiagnosticErrorHandler [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testSpanProcessorsDoNotReceiveNonRecordingSpans [
+
+	| processor provider span tracer |
+	provider := OTTracerProvider new.
+	processor := OTRecordingSpanProcessor new.
+	provider
+		spanProcessor: processor;
+		sampler: OTAlwaysOffSampler new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: processor startedSpans isEmpty.
+	self assert: processor endingSpans isEmpty.
+	self assert: processor endedSpans isEmpty.
+	span end.
+	self assert: processor startedSpans isEmpty.
+	self assert: processor endingSpans isEmpty.
+	self assert: processor endedSpans isEmpty
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testTracerCachesByFullInstrumentationScope [
 
 	| provider first second third |

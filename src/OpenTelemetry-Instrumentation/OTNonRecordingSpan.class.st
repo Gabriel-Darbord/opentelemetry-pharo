@@ -12,6 +12,13 @@ Class {
 }
 
 { #category : 'instance creation' }
+OTNonRecordingSpan class >> new [
+
+	Error signal:
+		'Non-recording spans must wrap an existing SpanContext. Use OTSpan>>wrapping: or OTSpanContext>>asNonRecordingSpan.'
+]
+
+{ #category : 'instance creation' }
 OTNonRecordingSpan class >> spanContext: aSpanContext context: aContext parent: aSpan instrumentationName: aString [
 
 	^ self

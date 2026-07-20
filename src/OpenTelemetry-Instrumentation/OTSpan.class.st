@@ -272,6 +272,12 @@ OTSpan class >> linkFromSpanContext: aSpanContext attributes: aDictionary [
 	^ OTSpanLink spanContext: aSpanContext attributes: aDictionary
 ]
 
+{ #category : 'instance creation' }
+OTSpan class >> new [
+
+	Error signal: 'Spans must be created through an OTTracer. Use OTTracer>>startSpanNamed: or OTTracer>>spanBuilderNamed:.'
+]
+
 { #category : 'private - id generation' }
 OTSpan class >> newHexIdentifierOfSize: anInteger [
 
@@ -783,7 +789,6 @@ OTSpan >> markEnded [
 OTSpan >> markStarted [
 
 	ended ifTrue: [ ^ self ].
-	OTSpan currentContext: self effectiveContext.
 	self restoreStartTime: DateAndTime now
 ]
 
