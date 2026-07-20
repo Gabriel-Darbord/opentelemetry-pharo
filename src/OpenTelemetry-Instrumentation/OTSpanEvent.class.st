@@ -42,11 +42,11 @@ OTSpanEvent class >> named: aString attributes: aCollection [
 OTSpanEvent class >> named: aString attributes: aCollection timestamp: aDateAndTime [
 
 	| event |
-	event := self new.
+	event := self newInternal.
 	event
-		name: (aString ifNil: [ '' ] ifNotNil: [ aString ]);
-		timestamp: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]);
-		attributes: aCollection.
+		restoreName: (aString ifNil: [ '' ] ifNotNil: [ aString ]);
+		restoreTimestamp: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]);
+		restoreAttributes: aCollection.
 	^ event
 ]
 
@@ -55,8 +55,20 @@ OTSpanEvent class >> named: aString attributes: aCollection timestamp: aDateAndT
 
 	| event |
 	event := self named: aString attributes: aCollection timestamp: aDateAndTime.
-	event droppedAttributesCount: anInteger.
+	event restoreDroppedAttributesCount: anInteger.
 	^ event
+]
+
+{ #category : 'instance creation' }
+OTSpanEvent class >> new [
+
+	Error signal: 'Span events are immutable. Use OTSpanEvent class-side constructors.'
+]
+
+{ #category : 'private' }
+OTSpanEvent class >> newInternal [
+
+	^ super new
 ]
 
 { #category : 'comparing' }
@@ -95,22 +107,9 @@ OTSpanEvent >> attributes [
 ]
 
 { #category : 'accessing' }
-OTSpanEvent >> attributes: aCollection [
-
-	attributes := OTAttributeNormalizer normalizeAttributes: aCollection.
-	^ self
-]
-
-{ #category : 'accessing' }
 OTSpanEvent >> droppedAttributesCount [
 
 	^ droppedAttributesCount ifNil: [ 0 ]
-]
-
-{ #category : 'accessing' }
-OTSpanEvent >> droppedAttributesCount: anInteger [
-
-	droppedAttributesCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
 ]
 
 { #category : 'comparing' }
@@ -125,19 +124,36 @@ OTSpanEvent >> name [
 	^ name ifNil: [ '' ]
 ]
 
-{ #category : 'accessing' }
-OTSpanEvent >> name: aString [
-
-	name := aString.
-	^ self
-]
-
 { #category : 'printing' }
 OTSpanEvent >> printOn: aStream [
 
 	aStream nextPutAll: 'SpanEvent['.
 	aStream nextPutAll: self name.
 	aStream nextPut: $]
+]
+
+{ #category : 'private' }
+OTSpanEvent >> restoreAttributes: aCollection [
+
+	attributes := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'private' }
+OTSpanEvent >> restoreDroppedAttributesCount: anInteger [
+
+	droppedAttributesCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
+]
+
+{ #category : 'private' }
+OTSpanEvent >> restoreName: aString [
+
+	name := aString
+]
+
+{ #category : 'private' }
+OTSpanEvent >> restoreTimestamp: aDateAndTime [
+
+	timestamp := aDateAndTime
 ]
 
 { #category : 'ston persistence' }
@@ -154,13 +170,6 @@ OTSpanEvent >> stonOn: stonWriter [
 OTSpanEvent >> timestamp [
 
 	^ timestamp ifNil: [ DateAndTime now ]
-]
-
-{ #category : 'accessing' }
-OTSpanEvent >> timestamp: aDateAndTime [
-
-	timestamp := aDateAndTime.
-	^ self
 ]
 
 { #category : 'copying' }

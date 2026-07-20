@@ -25,6 +25,18 @@ OTSpanLink class >> fromSton: stonReader [
 ]
 
 { #category : 'instance creation' }
+OTSpanLink class >> new [
+
+	Error signal: 'Span links are immutable. Use OTSpanLink class-side constructors.'
+]
+
+{ #category : 'private' }
+OTSpanLink class >> newInternal [
+
+	^ super new
+]
+
+{ #category : 'instance creation' }
 OTSpanLink class >> span: aSpan [
 
 	^ self span: aSpan attributes: nil
@@ -45,20 +57,20 @@ OTSpanLink class >> spanContext: aSpanContext [
 { #category : 'instance creation' }
 OTSpanLink class >> spanContext: aSpanContext attributes: aDictionary [
 
-	^ self new
-		spanContext: aSpanContext;
-		attributes: aDictionary;
-		yourself
+	^ self newInternal
+		  restoreSpanContext: aSpanContext;
+		  restoreAttributes: aDictionary;
+		  yourself
 ]
 
 { #category : 'instance creation' }
 OTSpanLink class >> spanContext: aSpanContext attributes: aDictionary droppedAttributesCount: anInteger [
 
-	^ self new
-		spanContext: aSpanContext;
-		attributes: aDictionary;
-		droppedAttributesCount: anInteger;
-		yourself
+	^ self newInternal
+		  restoreSpanContext: aSpanContext;
+		  restoreAttributes: aDictionary;
+		  restoreDroppedAttributesCount: anInteger;
+		  yourself
 ]
 
 { #category : 'private' }
@@ -87,21 +99,9 @@ OTSpanLink >> attributes [
 ]
 
 { #category : 'accessing' }
-OTSpanLink >> attributes: aDictionary [
-
-	attributes := OTAttributeNormalizer normalizeAttributes: aDictionary
-]
-
-{ #category : 'accessing' }
 OTSpanLink >> droppedAttributesCount [
 
 	^ droppedAttributesCount ifNil: [ 0 ]
-]
-
-{ #category : 'accessing' }
-OTSpanLink >> droppedAttributesCount: anInteger [
-
-	droppedAttributesCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
 ]
 
 { #category : 'comparing' }
@@ -110,16 +110,28 @@ OTSpanLink >> hash [
 	^ { spanContext. self attributes. self droppedAttributesCount } hash
 ]
 
+{ #category : 'private' }
+OTSpanLink >> restoreAttributes: aDictionary [
+
+	attributes := OTAttributeNormalizer normalizeAttributes: aDictionary
+]
+
+{ #category : 'private' }
+OTSpanLink >> restoreDroppedAttributesCount: anInteger [
+
+	droppedAttributesCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
+]
+
+{ #category : 'private' }
+OTSpanLink >> restoreSpanContext: aSpanContext [
+
+	spanContext := self class spanContextFrom: aSpanContext
+]
+
 { #category : 'accessing' }
 OTSpanLink >> spanContext [
 
 	^ spanContext
-]
-
-{ #category : 'accessing' }
-OTSpanLink >> spanContext: aSpanContext [
-
-	spanContext := self class spanContextFrom: aSpanContext
 ]
 
 { #category : 'ston persistence' }
