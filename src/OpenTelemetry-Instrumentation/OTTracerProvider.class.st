@@ -1105,7 +1105,7 @@ OTTracerProvider >> forceFlush [
 			              stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
 			              (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy ].
 	stopping ifTrue: [ ^ false ].
-	processors isEmpty ifTrue: [ ^ false ].
+	processors isEmpty ifTrue: [ ^ true ].
 	allFlushed := true.
 	processors do: [ :each |
 			allFlushed := (self
@@ -1479,14 +1479,14 @@ OTTracerProvider >> tracerEnabled: aTracer [
 OTTracerProvider >> tracerEnabled: aTracer forSpanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
 
 	| configuredValue |
-	(self isShutdown or: [ self spanProcessors isEmpty ]) ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	configuredValue := self
-		tracerConfigurationValueFor: aTracer
-		spanNamed: aString
-		kind: aSpanKind
-		inContext: aContext
-		attributes: someAttributes
-		links: someLinks.
+		                   tracerConfigurationValueFor: aTracer
+		                   spanNamed: aString
+		                   kind: aSpanKind
+		                   inContext: aContext
+		                   attributes: someAttributes
+		                   links: someLinks.
 	^ configuredValue ifNil: [ true ] ifNotNil: [ configuredValue ]
 ]
 
