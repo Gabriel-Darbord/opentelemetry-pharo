@@ -205,9 +205,9 @@ OTSpan class >> fromSton: stonReader [
 	representation at: #events ifPresent: [ :events | span restoreEvents: events ].
 	representation at: #links ifPresent: [ :links | span restoreLinks: links ].
 	representation at: #resource ifPresent: [ :aResource | span restoreResource: aResource ].
-	span restoreDroppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ span droppedAttributesCount ]).
-	span restoreDroppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ span droppedEventsCount ]).
-	span restoreDroppedLinksCount: (representation at: #droppedLinksCount ifAbsent: [ span droppedLinksCount ]).
+	span restoreDroppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ 0 ]).
+	span restoreDroppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ 0 ]).
+	span restoreDroppedLinksCount: (representation at: #droppedLinksCount ifAbsent: [ 0 ]).
 	endTimestamp := representation at: #endTime ifAbsent: [ nil ].
 	span restoreEndTime: endTimestamp.
 	endTimestamp ifNotNil: [ span markEnded ].
@@ -447,7 +447,7 @@ OTSpan >> addEvent: anOTSpanEvent [
 	currentEvents := events ifNil: [ #(  ) ].
 	(self attributesCountWithinLimit: self effectiveLimits eventCountLimit currentSize: currentEvents size) ifFalse: [
 			self warnOnceAboutDiscardedData.
-			self restoreDroppedEventsCount: self droppedEventsCount + 1.
+			self restoreDroppedEventsCount: self effectiveDroppedEventsCount + 1.
 			^ self ].
 	limitedEvent := self limitedEventFrom: anOTSpanEvent.
 	events := currentEvents copyWith: limitedEvent.
@@ -512,9 +512,9 @@ OTSpan >> asExportRecord [
 	events isEmptyOrNil ifFalse: [ data at: #events put: events ].
 	linksToExport ifNotEmpty: [ data at: #links put: linksToExport ].
 	resourceToExport isEmpty ifFalse: [ data at: #resource put: resourceToExport ].
-	self droppedAttributesCount > 0 ifTrue: [ data at: #droppedAttributesCount put: self droppedAttributesCount ].
-	self droppedEventsCount > 0 ifTrue: [ data at: #droppedEventsCount put: self droppedEventsCount ].
-	self droppedLinksCount > 0 ifTrue: [ data at: #droppedLinksCount put: self droppedLinksCount ].
+	self effectiveDroppedAttributesCount > 0 ifTrue: [ data at: #droppedAttributesCount put: self effectiveDroppedAttributesCount ].
+	self effectiveDroppedEventsCount > 0 ifTrue: [ data at: #droppedEventsCount put: self effectiveDroppedEventsCount ].
+	self effectiveDroppedLinksCount > 0 ifTrue: [ data at: #droppedLinksCount put: self effectiveDroppedLinksCount ].
 	^ data
 ]
 
@@ -538,7 +538,7 @@ OTSpan >> attributeAt: key put: value [
 		ifTrue: [ attributes at: normalizedKey put: normalizedValue ]
 		ifFalse: [
 				self warnOnceAboutDiscardedData.
-				self restoreDroppedAttributesCount: self droppedAttributesCount + 1 ]
+				self restoreDroppedAttributesCount: self effectiveDroppedAttributesCount + 1 ]
 ]
 
 { #category : 'private' }
@@ -548,28 +548,28 @@ OTSpan >> attributesCountWithinLimit: aLimit currentSize: aSize [
 	^ aSize < aLimit
 ]
 
-{ #category : 'accessing' }
-OTSpan >> droppedAttributesCount [
-
-	^ droppedAttributesCount ifNil: [ 0 ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> droppedEventsCount [
-
-	^ droppedEventsCount ifNil: [ 0 ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> droppedLinksCount [
-
-	^ droppedLinksCount ifNil: [ 0 ]
-]
-
 { #category : 'private' }
 OTSpan >> effectiveContext [
 
 	^ context
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveDroppedAttributesCount [
+
+	^ droppedAttributesCount ifNil: [ 0 ]
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveDroppedEventsCount [
+
+	^ droppedEventsCount ifNil: [ 0 ]
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveDroppedLinksCount [
+
+	^ droppedLinksCount ifNil: [ 0 ]
 ]
 
 { #category : 'private' }
@@ -832,7 +832,7 @@ OTSpan >> restoreAttributes: aDictionary [
 		              valueLengthLimit: self effectiveLimits attributeValueLengthLimit.
 	normalized first associationsDo: [ :each | self attributeAt: each key put: each value ].
 	normalized second > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
-	self restoreDroppedAttributesCount: self droppedAttributesCount + normalized second
+	self restoreDroppedAttributesCount: self effectiveDroppedAttributesCount + normalized second
 ]
 
 { #category : 'private' }
@@ -908,7 +908,7 @@ OTSpan >> restoreLinks: aCollection [
 			(self attributesCountWithinLimit: self effectiveLimits linkCountLimit currentSize: currentLinks size)
 				ifFalse: [
 						self warnOnceAboutDiscardedData.
-						self restoreDroppedLinksCount: self droppedLinksCount + 1 ]
+						self restoreDroppedLinksCount: self effectiveDroppedLinksCount + 1 ]
 				ifTrue: [
 						limitedLink := self limitedLinkFrom: each.
 						links := currentLinks copyWith: limitedLink ] ]
@@ -1045,9 +1045,9 @@ OTSpan >> stonOn: stonWriter [
 			events isEmptyOrNil ifFalse: [ map at: #events put: events ].
 			linksToExport ifNotEmpty: [ map at: #links put: linksToExport ].
 			resourceToExport isEmpty ifFalse: [ map at: #resource put: resourceToExport ].
-			self droppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self droppedAttributesCount ].
-			self droppedEventsCount > 0 ifTrue: [ map at: #droppedEventsCount put: self droppedEventsCount ].
-			self droppedLinksCount > 0 ifTrue: [ map at: #droppedLinksCount put: self droppedLinksCount ] ]
+			self effectiveDroppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self effectiveDroppedAttributesCount ].
+			self effectiveDroppedEventsCount > 0 ifTrue: [ map at: #droppedEventsCount put: self effectiveDroppedEventsCount ].
+			self effectiveDroppedLinksCount > 0 ifTrue: [ map at: #droppedLinksCount put: self effectiveDroppedLinksCount ] ]
 ]
 
 { #category : 'recording' }
