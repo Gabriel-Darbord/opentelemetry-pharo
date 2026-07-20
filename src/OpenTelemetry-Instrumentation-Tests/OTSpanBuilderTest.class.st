@@ -217,6 +217,34 @@ OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordExceptionSupportsExplicitTimestamp [
+
+	| event eventsToExport exportRecord provider requestedTimestamp span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	requestedTimestamp := DateAndTime unixEpoch + (Duration milliSeconds: 123).
+	[ Error signal: 'boom' ]
+		on: Error
+		do: [ :error |
+				span
+					recordException: error
+					attributes: (OrderedDictionary new
+							 at: 'exception.escaped' put: false;
+							 yourself)
+					timestamp: requestedTimestamp ].
+	exportRecord := span asExportRecord.
+	eventsToExport := exportRecord at: #events.
+	event := eventsToExport first.
+	self assert: eventsToExport size equals: 1.
+	self assert: event name equals: 'exception'.
+	self assert: event timestamp equals: requestedTimestamp.
+	self assert: (event attributes at: 'exception.message') equals: 'boom'.
+	self assert: (event attributes at: 'exception.escaped') equals: false
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanAddLinkRespectsLinkCountLimitAfterStart [
 
 	| exportRecord firstContext linksToExport limits provider secondContext span tracer |

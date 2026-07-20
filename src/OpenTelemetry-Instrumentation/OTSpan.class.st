@@ -334,6 +334,24 @@ OTSpan class >> recordException: anException [
 	self current recordException: anException
 ]
 
+{ #category : 'recording' }
+OTSpan class >> recordException: anException attributes: aCollection [
+
+	self current recordException: anException attributes: aCollection
+]
+
+{ #category : 'recording' }
+OTSpan class >> recordException: anException attributes: aCollection timestamp: aDateAndTime [
+
+	self current recordException: anException attributes: aCollection timestamp: aDateAndTime
+]
+
+{ #category : 'recording' }
+OTSpan class >> recordException: anException timestamp: aDateAndTime [
+
+	self current recordException: anException timestamp: aDateAndTime
+]
+
 { #category : 'class initialization' }
 OTSpan class >> reset [
 
@@ -828,16 +846,28 @@ OTSpan >> printOn: aStream [
 { #category : 'recording' }
 OTSpan >> recordException: anException [
 
-	^ self recordException: anException attributes: #(  )
+	^ self recordException: anException attributes: #(  ) timestamp: DateAndTime now
 ]
 
 { #category : 'recording' }
 OTSpan >> recordException: anException attributes: aCollection [
 
+	^ self recordException: anException attributes: aCollection timestamp: DateAndTime now
+]
+
+{ #category : 'recording' }
+OTSpan >> recordException: anException attributes: aCollection timestamp: aDateAndTime [
+
 	| exceptionAttributes |
 	self isRecording ifFalse: [ ^ self ].
 	exceptionAttributes := (self normalizedExceptionAttributesFor: anException additionalAttributes: aCollection) associations.
-	self addEventNamed: 'exception' attributes: exceptionAttributes
+	self addEventNamed: 'exception' attributes: exceptionAttributes timestamp: aDateAndTime
+]
+
+{ #category : 'recording' }
+OTSpan >> recordException: anException timestamp: aDateAndTime [
+
+	^ self recordException: anException attributes: #(  ) timestamp: aDateAndTime
 ]
 
 { #category : 'private' }
