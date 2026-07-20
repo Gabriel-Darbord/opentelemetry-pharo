@@ -93,7 +93,7 @@ OTBatchSpanProcessorTest >> testForceFlushReturnsFalseAfterShutdown [
 		scheduledDelayMillis: 1000.
 	self assert: processor shutdown.
 	self deny: processor forceFlush.
-	self assert: exporter forceFlushCount equals: 0.
+	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter shutdownCount equals: 1
 ]
 
@@ -216,7 +216,25 @@ OTBatchSpanProcessorTest >> testShutdownFlushesPendingBatchAndShutsDownExporter 
 	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: processor shutdown.
 	self assert: exporter exportedBatches size equals: 1.
+	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testShutdownHonorsExportTimeoutWhenExporterForceFlushIsBlocked [
+
+	| elapsed startedAt |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor exportTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	self deny: processor shutdown.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200).
+	self assert: exporter shutdownCount equals: 1.
+	self assert: processor isShutdown
 ]
 
 { #category : 'tests' }
@@ -235,6 +253,7 @@ OTBatchSpanProcessorTest >> testShutdownHonorsExportTimeoutWhenExporterShutdownI
 	self deny: processor shutdown.
 	elapsed := Time millisecondClockValue - startedAt.
 	self assert: elapsed < 250.
+	self assert: exporter forceFlushCount equals: 1.
 	self assert: (exporter waitForShutdownTimeoutMillis: 200).
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: processor isShutdown

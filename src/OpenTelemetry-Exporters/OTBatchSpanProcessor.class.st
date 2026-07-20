@@ -352,10 +352,9 @@ OTBatchSpanProcessor >> shutdown [
 	self isShutdown ifTrue: [ ^ false ].
 	self markShutdownRequested.
 	workAvailable signal.
-	flushed := self flush.
+	flushed := self forceFlush.
 	self stopFlushProcess.
-	shutdownResult := self
-		runExporterOperation: [ self exporter shutdown ].
+	shutdownResult := self runExporterOperation: [ self exporter shutdown ].
 	self markShutdown.
 	^ shutdownResult & flushed
 ]
