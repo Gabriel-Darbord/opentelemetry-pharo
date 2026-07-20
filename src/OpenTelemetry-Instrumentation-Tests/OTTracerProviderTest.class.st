@@ -274,18 +274,19 @@ OTTracerProviderTest >> testExistingTracerPicksUpLaterDisablementWithoutReacquir
 { #category : 'tests' }
 OTTracerProviderTest >> testExistingTracerPicksUpLaterResourceChangesForNewSpans [
 
-	| provider resource span tracer |
+	| exportRecord provider resource span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	resource := OTResource attributes: (OrderedDictionary new
-		at: 'service.name' put: 'updated-service';
-		at: 'deployment.environment.name' put: 'staging';
-		yourself).
+			             at: 'service.name' put: 'updated-service';
+			             at: 'deployment.environment.name' put: 'staging';
+			             yourself).
 	provider resource: resource.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	self assert: span resource equals: resource.
-	self assert: (span resource attributeAt: 'deployment.environment.name') equals: 'staging'
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #resource) equals: resource.
+	self assert: ((exportRecord at: #resource) attributeAt: 'deployment.environment.name') equals: 'staging'
 ]
 
 { #category : 'tests' }
@@ -495,24 +496,26 @@ OTTracerProviderTest >> testProcessorErrorsDuringSpanLifecycleAreSuppressedAndLa
 { #category : 'tests' }
 OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 
-	| provider tracer span resource |
+	| exportRecord provider resource scope span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	resource := OTResource attributes: (OrderedDictionary new
-		at: 'service.name' put: 'spec-service';
-		yourself).
+			             at: 'service.name' put: 'spec-service';
+			             yourself).
 	provider resource: resource.
 	tracer := provider
-		tracerNamed: 'demo.scope'
-		version: '1.2.3'
-		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
-		attributes: self sampleAttributes.
+		          tracerNamed: 'demo.scope'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: self sampleAttributes.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	self assert: span resource equals: resource.
-	self assert: span instrumentationScope name equals: 'demo.scope'.
-	self assert: span instrumentationScope version equals: '1.2.3'.
-	self assert: span instrumentationScope schemaUrl equals: 'https://opentelemetry.io/schemas/1.0.0'.
-	self assert: (span instrumentationScope attributeAt: 'scope.answer') equals: 42
+	exportRecord := span asExportRecord.
+	scope := exportRecord at: #instrumentationScope.
+	self assert: (exportRecord at: #resource) equals: resource.
+	self assert: scope name equals: 'demo.scope'.
+	self assert: scope version equals: '1.2.3'.
+	self assert: scope schemaUrl equals: 'https://opentelemetry.io/schemas/1.0.0'.
+	self assert: (scope attributeAt: 'scope.answer') equals: 42
 ]
 
 { #category : 'tests' }
@@ -664,17 +667,18 @@ OTTracerProviderTest >> testShutdownSuppressesProcessorErrorsAndContinues [
 { #category : 'tests' }
 OTTracerProviderTest >> testSpanEndUsesSpanProcessorOnEndLifecycle [
 
-	| processor provider span tracer |
+	| exportRecord processor provider span tracer |
 	provider := OTTracerProvider new.
 	processor := OTRecordingSpanProcessor new.
 	provider spanProcessor: processor.
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	span end.
+	exportRecord := span asExportRecord.
 	self assert: processor endingSpans asArray equals: { span }.
 	self assert: processor endedSpans asArray equals: { span }.
 	self assert: span isEnded.
-	self assert: (span attributes at: 'processor.onEnding') equals: true
+	self assert: ((exportRecord at: #attributes) at: 'processor.onEnding') equals: true
 ]
 
 { #category : 'tests' }

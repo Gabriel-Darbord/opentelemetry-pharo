@@ -46,6 +46,14 @@ OTOtlpJsonTraceEncoder >> anyValueDataFor: anObject [
 	Error signal: 'Unsupported OTLP AnyValue: ' , anObject printString
 ]
 
+{ #category : 'encoding' }
+OTOtlpJsonTraceEncoder >> encodeSpans: someSpans [
+
+	^ OrderedDictionary new
+		at: 'resourceSpans' put: (self resourceSpansDataFor: someSpans);
+		yourself
+]
+
 { #category : 'private - encoding' }
 OTOtlpJsonTraceEncoder >> eventDataFor: anEvent [
 
@@ -59,14 +67,6 @@ OTOtlpJsonTraceEncoder >> eventDataFor: anEvent [
 	anEvent droppedAttributesCount > 0 ifTrue: [
 		data at: 'droppedAttributesCount' put: anEvent droppedAttributesCount ].
 	^ data
-]
-
-{ #category : 'encoding' }
-OTOtlpJsonTraceEncoder >> encodeSpans: someSpans [
-
-	^ OrderedDictionary new
-		at: 'resourceSpans' put: (self resourceSpansDataFor: someSpans);
-		yourself
 ]
 
 { #category : 'private - encoding' }
@@ -93,16 +93,12 @@ OTOtlpJsonTraceEncoder >> groupedSpansFrom: someSpans [
 
 	| groupedSpans |
 	groupedSpans := OrderedDictionary new.
-	(someSpans ifNil: [ #() ]) do: [ :eachSpan |
-		| resource scope scopeGroups |
-		resource := eachSpan resource.
-		scope := eachSpan instrumentationScope.
-		scopeGroups := groupedSpans
-			at: resource
-			ifAbsentPut: [ OrderedDictionary new ].
-		(scopeGroups
-			at: scope
-			ifAbsentPut: [ OrderedCollection new ]) add: eachSpan ].
+	(self normalizedSpansFrom: someSpans) do: [ :eachSpan |
+			| resource scope scopeGroups |
+			resource := eachSpan resource.
+			scope := eachSpan instrumentationScope.
+			scopeGroups := groupedSpans at: resource ifAbsentPut: [ OrderedDictionary new ].
+			(scopeGroups at: scope ifAbsentPut: [ OrderedCollection new ]) add: eachSpan ].
 	^ groupedSpans
 ]
 

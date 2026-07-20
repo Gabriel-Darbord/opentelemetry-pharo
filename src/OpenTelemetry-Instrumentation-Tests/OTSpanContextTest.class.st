@@ -187,7 +187,7 @@ OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
 { #category : 'tests' }
 OTSpanContextTest >> testRecordingSpanDoesNotExposeCreationStateMutators [
 
-	| originalKind originalParentContext provider replacementParentContext span tracer |
+	| exportRecord originalKind originalParentContext provider replacementParentContext span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
@@ -207,11 +207,13 @@ OTSpanContextTest >> testRecordingSpanDoesNotExposeCreationStateMutators [
 		                            traceFlags: '03'
 		                            traceState: 'downstream=value'
 		                            remote: true.
-	originalKind := span kind.
+	exportRecord := span asExportRecord.
+	originalKind := exportRecord at: #kind.
 	self should: [ span perform: #kind: with: OTSpan server ] raise: MessageNotUnderstood.
 	self should: [ span perform: #parentSpanContext: with: replacementParentContext ] raise: MessageNotUnderstood.
-	self assert: span kind equals: originalKind.
-	self assert: span parentSpanContext equals: originalParentContext
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #kind) equals: originalKind.
+	self assert: (exportRecord at: #parentSpanContext) equals: originalParentContext
 ]
 
 { #category : 'tests' }

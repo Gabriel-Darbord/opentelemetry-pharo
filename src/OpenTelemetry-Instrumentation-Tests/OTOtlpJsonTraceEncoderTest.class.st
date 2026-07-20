@@ -233,11 +233,12 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessag
 { #category : 'tests' }
 OTOtlpJsonTraceEncoderTest >> testEncodeStonRoundTrippedSpanPreservesParentSpanContext [
 
-	| payload roundTripped span |
+	| exportRecord payload roundTripped span |
 	roundTripped := STON fromString: (STON toString: self buildPrimarySpan).
 	payload := encoder encodeSpans: { roundTripped }.
 	span := (((payload at: 'resourceSpans') first at: 'scopeSpans') first at: 'spans') first.
+	exportRecord := roundTripped asExportRecord.
 	self assert: (span at: 'parentSpanId') equals: 'bbbbbbbbbbbbbbbb'.
-	self assert: roundTripped parentSpanContext traceId equals: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.
-	self assert: roundTripped parentSpanContext isRemote
+	self assert: (exportRecord at: #parentSpanContext) traceId equals: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.
+	self assert: (exportRecord at: #parentSpanContext) isRemote
 ]

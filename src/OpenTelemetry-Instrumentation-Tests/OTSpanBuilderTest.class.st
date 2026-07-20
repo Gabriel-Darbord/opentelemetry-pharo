@@ -69,12 +69,13 @@ OTSpanBuilderTest >> testAsRootIgnoresImplicitCurrentSpan [
 { #category : 'tests' }
 OTSpanBuilderTest >> testAttributesGetterAnswersEmptyCollectionWhenUnset [
 
-	| provider span tracer |
+	| exportRecord provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	self assert: span attributes isEmpty
+	exportRecord := span asExportRecord.
+	self deny: (exportRecord includesKey: #attributes)
 ]
 
 { #category : 'tests' }
@@ -198,7 +199,7 @@ OTSpanBuilderTest >> testNoParentIgnoresParentContextForSamplingAndTraceIdentity
 { #category : 'tests' }
 OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 
-	| provider span tracer |
+	| eventsToExport exportRecord provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
@@ -206,17 +207,19 @@ OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 	[ Error signal: 'boom' ]
 		on: Error
 		do: [ :error | span recordException: error ].
+	exportRecord := span asExportRecord.
+	eventsToExport := exportRecord at: #events.
 	self assert: span status equals: OTSpan unset.
-	self assert: span statusDescription isNil.
-	self assert: span events size equals: 1.
-	self assert: span events first name equals: 'exception'.
-	self assert: (span events first attributes at: 'exception.message') equals: 'boom'
+	self deny: (exportRecord includesKey: #statusDescription).
+	self assert: eventsToExport size equals: 1.
+	self assert: eventsToExport first name equals: 'exception'.
+	self assert: (eventsToExport first attributes at: 'exception.message') equals: 'boom'
 ]
 
 { #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
 
-	| linkedSpan provider span tracer |
+	| exportRecord linkedSpan linksToExport provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
@@ -225,9 +228,11 @@ OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
 	span addLink: (OTSpanLink span: linkedSpan attributes: (OrderedDictionary new
 				  at: 'link.kind' put: 'follows_from';
 				  yourself)).
-	self assert: span links size equals: 1.
-	self assert: span links first spanContext equals: linkedSpan spanContext.
-	self assert: (span links first attributes at: 'link.kind') equals: 'follows_from'
+	exportRecord := span asExportRecord.
+	linksToExport := exportRecord at: #links.
+	self assert: linksToExport size equals: 1.
+	self assert: linksToExport first spanContext equals: linkedSpan spanContext.
+	self assert: (linksToExport first attributes at: 'link.kind') equals: 'follows_from'
 ]
 
 { #category : 'tests' }
@@ -324,19 +329,21 @@ OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 { #category : 'tests' }
 OTSpanBuilderTest >> testSpanBuilderCanAddLinkFromAnotherSpan [
 
-	| linkedSpan provider span tracer |
+	| exportRecord linkedSpan linksToExport provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
-	span := ((tracer spanBuilderNamed: 'operation')
-		addLinkSpan: linkedSpan attributes: (OrderedDictionary new
-			at: 'link.kind' put: 'caused_by';
-			yourself);
-		startSpan).
-	self assert: span links size equals: 1.
-	self assert: span links first spanContext equals: linkedSpan spanContext.
-	self assert: (span links first attributes at: 'link.kind') equals: 'caused_by'
+	span := (tracer spanBuilderNamed: 'operation')
+		        addLinkSpan: linkedSpan attributes: (OrderedDictionary new
+				         at: 'link.kind' put: 'caused_by';
+				         yourself);
+		        startSpan.
+	exportRecord := span asExportRecord.
+	linksToExport := exportRecord at: #links.
+	self assert: linksToExport size equals: 1.
+	self assert: linksToExport first spanContext equals: linkedSpan spanContext.
+	self assert: (linksToExport first attributes at: 'link.kind') equals: 'caused_by'
 ]
 
 { #category : 'tests' }
@@ -399,35 +406,37 @@ OTSpanBuilderTest >> testSpanBuilderUsesImplicitCurrentContextByDefault [
 { #category : 'tests' }
 OTSpanBuilderTest >> testStartedSpanExposesRemoteParentSpanContext [
 
-	| parentContext provider span tracer |
+	| exportRecord parentContext provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	parentContext := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '03'
-		traceState: 'upstream=value'
-		remote: true.
-	span := ((tracer spanBuilderNamed: 'operation')
-		inContext: (OTContext new withSpan: parentContext asNonRecordingSpan);
-		startSpan).
-	self assert: span parentSpanContext equals: parentContext.
-	self assert: span parentSpanContext isRemote
+		                 traceId: '00112233445566778899aabbccddeeff'
+		                 spanId: '1122334455667788'
+		                 traceFlags: '03'
+		                 traceState: 'upstream=value'
+		                 remote: true.
+	span := (tracer spanBuilderNamed: 'operation')
+		        inContext: (OTContext new withSpan: parentContext asNonRecordingSpan);
+		        startSpan.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #parentSpanContext) equals: parentContext.
+	self assert: (exportRecord at: #parentSpanContext) isRemote
 ]
 
 { #category : 'tests' }
 OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
 
-	| provider roundTripped span tracer |
+	| exportRecord provider roundTripped span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	span setStatus: OTSpan error description: 'boom'.
 	roundTripped := STON fromString: (STON toString: span).
+	exportRecord := roundTripped asExportRecord.
 	self assert: roundTripped status equals: OTSpan error.
-	self assert: roundTripped statusDescription equals: 'boom'
+	self assert: (exportRecord at: #statusDescription) equals: 'boom'
 ]
 
 { #category : 'tests' }
@@ -454,26 +463,28 @@ OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 { #category : 'tests' }
 OTSpanBuilderTest >> testUpdateNameChangesRecordingSpanName [
 
-	| provider span tracer |
+	| exportRecord provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'original') startSpan.
 	span updateName: 'renamed'.
-	self assert: span name equals: 'renamed'
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #name) equals: 'renamed'
 ]
 
 { #category : 'tests' }
 OTSpanBuilderTest >> testUpdateNameDoesNothingAfterEnd [
 
-	| provider span tracer |
+	| exportRecord provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'original') startSpan.
 	span end.
 	span updateName: 'renamed'.
-	self assert: span name equals: 'original'
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #name) equals: 'original'
 ]
 
 { #category : 'private' }

@@ -56,22 +56,6 @@ OTOtlpProtobufTraceEncoder >> encodeAnyValue: anObject on: aWriter [
 	Error signal: 'Unsupported OTLP AnyValue: ' , anObject printString
 ]
 
-{ #category : 'encoding' }
-OTOtlpProtobufTraceEncoder >> encodeSpans: someSpans [
-
-	| writer |
-	writer := OTProtobufWriter withBytes.
-	(self groupedSpansFrom: someSpans) associationsDo: [ :resourceGroup |
-		writer
-			writeTag: 1 wireType: 2;
-			writeEmbedded: [ :resourceSpans |
-				self
-					encodeResource: resourceGroup key
-					scopeGroups: resourceGroup value
-					on: resourceSpans ] ].
-	^ writer contents
-]
-
 { #category : 'private - encoding' }
 OTOtlpProtobufTraceEncoder >> encodeEvent: anEvent on: aWriter [
 
@@ -239,6 +223,22 @@ OTOtlpProtobufTraceEncoder >> encodeSpan: aSpan on: aWriter [
 				 traceFlagsHex: aSpan traceFlags) ]
 ]
 
+{ #category : 'encoding' }
+OTOtlpProtobufTraceEncoder >> encodeSpans: someSpans [
+
+	| writer |
+	writer := OTProtobufWriter withBytes.
+	(self groupedSpansFrom: someSpans) associationsDo: [ :resourceGroup |
+		writer
+			writeTag: 1 wireType: 2;
+			writeEmbedded: [ :resourceSpans |
+				self
+					encodeResource: resourceGroup key
+					scopeGroups: resourceGroup value
+					on: resourceSpans ] ].
+	^ writer contents
+]
+
 { #category : 'private - encoding' }
 OTOtlpProtobufTraceEncoder >> encodeStatusFor: aSpan on: aWriter [
 
@@ -278,16 +278,12 @@ OTOtlpProtobufTraceEncoder >> groupedSpansFrom: someSpans [
 
 	| groupedSpans |
 	groupedSpans := OrderedDictionary new.
-	(someSpans ifNil: [ #() ]) do: [ :eachSpan |
-		| resource scope scopeGroups |
-		resource := eachSpan resource.
-		scope := eachSpan instrumentationScope.
-		scopeGroups := groupedSpans
-			at: resource
-			ifAbsentPut: [ OrderedDictionary new ].
-		(scopeGroups
-			at: scope
-			ifAbsentPut: [ OrderedCollection new ]) add: eachSpan ].
+	(self normalizedSpansFrom: someSpans) do: [ :eachSpan |
+			| resource scope scopeGroups |
+			resource := eachSpan resource.
+			scope := eachSpan instrumentationScope.
+			scopeGroups := groupedSpans at: resource ifAbsentPut: [ OrderedDictionary new ].
+			(scopeGroups at: scope ifAbsentPut: [ OrderedCollection new ]) add: eachSpan ].
 	^ groupedSpans
 ]
 

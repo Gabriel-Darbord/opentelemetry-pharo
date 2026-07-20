@@ -12,6 +12,20 @@ Class {
 }
 
 { #category : 'private - utilities' }
+OTZipkinSpanExporter >> addAddressDetailsFrom: attributes toEndpoint: endpoint [
+
+	| addressAndPort address port |
+	addressAndPort := self remoteEndpointAddressAndPortFrom: attributes.
+	addressAndPort ifNil: [ ^ endpoint ].
+	address := addressAndPort first.
+	port := addressAndPort second.
+	(self isProbablyIpv4Address: address) ifTrue: [ endpoint at: 'ipv4' put: address ].
+	(self isProbablyIpv6Address: address) ifTrue: [ endpoint at: 'ipv6' put: address ].
+	port ifNotNil: [ endpoint at: 'port' put: port ].
+	^ endpoint
+]
+
+{ #category : 'private - utilities' }
 OTZipkinSpanExporter >> addDroppedCountTagsFrom: aSpan to: tags [
 
 	aSpan droppedAttributesCount > 0 ifTrue: [
@@ -62,6 +76,18 @@ OTZipkinSpanExporter >> annotationsFor: someEvents [
 			yourself ]
 ]
 
+{ #category : 'private - utilities' }
+OTZipkinSpanExporter >> endpointValueFromAddressAttribute: addressAttributeName portAttribute: portAttributeName in: attributes [
+
+	| address port |
+	address := self stringAttributeNamed: addressAttributeName in: attributes.
+	address ifNil: [ ^ nil ].
+	port := self stringAttributeNamed: portAttributeName in: attributes.
+	^ port
+		ifNil: [ address ]
+		ifNotNil: [ address , ':' , port ]
+]
+
 { #category : 'exporting' }
 OTZipkinSpanExporter >> export: spans [
 
@@ -100,6 +126,25 @@ OTZipkinSpanExporter >> exportableTagsFor: aSpan [
 ]
 
 { #category : 'private - utilities' }
+OTZipkinSpanExporter >> firstRemoteEndpointValueFrom: attributes [
+
+	^ {
+		self stringAttributeNamed: 'peer.service' in: attributes.
+		self stringAttributeNamed: 'server.address' in: attributes.
+		self stringAttributeNamed: 'net.peer.name' in: attributes.
+		self endpointValueFromAddressAttribute: 'network.peer.address' portAttribute: 'network.peer.port' in: attributes.
+		self stringAttributeNamed: 'server.socket.domain' in: attributes.
+		self endpointValueFromAddressAttribute: 'server.socket.address' portAttribute: 'server.socket.port' in: attributes.
+		self stringAttributeNamed: 'net.sock.peer.name' in: attributes.
+		self endpointValueFromAddressAttribute: 'net.sock.peer.addr' portAttribute: 'net.sock.peer.port' in: attributes.
+		self stringAttributeNamed: 'peer.hostname' in: attributes.
+		self stringAttributeNamed: 'peer.address' in: attributes.
+		self stringAttributeNamed: 'db.name' in: attributes }
+		detect: [ :each | each notNil ]
+		ifNone: [ nil ]
+]
+
+{ #category : 'private - utilities' }
 OTZipkinSpanExporter >> formattedAttributes: someAttributes [
 
 	^ String streamContents: [ :stream |
@@ -123,51 +168,6 @@ OTZipkinSpanExporter >> formattedAttributesFor: anEvent [
 	^ self formattedAttributes: (self exportableEventAttributesFor: anEvent)
 ]
 
-{ #category : 'private - utilities' }
-OTZipkinSpanExporter >> endpointValueFromAddressAttribute: addressAttributeName portAttribute: portAttributeName in: attributes [
-
-	| address port |
-	address := self stringAttributeNamed: addressAttributeName in: attributes.
-	address ifNil: [ ^ nil ].
-	port := self stringAttributeNamed: portAttributeName in: attributes.
-	^ port
-		ifNil: [ address ]
-		ifNotNil: [ address , ':' , port ]
-]
-
-{ #category : 'private - utilities' }
-OTZipkinSpanExporter >> addAddressDetailsFrom: attributes toEndpoint: endpoint [
-
-	| addressAndPort address port |
-	addressAndPort := self remoteEndpointAddressAndPortFrom: attributes.
-	addressAndPort ifNil: [ ^ endpoint ].
-	address := addressAndPort first.
-	port := addressAndPort second.
-	(self isProbablyIpv4Address: address) ifTrue: [ endpoint at: 'ipv4' put: address ].
-	(self isProbablyIpv6Address: address) ifTrue: [ endpoint at: 'ipv6' put: address ].
-	port ifNotNil: [ endpoint at: 'port' put: port ].
-	^ endpoint
-]
-
-{ #category : 'private - utilities' }
-OTZipkinSpanExporter >> firstRemoteEndpointValueFrom: attributes [
-
-	^ {
-		self stringAttributeNamed: 'peer.service' in: attributes.
-		self stringAttributeNamed: 'server.address' in: attributes.
-		self stringAttributeNamed: 'net.peer.name' in: attributes.
-		self endpointValueFromAddressAttribute: 'network.peer.address' portAttribute: 'network.peer.port' in: attributes.
-		self stringAttributeNamed: 'server.socket.domain' in: attributes.
-		self endpointValueFromAddressAttribute: 'server.socket.address' portAttribute: 'server.socket.port' in: attributes.
-		self stringAttributeNamed: 'net.sock.peer.name' in: attributes.
-		self endpointValueFromAddressAttribute: 'net.sock.peer.addr' portAttribute: 'net.sock.peer.port' in: attributes.
-		self stringAttributeNamed: 'peer.hostname' in: attributes.
-		self stringAttributeNamed: 'peer.address' in: attributes.
-		self stringAttributeNamed: 'db.name' in: attributes }
-		detect: [ :each | each notNil ]
-		ifNone: [ nil ]
-]
-
 { #category : 'accessing' }
 OTZipkinSpanExporter >> httpClient [
 	"Configured to localhost:9411 by default."
@@ -184,55 +184,6 @@ OTZipkinSpanExporter >> httpClient [
 			  accept: ZnMimeType applicationJson;
 			  contentWriter: [ :data |
 				  ZnEntity json: (ZnUtils defaultJSONWriter toString: data) ] ]
-]
-
-{ #category : 'private - utilities' }
-OTZipkinSpanExporter >> serviceNameFor: aSpan [
-
-	^ aSpan resource serviceName
-		ifNil: [ OTTracerProvider defaultResource serviceName ]
-]
-
-{ #category : 'private - utilities' }
-OTZipkinSpanExporter >> remoteEndpointFor: aSpan [
-
-	| endpoint endpointValue |
-	((aSpan kind = OTSpan client) or: [ aSpan kind = OTSpan producer ]) ifFalse: [ ^ nil ].
-	endpointValue := self firstRemoteEndpointValueFrom: aSpan attributes.
-	endpointValue ifNil: [ ^ nil ].
-	endpoint := Dictionary new
-		at: 'serviceName' put: endpointValue;
-		yourself.
-	^ self addAddressDetailsFrom: aSpan attributes toEndpoint: endpoint
-]
-
-{ #category : 'private - utilities' }
-OTZipkinSpanExporter >> remoteEndpointAddressAndPortFrom: attributes [
-
-	| address port |
-	address := self stringAttributeNamed: 'network.peer.address' in: attributes.
-	address ifNotNil: [
-		port := self integerAttributeNamed: 'network.peer.port' in: attributes.
-		^ { address. port } ].
-	address := self stringAttributeNamed: 'server.socket.address' in: attributes.
-	address ifNotNil: [
-		port := self integerAttributeNamed: 'server.socket.port' in: attributes.
-		^ { address. port } ].
-	address := self stringAttributeNamed: 'net.sock.peer.addr' in: attributes.
-	address ifNotNil: [
-		port := self integerAttributeNamed: 'net.sock.peer.port' in: attributes.
-		^ { address. port } ].
-	^ nil
-]
-
-{ #category : 'private - utilities' }
-OTZipkinSpanExporter >> stringAttributeNamed: aString in: attributes [
-
-	| value |
-	attributes ifNil: [ ^ nil ].
-	value := attributes at: aString ifAbsent: [ ^ nil ].
-	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
 ]
 
 { #category : 'private - utilities' }
@@ -271,6 +222,55 @@ OTZipkinSpanExporter >> isProbablyIpv6Address: aString [
 ]
 
 { #category : 'private - utilities' }
+OTZipkinSpanExporter >> remoteEndpointAddressAndPortFrom: attributes [
+
+	| address port |
+	address := self stringAttributeNamed: 'network.peer.address' in: attributes.
+	address ifNotNil: [
+		port := self integerAttributeNamed: 'network.peer.port' in: attributes.
+		^ { address. port } ].
+	address := self stringAttributeNamed: 'server.socket.address' in: attributes.
+	address ifNotNil: [
+		port := self integerAttributeNamed: 'server.socket.port' in: attributes.
+		^ { address. port } ].
+	address := self stringAttributeNamed: 'net.sock.peer.addr' in: attributes.
+	address ifNotNil: [
+		port := self integerAttributeNamed: 'net.sock.peer.port' in: attributes.
+		^ { address. port } ].
+	^ nil
+]
+
+{ #category : 'private - utilities' }
+OTZipkinSpanExporter >> remoteEndpointFor: aSpan [
+
+	| endpoint endpointValue |
+	((aSpan kind = OTSpan client) or: [ aSpan kind = OTSpan producer ]) ifFalse: [ ^ nil ].
+	endpointValue := self firstRemoteEndpointValueFrom: aSpan attributes.
+	endpointValue ifNil: [ ^ nil ].
+	endpoint := Dictionary new
+		at: 'serviceName' put: endpointValue;
+		yourself.
+	^ self addAddressDetailsFrom: aSpan attributes toEndpoint: endpoint
+]
+
+{ #category : 'private - utilities' }
+OTZipkinSpanExporter >> serviceNameFor: aSpan [
+
+	^ aSpan resource serviceName
+		ifNil: [ OTTracerProvider defaultResource serviceName ]
+]
+
+{ #category : 'private - utilities' }
+OTZipkinSpanExporter >> stringAttributeNamed: aString in: attributes [
+
+	| value |
+	attributes ifNil: [ ^ nil ].
+	value := attributes at: aString ifAbsent: [ ^ nil ].
+	value := value asString trimBoth.
+	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+]
+
+{ #category : 'private - utilities' }
 OTZipkinSpanExporter >> tagStringFor: anObject [
 
 	anObject isNil ifTrue: [ ^ '' ].
@@ -287,25 +287,27 @@ OTZipkinSpanExporter >> tagStringFor: anObject [
 OTZipkinSpanExporter >> transform: spans [
 	"Transform OpenTelemetry spans into the Zipkin format following the rules at https://opentelemetry.io/docs/specs/otel/trace/sdk_exporters/zipkin/"
 
-	^ spans collect: [ :span |
-		| data parentContext remoteEndpoint tags spanEvents |
-		data := Dictionary new.
-		parentContext := span parentSpanContext.
-		remoteEndpoint := self remoteEndpointFor: span.
-		data
-			at: 'traceId' put: span traceId;
-			at: 'id' put: span spanId;
-			at: 'name' put: span name;
-			at: 'timestamp' put: span startTime asUnixMicroseconds;
-			at: 'duration' put: (span endTime - span startTime) asMicroseconds.
-		parentContext ifNotNil: [ data at: 'parentId' put: parentContext spanId ].
-		span kind ifNotNil: [ :kind |
-			kind = OTSpan internal ifFalse: [ data at: 'kind' put: kind ] ].
-		spanEvents := span events.
-		spanEvents ifNotEmpty: [ data at: 'annotations' put: (self annotationsFor: spanEvents) ].
-		tags := self exportableTagsFor: span.
-		tags ifNotEmpty: [ data at: 'tags' put: tags ].
-		data at: 'localEndpoint' put: (Dictionary new at: 'serviceName' put: (self serviceNameFor: span); yourself).
-		remoteEndpoint ifNotNil: [ data at: 'remoteEndpoint' put: remoteEndpoint ].
-		data ]
+	^ (spans ifNil: [ #(  ) ]) collect: [ :each |
+			  | data parentContext remoteEndpoint span spanEvents tags |
+			  span := OTSpanSnapshot fromExportableSpan: each.
+			  data := Dictionary new.
+			  parentContext := span parentSpanContext.
+			  remoteEndpoint := self remoteEndpointFor: span.
+			  data
+				  at: 'traceId' put: span traceId;
+				  at: 'id' put: span spanId;
+				  at: 'name' put: span name;
+				  at: 'timestamp' put: span startTime asUnixMicroseconds;
+				  at: 'duration' put: (span endTime - span startTime) asMicroseconds.
+			  parentContext ifNotNil: [ data at: 'parentId' put: parentContext spanId ].
+			  span kind ifNotNil: [ :kind | kind = OTSpan internal ifFalse: [ data at: 'kind' put: kind ] ].
+			  spanEvents := span events.
+			  spanEvents ifNotEmpty: [ data at: 'annotations' put: (self annotationsFor: spanEvents) ].
+			  tags := self exportableTagsFor: span.
+			  tags ifNotEmpty: [ data at: 'tags' put: tags ].
+			  data at: 'localEndpoint' put: (Dictionary new
+					   at: 'serviceName' put: (self serviceNameFor: span);
+					   yourself).
+			  remoteEndpoint ifNotNil: [ data at: 'remoteEndpoint' put: remoteEndpoint ].
+			  data ]
 ]

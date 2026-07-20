@@ -27,6 +27,14 @@ Class {
 }
 
 { #category : 'instance creation' }
+OTSpanSnapshot class >> fromExportableSpan: anObject [
+
+	^ anObject class == self
+		  ifTrue: [ anObject ]
+		  ifFalse: [ self fromSpan: anObject ]
+]
+
+{ #category : 'instance creation' }
 OTSpanSnapshot class >> fromSpan: aSpan [
 
 	^ self new initializeFromSpan: aSpan
@@ -103,22 +111,26 @@ OTSpanSnapshot >> events [
 { #category : 'initialization' }
 OTSpanSnapshot >> initializeFromSpan: aSpan [
 
+	| record |
+	record := aSpan asExportRecord.
 	spanContext := aSpan spanContext.
-	parentSpanContext := aSpan parentSpanContext.
-	name := aSpan name.
-	kind := aSpan kind.
-	startTime := aSpan startTime.
-	endTime := aSpan endTime.
-	status := aSpan status.
-	statusDescription := aSpan statusDescription.
-	attributes := aSpan attributes copy.
-	events := aSpan events copy.
-	links := aSpan links copy.
-	resource := aSpan resource.
-	instrumentationScope := aSpan instrumentationScope.
-	droppedAttributesCount := aSpan droppedAttributesCount.
-	droppedEventsCount := aSpan droppedEventsCount.
-	droppedLinksCount := aSpan droppedLinksCount
+	parentSpanContext := record at: #parentSpanContext ifAbsent: [ nil ].
+	name := record at: #name.
+	kind := record at: #kind.
+	startTime := record at: #startTime.
+	endTime := record at: #endTime.
+	status := record at: #status.
+	statusDescription := record at: #statusDescription ifAbsent: [ nil ].
+	attributes := (record at: #attributes ifAbsent: [ OrderedDictionary new ]) copy.
+	events := (record at: #events ifAbsent: [ #(  ) ]) copy.
+	links := (record at: #links ifAbsent: [ #(  ) ]) copy.
+	resource := record at: #resource ifAbsent: [ OTResource empty ].
+	instrumentationScope := record
+		                        at: #instrumentationScope
+		                        ifAbsent: [ OTInstrumentationScope named: (record at: #instrumentationName ifAbsent: [ '' ]) ].
+	droppedAttributesCount := record at: #droppedAttributesCount ifAbsent: [ 0 ].
+	droppedEventsCount := record at: #droppedEventsCount ifAbsent: [ 0 ].
+	droppedLinksCount := record at: #droppedLinksCount ifAbsent: [ 0 ]
 ]
 
 { #category : 'accessing' }

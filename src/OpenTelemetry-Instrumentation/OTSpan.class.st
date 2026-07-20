@@ -439,14 +439,15 @@ OTSpan class >> wrapping: aSpanContext [
 { #category : 'recording' }
 OTSpan >> addEvent: anOTSpanEvent [
 
-	| limitedEvent |
+	| currentEvents limitedEvent |
 	self isRecording ifFalse: [ ^ self ].
-	(self attributesCountWithinLimit: self limits eventCountLimit currentSize: self events size) ifFalse: [
+	currentEvents := events ifNil: [ #(  ) ].
+	(self attributesCountWithinLimit: self limits eventCountLimit currentSize: currentEvents size) ifFalse: [
 			self warnOnceAboutDiscardedData.
 			self restoreDroppedEventsCount: self droppedEventsCount + 1.
 			^ self ].
 	limitedEvent := self limitedEventFrom: anOTSpanEvent.
-	events := self events copyWith: limitedEvent.
+	events := currentEvents copyWith: limitedEvent.
 	^ limitedEvent
 ]
 
@@ -477,22 +478,28 @@ OTSpan >> addEventNamed: aString timestamp: aDateAndTime [
 { #category : 'accessing' }
 OTSpan >> addLink: aSpanLink [
 
-	| limitedLink |
+	| currentLinks limitedLink |
 	self isRecording ifFalse: [ ^ self ].
-	(self attributesCountWithinLimit: self limits linkCountLimit currentSize: self links size) ifFalse: [
+	currentLinks := self effectiveLinks.
+	(self attributesCountWithinLimit: self limits linkCountLimit currentSize: currentLinks size) ifFalse: [
 			self warnOnceAboutDiscardedData.
 			self restoreDroppedLinksCount: self droppedLinksCount + 1.
 			^ self ].
 	limitedLink := self limitedLinkFrom: aSpanLink.
-	links := self links copyWith: limitedLink.
+	links := currentLinks copyWith: limitedLink.
 	^ limitedLink
 ]
 
 { #category : 'private - exporting' }
 OTSpan >> asExportRecord [
 
-	| data |
+	| data linksToExport parentContext resourceToExport scope statusDescriptionToExport |
 	data := OrderedDictionary new.
+	linksToExport := self effectiveLinks.
+	parentContext := self effectiveParentSpanContext.
+	resourceToExport := self effectiveResource.
+	scope := self effectiveInstrumentationScope.
+	statusDescriptionToExport := self effectiveStatusDescription.
 	data
 		at: #spanId put: self spanId;
 		at: #traceId put: self traceId;
@@ -502,18 +509,18 @@ OTSpan >> asExportRecord [
 		at: #endTime put: endTime;
 		at: #status put: self status;
 		at: #traceFlags put: self traceFlags;
-		at: #instrumentationName put: self instrumentationScope name.
-	self instrumentationScope isEmpty ifFalse: [ data at: #instrumentationScope put: self instrumentationScope ].
-	self parentSpanContext ifNotNil: [ :aParentContext |
+		at: #instrumentationName put: scope name.
+	scope isEmpty ifFalse: [ data at: #instrumentationScope put: scope ].
+	parentContext ifNotNil: [
 			data
-				at: #parentSpanContext put: aParentContext;
-				at: #parentId put: aParentContext spanId ].
+				at: #parentSpanContext put: parentContext;
+				at: #parentId put: parentContext spanId ].
 	self traceState ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
-	self statusDescription ifNotNil: [ :description | data at: #statusDescription put: description ].
+	statusDescriptionToExport ifNotNil: [ :description | data at: #statusDescription put: description ].
 	attributes isEmptyOrNil ifFalse: [ data at: #attributes put: attributes ].
 	events isEmptyOrNil ifFalse: [ data at: #events put: events ].
-	self links ifNotEmpty: [ data at: #links put: self links ].
-	self resource isEmpty ifFalse: [ data at: #resource put: self resource ].
+	linksToExport ifNotEmpty: [ data at: #links put: linksToExport ].
+	resourceToExport isEmpty ifFalse: [ data at: #resource put: resourceToExport ].
 	self droppedAttributesCount > 0 ifTrue: [ data at: #droppedAttributesCount put: self droppedAttributesCount ].
 	self droppedEventsCount > 0 ifTrue: [ data at: #droppedEventsCount put: self droppedEventsCount ].
 	self droppedLinksCount > 0 ifTrue: [ data at: #droppedLinksCount put: self droppedLinksCount ].
@@ -539,12 +546,6 @@ OTSpan >> attributeAt: key put: value [
 		ifFalse: [
 				self warnOnceAboutDiscardedData.
 				self restoreDroppedAttributesCount: self droppedAttributesCount + 1 ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> attributes [
-
-	^ attributes ifNil: [ OrderedDictionary new ]
 ]
 
 { #category : 'private' }
@@ -576,6 +577,39 @@ OTSpan >> droppedEventsCount [
 OTSpan >> droppedLinksCount [
 
 	^ droppedLinksCount ifNil: [ 0 ]
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveInstrumentationScope [
+
+	instrumentationScope ifNil: [ instrumentationScope := OTInstrumentationScope named: (instrumentationName ifNil: [ '' ]) ].
+	^ instrumentationScope
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveLinks [
+
+	^ links ifNil: [ #(  ) ]
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveParentSpanContext [
+
+	^ parent ifNotNil: [ parent asSpanContext ]
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveResource [
+
+	^ resource ifNil: [ OTResource empty ]
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveStatusDescription [
+
+	^ self status = self class error
+		  ifTrue: [ statusDescription ]
+		  ifFalse: [ nil ]
 ]
 
 { #category : 'control' }
@@ -612,12 +646,6 @@ OTSpan >> ensureMutableSpanContextState [
 
 	startTime ifNil: [ ^ self ].
 	Error signal: 'OpenTelemetry recording span identity cannot change after the span has started'
-]
-
-{ #category : 'accessing' }
-OTSpan >> events [
-
-	^ events ifNil: [ #() ]
 ]
 
 { #category : 'private' }
@@ -657,13 +685,6 @@ OTSpan >> initialize [
 	droppedLinksCount := 0
 ]
 
-{ #category : 'accessing' }
-OTSpan >> instrumentationScope [
-
-	instrumentationScope ifNil: [ instrumentationScope := OTInstrumentationScope named: (instrumentationName ifNil: [ '' ]) ].
-	^ instrumentationScope
-]
-
 { #category : 'testing' }
 OTSpan >> isEnded [
 
@@ -676,22 +697,16 @@ OTSpan >> isRecording [
 	^ self isEnded not
 ]
 
-{ #category : 'accessing' }
-OTSpan >> kind [
-
-	^ kind
-]
-
 { #category : 'private - logging' }
 OTSpan >> limitDiscardWarningMessage [
 
 	^ String streamContents: [ :stream |
-		stream
-			nextPutAll: 'OpenTelemetry discarded attributes, events, or links due to configured span limits on span ';
-			nextPut: $";
-			nextPutAll: self name;
-			nextPut: $";
-			nextPutAll: '. Further warnings for this span are suppressed.' ]
+			  stream
+				  nextPutAll: 'OpenTelemetry discarded attributes, events, or links due to configured span limits on span ';
+				  nextPut: $";
+				  nextPutAll: (name ifNil: [ '' ]);
+				  nextPut: $";
+				  nextPutAll: '. Further warnings for this span are suppressed.' ]
 ]
 
 { #category : 'private' }
@@ -728,12 +743,6 @@ OTSpan >> limits [
 	^ limits ifNil: [ OTSpanLimits default ]
 ]
 
-{ #category : 'accessing' }
-OTSpan >> links [
-
-	^ links ifNil: [ #() ]
-]
-
 { #category : 'private' }
 OTSpan >> markEnded [
 
@@ -754,12 +763,6 @@ OTSpan >> mayAddAttributeNamed: aKey [
 
 	^ (attributes notNil and: [ attributes includesKey: aKey ])
 		or: [ self attributesCountWithinLimit: self limits attributeCountLimit currentSize: (attributes ifNil: [ 0 ] ifNotNil: [ attributes size ]) ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> name [
-
-	^ name
 ]
 
 { #category : 'private' }
@@ -802,18 +805,14 @@ OTSpan >> parent [
 	^ parent
 ]
 
-{ #category : 'accessing' }
-OTSpan >> parentSpanContext [
-
-	^ parent ifNotNil: [ parent asSpanContext ]
-]
-
 { #category : 'printing' }
 OTSpan >> printOn: aStream [
 
+	| scope |
+	scope := self effectiveInstrumentationScope.
 	aStream
 		nextPutAll: 'Span[';
-		nextPutAll: self instrumentationScope name;
+		nextPutAll: scope name;
 		nextPutAll: ': ';
 		nextPutAll: (name ifNil: [ '' ]);
 		nextPut: $]
@@ -832,12 +831,6 @@ OTSpan >> recordException: anException attributes: aCollection [
 	self isRecording ifFalse: [ ^ self ].
 	exceptionAttributes := (self normalizedExceptionAttributesFor: anException additionalAttributes: aCollection) associations.
 	self addEventNamed: 'exception' attributes: exceptionAttributes
-]
-
-{ #category : 'accessing' }
-OTSpan >> resource [
-
-	^ resource ifNil: [ OTResource empty ]
 ]
 
 { #category : 'private' }
@@ -1045,17 +1038,15 @@ OTSpan >> statusCode [
 	^ self status
 ]
 
-{ #category : 'accessing' }
-OTSpan >> statusDescription [
-
-	^ self status = self class error
-		  ifTrue: [ statusDescription ]
-		  ifFalse: [ nil ]
-]
-
 { #category : 'ston persistence' }
 OTSpan >> stonOn: stonWriter [
 
+	| linksToExport parentContext resourceToExport scope statusDescriptionToExport |
+	linksToExport := self effectiveLinks.
+	parentContext := self effectiveParentSpanContext.
+	resourceToExport := self effectiveResource.
+	scope := self effectiveInstrumentationScope.
+	statusDescriptionToExport := self effectiveStatusDescription.
 	stonWriter writeObject: self streamMap: [ :map |
 			map
 				at: #spanId put: self spanId;
@@ -1067,18 +1058,18 @@ OTSpan >> stonOn: stonWriter [
 				at: #endTime put: endTime;
 				at: #status put: self status;
 				at: #traceFlags put: self traceFlags;
-				at: #instrumentationName put: self instrumentationScope name.
-			self instrumentationScope isEmpty ifFalse: [ map at: #instrumentationScope put: self instrumentationScope ].
-			self parentSpanContext ifNotNil: [ :parentContext |
+				at: #instrumentationName put: scope name.
+			scope isEmpty ifFalse: [ map at: #instrumentationScope put: scope ].
+			parentContext ifNotNil: [
 					map
 						at: #parentSpanContext put: parentContext;
 						at: #parentId put: parentContext spanId ].
 			self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
-			self statusDescription ifNotNil: [ :description | map at: #statusDescription put: description ].
+			statusDescriptionToExport ifNotNil: [ :description | map at: #statusDescription put: description ].
 			attributes isEmptyOrNil ifFalse: [ map at: #attributes put: attributes ].
 			events isEmptyOrNil ifFalse: [ map at: #events put: events ].
-			self links ifNotEmpty: [ map at: #links put: self links ].
-			self resource isEmpty ifFalse: [ map at: #resource put: self resource ].
+			linksToExport ifNotEmpty: [ map at: #links put: linksToExport ].
+			resourceToExport isEmpty ifFalse: [ map at: #resource put: resourceToExport ].
 			self droppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self droppedAttributesCount ].
 			self droppedEventsCount > 0 ifTrue: [ map at: #droppedEventsCount put: self droppedEventsCount ].
 			self droppedLinksCount > 0 ifTrue: [ map at: #droppedLinksCount put: self droppedLinksCount ] ]
