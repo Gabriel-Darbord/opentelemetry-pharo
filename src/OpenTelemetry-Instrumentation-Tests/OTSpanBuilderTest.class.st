@@ -187,7 +187,7 @@ OTSpanBuilderTest >> testNoParentIgnoresParentContextForSamplingAndTraceIdentity
 	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
 	self assert: rootSpan spanContext isValid.
 	self deny: rootSpan spanContext traceId equals: parentSpan spanContext traceId.
-	self assert: rootSpan context baggage equals: baggage
+	self assert: rootSpan effectiveContext baggage equals: baggage
 ]
 
 { #category : 'tests' }

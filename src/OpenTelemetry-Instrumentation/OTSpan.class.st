@@ -394,7 +394,7 @@ OTSpan class >> underInternal: parentSpan [
 	span := self newInternal.
 	span
 		restoreParent: parentSpan;
-		restoreContext: parentSpan context;
+		restoreContext: parentSpan effectiveContext;
 		restoreSpanContext: (OTSpanContext
 				 traceId: parentSpanContext traceId
 				 spanId: generatedSpanId
@@ -549,12 +549,6 @@ OTSpan >> attributesCountWithinLimit: aLimit currentSize: aSize [
 ]
 
 { #category : 'accessing' }
-OTSpan >> context [
-
-	^ context
-]
-
-{ #category : 'accessing' }
 OTSpan >> droppedAttributesCount [
 
 	^ droppedAttributesCount ifNil: [ 0 ]
@@ -570,6 +564,12 @@ OTSpan >> droppedEventsCount [
 OTSpan >> droppedLinksCount [
 
 	^ droppedLinksCount ifNil: [ 0 ]
+]
+
+{ #category : 'private' }
+OTSpan >> effectiveContext [
+
+	^ context
 ]
 
 { #category : 'private' }
@@ -745,7 +745,7 @@ OTSpan >> markEnded [
 OTSpan >> markStarted [
 
 	self isEnded ifTrue: [ ^ self ].
-	OTSpan currentContext: self context.
+	OTSpan currentContext: self effectiveContext.
 	self restoreStartTime: DateAndTime now
 ]
 

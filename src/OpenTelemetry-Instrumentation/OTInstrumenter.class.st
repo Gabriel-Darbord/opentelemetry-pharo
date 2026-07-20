@@ -32,46 +32,6 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation'
 }
 
-{ #category : 'instance creation' }
-OTInstrumenter class >> default [
-	"A shared instrumenter with default configurations."
-
-	^ default ifNil: [ default := self new ]
-]
-
-{ #category : 'defaults' }
-OTInstrumenter class >> defaultContextProducer [
-
-	^ defaultContextProducer ifNil: [
-		  defaultContextProducer := [ OTContext new ] ]
-]
-
-{ #category : 'private - logging' }
-OTInstrumenter class >> defaultConfigurationWarningSink [
-
-	^ OTDiagnosticLogger defaultWarningSink
-]
-
-{ #category : 'defaults' }
-OTInstrumenter class >> defaultSpanKindExtractor [
-
-	^ OTSpan alwaysInternal
-]
-
-{ #category : 'defaults' }
-OTInstrumenter class >> defaultSpanNameExtractor [
-
-	^ defaultSpanNameExtractor ifNil: [
-		  defaultSpanNameExtractor := [ :request |
-		                              request printStringLimitedTo: 50 ] ]
-]
-
-{ #category : 'instance creation' }
-OTInstrumenter class >> forInstrumentationNamed: aString [
-
-	^ self new instrumentationName: aString
-]
-
 { #category : 'private - logging' }
 OTInstrumenter class >> configurationWarningSink [
 
@@ -98,6 +58,46 @@ OTInstrumenter class >> configurationWarningSink: aBlock [
 	^ self configurationWarningSink
 ]
 
+{ #category : 'instance creation' }
+OTInstrumenter class >> default [
+	"A shared instrumenter with default configurations."
+
+	^ default ifNil: [ default := self new ]
+]
+
+{ #category : 'private - logging' }
+OTInstrumenter class >> defaultConfigurationWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'defaults' }
+OTInstrumenter class >> defaultContextProducer [
+
+	^ defaultContextProducer ifNil: [
+		  defaultContextProducer := [ OTContext new ] ]
+]
+
+{ #category : 'defaults' }
+OTInstrumenter class >> defaultSpanKindExtractor [
+
+	^ OTSpan alwaysInternal
+]
+
+{ #category : 'defaults' }
+OTInstrumenter class >> defaultSpanNameExtractor [
+
+	^ defaultSpanNameExtractor ifNil: [
+		  defaultSpanNameExtractor := [ :request |
+		                              request printStringLimitedTo: 50 ] ]
+]
+
+{ #category : 'instance creation' }
+OTInstrumenter class >> forInstrumentationNamed: aString [
+
+	^ self new instrumentationName: aString
+]
+
 { #category : 'private - logging' }
 OTInstrumenter class >> noteConfigurationFailedDuring: anOperationName error: anError [
 
@@ -110,6 +110,16 @@ OTInstrumenter class >> noteConfigurationFailedDuring: anOperationName error: an
 		handleSuppressedError: anError
 		message: message
 		fallback: [ self configurationWarningSink value: message ]
+]
+
+{ #category : 'private - error handling' }
+OTInstrumenter >> configurationValueDuring: anOperationName default: aDefaultValue do: aBlock [
+
+	^ [ aBlock value ]
+		on: Error
+		do: [ :error |
+			self class noteConfigurationFailedDuring: anOperationName error: error.
+			aDefaultValue ]
 ]
 
 { #category : 'accessing' }
@@ -135,25 +145,15 @@ OTInstrumenter >> currentContext [
 		ifFalse: [ currentContext ]
 ]
 
-{ #category : 'private - error handling' }
-OTInstrumenter >> configurationValueDuring: anOperationName default: aDefaultValue do: aBlock [
-
-	^ [ aBlock value ]
-		on: Error
-		do: [ :error |
-			self class noteConfigurationFailedDuring: anOperationName error: error.
-			aDefaultValue ]
-]
-
 { #category : 'instrumenting' }
 OTInstrumenter >> decisionContextUnder: aSpan [
 
 	| currentContext |
-	aSpan ifNotNil: [ ^ aSpan context ].
+	aSpan ifNotNil: [ ^ aSpan effectiveContext ].
 	currentContext := OpenTelemetry currentContext.
 	^ currentContext isEmpty
-		ifTrue: [ OTContext new ]
-		ifFalse: [ currentContext ]
+		  ifTrue: [ OTContext new ]
+		  ifFalse: [ currentContext ]
 ]
 
 { #category : 'instrumenting' }
@@ -198,18 +198,6 @@ OTInstrumenter >> instrumentationName: aString [
 	instrumentationName := aString
 ]
 
-{ #category : 'accessing' }
-OTInstrumenter >> tracerProvider [
-
-	^ tracerProvider ifNil: [ OTTracerProvider current ]
-]
-
-{ #category : 'accessing' }
-OTInstrumenter >> tracerProvider: anObject [
-
-	tracerProvider := anObject
-]
-
 { #category : 'instrumenting' }
 OTInstrumenter >> produceContext [
 
@@ -248,6 +236,15 @@ OTInstrumenter >> spanKindExtractor: aBlock [
 	spanKindExtractor := aBlock
 ]
 
+{ #category : 'instrumenting' }
+OTInstrumenter >> spanKindForRequest: request [
+
+	^ self
+		configurationValueDuring: 'spanKindExtractor'
+		default: (self class defaultSpanKindExtractor value: request)
+		do: [ self spanKindExtractor value: request ]
+]
+
 { #category : 'accessing' }
 OTInstrumenter >> spanNameExtractor [
 
@@ -261,6 +258,25 @@ OTInstrumenter >> spanNameExtractor: aBlock [
 	spanNameExtractor := aBlock
 ]
 
+{ #category : 'instrumenting' }
+OTInstrumenter >> spanNameForRequest: request [
+
+	^ self
+		configurationValueDuring: 'spanNameExtractor'
+		default: (self class defaultSpanNameExtractor value: request)
+		do: [ self spanNameExtractor value: request ]
+]
+
+{ #category : 'instrumenting' }
+OTInstrumenter >> spanSuppressedUnder: span kind: aSpanKind [
+
+	spanSuppressionStrategy ifNil: [ ^ false ].
+	^ self
+		configurationValueDuring: 'spanSuppressionStrategy'
+		default: false
+		do: [ spanSuppressionStrategy value: span value: aSpanKind ]
+]
+
 { #category : 'accessing' }
 OTInstrumenter >> spanSuppressionStrategy [
 
@@ -271,6 +287,12 @@ OTInstrumenter >> spanSuppressionStrategy [
 OTInstrumenter >> spanSuppressionStrategy: aBlock [
 
 	spanSuppressionStrategy := aBlock
+]
+
+{ #category : 'instrumenting' }
+OTInstrumenter >> startContextUnder: parentSpan [
+
+	^ parentSpan ifNil: [ self produceContext ] ifNotNil: [ parentSpan effectiveContext ]
 ]
 
 { #category : 'instrumenting' }
@@ -301,43 +323,19 @@ OTInstrumenter >> startUnder: parentSpan request: request [
 ]
 
 { #category : 'instrumenting' }
-OTInstrumenter >> spanKindForRequest: request [
-
-	^ self
-		configurationValueDuring: 'spanKindExtractor'
-		default: (self class defaultSpanKindExtractor value: request)
-		do: [ self spanKindExtractor value: request ]
-]
-
-{ #category : 'instrumenting' }
-OTInstrumenter >> spanNameForRequest: request [
-
-	^ self
-		configurationValueDuring: 'spanNameExtractor'
-		default: (self class defaultSpanNameExtractor value: request)
-		do: [ self spanNameExtractor value: request ]
-]
-
-{ #category : 'instrumenting' }
-OTInstrumenter >> spanSuppressedUnder: span kind: aSpanKind [
-
-	spanSuppressionStrategy ifNil: [ ^ false ].
-	^ self
-		configurationValueDuring: 'spanSuppressionStrategy'
-		default: false
-		do: [ spanSuppressionStrategy value: span value: aSpanKind ]
-]
-
-{ #category : 'instrumenting' }
-OTInstrumenter >> startContextUnder: parentSpan [
-
-	^ parentSpan
-		ifNil: [ self produceContext ]
-		ifNotNil: [ parentSpan context ]
-]
-
-{ #category : 'instrumenting' }
 OTInstrumenter >> tracer [
 
 	^ self tracerProvider tracerNamed: instrumentationName
+]
+
+{ #category : 'accessing' }
+OTInstrumenter >> tracerProvider [
+
+	^ tracerProvider ifNil: [ OTTracerProvider current ]
+]
+
+{ #category : 'accessing' }
+OTInstrumenter >> tracerProvider: anObject [
+
+	tracerProvider := anObject
 ]
