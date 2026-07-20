@@ -352,6 +352,32 @@ OTTracerProviderTest >> testDisabledTracerPreservesParentSpanContext [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testEndingSpanDuringShutdownDoesNotNotifySpanProcessor [
+
+	| blockingProcessor done provider recordingProcessor shutdownResult span tracer |
+	provider := OTTracerProvider new.
+	blockingProcessor := OTBlockingShutdownSpanProcessor new.
+	recordingProcessor := OTRecordingSpanProcessor new.
+	provider
+		spanProcessor: blockingProcessor;
+		addSpanProcessor: recordingProcessor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	done := Semaphore new.
+	[
+		shutdownResult := provider shutdown.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (blockingProcessor waitForShutdownTimeoutMillis: 200).
+	span end.
+	self assert: recordingProcessor startedSpans asArray equals: { span }.
+	self assert: recordingProcessor endingSpans isEmpty.
+	self assert: recordingProcessor endedSpans isEmpty.
+	blockingProcessor allowShutdown.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testExistingScopeOnlyTracerConfiguratorStillDisablesTracer [
 
 	| provider tracer |

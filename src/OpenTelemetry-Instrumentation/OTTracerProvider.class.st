@@ -1210,16 +1210,16 @@ OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId
 OTTracerProvider >> processEndedSpan: aSpan [
 
 	| processors allProcessed |
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	processors := self spanProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
 	allProcessed := true.
 	processors do: [ :each |
-		allProcessed := (self
-			withSpanProcessor: each
-			operationNamed: 'onEnd'
-			default: false
-			do: [ each onEnd: aSpan ]) & allProcessed ].
+			allProcessed := (self
+				                 withSpanProcessor: each
+				                 operationNamed: 'onEnd'
+				                 default: false
+				                 do: [ each onEnd: aSpan ]) & allProcessed ].
 	^ allProcessed
 ]
 
@@ -1227,17 +1227,18 @@ OTTracerProvider >> processEndedSpan: aSpan [
 OTTracerProvider >> processEndingSpan: aSpan [
 
 	| processors allProcessed |
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	processors := self spanProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
 	allProcessed := true.
 	processors do: [ :each |
-		allProcessed := (self
-			withSpanProcessor: each
-			operationNamed: 'onEnding'
-			default: false
-			do: [ each onEnding: aSpan.
-				true ]) & allProcessed ].
+			allProcessed := (self
+				                 withSpanProcessor: each
+				                 operationNamed: 'onEnding'
+				                 default: false
+				                 do: [
+						                 each onEnding: aSpan.
+						                 true ]) & allProcessed ].
 	^ allProcessed
 ]
 
@@ -1245,17 +1246,18 @@ OTTracerProvider >> processEndingSpan: aSpan [
 OTTracerProvider >> processStartedSpan: aSpan parentContext: aContext [
 
 	| processors allProcessed |
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	processors := self spanProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
 	allProcessed := true.
 	processors do: [ :each |
-		allProcessed := (self
-			withSpanProcessor: each
-			operationNamed: 'onStart'
-			default: false
-			do: [ each onStart: aSpan parentContext: aContext.
-				true ]) & allProcessed ].
+			allProcessed := (self
+				                 withSpanProcessor: each
+				                 operationNamed: 'onStart'
+				                 default: false
+				                 do: [
+						                 each onStart: aSpan parentContext: aContext.
+						                 true ]) & allProcessed ].
 	^ allProcessed
 ]
 
