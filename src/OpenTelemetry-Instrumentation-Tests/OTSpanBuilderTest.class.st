@@ -98,6 +98,32 @@ OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testEndedSpanIgnoresLateMutationsWhileKeepingStableContext [
+
+	| exception exportRecord firstContext provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	firstContext := span spanContext.
+	span end.
+	exception := [ Error signal: 'boom' ]
+		             on: Error
+		             do: [ :error | error ].
+	self deny: span isRecording.
+	span attributeAt: 'late.attribute' put: 42.
+	span addEventNamed: 'late.event'.
+	span setStatus: OTSpan error description: 'late failure'.
+	span recordException: exception.
+	exportRecord := span asExportRecord.
+	self assert: span spanContext identicalTo: firstContext.
+	self deny: (exportRecord includesKey: #attributes).
+	self deny: (exportRecord includesKey: #events).
+	self assert: (exportRecord at: #status) equals: OTSpan unset.
+	self deny: (exportRecord includesKey: #statusDescription)
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testInContextIgnoresInvalidSpanAsParentContext [
 
 	| parentSpan provider tracer |
