@@ -35,6 +35,18 @@ OTW3CTraceContextPropagator class >> traceStateHeaderName [
 	^ 'tracestate'
 ]
 
+{ #category : 'private' }
+OTW3CTraceContextPropagator >> combinedHeaderValueIn: aHeaderName from: aCarrier getter: aGetter [
+
+	| normalizedValues |
+	normalizedValues := (aGetter getAllFrom: aCarrier key: aHeaderName)
+		                    collect: [ :each | self headerStringFrom: each ]
+		                    thenSelect: [ :each | each isNotNil ].
+	normalizedValues ifEmpty: [ ^ nil ].
+	^ String streamContents: [ :stream |
+		  normalizedValues do: [ :each | stream nextPutAll: each ] separatedBy: [ stream nextPut: $, ] ]
+]
+
 { #category : 'extracting' }
 OTW3CTraceContextPropagator >> extract: aContext from: aCarrier [
 
@@ -47,17 +59,11 @@ OTW3CTraceContextPropagator >> extract: aContext from: aCarrier getter: aGetter 
 	| baseContext spanContext traceParent traceState |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
 	aGetter ifNil: [ ^ baseContext ].
-	traceParent := self
-		headerValueIn: self class traceParentHeaderName
-		from: aCarrier
-		getter: aGetter.
+	traceParent := self headerValueIn: self class traceParentHeaderName from: aCarrier getter: aGetter.
 	spanContext := self extractSpanContextFromTraceParent: traceParent.
 	spanContext ifNil: [ ^ baseContext ].
-	traceState := self
-		headerValueIn: self class traceStateHeaderName
-		from: aCarrier
-		getter: aGetter.
-	^ baseContext withSpan: ((self spanContext: spanContext withTraceStateHeader: traceState) asNonRecordingSpan)
+	traceState := self combinedHeaderValueIn: self class traceStateHeaderName from: aCarrier getter: aGetter.
+	^ baseContext withSpan: (self spanContext: spanContext withTraceStateHeader: traceState) asNonRecordingSpan
 ]
 
 { #category : 'private' }
@@ -91,6 +97,16 @@ OTW3CTraceContextPropagator >> fields [
 ]
 
 { #category : 'private' }
+OTW3CTraceContextPropagator >> hasValidTraceParentLayout: aString [
+
+	aString size < 55 ifTrue: [ ^ false ].
+	^ (aString at: 3) = $-
+		and: [ (aString at: 36) = $-
+		and: [ (aString at: 53) = $-
+		and: [ aString size = 55 or: [ (aString at: 56) = $- ] ] ] ]
+]
+
+{ #category : 'private' }
 OTW3CTraceContextPropagator >> headerStringFrom: anObject [
 
 	| firstValue normalized |
@@ -111,16 +127,6 @@ OTW3CTraceContextPropagator >> headerStringFrom: anObject [
 OTW3CTraceContextPropagator >> headerValueIn: aHeaderName from: aCarrier getter: aGetter [
 
 	^ self headerStringFrom: (aGetter getFrom: aCarrier key: aHeaderName)
-]
-
-{ #category : 'private' }
-OTW3CTraceContextPropagator >> hasValidTraceParentLayout: aString [
-
-	aString size < 55 ifTrue: [ ^ false ].
-	^ (aString at: 3) = $-
-		and: [ (aString at: 36) = $-
-		and: [ (aString at: 53) = $-
-		and: [ aString size = 55 or: [ (aString at: 56) = $- ] ] ] ]
 ]
 
 { #category : 'injecting' }
