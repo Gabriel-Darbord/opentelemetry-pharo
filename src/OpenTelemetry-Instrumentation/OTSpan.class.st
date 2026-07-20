@@ -512,13 +512,6 @@ OTSpan >> addLinkSpanContext: aSpanContext attributes: aDictionary [
 	^ self addLink: (OTSpanLink spanContext: aSpanContext attributes: aDictionary)
 ]
 
-{ #category : 'accessing' }
-OTSpan >> addLinks: aCollection [
-
-	self isRecording ifFalse: [ ^ self ].
-	aCollection do: [ :each | self addLink: each ]
-]
-
 { #category : 'converting' }
 OTSpan >> asSpanContext [
 

@@ -268,7 +268,7 @@ OTSpanBuilder >> startSpan [
 		markStarted.
 	samplingResult attributes do: [ :each | span attributeAt: each key put: each value ].
 	attributes associationsDo: [ :each | span attributeAt: each key put: each value ].
-	span addLinks: links.
+	links do: [ :each | span addLink: each ].
 	startTime ifNotNil: [ span restoreStartTime: startTime ].
 	tracer provider processStartedSpan: span parentContext: effectiveParentContext.
 	^ span
