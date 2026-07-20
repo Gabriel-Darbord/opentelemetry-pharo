@@ -253,16 +253,9 @@ OTSpanBuilder >> startSpan [
 ]
 
 { #category : 'configuring' }
-OTSpanBuilder >> startTime: aDateAndTime [
-
-	startTime := aDateAndTime.
-	^ self
-]
-
-{ #category : 'configuring' }
 OTSpanBuilder >> startTimestamp: aDateAndTime [
 
-	^ self startTime: aDateAndTime
+	startTime := aDateAndTime
 ]
 
 { #category : 'accessing' }
