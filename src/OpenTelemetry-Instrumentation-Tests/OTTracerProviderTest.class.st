@@ -558,6 +558,28 @@ OTTracerProviderTest >> testOnEndingSeesComputedEndTimestampAndCanStillMutateSpa
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testOnStartProcessorCanObserveLaterSpanUpdatesThroughCapturedSpanReference [
+
+	| capturedSpan exportRecord processor provider span tracer |
+	provider := OTTracerProvider new.
+	processor := OTRecordingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	capturedSpan := processor startedSpans first.
+	self assert: capturedSpan identicalTo: span.
+	span
+		attributeAt: 'later.attribute' put: 42;
+		addEventNamed: 'later.event';
+		setStatus: OTSpan error description: 'boom'.
+	exportRecord := capturedSpan asExportRecord.
+	self assert: ((exportRecord at: #attributes) at: 'later.attribute') equals: 42.
+	self assert: ((exportRecord at: #events) anySatisfy: [ :each | each name = 'later.event' ]).
+	self assert: (exportRecord at: #status) equals: OTSpan error.
+	self assert: (exportRecord at: #statusDescription) equals: 'boom'
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testParentBasedSamplerErasesInconsistentInheritedParentThreshold [
 
 	| parentContext provider span |
