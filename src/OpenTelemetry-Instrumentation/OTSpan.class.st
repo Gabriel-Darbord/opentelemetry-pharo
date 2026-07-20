@@ -773,6 +773,14 @@ OTSpan >> markEnded [
 ]
 
 { #category : 'private' }
+OTSpan >> markStarted [
+
+	self isEnded ifTrue: [ ^ self ].
+	OTSpan currentContext: self context.
+	self restoreStartTime: DateAndTime now
+]
+
+{ #category : 'private' }
 OTSpan >> mayAddAttributeNamed: aKey [
 
 	^ (attributes notNil and: [ attributes includesKey: aKey ])
@@ -1070,14 +1078,6 @@ OTSpan >> spanContext [
 OTSpan >> spanId [
 
 	^ spanId
-]
-
-{ #category : 'control' }
-OTSpan >> start [
-
-	self isEnded ifTrue: [ ^ self ].
-	OTSpan currentContext: self context.
-	self restoreStartTime: DateAndTime now
 ]
 
 { #category : 'accessing' }
