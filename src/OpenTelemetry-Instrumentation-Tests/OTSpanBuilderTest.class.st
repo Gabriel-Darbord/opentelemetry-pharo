@@ -143,6 +143,27 @@ OTSpanBuilderTest >> testEndedSpanIgnoresLateMutationsWhileKeepingStableContext 
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testEventsPreserveRecordingOrderEvenWithOutOfOrderTimestamps [
+
+	| eventsToExport exportRecord firstTimestamp provider secondTimestamp span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	firstTimestamp := DateAndTime unixEpoch + (Duration milliSeconds: 20).
+	secondTimestamp := DateAndTime unixEpoch + (Duration milliSeconds: 10).
+	span addEventNamed: 'first' timestamp: firstTimestamp.
+	span addEventNamed: 'second' timestamp: secondTimestamp.
+	exportRecord := span asExportRecord.
+	eventsToExport := exportRecord at: #events.
+	self assert: eventsToExport size equals: 2.
+	self assert: eventsToExport first name equals: 'first'.
+	self assert: eventsToExport first timestamp equals: firstTimestamp.
+	self assert: eventsToExport second name equals: 'second'.
+	self assert: eventsToExport second timestamp equals: secondTimestamp
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testInContextIgnoresInvalidSpanAsParentContext [
 
 	| parentSpan provider tracer |
@@ -280,6 +301,28 @@ OTSpanBuilderTest >> testOkStatusIgnoresDescriptionImmediately [
 	exportRecord := span asExportRecord.
 	self assert: (exportRecord at: #status) equals: OTSpan ok.
 	self deny: (exportRecord includesKey: #statusDescription)
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testRecordExceptionAdditionalAttributesOverrideGeneratedExceptionFields [
+
+	| event exportRecord provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	[ Error signal: 'boom' ]
+		on: Error
+		do: [ :error |
+				span recordException: error attributes: (OrderedDictionary new
+						 at: 'exception.message' put: 'override';
+						 at: 'exception.type' put: 'CustomError';
+						 yourself) ].
+	exportRecord := span asExportRecord.
+	event := (exportRecord at: #events) first.
+	self assert: event name equals: 'exception'.
+	self assert: (event attributes at: 'exception.message') equals: 'override'.
+	self assert: (event attributes at: 'exception.type') equals: 'CustomError'
 ]
 
 { #category : 'tests' }
@@ -488,6 +531,21 @@ OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 	self assert: firstContext traceState equals: span spanContext traceState.
 	span end.
 	self assert: span spanContext identicalTo: firstContext
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSetAttributeOverwritesPreviousValueForSameKey [
+
+	| exportRecord provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span
+		attributeAt: 'http.method' put: 'GET';
+		attributeAt: 'http.method' put: 'POST'.
+	exportRecord := span asExportRecord.
+	self assert: ((exportRecord at: #attributes) at: 'http.method') equals: 'POST'
 ]
 
 { #category : 'tests' }
