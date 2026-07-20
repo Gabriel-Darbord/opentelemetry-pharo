@@ -5,6 +5,11 @@ Developers can implement custom subclasses to integrate OpenTelemetry with speci
 Class {
 	#name : 'OTSpanExporter',
 	#superclass : 'Object',
+	#instVars : [
+		'stateLock',
+		'shutdownRequested',
+		'shutdownCompleted'
+	],
 	#classVars : [
 		'Current'
 	],
@@ -27,6 +32,48 @@ OTSpanExporter class >> beCurrent [
 					  Current ] ]
 ]
 
+{ #category : 'instance creation' }
+OTSpanExporter class >> configuredExporters [
+
+	| configuredExporters configuredValue exporters |
+	configuredExporters := OTConfigurationSource configuredTraceExporters.
+	configuredExporters ifNotNil: [ ^ configuredExporters ].
+	configuredValue := self environmentValueAt: 'OTEL_TRACES_EXPORTER'.
+	configuredValue ifNil: [ ^ { self defaultExporter } ].
+	exporters := self exportersFromConfigurationValue: configuredValue.
+	^ exporters ifEmpty: [ { self defaultExporter } ] ifNotEmpty: [ exporters ]
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> configuredOtlpExporter [
+
+	| configuration |
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+	configuration protocol = OTOtlpGrpcSpanExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpGrpcSpanExporter configuration: configuration ].
+	configuration protocol = OTOtlpHttpProtobufSpanExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpHttpProtobufSpanExporter configuration: configuration ].
+	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol
+		ifTrue: [ ^ OTOtlpHttpJsonSpanExporter configuration: configuration ].
+	self noteUnsupportedOtlpProtocol: configuration protocol.
+	configuration protocol: OTOtlpExporterConfiguration defaultProtocol.
+	^ OTOtlpHttpProtobufSpanExporter configuration: configuration
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> configuredZipkinExporter [
+
+	| endpoint exporter timeout |
+	exporter := self defaultZipkinExporter.
+	endpoint := self environmentValueAt: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT'.
+	endpoint ifNotNil: [ exporter httpClient url: endpoint ].
+	timeout := self
+		positiveIntegerEnvironmentValueAt: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT'
+		default: self defaultZipkinTimeoutMillis.
+	exporter httpClient timeout: timeout.
+	^ exporter
+]
+
 { #category : 'accessing' }
 OTSpanExporter class >> current [
 
@@ -38,18 +85,6 @@ OTSpanExporter class >> current: aSpanExporter [
 
 	Current := aSpanExporter.
 	OTTracerProvider invalidateCurrent
-]
-
-{ #category : 'instance creation' }
-OTSpanExporter class >> configuredExporters [
-
-	| configuredExporters configuredValue exporters |
-	configuredExporters := OTConfigurationSource configuredTraceExporters.
-	configuredExporters ifNotNil: [ ^ configuredExporters ].
-	configuredValue := self environmentValueAt: 'OTEL_TRACES_EXPORTER'.
-	configuredValue ifNil: [ ^ { self defaultExporter } ].
-	exporters := self exportersFromConfigurationValue: configuredValue.
-	^ exporters ifEmpty: [ { self defaultExporter } ] ifNotEmpty: [ exporters ]
 ]
 
 { #category : 'instance creation' }
@@ -77,18 +112,18 @@ OTSpanExporter class >> defaultZipkinEndpoint [
 ]
 
 { #category : 'instance creation' }
-OTSpanExporter class >> defaultZipkinTimeoutMillis [
-
-	^ 10000
-]
-
-{ #category : 'instance creation' }
 OTSpanExporter class >> defaultZipkinExporter [
 
 	| exporter |
 	exporter := OTZipkinSpanExporter new.
 	exporter httpClient url: self defaultZipkinEndpoint.
 	^ exporter
+]
+
+{ #category : 'instance creation' }
+OTSpanExporter class >> defaultZipkinTimeoutMillis [
+
+	^ 10000
 ]
 
 { #category : 'private' }
@@ -190,6 +225,30 @@ OTSpanExporter class >> markShutdown: anExporter [
 	^ anExporter
 ]
 
+{ #category : 'private - logging' }
+OTSpanExporter class >> noteTraceExporterNoneConflictIn: aString [
+
+	self warningSink value:
+		'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTSpanExporter class >> noteUnknownTraceExporterName: aString [
+
+	self warningSink value:
+		'OpenTelemetry trace exporter name was unrecognized and has been ignored: '
+			, aString printString
+]
+
+{ #category : 'private - logging' }
+OTSpanExporter class >> noteUnsupportedOtlpProtocol: aString [
+
+	self warningSink value:
+		'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: '
+			, aString printString
+]
+
 { #category : 'private' }
 OTSpanExporter class >> positiveIntegerEnvironmentValueAt: aString default: aDefaultValue [
 
@@ -198,36 +257,6 @@ OTSpanExporter class >> positiveIntegerEnvironmentValueAt: aString default: aDef
 	rawValue ifNil: [ ^ aDefaultValue ].
 	parsed := self strictPositiveIntegerFrom: rawValue.
 	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
-]
-
-{ #category : 'instance creation' }
-OTSpanExporter class >> configuredZipkinExporter [
-
-	| endpoint exporter timeout |
-	exporter := self defaultZipkinExporter.
-	endpoint := self environmentValueAt: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT'.
-	endpoint ifNotNil: [ exporter httpClient url: endpoint ].
-	timeout := self
-		positiveIntegerEnvironmentValueAt: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT'
-		default: self defaultZipkinTimeoutMillis.
-	exporter httpClient timeout: timeout.
-	^ exporter
-]
-
-{ #category : 'instance creation' }
-OTSpanExporter class >> configuredOtlpExporter [
-
-	| configuration |
-	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
-	configuration protocol = OTOtlpGrpcSpanExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpGrpcSpanExporter configuration: configuration ].
-	configuration protocol = OTOtlpHttpProtobufSpanExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpHttpProtobufSpanExporter configuration: configuration ].
-	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpHttpJsonSpanExporter configuration: configuration ].
-	self noteUnsupportedOtlpProtocol: configuration protocol.
-	configuration protocol: OTOtlpExporterConfiguration defaultProtocol.
-	^ OTOtlpHttpProtobufSpanExporter configuration: configuration
 ]
 
 { #category : 'instance creation' }
@@ -279,30 +308,6 @@ OTSpanExporter class >> strictPositiveIntegerFrom: aString [
 ]
 
 { #category : 'private - logging' }
-OTSpanExporter class >> noteTraceExporterNoneConflictIn: aString [
-
-	self warningSink value:
-		'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: '
-			, aString printString
-]
-
-{ #category : 'private - logging' }
-OTSpanExporter class >> noteUnknownTraceExporterName: aString [
-
-	self warningSink value:
-		'OpenTelemetry trace exporter name was unrecognized and has been ignored: '
-			, aString printString
-]
-
-{ #category : 'private - logging' }
-OTSpanExporter class >> noteUnsupportedOtlpProtocol: aString [
-
-	self warningSink value:
-		'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: '
-			, aString printString
-]
-
-{ #category : 'private - logging' }
 OTSpanExporter class >> warningSink [
 
 	^ OTClassStateStore
@@ -336,6 +341,17 @@ OTSpanExporter >> beCurrent [
 	self
 ]
 
+{ #category : 'private - lifecycle' }
+OTSpanExporter >> beginShutdown [
+
+	^ stateLock critical: [
+			  (shutdownRequested = true or: [ shutdownCompleted = true ])
+				  ifTrue: [ false ]
+				  ifFalse: [
+						  shutdownRequested := true.
+						  true ] ]
+]
+
 { #category : 'accessing' }
 OTSpanExporter >> componentExporters [
 
@@ -351,26 +367,37 @@ OTSpanExporter >> export: spans [
 { #category : 'exporting' }
 OTSpanExporter >> forceFlush [
 
-	^ self isShutdown not
+	^ stateLock critical: [ (shutdownRequested = true or: [ shutdownCompleted = true ]) not ]
+]
+
+{ #category : 'initialization' }
+OTSpanExporter >> initialize [
+
+	super initialize.
+	stateLock := Semaphore forMutualExclusion.
+	shutdownRequested := false.
+	shutdownCompleted := false
 ]
 
 { #category : 'testing' }
 OTSpanExporter >> isShutdown [
 
-	^ self class isShutdown: self
+	^ stateLock critical: [ shutdownRequested = true or: [ shutdownCompleted = true ] ]
 ]
 
 { #category : 'private - lifecycle' }
 OTSpanExporter >> markShutdown [
 
-	self class markShutdown: self.
-	^ self
+	stateLock critical: [
+			shutdownRequested := true.
+			shutdownCompleted := true ].
+	self
 ]
 
 { #category : 'exporting' }
 OTSpanExporter >> shutdown [
 
-	self isShutdown ifTrue: [ ^ false ].
+	self beginShutdown ifFalse: [ ^ false ].
 	self markShutdown.
 	^ true
 ]

@@ -41,7 +41,7 @@ OTRecordingSpanExporter >> forceFlushCount [
 { #category : 'accessing' }
 OTRecordingSpanExporter >> shutdown [
 
-	self isShutdown ifTrue: [ ^ false ].
+	self beginShutdown ifFalse: [ ^ false ].
 	shutdownCount := self shutdownCount + 1.
 	self markShutdown.
 	^ true

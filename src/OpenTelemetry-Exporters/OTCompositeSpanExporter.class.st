@@ -68,12 +68,11 @@ OTCompositeSpanExporter >> initialize [
 { #category : 'exporting' }
 OTCompositeSpanExporter >> shutdown [
 
-	| allShutdown flushed |
-	self isShutdown ifTrue: [ ^ false ].
-	flushed := self forceFlush.
-	allShutdown := exporters
-		inject: true
-		into: [ :allClosed :each | (each shutdown) & allClosed ].
+	| allShutdown exportersSnapshot flushed |
+	self beginShutdown ifFalse: [ ^ false ].
+	exportersSnapshot := self componentExporters.
+	flushed := exportersSnapshot inject: true into: [ :allFlushed :each | each forceFlush & allFlushed ].
+	allShutdown := exportersSnapshot inject: true into: [ :allClosed :each | each shutdown & allClosed ].
 	self markShutdown.
 	^ flushed & allShutdown
 ]
