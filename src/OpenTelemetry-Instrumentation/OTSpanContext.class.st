@@ -102,6 +102,12 @@ OTSpanContext class >> isZeroHexIdentifier: aString [
 	^ aString allSatisfy: [ :each | each = $0 ]
 ]
 
+{ #category : 'instance creation' }
+OTSpanContext class >> new [
+
+	Error signal: 'Span contexts are immutable. Use OTSpanContext class-side constructors.'
+]
+
 { #category : 'private - id generation' }
 OTSpanContext class >> newHexIdentifierOfSize: anInteger [
 

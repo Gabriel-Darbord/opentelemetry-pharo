@@ -27,6 +27,15 @@ OTTraceStateTest >> testDeleteRemovesKeyWithoutChangingRemainingOrder [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testInvalidMutationLeavesTraceStateUnchanged [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'rojo=one'.
+	self assert: (traceState withKey: 'Bad Key' value: 'value') identicalTo: traceState.
+	self assert: (traceState withKey: 'vendor' value: 'bad,value') identicalTo: traceState
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testOpenTelemetrySubkeyUpdatesPreserveExistingValues [
 
 	| traceState updated |
@@ -35,15 +44,6 @@ OTTraceStateTest >> testOpenTelemetrySubkeyUpdatesPreserveExistingValues [
 	self assert: (updated valueAt: 'vendor') equals: 'one'.
 	self assert: (updated otelValueAt: 'rv') equals: '7fffffffffffff'.
 	self assert: (updated otelValueAt: 'th') equals: '8'
-]
-
-{ #category : 'tests' }
-OTTraceStateTest >> testInvalidMutationLeavesTraceStateUnchanged [
-
-	| traceState |
-	traceState := OTTraceState fromHeader: 'rojo=one'.
-	self assert: (traceState withKey: 'Bad Key' value: 'value') identicalTo: traceState.
-	self assert: (traceState withKey: 'vendor' value: 'bad,value') identicalTo: traceState
 ]
 
 { #category : 'tests' }
@@ -62,6 +62,16 @@ OTTraceStateTest >> testParsingSkipsEmptyMembersAndAcceptsWhitespaceOnlyHeader [
 	emptyTraceState := OTTraceState fromHeader: '   '.
 	self assert: traceState asHeaderValue equals: 'rojo=one,congo=two'.
 	self assert: emptyTraceState isEmpty
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testTraceStateClassCannotBeInstantiatedDirectlyOrMutated [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'rojo=one'.
+	self should: [ OTTraceState new ] raise: Error.
+	self should: [ traceState perform: #entriesByKey: with: OrderedDictionary new ] raise: MessageNotUnderstood.
+	self assert: (traceState valueAt: 'rojo') equals: 'one'
 ]
 
 { #category : 'tests' }

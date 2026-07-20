@@ -262,6 +262,12 @@ OTSpanContextTest >> testSpanClassesCannotBeInstantiatedDirectly [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testSpanContextClassCannotBeInstantiatedDirectly [
+
+	self should: [ OTSpanContext new ] raise: Error
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testTraceFlagsSupportSampledAndRandomBits [
 
 	| sampledRandom randomOnly |
