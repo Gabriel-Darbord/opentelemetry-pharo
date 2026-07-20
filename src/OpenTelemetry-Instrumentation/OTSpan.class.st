@@ -634,34 +634,10 @@ OTSpan >> initialize [
 ]
 
 { #category : 'accessing' }
-OTSpan >> instrumentationName [
-
-	^ self instrumentationScope name
-]
-
-{ #category : 'accessing' }
-OTSpan >> instrumentationSchemaUrl [
-
-	^ self instrumentationScope schemaUrl
-]
-
-{ #category : 'accessing' }
 OTSpan >> instrumentationScope [
 
 	instrumentationScope ifNil: [ instrumentationScope := OTInstrumentationScope named: (instrumentationName ifNil: [ '' ]) ].
 	^ instrumentationScope
-]
-
-{ #category : 'accessing' }
-OTSpan >> instrumentationScopeAttributes [
-
-	^ self instrumentationScope allAttributes
-]
-
-{ #category : 'accessing' }
-OTSpan >> instrumentationVersion [
-
-	^ self instrumentationScope version
 ]
 
 { #category : 'testing' }
@@ -809,15 +785,14 @@ OTSpan >> parentSpanContext [
 ]
 
 { #category : 'printing' }
-OTSpan >> printOn: aStream [ [
+OTSpan >> printOn: aStream [
 
 	aStream
 		nextPutAll: 'Span[';
-		nextPutAll: self instrumentationName;
+		nextPutAll: self instrumentationScope name;
 		nextPutAll: ': ';
 		nextPutAll: name;
 		nextPut: $]
-]
 ]
 
 { #category : 'recording' }
@@ -1068,7 +1043,7 @@ OTSpan >> stonOn: stonWriter [
 				at: #endTime put: endTime;
 				at: #status put: self status;
 				at: #traceFlags put: self traceFlags;
-				at: #instrumentationName put: self instrumentationName.
+				at: #instrumentationName put: self instrumentationScope name.
 			self instrumentationScope isEmpty ifFalse: [ map at: #instrumentationScope put: self instrumentationScope ].
 			self parentSpanContext ifNotNil: [ :parentContext |
 					map
