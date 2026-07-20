@@ -488,30 +488,6 @@ OTSpan >> addLink: aSpanLink [
 	^ limitedLink
 ]
 
-{ #category : 'accessing' }
-OTSpan >> addLinkSpan: aSpan [
-
-	^ self addLinkSpan: aSpan attributes: nil
-]
-
-{ #category : 'accessing' }
-OTSpan >> addLinkSpan: aSpan attributes: aDictionary [
-
-	^ self addLink: (OTSpanLink span: aSpan attributes: aDictionary)
-]
-
-{ #category : 'accessing' }
-OTSpan >> addLinkSpanContext: aSpanContext [
-
-	^ self addLinkSpanContext: aSpanContext attributes: nil
-]
-
-{ #category : 'accessing' }
-OTSpan >> addLinkSpanContext: aSpanContext attributes: aDictionary [
-
-	^ self addLink: (OTSpanLink spanContext: aSpanContext attributes: aDictionary)
-]
-
 { #category : 'converting' }
 OTSpan >> asSpanContext [
 

@@ -222,9 +222,9 @@ OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
 	tracer := provider tracerNamed: 'demo.scope'.
 	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	span addLinkSpan: linkedSpan attributes: (OrderedDictionary new
-		at: 'link.kind' put: 'follows_from';
-		yourself).
+	span addLink: (OTSpanLink span: linkedSpan attributes: (OrderedDictionary new
+				  at: 'link.kind' put: 'follows_from';
+				  yourself)).
 	self assert: span links size equals: 1.
 	self assert: span links first spanContext equals: linkedSpan spanContext.
 	self assert: (span links first attributes at: 'link.kind') equals: 'follows_from'
@@ -256,6 +256,36 @@ OTSpanBuilderTest >> testRecordingSpanDoesNotExposeBulkMutationSetters [
 		should: [ span perform: #events: with: { (OTSpanEvent named: 'event' attributes: #(  ) timestamp: DateAndTime unixEpoch) } ]
 		raise: MessageNotUnderstood.
 	self should: [ span perform: #links: with: { link } ] raise: MessageNotUnderstood
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanDoesNotExposeLinkConvenienceSetters [
+
+	| provider span tracer upstreamContext |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	upstreamContext := OTSpanContext
+		                   traceId: '00112233445566778899aabbccddeeff'
+		                   spanId: '1122334455667788'
+		                   traceFlags: '01'
+		                   traceState: nil
+		                   remote: true.
+	self should: [ span perform: #addLinkSpan: with: upstreamContext asNonRecordingSpan ] raise: MessageNotUnderstood.
+	self
+		should: [
+				span perform: #addLinkSpan:attributes: with: upstreamContext asNonRecordingSpan with: (OrderedDictionary new
+						 at: 'kind' put: 'caused_by';
+						 yourself) ]
+		raise: MessageNotUnderstood.
+	self should: [ span perform: #addLinkSpanContext: with: upstreamContext ] raise: MessageNotUnderstood.
+	self
+		should: [
+				span perform: #addLinkSpanContext:attributes: with: upstreamContext with: (OrderedDictionary new
+						 at: 'kind' put: 'follows_from';
+						 yourself) ]
+		raise: MessageNotUnderstood
 ]
 
 { #category : 'tests' }
