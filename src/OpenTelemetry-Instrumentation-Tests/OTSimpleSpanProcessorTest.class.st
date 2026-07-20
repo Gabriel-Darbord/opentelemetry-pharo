@@ -33,12 +33,11 @@ OTSimpleSpanProcessorTest >> setUp [
 OTSimpleSpanProcessorTest >> tearDown [
 
 	[
-		(exporter isKindOf: OTBlockingSpanExporter) ifTrue: [
-			exporter allowBlockedExport ].
+		(exporter isKindOf: OTBlockingSpanExporter) ifTrue: [ exporter allowBlockedExport ].
+		(exporter isKindOf: OTBlockingShutdownSpanExporter) ifTrue: [ exporter allowShutdown ].
 		processor ifNotNil: [ processor shutdown ].
 		exporter ifNotNil: [ exporter shutdown ].
-		OTSpanExporter current: nil ]
-		ensure: [ super tearDown ]
+		OTSpanExporter current: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -51,6 +50,24 @@ OTSimpleSpanProcessorTest >> testForceFlushReturnsFalseAfterShutdown [
 	self deny: processor forceFlush.
 	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
+OTSimpleSpanProcessorTest >> testForceFlushReturnsFalseWhileShutdownIsInProgress [
+
+	| done shutdownResult |
+	exporter := OTBlockingShutdownSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	done := Semaphore new.
+	[
+		shutdownResult := processor shutdown.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200).
+	self deny: processor forceFlush.
+	exporter allowShutdown.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult
 ]
 
 { #category : 'tests' }
@@ -110,6 +127,25 @@ OTSimpleSpanProcessorTest >> testOnEndExportsSampledSpan [
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter exportedBatches first size equals: 1.
 	self assert: exporter exportedBatches first first class identicalTo: OTSpanSnapshot
+]
+
+{ #category : 'tests' }
+OTSimpleSpanProcessorTest >> testOnEndReturnsFalseWhileShutdownIsInProgress [
+
+	| done shutdownResult |
+	exporter := OTBlockingShutdownSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	done := Semaphore new.
+	[
+		shutdownResult := processor shutdown.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200).
+	self deny: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	self assert: exporter exportedBatches isEmpty.
+	exporter allowShutdown.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult
 ]
 
 { #category : 'tests' }

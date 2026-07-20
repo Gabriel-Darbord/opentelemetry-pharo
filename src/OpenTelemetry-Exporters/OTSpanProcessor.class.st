@@ -90,6 +90,19 @@ OTSpanProcessor class >> beCurrent [
 					  Current ] ]
 ]
 
+{ #category : 'private - lifecycle' }
+OTSpanProcessor class >> beginShutdown: aProcessor [
+
+	^ self lifecycleStateLock critical: [
+			  | state |
+			  state := self lifecycleStateByProcessor at: aProcessor ifAbsent: [ nil ].
+			  (state = #stopping or: [ state = #shutdown or: [ state = true ] ])
+				  ifTrue: [ false ]
+				  ifFalse: [
+						  self lifecycleStateByProcessor at: aProcessor put: #stopping.
+						  true ] ]
+]
+
 { #category : 'private - logging' }
 OTSpanProcessor class >> configurationWarningSink [
 
@@ -203,7 +216,19 @@ OTSpanProcessor class >> isAbstract [
 { #category : 'private - lifecycle' }
 OTSpanProcessor class >> isShutdown: aProcessor [
 
-	^ (self lifecycleStateByProcessor at: aProcessor ifAbsent: [ false ]) = true
+	^ self lifecycleStateLock critical: [
+			  | state |
+			  state := self lifecycleStateByProcessor at: aProcessor ifAbsent: [ nil ].
+			  state = #shutdown or: [ state = true ] ]
+]
+
+{ #category : 'private - lifecycle' }
+OTSpanProcessor class >> isStopping: aProcessor [
+
+	^ self lifecycleStateLock critical: [
+			  | state |
+			  state := self lifecycleStateByProcessor at: aProcessor ifAbsent: [ nil ].
+			  state = #stopping or: [ state = #shutdown or: [ state = true ] ] ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -223,9 +248,19 @@ OTSpanProcessor class >> lifecycleStateByProcessor [
 ]
 
 { #category : 'private - lifecycle' }
+OTSpanProcessor class >> lifecycleStateLock [
+
+	^ OTClassStateStore valueAt: #otLifecycleStateLock forClass: self ifAbsent: [
+			  | lock |
+			  lock := Semaphore forMutualExclusion.
+			  OTClassStateStore valueAt: #otLifecycleStateLock forClass: self put: lock.
+			  lock ]
+]
+
+{ #category : 'private - lifecycle' }
 OTSpanProcessor class >> markShutdown: aProcessor [
 
-	self lifecycleStateByProcessor at: aProcessor put: true.
+	self lifecycleStateLock critical: [ self lifecycleStateByProcessor at: aProcessor put: #shutdown ].
 	^ aProcessor
 ]
 
@@ -340,6 +375,12 @@ OTSpanProcessor >> beCurrent [
 	self
 ]
 
+{ #category : 'private - lifecycle' }
+OTSpanProcessor >> beginShutdown [
+
+	^ self class beginShutdown: self
+]
+
 { #category : 'accessing' }
 OTSpanProcessor >> componentProcessors [
 
@@ -354,7 +395,7 @@ OTSpanProcessor >> flush [
 { #category : 'processing' }
 OTSpanProcessor >> forceFlush [
 
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	^ self flush
 ]
 
@@ -362,6 +403,12 @@ OTSpanProcessor >> forceFlush [
 OTSpanProcessor >> isShutdown [
 
 	^ self class isShutdown: self
+]
+
+{ #category : 'testing' }
+OTSpanProcessor >> isStopping [
+
+	^ self class isStopping: self
 ]
 
 { #category : 'private - lifecycle' }
@@ -398,7 +445,7 @@ OTSpanProcessor >> shouldExport: aSpan [
 OTSpanProcessor >> shutdown [
 
 	| flushed |
-	self isShutdown ifTrue: [ ^ false ].
+	self beginShutdown ifFalse: [ ^ false ].
 	flushed := self forceFlush.
 	self markShutdown.
 	^ flushed

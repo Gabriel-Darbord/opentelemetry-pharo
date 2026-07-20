@@ -27,13 +27,6 @@ OTSimpleSpanProcessor >> exporter: aSpanExporter [
 { #category : 'processing' }
 OTSimpleSpanProcessor >> flush [
 
-	^ self forceFlush
-]
-
-{ #category : 'processing' }
-OTSimpleSpanProcessor >> forceFlush [
-
-	self isShutdown ifTrue: [ ^ false ].
 	^ exportLock critical: [ self exporter forceFlush ]
 ]
 
@@ -49,7 +42,7 @@ OTSimpleSpanProcessor >> onEnd: span [
 	"Directly export sampled spans and treat record-only spans as accepted without exporting"
 
 	| snapshot |
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
 	snapshot := OTSpanSnapshot fromSpan: span.
 	^ exportLock critical: [ self exporter export: { snapshot } ]
@@ -59,8 +52,8 @@ OTSimpleSpanProcessor >> onEnd: span [
 OTSimpleSpanProcessor >> shutdown [
 
 	| flushed shutdownResult |
-	self isShutdown ifTrue: [ ^ false ].
-	flushed := self forceFlush.
+	self beginShutdown ifFalse: [ ^ false ].
+	flushed := self flush.
 	shutdownResult := exportLock critical: [ self exporter shutdown ].
 	self markShutdown.
 	^ shutdownResult & flushed
