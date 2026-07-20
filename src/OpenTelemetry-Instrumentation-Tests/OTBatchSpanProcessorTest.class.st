@@ -9,14 +9,6 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'running' }
-OTBatchSpanProcessorTest >> setUp [
-
-	super setUp.
-	OTSpanProcessor current: nil.
-	OTSpanExporter current: nil
-]
-
 { #category : 'private' }
 OTBatchSpanProcessorTest >> sampledSpanWithSuffix: anInteger [
 
@@ -28,6 +20,14 @@ OTBatchSpanProcessorTest >> sampledSpanWithSuffix: anInteger [
 		traceFlags: '01'
 		traceState: nil
 		remote: false) asNonRecordingSpan
+]
+
+{ #category : 'running' }
+OTBatchSpanProcessorTest >> setUp [
+
+	super setUp.
+	OTSpanProcessor current: nil.
+	OTSpanExporter current: nil
 ]
 
 { #category : 'running' }
@@ -63,7 +63,8 @@ OTBatchSpanProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExport
 	self assert: processor forceFlush.
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter forceFlushCount equals: 1.
-	self assert: exporter exportedBatches first size equals: 1
+	self assert: exporter exportedBatches first size equals: 1.
+	self assert: exporter exportedBatches first first class identicalTo: OTSpanSnapshot
 ]
 
 { #category : 'tests' }

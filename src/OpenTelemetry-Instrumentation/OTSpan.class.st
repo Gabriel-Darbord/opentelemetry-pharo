@@ -488,6 +488,38 @@ OTSpan >> addLink: aSpanLink [
 	^ limitedLink
 ]
 
+{ #category : 'private - exporting' }
+OTSpan >> asExportRecord [
+
+	| data |
+	data := OrderedDictionary new.
+	data
+		at: #spanId put: self spanId;
+		at: #traceId put: self traceId;
+		at: #name put: name;
+		at: #kind put: kind;
+		at: #startTime put: startTime;
+		at: #endTime put: endTime;
+		at: #status put: self status;
+		at: #traceFlags put: self traceFlags;
+		at: #instrumentationName put: self instrumentationScope name.
+	self instrumentationScope isEmpty ifFalse: [ data at: #instrumentationScope put: self instrumentationScope ].
+	self parentSpanContext ifNotNil: [ :aParentContext |
+			data
+				at: #parentSpanContext put: aParentContext;
+				at: #parentId put: aParentContext spanId ].
+	self traceState ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
+	self statusDescription ifNotNil: [ :description | data at: #statusDescription put: description ].
+	attributes isEmptyOrNil ifFalse: [ data at: #attributes put: attributes ].
+	events isEmptyOrNil ifFalse: [ data at: #events put: events ].
+	self links ifNotEmpty: [ data at: #links put: self links ].
+	self resource isEmpty ifFalse: [ data at: #resource put: self resource ].
+	self droppedAttributesCount > 0 ifTrue: [ data at: #droppedAttributesCount put: self droppedAttributesCount ].
+	self droppedEventsCount > 0 ifTrue: [ data at: #droppedEventsCount put: self droppedEventsCount ].
+	self droppedLinksCount > 0 ifTrue: [ data at: #droppedLinksCount put: self droppedLinksCount ].
+	^ data
+]
+
 { #category : 'converting' }
 OTSpan >> asSpanContext [
 
@@ -783,7 +815,7 @@ OTSpan >> printOn: aStream [
 		nextPutAll: 'Span[';
 		nextPutAll: self instrumentationScope name;
 		nextPutAll: ': ';
-		nextPutAll: name;
+		nextPutAll: (name ifNil: [ '' ]);
 		nextPut: $]
 ]
 

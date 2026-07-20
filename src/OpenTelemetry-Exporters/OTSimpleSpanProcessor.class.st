@@ -48,9 +48,11 @@ OTSimpleSpanProcessor >> initialize [
 OTSimpleSpanProcessor >> process: span [
 	"Directly export sampled spans and treat record-only spans as accepted without exporting"
 
+	| snapshot |
 	self isShutdown ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
-	^ exportLock critical: [ self exporter export: { span } ]
+	snapshot := OTSpanSnapshot fromSpan: span.
+	^ exportLock critical: [ self exporter export: { snapshot } ]
 ]
 
 { #category : 'processing' }

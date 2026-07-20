@@ -42,6 +42,21 @@ OTSimpleSpanProcessorTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTSimpleSpanProcessorTest >> testProcessExportsPrintableAndStonSerializableSnapshot [
+
+	| exportedSnapshot printed serialized |
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	exportedSnapshot := exporter exportedBatches first first.
+	printed := exportedSnapshot printString.
+	serialized := STON toString: { exportedSnapshot asExportRecord }.
+	self assert: (printed beginsWith: 'Span[').
+	self assert: (serialized includesSubstring: 'traceId')
+]
+
+{ #category : 'tests' }
 OTSimpleSpanProcessorTest >> testProcessExportsSampledSpan [
 
 	exporter := OTRecordingSpanExporter new.
@@ -49,20 +64,8 @@ OTSimpleSpanProcessorTest >> testProcessExportsSampledSpan [
 	processor := OTSimpleSpanProcessor new.
 	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
 	self assert: exporter exportedBatches size equals: 1.
-	self assert: exporter exportedBatches first size equals: 1
-]
-
-{ #category : 'tests' }
-OTSimpleSpanProcessorTest >> testProcessUsesExplicitExporterInsteadOfGlobalExporter [
-
-	| globalExporter |
-	exporter := OTRecordingSpanExporter new.
-	globalExporter := OTRecordingSpanExporter new.
-	OTSpanExporter current: globalExporter.
-	processor := OTSimpleSpanProcessor new exporter: exporter.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
-	self assert: exporter exportedBatches size equals: 1.
-	self assert: globalExporter exportedBatches isEmpty
+	self assert: exporter exportedBatches first size equals: 1.
+	self assert: exporter exportedBatches first first class identicalTo: OTSpanSnapshot
 ]
 
 { #category : 'tests' }
@@ -83,6 +86,19 @@ OTSimpleSpanProcessorTest >> testProcessSerializesConcurrentExports [
 	self assert: (secondExportFinished waitTimeoutMilliseconds: 50).
 	exporter allowBlockedExport.
 	self waitUntil: [ exporter exportedBatches size = 2 ] timeoutMillis: 500
+]
+
+{ #category : 'tests' }
+OTSimpleSpanProcessorTest >> testProcessUsesExplicitExporterInsteadOfGlobalExporter [
+
+	| globalExporter |
+	exporter := OTRecordingSpanExporter new.
+	globalExporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: globalExporter.
+	processor := OTSimpleSpanProcessor new exporter: exporter.
+	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: exporter exportedBatches size equals: 1.
+	self assert: globalExporter exportedBatches isEmpty
 ]
 
 { #category : 'private' }
