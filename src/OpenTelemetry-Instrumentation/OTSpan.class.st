@@ -1027,27 +1027,6 @@ OTSpan >> restoreTracerProvider: aTracerProvider [
 ]
 
 { #category : 'recording' }
-OTSpan >> setErrorStatus [
-	"Specification: https://opentelemetry.io/docs/specs/otel/trace/api/#set-status
-	Status values form a total order: Ok > Error > Unset.
-	This means that setting Status with Ok will override any prior or future attempts to set span Status with Error or Unset."
-
-	self setStatus: self class error
-]
-
-{ #category : 'recording' }
-OTSpan >> setErrorStatusDescription: aString [
-
-	self setStatus: self class error description: aString
-]
-
-{ #category : 'recording' }
-OTSpan >> setOkStatus [
-
-	self setStatus: self class ok
-]
-
-{ #category : 'recording' }
 OTSpan >> setStatus: aSymbol [
 
 	self setStatus: aSymbol description: nil

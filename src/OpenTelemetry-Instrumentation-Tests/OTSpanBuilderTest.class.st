@@ -259,6 +259,19 @@ OTSpanBuilderTest >> testRecordingSpanDoesNotExposeBulkMutationSetters [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanDoesNotExposeStatusConvenienceSetters [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self should: [ span perform: #setOkStatus ] raise: MessageNotUnderstood.
+	self should: [ span perform: #setErrorStatus ] raise: MessageNotUnderstood.
+	self should: [ span perform: #setErrorStatusDescription: with: 'boom' ] raise: MessageNotUnderstood
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 
 	| firstContext provider secondContext span tracer |
@@ -381,7 +394,7 @@ OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	span setErrorStatusDescription: 'boom'.
+	span setStatus: OTSpan error description: 'boom'.
 	roundTripped := STON fromString: (STON toString: span).
 	self assert: roundTripped status equals: OTSpan error.
 	self assert: roundTripped statusDescription equals: 'boom'

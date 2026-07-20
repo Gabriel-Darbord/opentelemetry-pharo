@@ -73,7 +73,7 @@ OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 				 attributes: (OrderedDictionary new
 						  at: 'scope.attr' put: true;
 						  yourself));
-		setErrorStatusDescription: 'boom';
+		setStatus: OTSpan error description: 'boom';
 		restoreDroppedAttributesCount: 2;
 		restoreDroppedEventsCount: 3;
 		restoreDroppedLinksCount: 4;
