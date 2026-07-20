@@ -91,17 +91,22 @@ Useful messages include:
 
 - `kind:`
 - `inContext:`
-- `inCurrentContext`
-- `asRoot`
+- `noParent`
 - `attributeAt:put:`
 - `attributes:`
 - `addLink:`
 - `addLinkSpan:`
 - `addLinkSpanContext:`
+- `startTimestamp:`
 - `startSpan`
 
 Prefer setting attributes on the builder before `startSpan`. Samplers can only
 see attributes that are already present during span creation.
+
+You can also add links directly to a started `OTSpan` with the same
+`addLink...` messages. Builder-time links are still preferred when the linked
+context is already known, because head sampling can consider them during span
+creation.
 
 Example:
 
@@ -365,9 +370,16 @@ Supported environment variables include:
 - `OTEL_TRACES_SAMPLER`
 - `OTEL_TRACES_SAMPLER_ARG`
 
-The current implementation supports the standard built-in head samplers that
-already exist in the codebase, such as always-on, always-off, trace-id-ratio,
-and parent-based variants.
+The current implementation supports the standard built-in head samplers:
+
+- `always_on`
+- `always_off`
+- `traceidratio`
+- `parentbased_always_on`
+- `parentbased_always_off`
+- `parentbased_traceidratio`
+- `jaeger_remote`
+- `parentbased_jaeger_remote`
 
 ## Propagation
 

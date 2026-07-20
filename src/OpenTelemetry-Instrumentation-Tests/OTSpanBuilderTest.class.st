@@ -53,6 +53,35 @@ OTSpanBuilderTest >> testAttributesGetterAnswersEmptyCollectionWhenUnset [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testEndedAndNonRecordingSpansIgnoreAddedLinks [
+
+	| endedSpan provider result tracer upstreamContext unsampledSpan |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		sampler: OTAlwaysOffSampler new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	upstreamContext := OTSpanContext
+		                   traceId: '00112233445566778899aabbccddeeff'
+		                   spanId: '1122334455667788'
+		                   traceFlags: '01'
+		                   traceState: nil
+		                   remote: true.
+	endedSpan := (OTTracerProvider new
+		              spanProcessor: OTSimpleSpanProcessor new;
+		              tracerNamed: 'demo.scope') startSpanNamed: 'ended'.
+	endedSpan end.
+	result := endedSpan addLinkSpanContext: upstreamContext.
+	self assert: result identicalTo: endedSpan.
+	self deny: (endedSpan asExportRecord includesKey: #links).
+	unsampledSpan := tracer startSpanNamed: 'unsampled'.
+	result := unsampledSpan addLinkSpanContext: upstreamContext.
+	self assert: result identicalTo: unsampledSpan.
+	self deny: (unsampledSpan asExportRecord includesKey: #links).
+	self assert: (unsampledSpan end: DateAndTime unixEpoch) identicalTo: unsampledSpan
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 
 	| childSpan parentSpan provider tracer |
@@ -188,6 +217,38 @@ OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanAddLinkRespectsLinkCountLimitAfterStart [
+
+	| exportRecord firstContext linksToExport limits provider secondContext span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	limits := OTSpanLimits new.
+	limits linkCountLimit: 1.
+	provider spanLimits: limits.
+	tracer := provider tracerNamed: 'demo.scope'.
+	firstContext := OTSpanContext
+		                traceId: '00112233445566778899aabbccddeeff'
+		                spanId: '1122334455667788'
+		                traceFlags: '01'
+		                traceState: nil
+		                remote: true.
+	secondContext := OTSpanContext
+		                 traceId: 'ffeeddccbbaa99887766554433221100'
+		                 spanId: '8877665544332211'
+		                 traceFlags: '01'
+		                 traceState: nil
+		                 remote: true.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span addLinkSpanContext: firstContext.
+	span addLinkSpanContext: secondContext.
+	exportRecord := span asExportRecord.
+	linksToExport := exportRecord at: #links.
+	self assert: linksToExport size equals: 1.
+	self assert: linksToExport first spanContext equals: firstContext.
+	self assert: (exportRecord at: #droppedLinksCount) equals: 1
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
 
 	| exportRecord linkedSpan linksToExport provider span tracer |
@@ -236,36 +297,6 @@ OTSpanBuilderTest >> testRecordingSpanDoesNotExposeBulkMutationSetters [
 ]
 
 { #category : 'tests' }
-OTSpanBuilderTest >> testRecordingSpanDoesNotExposeLinkConvenienceSetters [
-
-	| provider span tracer upstreamContext |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	upstreamContext := OTSpanContext
-		                   traceId: '00112233445566778899aabbccddeeff'
-		                   spanId: '1122334455667788'
-		                   traceFlags: '01'
-		                   traceState: nil
-		                   remote: true.
-	self should: [ span perform: #addLinkSpan: with: upstreamContext asNonRecordingSpan ] raise: MessageNotUnderstood.
-	self
-		should: [
-				span perform: #addLinkSpan:attributes: with: upstreamContext asNonRecordingSpan with: (OrderedDictionary new
-						 at: 'kind' put: 'caused_by';
-						 yourself) ]
-		raise: MessageNotUnderstood.
-	self should: [ span perform: #addLinkSpanContext: with: upstreamContext ] raise: MessageNotUnderstood.
-	self
-		should: [
-				span perform: #addLinkSpanContext:attributes: with: upstreamContext with: (OrderedDictionary new
-						 at: 'kind' put: 'follows_from';
-						 yourself) ]
-		raise: MessageNotUnderstood
-]
-
-{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanDoesNotExposeStatusConvenienceSetters [
 
 	| provider span tracer |
@@ -276,6 +307,53 @@ OTSpanBuilderTest >> testRecordingSpanDoesNotExposeStatusConvenienceSetters [
 	self should: [ span perform: #setOkStatus ] raise: MessageNotUnderstood.
 	self should: [ span perform: #setErrorStatus ] raise: MessageNotUnderstood.
 	self should: [ span perform: #setErrorStatusDescription: with: 'boom' ] raise: MessageNotUnderstood
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanExposesLinkConvenienceSetters [
+
+	| explicitLink exportRecord linkedSpan linksToExport provider span tracer upstreamContext anotherUpstreamContext |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	linkedSpan := (tracer spanBuilderNamed: 'linked') startSpan.
+	upstreamContext := OTSpanContext
+		                   traceId: '00112233445566778899aabbccddeeff'
+		                   spanId: '1122334455667788'
+		                   traceFlags: '01'
+		                   traceState: nil
+		                   remote: true.
+	anotherUpstreamContext := OTSpanContext
+		                          traceId: 'ffeeddccbbaa99887766554433221100'
+		                          spanId: '8877665544332211'
+		                          traceFlags: '01'
+		                          traceState: 'vendor=value'
+		                          remote: true.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	explicitLink := OTSpanLink spanContext: upstreamContext attributes: (OrderedDictionary new
+			                 at: 'kind' put: 'explicit';
+			                 yourself).
+	span addLink: explicitLink.
+	span addLinkSpan: linkedSpan.
+	span addLinkSpan: linkedSpan attributes: (OrderedDictionary new
+			 at: 'kind' put: 'caused_by';
+			 yourself).
+	span addLinkSpanContext: upstreamContext.
+	span addLinkSpanContext: anotherUpstreamContext attributes: (OrderedDictionary new
+			 at: 'kind' put: 'follows_from';
+			 yourself).
+	exportRecord := span asExportRecord.
+	linksToExport := exportRecord at: #links.
+	self assert: linksToExport size equals: 5.
+	self assert: linksToExport first equals: explicitLink.
+	self assert: linksToExport second spanContext equals: linkedSpan spanContext.
+	self assert: linksToExport second attributes isEmpty.
+	self assert: linksToExport third spanContext equals: linkedSpan spanContext.
+	self assert: (linksToExport third attributes at: 'kind') equals: 'caused_by'.
+	self assert: linksToExport fourth spanContext equals: upstreamContext.
+	self assert: linksToExport fourth attributes isEmpty.
+	self assert: linksToExport fifth spanContext equals: anotherUpstreamContext.
+	self assert: (linksToExport fifth attributes at: 'kind') equals: 'follows_from'
 ]
 
 { #category : 'tests' }

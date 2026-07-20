@@ -474,6 +474,45 @@ OTSpan >> addEventNamed: aString timestamp: aDateAndTime [
 	^ self addEventNamed: aString attributes: #() timestamp: aDateAndTime
 ]
 
+{ #category : 'recording' }
+OTSpan >> addLink: anOTSpanLink [
+
+	| currentLinks limitedLink |
+	self isRecording ifFalse: [ ^ self ].
+	currentLinks := self effectiveLinks.
+	(self attributesCountWithinLimit: self effectiveLimits linkCountLimit currentSize: currentLinks size) ifFalse: [
+			self warnOnceAboutDiscardedData.
+			self restoreDroppedLinksCount: self effectiveDroppedLinksCount + 1.
+			^ self ].
+	limitedLink := self limitedLinkFrom: anOTSpanLink.
+	links := currentLinks copyWith: limitedLink.
+	^ limitedLink
+]
+
+{ #category : 'recording' }
+OTSpan >> addLinkSpan: aSpan [
+
+	^ self addLinkSpan: aSpan attributes: nil
+]
+
+{ #category : 'recording' }
+OTSpan >> addLinkSpan: aSpan attributes: aDictionary [
+
+	^ self addLink: (OTSpanLink span: aSpan attributes: aDictionary)
+]
+
+{ #category : 'recording' }
+OTSpan >> addLinkSpanContext: aSpanContext [
+
+	^ self addLinkSpanContext: aSpanContext attributes: nil
+]
+
+{ #category : 'recording' }
+OTSpan >> addLinkSpanContext: aSpanContext attributes: aDictionary [
+
+	^ self addLink: (OTSpanLink spanContext: aSpanContext attributes: aDictionary)
+]
+
 { #category : 'private - exporting' }
 OTSpan >> asExportRecord [
 

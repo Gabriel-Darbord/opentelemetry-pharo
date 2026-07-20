@@ -48,6 +48,12 @@ OTNonRecordingSpan >> end [
 	^ self
 ]
 
+{ #category : 'control' }
+OTNonRecordingSpan >> end: aDateAndTime [
+
+	self
+]
+
 { #category : 'initialization' }
 OTNonRecordingSpan >> initialize [
 
