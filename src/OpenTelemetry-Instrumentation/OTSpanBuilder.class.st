@@ -30,9 +30,7 @@ OTSpanBuilder class >> forTracer: aTracer name: aString [
 
 	| builder |
 	builder := self new.
-	builder
-		tracer: aTracer;
-		spanName: (aString ifNil: [ '' ] ifNotNil: [ aString ]).
+	builder restoreTracer: aTracer spanName: aString.
 	^ builder
 ]
 
@@ -183,9 +181,10 @@ OTSpanBuilder >> noParent [
 	rootRequested := true
 ]
 
-{ #category : 'accessing' }
-OTSpanBuilder >> spanName: aString [
+{ #category : 'private' }
+OTSpanBuilder >> restoreTracer: aTracer spanName: aString [
 
+	tracer := aTracer.
 	spanName := aString ifNil: [ '' ] ifNotNil: [ aString ]
 ]
 
@@ -256,10 +255,4 @@ OTSpanBuilder >> startSpan [
 OTSpanBuilder >> startTimestamp: aDateAndTime [
 
 	startTime := aDateAndTime
-]
-
-{ #category : 'accessing' }
-OTSpanBuilder >> tracer: aTracer [
-
-	tracer := aTracer
 ]
