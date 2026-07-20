@@ -183,12 +183,6 @@ OTSpanBuilder >> noParent [
 	rootRequested := true
 ]
 
-{ #category : 'configuring' }
-OTSpanBuilder >> parentContext: aContext [
-
-	^ self inContext: aContext
-]
-
 { #category : 'accessing' }
 OTSpanBuilder >> spanName: aString [
 
