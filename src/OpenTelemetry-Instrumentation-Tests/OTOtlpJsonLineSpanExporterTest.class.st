@@ -23,11 +23,11 @@ OTOtlpJsonLineSpanExporterTest >> sampleSpan [
 		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
 		        startSpan.
 	span
-		attributes: (Dictionary new
+		restoreAttributes: (Dictionary new
 				 at: 'service.name' put: 'demo';
 				 yourself);
-		events: #(  );
-		links: #(  );
+		restoreEvents: #(  );
+		restoreLinks: #(  );
 		end: DateAndTime unixEpoch + (Duration milliSeconds: 2).
 	^ span
 ]

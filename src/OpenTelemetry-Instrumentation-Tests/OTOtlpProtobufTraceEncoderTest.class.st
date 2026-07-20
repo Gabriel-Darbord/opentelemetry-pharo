@@ -49,18 +49,18 @@ OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
 		        startSpan.
 	span
-		attributes: (OrderedDictionary new
+		restoreAttributes: (OrderedDictionary new
 				 at: 'service.name' put: 'demo';
 				 at: 'attempt' put: 7;
 				 yourself);
-		events: { (OTSpanEvent
+		restoreEvents: { (OTSpanEvent
 				 named: 'tick'
 				 attributes: (OrderedDictionary new
 						  at: 'count' put: 3;
 						  yourself)
 				 timestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1)
 				 droppedAttributesCount: 1) };
-		links: { link };
+		restoreLinks: { link };
 		restoreResource: (OTResource
 				 attributes: (OrderedDictionary new
 						  at: 'service.name' put: 'demo-service';

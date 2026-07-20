@@ -47,7 +47,7 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 		restoreKind: OTSpan client;
 		restoreStartTime: DateAndTime unixEpoch + (Duration nanoSeconds: 100);
 		restoreEndTime: DateAndTime unixEpoch + (Duration nanoSeconds: 1100);
-		attributes: (OrderedDictionary new
+		restoreAttributes: (OrderedDictionary new
 				 at: 'animal' put: 'cat';
 				 at: 'bytes' put: #[ 1 2 3 ];
 				 at: 'empty' put: nil;
@@ -57,14 +57,14 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 						  at: 'nested' put: 'value';
 						  yourself);
 				 yourself);
-		events: { (OTSpanEvent
+		restoreEvents: { (OTSpanEvent
 				 named: 'somethingHappenedHere'
 				 attributes: (Dictionary new
 						  at: 'important' put: true;
 						  yourself)
 				 timestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 600)
 				 droppedAttributesCount: 1) };
-		links: { (OTSpanLink
+		restoreLinks: { (OTSpanLink
 				 spanContext: linkContext
 				 attributes: (Dictionary new
 						  at: 'link-attribute' put: 'value';
@@ -109,9 +109,9 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
 		        startSpan.
 	span
-		attributes: #(  );
-		events: #(  );
-		links: #(  );
+		restoreAttributes: #(  );
+		restoreEvents: #(  );
+		restoreLinks: #(  );
 		restoreResource: (OTResource
 				 attributes: (OrderedDictionary new
 						  at: 'service.name' put: 'shared';
@@ -220,9 +220,9 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessag
 		        startTimestamp: DateAndTime unixEpoch;
 		        startSpan.
 	span
-		attributes: #(  );
-		events: #(  );
-		links: #(  );
+		restoreAttributes: #(  );
+		restoreEvents: #(  );
+		restoreLinks: #(  );
 		restoreResource: OTResource empty;
 		restoreInstrumentationScope: (OTInstrumentationScope named: '');
 		end: DateAndTime unixEpoch.

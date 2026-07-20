@@ -201,9 +201,9 @@ OTSpan class >> fromSton: stonReader [
 	span
 		restoreStatus: (representation at: #status ifAbsent: [ self unset ])
 		description: (representation at: #statusDescription ifAbsent: [ nil ]).
-	representation at: #attributes ifPresent: [ :attributes | span attributes: attributes ].
-	representation at: #events ifPresent: [ :events | span events: events ].
-	representation at: #links ifPresent: [ :links | span links: links ].
+	representation at: #attributes ifPresent: [ :attributes | span restoreAttributes: attributes ].
+	representation at: #events ifPresent: [ :events | span restoreEvents: events ].
+	representation at: #links ifPresent: [ :links | span restoreLinks: links ].
 	representation at: #resource ifPresent: [ :aResource | span restoreResource: aResource ].
 	span restoreDroppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ span droppedAttributesCount ]).
 	span restoreDroppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ span droppedEventsCount ]).
@@ -546,21 +546,6 @@ OTSpan >> attributes [
 	^ attributes ifNil: [ OrderedDictionary new ]
 ]
 
-{ #category : 'accessing' }
-OTSpan >> attributes: aDictionary [
-
-	| normalized |
-	self isRecording ifFalse: [ ^ self ].
-	aDictionary ifNil: [ ^ self ].
-	normalized := OTAttributeNormalizer
-		              normalizeAttributes: aDictionary
-		              countLimit: self limits attributeCountLimit
-		              valueLengthLimit: self limits attributeValueLengthLimit.
-	normalized first associationsDo: [ :each | self attributeAt: each key put: each value ].
-	normalized second > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
-	self restoreDroppedAttributesCount: self droppedAttributesCount + normalized second
-]
-
 { #category : 'private' }
 OTSpan >> attributesCountWithinLimit: aLimit currentSize: aSize [
 
@@ -632,14 +617,6 @@ OTSpan >> ensureMutableSpanContextState [
 OTSpan >> events [
 
 	^ events ifNil: [ #() ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> events: aCollection [
-
-	self isRecording ifFalse: [ ^ self ].
-	aCollection ifNil: [ ^ self ].
-	aCollection do: [ :each | self addEvent: each ]
 ]
 
 { #category : 'private' }
@@ -788,14 +765,6 @@ OTSpan >> links [
 	^ links ifNil: [ #() ]
 ]
 
-{ #category : 'accessing' }
-OTSpan >> links: aCollection [
-
-	self isRecording ifFalse: [ ^ self ].
-	aCollection ifNil: [ ^ self ].
-	aCollection do: [ :each | self addLink: each ]
-]
-
 { #category : 'private' }
 OTSpan >> markEnded [
 
@@ -896,6 +865,21 @@ OTSpan >> resource [
 ]
 
 { #category : 'private' }
+OTSpan >> restoreAttributes: aDictionary [
+
+	| normalized |
+	self isRecording ifFalse: [ ^ self ].
+	aDictionary ifNil: [ ^ self ].
+	normalized := OTAttributeNormalizer
+		              normalizeAttributes: aDictionary
+		              countLimit: self limits attributeCountLimit
+		              valueLengthLimit: self limits attributeValueLengthLimit.
+	normalized first associationsDo: [ :each | self attributeAt: each key put: each value ].
+	normalized second > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
+	self restoreDroppedAttributesCount: self droppedAttributesCount + normalized second
+]
+
+{ #category : 'private' }
 OTSpan >> restoreContext: aContext [
 
 	context := aContext
@@ -926,6 +910,14 @@ OTSpan >> restoreEndTime: aDateAndTime [
 ]
 
 { #category : 'private' }
+OTSpan >> restoreEvents: aCollection [
+
+	self isRecording ifFalse: [ ^ self ].
+	aCollection ifNil: [ ^ self ].
+	aCollection do: [ :each | self addEvent: each ]
+]
+
+{ #category : 'private' }
 OTSpan >> restoreInstrumentationScope: anInstrumentationScope [
 
 	| scope |
@@ -947,6 +939,14 @@ OTSpan >> restoreLimits: someLimits [
 
 	limits := (someLimits ifNil: [ OTSpanLimits default ] ifNotNil: [ someLimits ]) copy.
 	^ limits
+]
+
+{ #category : 'private' }
+OTSpan >> restoreLinks: aCollection [
+
+	self isRecording ifFalse: [ ^ self ].
+	aCollection ifNil: [ ^ self ].
+	aCollection do: [ :each | self addLink: each ]
 ]
 
 { #category : 'private' }

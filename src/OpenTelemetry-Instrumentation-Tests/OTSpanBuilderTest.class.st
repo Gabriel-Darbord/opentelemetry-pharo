@@ -78,70 +78,6 @@ OTSpanBuilderTest >> testAttributesGetterAnswersEmptyCollectionWhenUnset [
 ]
 
 { #category : 'tests' }
-OTSpanBuilderTest >> testBulkAttributesSetterMergesWithExistingAttributes [
-
-	| provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	span attributeAt: 'existing' put: 'before'.
-	span attributes: (OrderedDictionary new
-			 at: 'existing' put: 'after';
-			 at: 'new' put: 7;
-			 yourself).
-	self assert: (span attributes at: 'existing') equals: 'after'.
-	self assert: (span attributes at: 'new') equals: 7.
-	self assert: span attributes size equals: 2
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testBulkEventSetterAppendsEventsInRecordOrder [
-
-	| provider span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	span addEventNamed: 'first'.
-	span events: { (OTSpanEvent named: 'second' attributes: #(  ) timestamp: DateAndTime unixEpoch) }.
-	self assert: span events size equals: 2.
-	self assert: span events first name equals: 'first'.
-	self assert: span events second name equals: 'second'
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testBulkLinkSetterAppendsLinks [
-
-	| firstLink provider secondLink span tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	firstLink := OTSpanLink
-		             spanContext: (OTSpanContext
-				              traceId: '00112233445566778899aabbccddeeff'
-				              spanId: '1122334455667788'
-				              traceFlags: '01'
-				              traceState: nil
-				              remote: true)
-		             attributes: #(  ).
-	secondLink := OTSpanLink
-		              spanContext: (OTSpanContext
-				               traceId: 'ffeeddccbbaa99887766554433221100'
-				               spanId: '8877665544332211'
-				               traceFlags: '01'
-				               traceState: nil
-				               remote: true)
-		              attributes: #(  ).
-	span addLink: firstLink.
-	span links: { secondLink }.
-	self assert: span links size equals: 2.
-	self assert: span links first spanContext equals: firstLink spanContext.
-	self assert: span links second spanContext equals: secondLink spanContext
-]
-
-{ #category : 'tests' }
 OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 
 	| childSpan parentSpan provider tracer |
@@ -292,6 +228,34 @@ OTSpanBuilderTest >> testRecordingSpanCanAddLinkFromAnotherSpan [
 	self assert: span links size equals: 1.
 	self assert: span links first spanContext equals: linkedSpan spanContext.
 	self assert: (span links first attributes at: 'link.kind') equals: 'follows_from'
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanDoesNotExposeBulkMutationSetters [
+
+	| link provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	link := OTSpanLink
+		        spanContext: (OTSpanContext
+				         traceId: '00112233445566778899aabbccddeeff'
+				         spanId: '1122334455667788'
+				         traceFlags: '01'
+				         traceState: nil
+				         remote: true)
+		        attributes: #(  ).
+	self
+		should: [
+				span perform: #attributes: with: (OrderedDictionary new
+						 at: 'answer' put: 42;
+						 yourself) ]
+		raise: MessageNotUnderstood.
+	self
+		should: [ span perform: #events: with: { (OTSpanEvent named: 'event' attributes: #(  ) timestamp: DateAndTime unixEpoch) } ]
+		raise: MessageNotUnderstood.
+	self should: [ span perform: #links: with: { link } ] raise: MessageNotUnderstood
 ]
 
 { #category : 'tests' }

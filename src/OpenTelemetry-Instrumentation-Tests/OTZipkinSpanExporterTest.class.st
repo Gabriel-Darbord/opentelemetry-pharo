@@ -29,7 +29,7 @@ OTZipkinSpanExporterTest >> spanWithKind: aSpanKind attributes: someAttributes [
 		        startTimestamp: DateAndTime unixEpoch;
 		        startSpan.
 	span
-		attributes: someAttributes;
+		restoreAttributes: someAttributes;
 		restoreResource: (OTResource attributes: (OrderedDictionary new
 						  at: 'service.name' put: 'local-service';
 						  yourself));
