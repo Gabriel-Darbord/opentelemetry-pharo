@@ -116,6 +116,13 @@ OTSpanContextTest >> testCopyingOperationsReturnNewSpanContextsWithoutMutatingOr
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testFreshSpanWithoutAssignedContextReturnsInvalidSpanContext [
+
+	self deny: OTSpan new spanContext isValid.
+	self deny: (OTSpanContext fromSpan: OTSpan new) isValid
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testFromSpanPreservesRemoteWrappedSpanContext [
 
 	| remoteContext wrappedSpan |

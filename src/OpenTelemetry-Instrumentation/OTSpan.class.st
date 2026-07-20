@@ -12,8 +12,6 @@ Class {
 	#name : 'OTSpan',
 	#superclass : 'Object',
 	#instVars : [
-		'spanId',
-		'traceId',
 		'spanContext',
 		'parent',
 		'name',
@@ -27,8 +25,6 @@ Class {
 		'attributes',
 		'events',
 		'statusDescription',
-		'traceFlags',
-		'traceState',
 		'links',
 		'resource',
 		'tracerProvider',
@@ -663,10 +659,7 @@ OTSpan >> exceptionTypeFor: anException [
 OTSpan >> initialize [
 
 	super initialize.
-	spanId := self class newSpanId.
 	spanContext := nil.
-	traceFlags := '01'.
-	traceState := nil.
 	ended := false.
 	links := nil.
 	resource := OTResource empty.
@@ -943,10 +936,6 @@ OTSpan >> restoreSpanContext: anOTSpanContext [
 		              ifTrue: [ anOTSpanContext asLocal ]
 		              ifFalse: [ anOTSpanContext ].
 	spanContext := normalized.
-	traceId := normalized traceId.
-	spanId := normalized spanId.
-	traceFlags := normalized traceFlags.
-	traceState := normalized traceState.
 	^ spanContext
 ]
 
@@ -998,7 +987,7 @@ OTSpan >> setStatus: aSymbol description: aString [
 { #category : 'accessing' }
 OTSpan >> spanContext [
 
-	^ spanContext ifNil: [ spanContext := OTSpanContext fromSpan: self ]
+	^ spanContext ifNil: [ OTSpanContext invalid ]
 ]
 
 { #category : 'ston persistence' }
