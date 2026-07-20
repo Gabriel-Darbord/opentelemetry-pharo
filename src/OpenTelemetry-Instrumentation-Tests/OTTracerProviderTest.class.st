@@ -39,6 +39,7 @@ OTTracerProviderTest >> tearDown [
 
 	[
 		OTDiagnosticLogger reset.
+		OTLifecycleObservingSpanProcessor resetRecordedLifecycle.
 		OTTracerProvider current: nil.
 		OTTracerProvider tracerConfigurationWarningSink: nil.
 		OTTracerProvider resourceConfigurationWarningSink: nil.
@@ -50,6 +51,60 @@ OTTracerProviderTest >> tearDown [
 		OTSpan reset ] ensure: [
 			OTBlockingShutdownSpanProcessor allInstancesDo: [ :each | each allowShutdown ].
 			super tearDown ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testAllOnEndingCallbacksRunBeforeAnyOnEndCallback [
+
+	| endingIndexes firstOnEndIndex processorOne processorTwo provider span timeline tracer |
+	OTLifecycleObservingSpanProcessor resetRecordedLifecycle.
+	provider := OTTracerProvider new.
+	processorOne := OTLifecycleObservingSpanProcessor new.
+	processorTwo := OTLifecycleObservingSpanProcessor new.
+	provider
+		spanProcessor: processorOne;
+		addSpanProcessor: processorTwo.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span end.
+	timeline := OTLifecycleObservingSpanProcessor timeline asArray.
+	self assert: timeline size equals: 6.
+	self assert: timeline first asArray equals: {
+			processorOne.
+			#onStart.
+			true.
+			false }.
+	self assert: timeline second asArray equals: {
+			processorTwo.
+			#onStart.
+			true.
+			false }.
+	self assert: timeline third asArray equals: {
+			processorOne.
+			#onEnding.
+			true.
+			true }.
+	self assert: timeline fourth asArray equals: {
+			processorTwo.
+			#onEnding.
+			true.
+			true }.
+	self assert: timeline fifth asArray equals: {
+			processorOne.
+			#onEnd.
+			false.
+			true.
+			true }.
+	self assert: timeline sixth asArray equals: {
+			processorTwo.
+			#onEnd.
+			false.
+			true.
+			true }.
+	endingIndexes := OrderedCollection new.
+	1 to: timeline size do: [ :index | (timeline at: index) second = #onEnding ifTrue: [ endingIndexes add: index ] ].
+	firstOnEndIndex := (1 to: timeline size) detect: [ :index | (timeline at: index) second = #onEnd ].
+	self assert: (endingIndexes allSatisfy: [ :index | index < firstOnEndIndex ])
 ]
 
 { #category : 'tests' }
@@ -468,6 +523,38 @@ OTTracerProviderTest >> testNonRecordingSpanSamplerCanExplicitlyClearParentTrace
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self assert: span spanContext traceState class identicalTo: OTTraceState.
 	self assert: span spanContext traceState isEmpty
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testOnEndingSeesComputedEndTimestampAndCanStillMutateSpan [
+
+	| endEntry endTimestamp exportRecord onEndingEntry processor provider span tracer |
+	OTLifecycleObservingSpanProcessor resetRecordedLifecycle.
+	provider := OTTracerProvider new.
+	processor := OTLifecycleObservingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	endTimestamp := DateAndTime unixEpoch + (Duration milliSeconds: 123).
+	span end: endTimestamp.
+	exportRecord := span asExportRecord.
+	onEndingEntry := processor timeline second.
+	endEntry := processor timeline third.
+	self assert: onEndingEntry asArray equals: {
+			processor.
+			#onEnding.
+			true.
+			true }.
+	self assert: endEntry asArray equals: {
+			processor.
+			#onEnd.
+			false.
+			true.
+			true }.
+	self assert: (exportRecord at: #endTime) equals: endTimestamp.
+	self assert: ((exportRecord at: #attributes) at: 'processor.onEnding.order') equals: processor identityHash asString.
+	self assert:
+		((exportRecord at: #events) anySatisfy: [ :each | each name = ('processor.onEnding.' , processor identityHash asString) ])
 ]
 
 { #category : 'tests' }
