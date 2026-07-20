@@ -276,7 +276,7 @@ OTBatchSpanProcessor >> nextWorkDecision [
 ]
 
 { #category : 'processing' }
-OTBatchSpanProcessor >> process: span [
+OTBatchSpanProcessor >> onEnd: span [
 	"Queue sampled spans for asynchronous export."
 
 	| accepted shouldWakeWorker snapshot |

@@ -59,7 +59,7 @@ OTBatchSpanProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExport
 	processor
 		batchSize: 10;
 		scheduledDelayMillis: 1000.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: processor forceFlush.
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter forceFlushCount equals: 1.
@@ -78,14 +78,14 @@ OTBatchSpanProcessorTest >> testForceFlushUsesExplicitExporterInsteadOfGlobalExp
 	processor
 		batchSize: 10;
 		scheduledDelayMillis: 1000.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: processor forceFlush.
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: globalExporter exportedBatches isEmpty
 ]
 
 { #category : 'tests' }
-OTBatchSpanProcessorTest >> testProcessDropsSpansWhenQueueFillsDuringBlockedExport [
+OTBatchSpanProcessorTest >> testOnEndDropsSpansWhenQueueFillsDuringBlockedExport [
 
 	exporter := OTBlockingSpanExporter new.
 	exporter blockNextExport.
@@ -95,20 +95,18 @@ OTBatchSpanProcessorTest >> testProcessDropsSpansWhenQueueFillsDuringBlockedExpo
 		batchSize: 1;
 		maxQueueSize: 2;
 		scheduledDelayMillis: 1000.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
-	self assert: (processor process: (self sampledSpanWithSuffix: 2)).
-	self assert: (processor process: (self sampledSpanWithSuffix: 3)).
-	self deny: (processor process: (self sampledSpanWithSuffix: 4)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 2)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 3)).
+	self deny: (processor onEnd: (self sampledSpanWithSuffix: 4)).
 	exporter allowBlockedExport.
 	self waitUntil: [ exporter exportedBatches size = 3 ] timeoutMillis: 500.
-	self
-		assert: ((exporter exportedBatches inject: 0 into: [ :total :each | total + each size ]))
-		equals: 3
+	self assert: (exporter exportedBatches inject: 0 into: [ :total :each | total + each size ]) equals: 3
 ]
 
 { #category : 'tests' }
-OTBatchSpanProcessorTest >> testProcessReturnsBeforeBlockedBatchExportCompletes [
+OTBatchSpanProcessorTest >> testOnEndReturnsBeforeBlockedBatchExportCompletes [
 
 	exporter := OTBlockingSpanExporter new.
 	exporter blockNextExport.
@@ -117,7 +115,7 @@ OTBatchSpanProcessorTest >> testProcessReturnsBeforeBlockedBatchExportCompletes 
 	processor
 		batchSize: 1;
 		scheduledDelayMillis: 1000.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
 	self assert: exporter exportedBatches isEmpty.
 	exporter allowBlockedExport.
@@ -133,7 +131,7 @@ OTBatchSpanProcessorTest >> testScheduledDelayFlushesPendingBatch [
 	processor
 		batchSize: 10;
 		scheduledDelayMillis: 20.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self waitUntil: [ exporter exportedBatches size = 1 ] timeoutMillis: 500.
 	self assert: exporter exportedBatches first size equals: 1
 ]
@@ -147,7 +145,7 @@ OTBatchSpanProcessorTest >> testShutdownFlushesPendingBatchAndShutsDownExporter 
 	processor
 		batchSize: 10;
 		scheduledDelayMillis: 1000.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: processor shutdown.
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter shutdownCount equals: 1

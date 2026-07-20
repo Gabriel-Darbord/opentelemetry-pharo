@@ -42,13 +42,13 @@ OTSimpleSpanProcessorTest >> tearDown [
 ]
 
 { #category : 'tests' }
-OTSimpleSpanProcessorTest >> testProcessExportsPrintableAndStonSerializableSnapshot [
+OTSimpleSpanProcessorTest >> testOnEndExportsPrintableAndStonSerializableSnapshot [
 
 	| exportedSnapshot printed serialized |
 	exporter := OTRecordingSpanExporter new.
 	OTSpanExporter current: exporter.
 	processor := OTSimpleSpanProcessor new.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	exportedSnapshot := exporter exportedBatches first first.
 	printed := exportedSnapshot printString.
 	serialized := STON toString: { exportedSnapshot asExportRecord }.
@@ -57,19 +57,19 @@ OTSimpleSpanProcessorTest >> testProcessExportsPrintableAndStonSerializableSnaps
 ]
 
 { #category : 'tests' }
-OTSimpleSpanProcessorTest >> testProcessExportsSampledSpan [
+OTSimpleSpanProcessorTest >> testOnEndExportsSampledSpan [
 
 	exporter := OTRecordingSpanExporter new.
 	OTSpanExporter current: exporter.
 	processor := OTSimpleSpanProcessor new.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter exportedBatches first size equals: 1.
 	self assert: exporter exportedBatches first first class identicalTo: OTSpanSnapshot
 ]
 
 { #category : 'tests' }
-OTSimpleSpanProcessorTest >> testProcessSerializesConcurrentExports [
+OTSimpleSpanProcessorTest >> testOnEndSerializesConcurrentExports [
 
 	| secondExportFinished |
 	exporter := OTBlockingSpanExporter new.
@@ -77,26 +77,25 @@ OTSimpleSpanProcessorTest >> testProcessSerializesConcurrentExports [
 	OTSpanExporter current: exporter.
 	processor := OTSimpleSpanProcessor new.
 	secondExportFinished := Semaphore new.
-	[ processor process: (self sampledSpanWithSuffix: 1) ] forkAt: Processor userBackgroundPriority.
+	[ processor onEnd: (self sampledSpanWithSuffix: 1) ] forkAt: Processor userBackgroundPriority.
 	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
 	[
-		processor process: (self sampledSpanWithSuffix: 2).
-		secondExportFinished signal ]
-		forkAt: Processor userBackgroundPriority.
+		processor onEnd: (self sampledSpanWithSuffix: 2).
+		secondExportFinished signal ] forkAt: Processor userBackgroundPriority.
 	self assert: (secondExportFinished waitTimeoutMilliseconds: 50).
 	exporter allowBlockedExport.
 	self waitUntil: [ exporter exportedBatches size = 2 ] timeoutMillis: 500
 ]
 
 { #category : 'tests' }
-OTSimpleSpanProcessorTest >> testProcessUsesExplicitExporterInsteadOfGlobalExporter [
+OTSimpleSpanProcessorTest >> testOnEndUsesExplicitExporterInsteadOfGlobalExporter [
 
 	| globalExporter |
 	exporter := OTRecordingSpanExporter new.
 	globalExporter := OTRecordingSpanExporter new.
 	OTSpanExporter current: globalExporter.
 	processor := OTSimpleSpanProcessor new exporter: exporter.
-	self assert: (processor process: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: globalExporter exportedBatches isEmpty
 ]

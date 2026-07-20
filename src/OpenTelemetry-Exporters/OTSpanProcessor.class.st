@@ -90,23 +90,30 @@ OTSpanProcessor class >> beCurrent [
 					  Current ] ]
 ]
 
-{ #category : 'accessing' }
-OTSpanProcessor class >> current [
+{ #category : 'private - logging' }
+OTSpanProcessor class >> configurationWarningSink [
 
-	^ Current ifNil: [ Current := self readConfiguration ]
+	^ OTClassStateStore
+		valueAt: #otConfigurationWarningSink
+		forClass: self
+		ifAbsent: [ self defaultConfigurationWarningSink ]
 ]
 
-{ #category : 'accessing' }
-OTSpanProcessor class >> currentIfSet [
+{ #category : 'private - logging' }
+OTSpanProcessor class >> configurationWarningSink: aBlock [
 
-	^ Current
-]
-
-{ #category : 'accessing' }
-OTSpanProcessor class >> current: aSpanProcessor [
-
-	Current := aSpanProcessor.
-	OTTracerProvider invalidateCurrent
+	aBlock
+		ifNil: [
+			OTClassStateStore
+				removeValueAt: #otConfigurationWarningSink
+				forClass: self
+				ifAbsent: [  ] ]
+		ifNotNil: [
+			OTClassStateStore
+				valueAt: #otConfigurationWarningSink
+				forClass: self
+				put: aBlock ].
+	^ self configurationWarningSink
 ]
 
 { #category : 'instance creation' }
@@ -116,6 +123,25 @@ OTSpanProcessor class >> configuredProcessors [
 		^ processors ].
 	^ OTSpanExporter current componentExporters
 		collect: [ :each | self processorForExporter: each ]
+]
+
+{ #category : 'accessing' }
+OTSpanProcessor class >> current [
+
+	^ Current ifNil: [ Current := self readConfiguration ]
+]
+
+{ #category : 'accessing' }
+OTSpanProcessor class >> current: aSpanProcessor [
+
+	Current := aSpanProcessor.
+	OTTracerProvider invalidateCurrent
+]
+
+{ #category : 'accessing' }
+OTSpanProcessor class >> currentIfSet [
+
+	^ Current
 ]
 
 { #category : 'instance creation' }
@@ -152,32 +178,6 @@ OTSpanProcessor class >> defaultConfigurationWarningSink [
 OTSpanProcessor class >> environmentValueAt: aString [
 
 	^ OTConfigurationSource environmentValueAt: aString
-]
-
-{ #category : 'private - logging' }
-OTSpanProcessor class >> configurationWarningSink [
-
-	^ OTClassStateStore
-		valueAt: #otConfigurationWarningSink
-		forClass: self
-		ifAbsent: [ self defaultConfigurationWarningSink ]
-]
-
-{ #category : 'private - logging' }
-OTSpanProcessor class >> configurationWarningSink: aBlock [
-
-	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otConfigurationWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otConfigurationWarningSink
-				forClass: self
-				put: aBlock ].
-	^ self configurationWarningSink
 ]
 
 { #category : 'processing' }
@@ -229,16 +229,6 @@ OTSpanProcessor class >> markShutdown: aProcessor [
 	^ aProcessor
 ]
 
-{ #category : 'private - logging' }
-OTSpanProcessor class >> noteInvalidEnvironmentValue: aValue forVariable: aString [
-
-	self configurationWarningSink value:
-		'OpenTelemetry batch span processor configuration was invalid and has been ignored for '
-			, aString printString
-			, ': '
-			, aValue printString
-]
-
 { #category : 'private' }
 OTSpanProcessor class >> nonNegativeIntegerEnvironmentValueAt: aString default: aDefaultValue [
 
@@ -250,6 +240,16 @@ OTSpanProcessor class >> nonNegativeIntegerEnvironmentValueAt: aString default: 
 		self noteInvalidEnvironmentValue: rawValue forVariable: aString.
 		^ aDefaultValue ].
 	^ parsed
+]
+
+{ #category : 'private - logging' }
+OTSpanProcessor class >> noteInvalidEnvironmentValue: aValue forVariable: aString [
+
+	self configurationWarningSink value:
+		'OpenTelemetry batch span processor configuration was invalid and has been ignored for '
+			, aString printString
+			, ': '
+			, aValue printString
 ]
 
 { #category : 'private' }
@@ -301,6 +301,13 @@ OTSpanProcessor class >> resetLifecycleState [
 		ifAbsent: [  ]
 ]
 
+{ #category : 'processing' }
+OTSpanProcessor class >> shutdown [
+
+	<script>
+	^ Current ifNil: [ false ] ifNotNil: [ Current shutdown ]
+]
+
 { #category : 'private' }
 OTSpanProcessor class >> strictNonNegativeIntegerFrom: aString [
 
@@ -311,13 +318,6 @@ OTSpanProcessor class >> strictNonNegativeIntegerFrom: aString [
 	stream atEnd ifFalse: [ ^ nil ].
 	value >= 0 ifFalse: [ ^ nil ].
 	^ value
-]
-
-{ #category : 'processing' }
-OTSpanProcessor class >> shutdown [
-
-	<script>
-	^ Current ifNil: [ false ] ifNotNil: [ Current shutdown ]
 ]
 
 { #category : 'private' }
@@ -373,9 +373,9 @@ OTSpanProcessor >> markShutdown [
 
 { #category : 'processing' }
 OTSpanProcessor >> onEnd: aSpan [
-	"Compatibility hook for processors that still implement completed-span processing via #process:."
+	"Called synchronously after a span has ended. Concrete processors should treat the span as read-only at this point."
 
-	^ self process: aSpan
+	self subclassResponsibility
 ]
 
 { #category : 'processing' }
@@ -386,13 +386,6 @@ OTSpanProcessor >> onEnding: aSpan [
 { #category : 'processing' }
 OTSpanProcessor >> onStart: aSpan parentContext: aContext [
 	"Default no-op lifecycle callback for started spans."
-]
-
-{ #category : 'processing' }
-OTSpanProcessor >> process: span [
-	"Export the span and return true if it was accepted"
-
-	self subclassResponsibility
 ]
 
 { #category : 'testing' }

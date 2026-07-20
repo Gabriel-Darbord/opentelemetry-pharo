@@ -45,7 +45,7 @@ OTSimpleSpanProcessor >> initialize [
 ]
 
 { #category : 'processing' }
-OTSimpleSpanProcessor >> process: span [
+OTSimpleSpanProcessor >> onEnd: span [
 	"Directly export sampled spans and treat record-only spans as accepted without exporting"
 
 	| snapshot |

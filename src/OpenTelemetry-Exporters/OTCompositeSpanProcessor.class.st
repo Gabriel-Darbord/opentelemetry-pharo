@@ -68,14 +68,6 @@ OTCompositeSpanProcessor >> onStart: aSpan parentContext: aContext [
 			allAccepted ]
 ]
 
-{ #category : 'processing' }
-OTCompositeSpanProcessor >> process: aSpan [
-
-	^ processors
-		inject: true
-		into: [ :allAccepted :each | (each process: aSpan) & allAccepted ]
-]
-
 { #category : 'accessing' }
 OTCompositeSpanProcessor >> processors [
 

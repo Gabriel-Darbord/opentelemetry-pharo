@@ -34,7 +34,7 @@ OTBlockingShutdownSpanProcessor >> initialize [
 ]
 
 { #category : 'processing' }
-OTBlockingShutdownSpanProcessor >> process: aSpan [
+OTBlockingShutdownSpanProcessor >> onEnd: aSpan [
 
 	^ true
 ]
