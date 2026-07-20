@@ -175,24 +175,24 @@ OTSpan class >> fromSton: stonReader [
 	span := self newInternal.
 	traceFlags := representation at: #traceFlags ifAbsent: [ '01' ].
 	traceState := representation at: #traceState ifAbsent: [ nil ].
-	span spanContext: (OTSpanContext
+	span restoreSpanContext: (OTSpanContext
 			 traceId: (representation at: #traceId)
 			 spanId: (representation at: #spanId)
 			 traceFlags: traceFlags
 			 traceState: traceState
 			 remote: false).
 	span restoreName: (representation at: #name).
-	span context: (representation at: #context).
-	span kind: (representation at: #kind).
+	span restoreContext: (representation at: #context).
+	span restoreKind: (representation at: #kind).
 	scope := representation
 		         at: #instrumentationScope
 		         ifAbsent: [ OTInstrumentationScope named: (representation at: #instrumentationName ifAbsent: [ '' ]) ].
-	span instrumentationScope: scope.
+	span restoreInstrumentationScope: scope.
 	(representation includesKey: #parentSpanContext)
-		ifTrue: [ span parentSpanContext: (representation at: #parentSpanContext) ]
+		ifTrue: [ span restoreParentSpanContext: (representation at: #parentSpanContext) ]
 		ifFalse: [
 				representation at: #parentId ifPresent: [ :parentId |
-						span parentSpanContext: (self
+						span restoreParentSpanContext: (self
 								 legacyParentSpanContextFromParentId: parentId
 								 traceId: span traceId
 								 traceFlags: span traceFlags
@@ -204,10 +204,10 @@ OTSpan class >> fromSton: stonReader [
 	representation at: #attributes ifPresent: [ :attributes | span attributes: attributes ].
 	representation at: #events ifPresent: [ :events | span events: events ].
 	representation at: #links ifPresent: [ :links | span links: links ].
-	representation at: #resource ifPresent: [ :aResource | span resource: aResource ].
-	span droppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ span droppedAttributesCount ]).
-	span droppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ span droppedEventsCount ]).
-	span droppedLinksCount: (representation at: #droppedLinksCount ifAbsent: [ span droppedLinksCount ]).
+	representation at: #resource ifPresent: [ :aResource | span restoreResource: aResource ].
+	span restoreDroppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ span droppedAttributesCount ]).
+	span restoreDroppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ span droppedEventsCount ]).
+	span restoreDroppedLinksCount: (representation at: #droppedLinksCount ifAbsent: [ span droppedLinksCount ]).
 	span restoreEndTime: (representation at: #endTime).
 	span endTime ifNotNil: [ span markEnded ].
 	^ span
@@ -366,8 +366,8 @@ OTSpan class >> rootInInternal: aContext [
 	| span |
 	span := self newInternal.
 	span
-		context: aContext;
-		spanContext: (OTSpanContext
+		restoreContext: aContext;
+		restoreSpanContext: (OTSpanContext
 				 traceId: self newTraceId
 				 spanId: span spanId
 				 traceFlags: '01'
@@ -390,9 +390,9 @@ OTSpan class >> underInternal: parentSpan [
 	parentSpanContext := parentSpan spanContext.
 	span := self newInternal.
 	span
-		parent: parentSpan;
-		context: parentSpan context;
-		spanContext: (OTSpanContext
+		restoreParent: parentSpan;
+		restoreContext: parentSpan context;
+		restoreSpanContext: (OTSpanContext
 				 traceId: parentSpanContext traceId
 				 spanId: span spanId
 				 traceFlags: parentSpanContext traceFlags
@@ -441,10 +441,9 @@ OTSpan >> addEvent: anOTSpanEvent [
 
 	| limitedEvent |
 	self isRecording ifFalse: [ ^ self ].
-	(self attributesCountWithinLimit: self limits eventCountLimit currentSize: self events size)
-		ifFalse: [
+	(self attributesCountWithinLimit: self limits eventCountLimit currentSize: self events size) ifFalse: [
 			self warnOnceAboutDiscardedData.
-			self droppedEventsCount: self droppedEventsCount + 1.
+			self restoreDroppedEventsCount: self droppedEventsCount + 1.
 			^ self ].
 	limitedEvent := self limitedEventFrom: anOTSpanEvent.
 	events := self events copyWith: limitedEvent.
@@ -480,10 +479,9 @@ OTSpan >> addLink: aSpanLink [
 
 	| limitedLink |
 	self isRecording ifFalse: [ ^ self ].
-	(self attributesCountWithinLimit: self limits linkCountLimit currentSize: self links size)
-		ifFalse: [
+	(self attributesCountWithinLimit: self limits linkCountLimit currentSize: self links size) ifFalse: [
 			self warnOnceAboutDiscardedData.
-			self droppedLinksCount: self droppedLinksCount + 1.
+			self restoreDroppedLinksCount: self droppedLinksCount + 1.
 			^ self ].
 	limitedLink := self limitedLinkFrom: aSpanLink.
 	links := self links copyWith: limitedLink.
@@ -533,15 +531,13 @@ OTSpan >> attributeAt: key put: value [
 	| normalizedKey normalizedValue |
 	self isRecording ifFalse: [ ^ self ].
 	normalizedKey := OTAttributeNormalizer normalizeAttributeKey: key.
-	normalizedValue := OTAttributeNormalizer
-		normalizeAttributeValue: value
-		lengthLimit: self limits attributeValueLengthLimit.
+	normalizedValue := OTAttributeNormalizer normalizeAttributeValue: value lengthLimit: self limits attributeValueLengthLimit.
 	attributes ifNil: [ attributes := OrderedDictionary new ].
 	(self mayAddAttributeNamed: normalizedKey)
 		ifTrue: [ attributes at: normalizedKey put: normalizedValue ]
 		ifFalse: [
-			self warnOnceAboutDiscardedData.
-			self droppedAttributesCount: self droppedAttributesCount + 1 ]
+				self warnOnceAboutDiscardedData.
+				self restoreDroppedAttributesCount: self droppedAttributesCount + 1 ]
 ]
 
 { #category : 'accessing' }
@@ -562,7 +558,7 @@ OTSpan >> attributes: aDictionary [
 		              valueLengthLimit: self limits attributeValueLengthLimit.
 	normalized first associationsDo: [ :each | self attributeAt: each key put: each value ].
 	normalized second > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
-	self droppedAttributesCount: self droppedAttributesCount + normalized second
+	self restoreDroppedAttributesCount: self droppedAttributesCount + normalized second
 ]
 
 { #category : 'private' }
@@ -579,21 +575,9 @@ OTSpan >> context [
 ]
 
 { #category : 'accessing' }
-OTSpan >> context: aContext [
-
-	context := aContext
-]
-
-{ #category : 'accessing' }
 OTSpan >> droppedAttributesCount [
 
 	^ droppedAttributesCount ifNil: [ 0 ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> droppedAttributesCount: anInteger [
-
-	droppedAttributesCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
 ]
 
 { #category : 'accessing' }
@@ -603,21 +587,9 @@ OTSpan >> droppedEventsCount [
 ]
 
 { #category : 'accessing' }
-OTSpan >> droppedEventsCount: anInteger [
-
-	droppedEventsCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
-]
-
-{ #category : 'accessing' }
 OTSpan >> droppedLinksCount [
 
 	^ droppedLinksCount ifNil: [ 0 ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> droppedLinksCount: anInteger [
-
-	droppedLinksCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
 ]
 
 { #category : 'control' }
@@ -722,17 +694,6 @@ OTSpan >> instrumentationName [
 ]
 
 { #category : 'accessing' }
-OTSpan >> instrumentationName: aString [
-
-	| currentScope normalizedName |
-	currentScope := self instrumentationScope.
-	normalizedName := aString ifNil: [ '' ] ifNotNil: [ aString ].
-	instrumentationName := normalizedName.
-	instrumentationScope := OTInstrumentationScope named: normalizedName version: currentScope version schemaUrl: currentScope schemaUrl attributes: currentScope allAttributes.
-	^ normalizedName
-]
-
-{ #category : 'accessing' }
 OTSpan >> instrumentationSchemaUrl [
 
 	^ self instrumentationScope schemaUrl
@@ -743,16 +704,6 @@ OTSpan >> instrumentationScope [
 
 	instrumentationScope ifNil: [ instrumentationScope := OTInstrumentationScope named: (instrumentationName ifNil: [ '' ]) ].
 	^ instrumentationScope
-]
-
-{ #category : 'accessing' }
-OTSpan >> instrumentationScope: anInstrumentationScope [
-
-	| scope |
-	scope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ anInstrumentationScope ].
-	instrumentationScope := scope.
-	instrumentationName := scope name.
-	^ scope
 ]
 
 { #category : 'accessing' }
@@ -783,13 +734,6 @@ OTSpan >> isRecording [
 OTSpan >> kind [
 
 	^ kind
-]
-
-{ #category : 'accessing' }
-OTSpan >> kind: aSpanKind [
-
-	self ensureMutableCreationState.
-	kind := aSpanKind
 ]
 
 { #category : 'private - logging' }
@@ -836,13 +780,6 @@ OTSpan >> limitedLinkFrom: aLink [
 OTSpan >> limits [
 
 	^ limits ifNil: [ OTSpanLimits default ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> limits: someLimits [
-
-	limits := (someLimits ifNil: [ OTSpanLimits default ] ifNotNil: [ someLimits ]) copy.
-	^ limits
 ]
 
 { #category : 'accessing' }
@@ -920,23 +857,9 @@ OTSpan >> parent [
 ]
 
 { #category : 'accessing' }
-OTSpan >> parent: aSpan [
-
-	self ensureMutableCreationState.
-	parent := aSpan
-]
-
-{ #category : 'accessing' }
 OTSpan >> parentSpanContext [
 
 	^ parent ifNotNil: [ parent asSpanContext ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> parentSpanContext: anObject [
-
-	self ensureMutableCreationState.
-	parent := anObject ifNotNil: [ anObject asSpanContext asNonRecordingSpan ]
 ]
 
 { #category : 'printing' }
@@ -972,10 +895,28 @@ OTSpan >> resource [
 	^ resource ifNil: [ OTResource empty ]
 ]
 
-{ #category : 'accessing' }
-OTSpan >> resource: anOTResource [
+{ #category : 'private' }
+OTSpan >> restoreContext: aContext [
 
-	resource := anOTResource
+	context := aContext
+]
+
+{ #category : 'private' }
+OTSpan >> restoreDroppedAttributesCount: anInteger [
+
+	droppedAttributesCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
+]
+
+{ #category : 'private' }
+OTSpan >> restoreDroppedEventsCount: anInteger [
+
+	droppedEventsCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
+]
+
+{ #category : 'private' }
+OTSpan >> restoreDroppedLinksCount: anInteger [
+
+	droppedLinksCount := anInteger ifNil: [ 0 ] ifNotNil: [ anInteger ]
 ]
 
 { #category : 'private' }
@@ -985,9 +926,72 @@ OTSpan >> restoreEndTime: aDateAndTime [
 ]
 
 { #category : 'private' }
+OTSpan >> restoreInstrumentationScope: anInstrumentationScope [
+
+	| scope |
+	scope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ anInstrumentationScope ].
+	instrumentationScope := scope.
+	instrumentationName := scope name.
+	^ scope
+]
+
+{ #category : 'private' }
+OTSpan >> restoreKind: aSpanKind [
+
+	self ensureMutableCreationState.
+	kind := aSpanKind
+]
+
+{ #category : 'private' }
+OTSpan >> restoreLimits: someLimits [
+
+	limits := (someLimits ifNil: [ OTSpanLimits default ] ifNotNil: [ someLimits ]) copy.
+	^ limits
+]
+
+{ #category : 'private' }
 OTSpan >> restoreName: aString [
 
 	name := aString
+]
+
+{ #category : 'private' }
+OTSpan >> restoreParent: aSpan [
+
+	self ensureMutableCreationState.
+	parent := aSpan
+]
+
+{ #category : 'private' }
+OTSpan >> restoreParentSpanContext: anObject [
+
+	self ensureMutableCreationState.
+	parent := anObject ifNotNil: [ anObject asSpanContext asNonRecordingSpan ]
+]
+
+{ #category : 'private' }
+OTSpan >> restoreResource: anOTResource [
+
+	resource := anOTResource
+]
+
+{ #category : 'private' }
+OTSpan >> restoreSpanContext: anOTSpanContext [
+
+	| normalized |
+	anOTSpanContext ifNil: [
+			spanContext := nil.
+			^ nil ].
+	self ensureMutableSpanContextState.
+	normalized := anOTSpanContext isRemote
+		              ifTrue: [ anOTSpanContext asLocal ]
+		              ifFalse: [ anOTSpanContext ].
+	spanContext := normalized.
+	traceId := normalized traceId.
+	spanId := normalized spanId.
+	traceFlags := normalized traceFlags.
+	traceState := normalized traceState.
+	^ spanContext
 ]
 
 { #category : 'private' }
@@ -1006,6 +1010,12 @@ OTSpan >> restoreStatus: aSymbol description: aString [
 	statusDescription := status = self class error
 		                     ifTrue: [ self normalizedStatusDescription: aString ]
 		                     ifFalse: [ nil ]
+]
+
+{ #category : 'private' }
+OTSpan >> restoreTracerProvider: aTracerProvider [
+
+	tracerProvider := aTracerProvider
 ]
 
 { #category : 'recording' }
@@ -1054,25 +1064,6 @@ OTSpan >> setStatus: aSymbol description: aString [
 OTSpan >> spanContext [
 
 	^ spanContext ifNil: [ spanContext := OTSpanContext fromSpan: self ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> spanContext: anOTSpanContext [
-
-	| normalized |
-	anOTSpanContext ifNil: [
-			spanContext := nil.
-			^ nil ].
-	self ensureMutableSpanContextState.
-	normalized := anOTSpanContext isRemote
-		              ifTrue: [ anOTSpanContext asLocal ]
-		              ifFalse: [ anOTSpanContext ].
-	spanContext := normalized.
-	traceId := normalized traceId.
-	spanId := normalized spanId.
-	traceFlags := normalized traceFlags.
-	traceState := normalized traceState.
-	^ spanContext
 ]
 
 { #category : 'accessing' }
@@ -1168,12 +1159,6 @@ OTSpan >> traceState [
 OTSpan >> tracerProvider [
 
 	^ tracerProvider
-]
-
-{ #category : 'accessing' }
-OTSpan >> tracerProvider: aTracerProvider [
-
-	tracerProvider := aTracerProvider
 ]
 
 { #category : 'recording' }

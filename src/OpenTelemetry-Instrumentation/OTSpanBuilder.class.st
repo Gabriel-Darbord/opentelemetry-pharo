@@ -252,19 +252,19 @@ OTSpanBuilder >> startSpan [
 	effectiveTraceFlags := tracer provider traceFlagsForSamplingResult: samplingResult parentSpan: parentSpan.
 	effectiveTraceState := samplingResult traceState ifNil: [ span traceState ] ifNotNil: [ samplingResult traceState ].
 	span
-		limits: tracer provider spanLimits;
-		spanContext: (OTSpanContext
+		restoreLimits: tracer provider spanLimits;
+		restoreSpanContext: (OTSpanContext
 				 traceId: traceId
 				 spanId: idGenerator generateSpanIdHex
 				 traceFlags: effectiveTraceFlags
 				 traceState: effectiveTraceState
 				 remote: false);
-		resource: tracer provider resource;
-		context: (effectiveParentContext withSpan: span);
+		restoreResource: tracer provider resource;
+		restoreContext: (effectiveParentContext withSpan: span);
 		restoreName: spanName;
-		kind: spanKind;
-		instrumentationScope: tracer instrumentationScope;
-		tracerProvider: tracer provider;
+		restoreKind: spanKind;
+		restoreInstrumentationScope: tracer instrumentationScope;
+		restoreTracerProvider: tracer provider;
 		start.
 	samplingResult attributes do: [ :each | span attributeAt: each key put: each value ].
 	attributes associationsDo: [ :each | span attributeAt: each key put: each value ].

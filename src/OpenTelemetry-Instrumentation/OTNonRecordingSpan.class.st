@@ -28,9 +28,9 @@ OTNonRecordingSpan class >> spanContext: aSpanContext context: aContext parent: 
 	span := self newInternal.
 	span
 		wrappedSpanContext: aSpanContext;
-		context: aContext;
-		parent: aSpan;
-		instrumentationScope: anInstrumentationScope.
+		restoreContext: aContext;
+		restoreParent: aSpan;
+		restoreInstrumentationScope: anInstrumentationScope.
 	^ span
 ]
 

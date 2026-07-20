@@ -20,7 +20,7 @@ OTCustomTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentatio
 
 	| span |
 	span := aSpan ifNil: [ OTCustomRecordingSpan rootInInternal: aContext ] ifNotNil: [ OTCustomRecordingSpan underInternal: aSpan ].
-	span instrumentationScope: anInstrumentationScope.
+	span restoreInstrumentationScope: anInstrumentationScope.
 	^ span
 ]
 

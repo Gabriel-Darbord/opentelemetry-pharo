@@ -1148,14 +1148,15 @@ OTTracerProvider >> nonRecordingSpanIn: aContext [
 	| baseContext parentSpan span |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
 	parentSpan := baseContext span.
-	parentSpan ifNotNil: [
-		parentSpan isRecording ifFalse: [ ^ parentSpan ].
-		span := self wrapSpanContext: parentSpan spanContext ]
-	ifNil: [ span := self wrapSpanContext: OTSpanContext invalid ].
+	parentSpan
+		ifNotNil: [
+				parentSpan isRecording ifFalse: [ ^ parentSpan ].
+				span := self wrapSpanContext: parentSpan spanContext ]
+		ifNil: [ span := self wrapSpanContext: OTSpanContext invalid ].
 	span
-		context: (baseContext withSpan: span);
-		instrumentationScope: (OTInstrumentationScope named: '');
-		resource: self resource.
+		restoreContext: (baseContext withSpan: span);
+		restoreInstrumentationScope: (OTInstrumentationScope named: '');
+		restoreResource: self resource.
 	^ span
 ]
 
@@ -1164,23 +1165,21 @@ OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId
 
 	| baseContext traceState spanContext span |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
-	traceState := aSamplingResult traceState
-		ifNil: [ aSpan ifNil: [ nil ] ifNotNil: [ aSpan traceState ] ]
-		ifNotNil: [ aSamplingResult traceState ].
+	traceState := aSamplingResult traceState ifNil: [ aSpan ifNotNil: [ aSpan traceState ] ].
 	spanContext := OTSpanContext
-		traceId: aTraceId
-		spanId: self idGenerator generateSpanIdHex
-		traceFlags: (self traceFlagsForSamplingResult: aSamplingResult parentSpan: aSpan)
-		traceState: traceState
-		remote: false.
+		               traceId: aTraceId
+		               spanId: self idGenerator generateSpanIdHex
+		               traceFlags: (self traceFlagsForSamplingResult: aSamplingResult parentSpan: aSpan)
+		               traceState: traceState
+		               remote: false.
 	span := self
-		nonRecordingSpanContext: spanContext
-		context: baseContext
-		parent: aSpan
-		instrumentationScope: anInstrumentationScope.
+		        nonRecordingSpanContext: spanContext
+		        context: baseContext
+		        parent: aSpan
+		        instrumentationScope: anInstrumentationScope.
 	span
-		context: (baseContext withSpan: span);
-		resource: self resource.
+		restoreContext: (baseContext withSpan: span);
+		restoreResource: self resource.
 	^ span
 ]
 
@@ -1242,7 +1241,7 @@ OTTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope
 
 	| span |
 	span := aSpan ifNil: [ OTSpan rootInInternal: aContext ] ifNotNil: [ OTSpan underInternal: aSpan ].
-	span instrumentationScope: anInstrumentationScope.
+	span restoreInstrumentationScope: anInstrumentationScope.
 	^ span
 ]
 

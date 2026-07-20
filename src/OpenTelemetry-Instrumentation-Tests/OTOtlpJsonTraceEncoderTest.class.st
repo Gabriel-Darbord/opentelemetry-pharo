@@ -36,15 +36,15 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 		               remote: false.
 	span := OTSpan rootInInternal: OTContext new.
 	span
-		spanContext: (OTSpanContext
+		restoreSpanContext: (OTSpanContext
 				 traceId: '12345678876543211234567887654321'
 				 spanId: '8765432112345678'
 				 traceFlags: '01'
 				 traceState: 'vendor=value'
 				 remote: false);
-		parent: parentContext asNonRecordingSpan;
+		restoreParent: parentContext asNonRecordingSpan;
 		restoreName: 'testSpan';
-		kind: OTSpan client;
+		restoreKind: OTSpan client;
 		restoreStartTime: DateAndTime unixEpoch + (Duration nanoSeconds: 100);
 		restoreEndTime: DateAndTime unixEpoch + (Duration nanoSeconds: 1100);
 		attributes: (OrderedDictionary new
@@ -71,22 +71,22 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 						  yourself)
 				 droppedAttributesCount: 2) };
 		setErrorStatusDescription: 'boom';
-		resource: (OTResource
+		restoreResource: (OTResource
 				 attributes: (OrderedDictionary new
 						  at: 'service.name' put: 'demo';
 						  at: 'resource-attr' put: 'resource-value';
 						  yourself)
 				 schemaUrl: 'https://opentelemetry.io/schemas/1.24.0');
-		instrumentationScope: (OTInstrumentationScope
+		restoreInstrumentationScope: (OTInstrumentationScope
 				 named: 'instrumentation'
 				 version: '1.0.0'
 				 schemaUrl: 'https://opentelemetry.io/schemas/1.25.0'
 				 attributes: (OrderedDictionary new
 						  at: 'scope-key' put: 'scope-value';
 						  yourself));
-		droppedAttributesCount: 3;
-		droppedEventsCount: 4;
-		droppedLinksCount: 5.
+		restoreDroppedAttributesCount: 3;
+		restoreDroppedEventsCount: 4;
+		restoreDroppedLinksCount: 5.
 	^ span
 ]
 
@@ -112,12 +112,12 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 		attributes: #(  );
 		events: #(  );
 		links: #(  );
-		resource: (OTResource
+		restoreResource: (OTResource
 				 attributes: (OrderedDictionary new
 						  at: 'service.name' put: 'shared';
 						  yourself)
 				 schemaUrl: 'https://resource.example/schema');
-		instrumentationScope: (OTInstrumentationScope
+		restoreInstrumentationScope: (OTInstrumentationScope
 				 named: aScopeName
 				 version: '1'
 				 schemaUrl: ''
@@ -223,8 +223,8 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessag
 		attributes: #(  );
 		events: #(  );
 		links: #(  );
-		resource: OTResource empty;
-		instrumentationScope: (OTInstrumentationScope named: '');
+		restoreResource: OTResource empty;
+		restoreInstrumentationScope: (OTInstrumentationScope named: '');
 		end: DateAndTime unixEpoch.
 	payload := encoder encodeSpans: { span }.
 	self assert: ((((payload at: 'resourceSpans') first at: 'scopeSpans') first at: 'spans') first at: 'status') isEmpty

@@ -61,12 +61,12 @@ OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 				 timestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1)
 				 droppedAttributesCount: 1) };
 		links: { link };
-		resource: (OTResource
+		restoreResource: (OTResource
 				 attributes: (OrderedDictionary new
 						  at: 'service.name' put: 'demo-service';
 						  yourself)
 				 schemaUrl: 'https://resource.example/schema');
-		instrumentationScope: (OTInstrumentationScope
+		restoreInstrumentationScope: (OTInstrumentationScope
 				 named: 'demo.scope'
 				 version: '1.2.3'
 				 schemaUrl: 'https://scope.example/schema'
@@ -74,9 +74,9 @@ OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 						  at: 'scope.attr' put: true;
 						  yourself));
 		setErrorStatusDescription: 'boom';
-		droppedAttributesCount: 2;
-		droppedEventsCount: 3;
-		droppedLinksCount: 4;
+		restoreDroppedAttributesCount: 2;
+		restoreDroppedEventsCount: 3;
+		restoreDroppedLinksCount: 4;
 		end: DateAndTime unixEpoch + (Duration milliSeconds: 2).
 	^ span
 ]

@@ -30,10 +30,10 @@ OTZipkinSpanExporterTest >> spanWithKind: aSpanKind attributes: someAttributes [
 		        startSpan.
 	span
 		attributes: someAttributes;
-		resource: (OTResource attributes: (OrderedDictionary new
+		restoreResource: (OTResource attributes: (OrderedDictionary new
 						  at: 'service.name' put: 'local-service';
 						  yourself));
-		instrumentationScope: (OTInstrumentationScope named: 'demo.scope');
+		restoreInstrumentationScope: (OTInstrumentationScope named: 'demo.scope');
 		end: DateAndTime unixEpoch + 1 second.
 	^ span
 ]
@@ -90,12 +90,10 @@ OTZipkinSpanExporterTest >> testServerSpanOmitsRemoteEndpointEvenWhenPeerAttribu
 OTZipkinSpanExporterTest >> testUsesDefaultResourceServiceNameWhenSpanResourceHasNone [
 
 	| span transformed |
-	span := self spanWithKind: OTSpan internal attributes: #().
-	span resource: OTResource empty.
+	span := self spanWithKind: OTSpan internal attributes: #(  ).
+	span restoreResource: OTResource empty.
 	transformed := (exporter transform: { span }) first.
-	self
-		assert: ((transformed at: 'localEndpoint') at: 'serviceName')
-		equals: OTTracerProvider defaultResource serviceName
+	self assert: ((transformed at: 'localEndpoint') at: 'serviceName') equals: OTTracerProvider defaultResource serviceName
 ]
 
 { #category : 'private' }

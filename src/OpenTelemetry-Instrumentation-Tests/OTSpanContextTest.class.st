@@ -185,7 +185,7 @@ OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
 ]
 
 { #category : 'tests' }
-OTSpanContextTest >> testRecordingSpanRejectsCreationStateMutationAfterStart [
+OTSpanContextTest >> testRecordingSpanDoesNotExposeCreationStateMutators [
 
 	| originalKind originalParentContext provider replacementParentContext span tracer |
 	provider := OTTracerProvider new.
@@ -208,14 +208,14 @@ OTSpanContextTest >> testRecordingSpanRejectsCreationStateMutationAfterStart [
 		                            traceState: 'downstream=value'
 		                            remote: true.
 	originalKind := span kind.
-	self should: [ span kind: OTSpan server ] raise: Error.
-	self should: [ span parentSpanContext: replacementParentContext ] raise: Error.
+	self should: [ span perform: #kind: with: OTSpan server ] raise: MessageNotUnderstood.
+	self should: [ span perform: #parentSpanContext: with: replacementParentContext ] raise: MessageNotUnderstood.
 	self assert: span kind equals: originalKind.
 	self assert: span parentSpanContext equals: originalParentContext
 ]
 
 { #category : 'tests' }
-OTSpanContextTest >> testRecordingSpanRejectsSpanContextMutationAfterStart [
+OTSpanContextTest >> testRecordingSpanDoesNotExposeSpanContextMutator [
 
 	| original provider span tracer |
 	provider := OTTracerProvider new.
@@ -223,7 +223,7 @@ OTSpanContextTest >> testRecordingSpanRejectsSpanContextMutationAfterStart [
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	original := span spanContext.
-	self should: [ span spanContext: (original withTraceState: 'vendor=value') ] raise: Error.
+	self should: [ span perform: #spanContext: with: (original withTraceState: 'vendor=value') ] raise: MessageNotUnderstood.
 	self assert: span spanContext identicalTo: original.
 	self assert: span spanContext traceState equals: original traceState
 ]
