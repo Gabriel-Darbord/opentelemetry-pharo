@@ -378,6 +378,21 @@ OTTracerProviderTest >> testExistingTracerPicksUpLaterDisablementWithoutReacquir
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerPicksUpLaterIdGeneratorChangesWithoutReacquiring [
+
+	| generator provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	provider idGenerator:
+		(generator := OTFixedIdGenerator traceIdHex: '00112233445566778899aabbccddeeff' spanIdHex: '1122334455667788' random: false).
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span spanContext traceId equals: generator generateTraceIdHex.
+	self assert: span spanContext spanId equals: generator generateSpanIdHex.
+	self deny: span spanContext isRandom
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testExistingTracerPicksUpLaterResourceChangesForNewSpans [
 
 	| exportRecord provider resource span tracer |
@@ -393,6 +408,38 @@ OTTracerProviderTest >> testExistingTracerPicksUpLaterResourceChangesForNewSpans
 	exportRecord := span asExportRecord.
 	self assert: (exportRecord at: #resource) equals: resource.
 	self assert: ((exportRecord at: #resource) attributeAt: 'deployment.environment.name') equals: 'staging'
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerPicksUpLaterSamplerChangesWithoutReacquiring [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	provider sampler: OTAlwaysOffSampler new.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span spanContext isValid.
+	self deny: span spanContext isSampled.
+	self assert: span spanContext isRandom
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerPicksUpLaterSpanLimitChangesWithoutReacquiring [
+
+	| exportRecord limits provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	limits := OTSpanLimits new.
+	limits attributeCountLimit: 0.
+	provider spanLimits: limits.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span attributeAt: 'late.attribute' put: 42.
+	exportRecord := span asExportRecord.
+	self deny: (exportRecord includesKey: #attributes).
+	self assert: (exportRecord at: #droppedAttributesCount) equals: 1
 ]
 
 { #category : 'tests' }
