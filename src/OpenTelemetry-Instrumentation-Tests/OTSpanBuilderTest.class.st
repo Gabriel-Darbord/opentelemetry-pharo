@@ -143,6 +143,32 @@ OTSpanBuilderTest >> testEndedSpanIgnoresLateMutationsWhileKeepingStableContext 
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testEventTimestampsOutsideSpanRangeArePreserved [
+
+	| afterEnd beforeStart eventsToExport exportRecord provider requestedEndTime requestedStartTime span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	requestedStartTime := DateAndTime unixEpoch + (Duration milliSeconds: 100).
+	requestedEndTime := DateAndTime unixEpoch + (Duration milliSeconds: 200).
+	beforeStart := DateAndTime unixEpoch + (Duration milliSeconds: 50).
+	afterEnd := DateAndTime unixEpoch + (Duration milliSeconds: 250).
+	span := (tracer spanBuilderNamed: 'operation')
+		        startTimestamp: requestedStartTime;
+		        startSpan.
+	span addEventNamed: 'before-start' timestamp: beforeStart.
+	span end: requestedEndTime.
+	span addEventNamed: 'after-end' timestamp: afterEnd.
+	exportRecord := span asExportRecord.
+	eventsToExport := exportRecord at: #events.
+	self assert: (exportRecord at: #startTime) equals: requestedStartTime.
+	self assert: (exportRecord at: #endTime) equals: requestedEndTime.
+	self assert: eventsToExport size equals: 1.
+	self assert: eventsToExport first name equals: 'before-start'.
+	self assert: eventsToExport first timestamp equals: beforeStart
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testEventsPreserveRecordingOrderEvenWithOutOfOrderTimestamps [
 
 	| eventsToExport exportRecord firstTimestamp provider secondTimestamp span tracer |
