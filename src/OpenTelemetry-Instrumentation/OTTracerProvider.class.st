@@ -1165,7 +1165,7 @@ OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId
 
 	| baseContext traceState spanContext span |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
-	traceState := aSamplingResult traceState ifNil: [ aSpan ifNotNil: [ aSpan traceState ] ].
+	traceState := aSamplingResult traceState ifNil: [ aSpan ifNotNil: [ aSpan spanContext traceState ] ].
 	spanContext := OTSpanContext
 		               traceId: aTraceId
 		               spanId: self idGenerator generateSpanIdHex
@@ -1391,13 +1391,17 @@ OTTracerProvider >> startSampler: aSampler [
 { #category : 'sampling' }
 OTTracerProvider >> traceFlagsForSamplingResult: aSamplingResult parentSpan: aSpan [
 
-	| parentFlags integerFlags |
+	| parentFlags |
 	parentFlags := aSpan
-		ifNil: [ self idGenerator isRandom ifTrue: [ 16r02 ] ifFalse: [ 0 ] ]
-		ifNotNil: [ Integer readFrom: aSpan traceFlags readStream base: 16 ].
-	integerFlags := (parentFlags bitAnd: 16rFE)
-		bitOr: (aSamplingResult isRecordAndSample ifTrue: [ 1 ] ifFalse: [ 0 ]).
-	^ self asTwoDigitLowercaseHex: integerFlags
+		               ifNil: [
+				               self idGenerator isRandom
+					               ifTrue: [ 16r02 ]
+					               ifFalse: [ 0 ] ]
+		               ifNotNil: [ Integer readFrom: aSpan spanContext traceFlags readStream base: 16 ].
+	parentFlags := (parentFlags bitAnd: 16rFE) bitOr: (aSamplingResult isRecordAndSample
+			                ifTrue: [ 1 ]
+			                ifFalse: [ 0 ]).
+	^ self asTwoDigitLowercaseHex: parentFlags
 ]
 
 { #category : 'private - error handling' }

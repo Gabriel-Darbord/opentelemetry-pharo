@@ -20,16 +20,16 @@ OTProbabilisticSampler class >> minimumProbability [
 	^ OTConsistentProbability minimumProbability
 ]
 
-{ #category : 'accessing' }
-OTProbabilisticSampler >> description [
-
-	^ 'ProbabilitySampler{', self probability printString, '}'
-]
-
 { #category : 'private - logging' }
 OTProbabilisticSampler >> compatibilityWarningMessage [
 
 	^ 'WARNING: The ProbabilitySampler sampler is presuming TraceIDs are random and expects the Trace random flag to be set in confirmation.  Please upgrade your caller(s) to use W3C Trace Context Level 2.'
+]
+
+{ #category : 'accessing' }
+OTProbabilisticSampler >> description [
+
+	^ 'ProbabilitySampler{', self probability printString, '}'
 ]
 
 { #category : 'initialization' }
@@ -77,33 +77,19 @@ OTProbabilisticSampler >> shouldSampleIn: aContext traceId: aTraceId name: aStri
 	| parentSpan parentSpanContext resultTraceState sampled traceState |
 	parentSpan := aContext ifNotNil: [ aContext span ].
 	parentSpanContext := parentSpan ifNotNil: [ parentSpan spanContext ].
-	traceState := parentSpan ifNotNil: [ parentSpan traceState ].
-	(self
-		shouldWarnAboutPresumedTraceIdRandomnessFor: parentSpanContext
-		traceState: traceState) ifTrue: [
-		self class
-			noteCompatibilityWarning: self compatibilityWarningMessage
-			kind: #traceIdRandomnessPresumption
-			for: self ].
+	traceState := parentSpanContext ifNotNil: [ parentSpanContext traceState ].
+	(self shouldWarnAboutPresumedTraceIdRandomnessFor: parentSpanContext traceState: traceState) ifTrue: [
+		self class noteCompatibilityWarning: self compatibilityWarningMessage kind: #traceIdRandomnessPresumption for: self ].
 	sampled := self shouldSampleTraceId: aTraceId traceState: traceState.
 	resultTraceState := sampled
-		ifTrue: [ self traceStateWithThresholdFrom: traceState ]
-		ifFalse: [ traceState ].
+		                    ifTrue: [ self traceStateWithThresholdFrom: traceState ]
+		                    ifFalse: [ traceState ].
 	^ OTSamplingResult
-		decision: (sampled
-				ifTrue: [ #recordAndSample ]
-				ifFalse: [ #drop ])
-		attributes: #()
-		traceState: resultTraceState
-]
-
-{ #category : 'private - logging' }
-OTProbabilisticSampler >> shouldWarnAboutPresumedTraceIdRandomnessFor: aSpanContext traceState: aTraceState [
-
-	aSpanContext ifNil: [ ^ false ].
-	aSpanContext isValid ifFalse: [ ^ false ].
-	(aTraceState notNil and: [ (aTraceState otelValueAt: 'rv') notNil ]) ifTrue: [ ^ false ].
-	^ aSpanContext isRandom not
+		  decision: (sampled
+				   ifTrue: [ #recordAndSample ]
+				   ifFalse: [ #drop ])
+		  attributes: #(  )
+		  traceState: resultTraceState
 ]
 
 { #category : 'private' }
@@ -118,6 +104,21 @@ OTProbabilisticSampler >> shouldSampleTraceId: aTraceId traceState: aTraceState 
 	^ OTConsistentProbability
 		sampledWithRandomness: randomness
 		threshold: threshold
+]
+
+{ #category : 'private - logging' }
+OTProbabilisticSampler >> shouldWarnAboutPresumedTraceIdRandomnessFor: aSpanContext traceState: aTraceState [
+
+	aSpanContext ifNil: [ ^ false ].
+	aSpanContext isValid ifFalse: [ ^ false ].
+	(aTraceState notNil and: [ (aTraceState otelValueAt: 'rv') notNil ]) ifTrue: [ ^ false ].
+	^ aSpanContext isRandom not
+]
+
+{ #category : 'accessing' }
+OTProbabilisticSampler >> threshold [
+
+	^ threshold
 ]
 
 { #category : 'private' }
@@ -148,12 +149,6 @@ OTProbabilisticSampler >> traceStateWithThresholdFrom: aTraceState [
 OTProbabilisticSampler >> usesExplicitRandomness: aString [
 
 	^ OTConsistentProbability usesExplicitRandomness: aString
-]
-
-{ #category : 'accessing' }
-OTProbabilisticSampler >> threshold [
-
-	^ threshold
 ]
 
 { #category : 'private' }

@@ -151,15 +151,13 @@ OTTracerProviderTest >> testCustomIdGeneratorControlsNonRecordingSpanIds [
 	provider
 		spanProcessor: OTSimpleSpanProcessor new;
 		sampler: OTAlwaysOffSampler new;
-		idGenerator: (generator := OTFixedIdGenerator
-			traceIdHex: '00112233445566778899aabbccddeeff'
-			spanIdHex: '1122334455667788'
-			random: false).
+		idGenerator:
+			(generator := OTFixedIdGenerator traceIdHex: '00112233445566778899aabbccddeeff' spanIdHex: '1122334455667788' random: false).
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	self assert: span class identicalTo: OTNonRecordingSpan.
-	self assert: span traceId equals: generator generateTraceIdHex.
-	self assert: span spanId equals: generator generateSpanIdHex.
+	self assert: span spanContext traceId equals: generator generateTraceIdHex.
+	self assert: span spanContext spanId equals: generator generateSpanIdHex.
 	self assert: span spanContext traceFlags equals: '00'
 ]
 
@@ -170,14 +168,12 @@ OTTracerProviderTest >> testCustomIdGeneratorControlsRootTraceAndSpanIds [
 	provider := OTTracerProvider new.
 	provider
 		spanProcessor: OTSimpleSpanProcessor new;
-		idGenerator: (generator := OTFixedIdGenerator
-			traceIdHex: '00112233445566778899aabbccddeeff'
-			spanIdHex: '1122334455667788'
-			random: false).
+		idGenerator:
+			(generator := OTFixedIdGenerator traceIdHex: '00112233445566778899aabbccddeeff' spanIdHex: '1122334455667788' random: false).
 	tracer := provider tracerNamed: 'demo.scope'.
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
-	self assert: span traceId equals: generator generateTraceIdHex.
-	self assert: span spanId equals: generator generateSpanIdHex.
+	self assert: span spanContext traceId equals: generator generateTraceIdHex.
+	self assert: span spanContext spanId equals: generator generateSpanIdHex.
 	self assert: span spanContext traceFlags equals: '01'.
 	self deny: span spanContext isRandom
 ]
@@ -217,12 +213,12 @@ OTTracerProviderTest >> testCustomTracerProviderWrapsNoopSpanContextsWithCustomS
 	tracer := provider tracerNamed: 'demo.scope'.
 	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
 	provider tracerConfigurator: [ :scope | false ].
-	returnedSpan := ((tracer spanBuilderNamed: 'operation')
-		inContext: (OTContext new withSpan: parentSpan);
-		startSpan).
+	returnedSpan := (tracer spanBuilderNamed: 'operation')
+		                inContext: (OTContext new withSpan: parentSpan);
+		                startSpan.
 	self assert: returnedSpan class identicalTo: OTCustomNonRecordingSpan.
-	self assert: returnedSpan traceId equals: parentSpan traceId.
-	self assert: returnedSpan spanId equals: parentSpan spanId
+	self assert: returnedSpan spanContext traceId equals: parentSpan spanContext traceId.
+	self assert: returnedSpan spanContext spanId equals: parentSpan spanContext spanId
 ]
 
 { #category : 'tests' }
@@ -239,10 +235,10 @@ OTTracerProviderTest >> testDisabledTracerPreservesParentSpanContext [
 		                startSpan.
 	self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
 	self deny: disabledSpan identicalTo: parentSpan.
-	self assert: disabledSpan traceId equals: parentSpan traceId.
-	self assert: disabledSpan spanId equals: parentSpan spanId.
-	self assert: disabledSpan traceFlags equals: parentSpan traceFlags.
-	self assert: disabledSpan traceState equals: parentSpan traceState
+	self assert: disabledSpan spanContext traceId equals: parentSpan spanContext traceId.
+	self assert: disabledSpan spanContext spanId equals: parentSpan spanContext spanId.
+	self assert: disabledSpan spanContext traceFlags equals: parentSpan spanContext traceFlags.
+	self assert: disabledSpan spanContext traceState equals: parentSpan spanContext traceState
 ]
 
 { #category : 'tests' }

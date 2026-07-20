@@ -248,10 +248,10 @@ OTSpanContextTest >> testRecordingSpanStonRoundTripPreservesLocalSpanContext [
 		        startSpan.
 	roundTripped := STON fromString: (STON toString: span).
 	self deny: roundTripped spanContext isRemote.
-	self assert: roundTripped spanContext traceId equals: span traceId.
-	self assert: roundTripped spanContext spanId equals: span spanId.
-	self assert: roundTripped spanContext traceFlags equals: span traceFlags.
-	self assert: roundTripped spanContext traceState equals: span traceState
+	self assert: roundTripped spanContext traceId equals: span spanContext traceId.
+	self assert: roundTripped spanContext spanId equals: span spanContext spanId.
+	self assert: roundTripped spanContext traceFlags equals: span spanContext traceFlags.
+	self assert: roundTripped spanContext traceState equals: span spanContext traceState
 ]
 
 { #category : 'tests' }

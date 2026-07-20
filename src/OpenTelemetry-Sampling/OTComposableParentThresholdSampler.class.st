@@ -66,23 +66,21 @@ OTComposableParentThresholdSampler >> samplingIntentIn: aContext name: aString k
 	| parentSpan parentSpanContext |
 	parentSpan := aContext ifNotNil: [ aContext span ].
 	parentSpan ifNil: [
-		^ rootSampler
-			samplingIntentIn: aContext
-			name: aString
-			kind: aSpanKind
-			attributes: someAttributes
-			links: someLinks ].
+			^ rootSampler
+				  samplingIntentIn: aContext
+				  name: aString
+				  kind: aSpanKind
+				  attributes: someAttributes
+				  links: someLinks ].
 	parentSpanContext := parentSpan spanContext.
 	parentSpanContext isValid ifFalse: [
-		^ rootSampler
-			samplingIntentIn: aContext
-			name: aString
-			kind: aSpanKind
-			attributes: someAttributes
-			links: someLinks ].
-	^ self
-		intentForParentSpanContext: parentSpanContext
-		traceState: parentSpan traceState
+			^ rootSampler
+				  samplingIntentIn: aContext
+				  name: aString
+				  kind: aSpanKind
+				  attributes: someAttributes
+				  links: someLinks ].
+	^ self intentForParentSpanContext: parentSpanContext traceState: parentSpanContext traceState
 ]
 
 { #category : 'lifecycle' }

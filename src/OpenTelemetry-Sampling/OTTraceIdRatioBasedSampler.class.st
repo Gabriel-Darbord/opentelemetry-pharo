@@ -9,6 +9,12 @@ Class {
 	#package : 'OpenTelemetry-Sampling'
 }
 
+{ #category : 'private - logging' }
+OTTraceIdRatioBasedSampler >> childSamplerCompatibilityWarningMessage [
+
+	^ 'WARNING: The TraceIdRatioBased sampler is operating as a child sampler; the behavior is subject to change. Please upgrade this SDK configuration to use ProbabilitySampler.'
+]
+
 { #category : 'private' }
 OTTraceIdRatioBasedSampler >> decisionValueFromTraceId: aTraceId [
 
@@ -23,12 +29,6 @@ OTTraceIdRatioBasedSampler >> decisionValueFromTraceId: aTraceId [
 OTTraceIdRatioBasedSampler >> description [
 
 	^ 'TraceIdRatioBased{', self probability printString, '}'
-]
-
-{ #category : 'private - logging' }
-OTTraceIdRatioBasedSampler >> childSamplerCompatibilityWarningMessage [
-
-	^ 'WARNING: The TraceIdRatioBased sampler is operating as a child sampler; the behavior is subject to change. Please upgrade this SDK configuration to use ProbabilitySampler.'
 ]
 
 { #category : 'initialization' }
@@ -95,6 +95,14 @@ OTTraceIdRatioBasedSampler >> shouldSampleTraceId: aTraceId [
 	^ (self decisionValueFromTraceId: aTraceId) < threshold
 ]
 
+{ #category : 'private' }
+OTTraceIdRatioBasedSampler >> thresholdForProbability: aNumber [
+
+	aNumber = 0 ifTrue: [ ^ 0 ].
+	aNumber = 1 ifTrue: [ ^ 1 bitShift: 64 ].
+	^ ((aNumber asFraction * (1 bitShift: 64)) ceiling) asInteger
+]
+
 { #category : 'private - logging' }
 OTTraceIdRatioBasedSampler >> usesProbabilitySamplerTraceState: aTraceState [
 
@@ -106,15 +114,7 @@ OTTraceIdRatioBasedSampler >> usesProbabilitySamplerTraceState: aTraceState [
 { #category : 'private - logging' }
 OTTraceIdRatioBasedSampler >> warningMessageForParentSpan: aSpan [
 
-	^ (self usesProbabilitySamplerTraceState: aSpan traceState)
-		ifTrue: [ self probabilityParentCompatibilityWarningMessage ]
-		ifFalse: [ self childSamplerCompatibilityWarningMessage ]
-]
-
-{ #category : 'private' }
-OTTraceIdRatioBasedSampler >> thresholdForProbability: aNumber [
-
-	aNumber = 0 ifTrue: [ ^ 0 ].
-	aNumber = 1 ifTrue: [ ^ 1 bitShift: 64 ].
-	^ ((aNumber asFraction * (1 bitShift: 64)) ceiling) asInteger
+	^ (self usesProbabilitySamplerTraceState: aSpan spanContext traceState)
+		  ifTrue: [ self probabilityParentCompatibilityWarningMessage ]
+		  ifFalse: [ self childSamplerCompatibilityWarningMessage ]
 ]

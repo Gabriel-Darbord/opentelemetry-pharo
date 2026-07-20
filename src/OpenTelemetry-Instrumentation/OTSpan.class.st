@@ -170,7 +170,7 @@ OTSpan class >> fromContext: aContext [
 OTSpan class >> fromSton: stonReader [
 	"enumeration"
 
-	| representation span scope traceFlags traceState |
+	| endTimestamp representation scope span traceFlags traceState |
 	representation := stonReader parseMap.
 	span := self newInternal.
 	traceFlags := representation at: #traceFlags ifAbsent: [ '01' ].
@@ -194,9 +194,9 @@ OTSpan class >> fromSton: stonReader [
 				representation at: #parentId ifPresent: [ :parentId |
 						span restoreParentSpanContext: (self
 								 legacyParentSpanContextFromParentId: parentId
-								 traceId: span traceId
-								 traceFlags: span traceFlags
-								 traceState: span traceState) ] ].
+								 traceId: (representation at: #traceId)
+								 traceFlags: traceFlags
+								 traceState: traceState) ] ].
 	span restoreStartTime: (representation at: #startTime).
 	span
 		restoreStatus: (representation at: #status ifAbsent: [ self unset ])
@@ -208,8 +208,9 @@ OTSpan class >> fromSton: stonReader [
 	span restoreDroppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ span droppedAttributesCount ]).
 	span restoreDroppedEventsCount: (representation at: #droppedEventsCount ifAbsent: [ span droppedEventsCount ]).
 	span restoreDroppedLinksCount: (representation at: #droppedLinksCount ifAbsent: [ span droppedLinksCount ]).
-	span restoreEndTime: (representation at: #endTime).
-	span endTime ifNotNil: [ span markEnded ].
+	endTimestamp := representation at: #endTime ifAbsent: [ nil ].
+	span restoreEndTime: endTimestamp.
+	endTimestamp ifNotNil: [ span markEnded ].
 	^ span
 ]
 
@@ -363,13 +364,14 @@ OTSpan class >> resetLimitWarningState [
 { #category : 'private' }
 OTSpan class >> rootInInternal: aContext [
 
-	| span |
+	| generatedSpanId span |
+	generatedSpanId := self newSpanId.
 	span := self newInternal.
 	span
 		restoreContext: aContext;
 		restoreSpanContext: (OTSpanContext
 				 traceId: self newTraceId
-				 spanId: span spanId
+				 spanId: generatedSpanId
 				 traceFlags: '01'
 				 traceState: nil
 				 remote: false).
@@ -386,7 +388,8 @@ OTSpan class >> server [
 { #category : 'private' }
 OTSpan class >> underInternal: parentSpan [
 
-	| parentSpanContext span |
+	| generatedSpanId parentSpanContext span |
+	generatedSpanId := self newSpanId.
 	parentSpanContext := parentSpan spanContext.
 	span := self newInternal.
 	span
@@ -394,7 +397,7 @@ OTSpan class >> underInternal: parentSpan [
 		restoreContext: parentSpan context;
 		restoreSpanContext: (OTSpanContext
 				 traceId: parentSpanContext traceId
-				 spanId: span spanId
+				 spanId: generatedSpanId
 				 traceFlags: parentSpanContext traceFlags
 				 traceState: parentSpanContext traceState
 				 remote: false).
@@ -493,29 +496,32 @@ OTSpan >> addLink: aSpanLink [
 { #category : 'private - exporting' }
 OTSpan >> asExportRecord [
 
-	| data linksToExport parentContext resourceToExport scope statusDescriptionToExport |
+	| data linksToExport parentContext resourceToExport scope spanContextToExport statusDescriptionToExport statusToExport traceStateToExport |
 	data := OrderedDictionary new.
 	linksToExport := self effectiveLinks.
 	parentContext := self effectiveParentSpanContext.
 	resourceToExport := self effectiveResource.
 	scope := self effectiveInstrumentationScope.
+	spanContextToExport := self spanContext.
 	statusDescriptionToExport := self effectiveStatusDescription.
+	statusToExport := self effectiveStatus.
+	traceStateToExport := spanContextToExport traceState.
 	data
-		at: #spanId put: self spanId;
-		at: #traceId put: self traceId;
+		at: #spanId put: spanContextToExport spanId;
+		at: #traceId put: spanContextToExport traceId;
 		at: #name put: name;
 		at: #kind put: kind;
 		at: #startTime put: startTime;
 		at: #endTime put: endTime;
-		at: #status put: self status;
-		at: #traceFlags put: self traceFlags;
+		at: #status put: statusToExport;
+		at: #traceFlags put: spanContextToExport traceFlags;
 		at: #instrumentationName put: scope name.
 	scope isEmpty ifFalse: [ data at: #instrumentationScope put: scope ].
 	parentContext ifNotNil: [
 			data
 				at: #parentSpanContext put: parentContext;
 				at: #parentId put: parentContext spanId ].
-	self traceState ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
+	traceStateToExport ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
 	statusDescriptionToExport ifNotNil: [ :description | data at: #statusDescription put: description ].
 	attributes isEmptyOrNil ifFalse: [ data at: #attributes put: attributes ].
 	events isEmptyOrNil ifFalse: [ data at: #events put: events ].
@@ -605,9 +611,15 @@ OTSpan >> effectiveResource [
 ]
 
 { #category : 'private' }
+OTSpan >> effectiveStatus [
+
+	^ status ifNil: [ self class unset ]
+]
+
+{ #category : 'private' }
 OTSpan >> effectiveStatusDescription [
 
-	^ self status = self class error
+	^ self effectiveStatus = self class error
 		  ifTrue: [ statusDescription ]
 		  ifFalse: [ nil ]
 ]
@@ -626,12 +638,6 @@ OTSpan >> end: aDateAndTime [
 	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ].
 	self markEnded.
 	self tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> endTime [
-
-	^ endTime
 ]
 
 { #category : 'private' }
@@ -999,11 +1005,11 @@ OTSpan >> setStatus: aSymbol description: aString [
 	self isRecording ifFalse: [ ^ self ].
 	self validateStatusCode: aSymbol.
 	aSymbol = self class unset ifTrue: [ ^ self ].
-	self status = self class ok ifTrue: [ ^ self ].
+	self effectiveStatus = self class ok ifTrue: [ ^ self ].
 	aSymbol = self class ok ifTrue: [
-		status := self class ok.
-		statusDescription := nil.
-		^ self ].
+			status := self class ok.
+			statusDescription := nil.
+			^ self ].
 	status := self class error.
 	statusDescription := self normalizedStatusDescription: aString
 ]
@@ -1014,57 +1020,36 @@ OTSpan >> spanContext [
 	^ spanContext ifNil: [ spanContext := OTSpanContext fromSpan: self ]
 ]
 
-{ #category : 'accessing' }
-OTSpan >> spanId [
-
-	^ spanId
-]
-
-{ #category : 'accessing' }
-OTSpan >> startTime [
-
-	^ startTime
-]
-
-{ #category : 'accessing' }
-OTSpan >> status [
-
-	^ status ifNil: [ self class unset ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> statusCode [
-
-	^ self status
-]
-
 { #category : 'ston persistence' }
 OTSpan >> stonOn: stonWriter [
 
-	| linksToExport parentContext resourceToExport scope statusDescriptionToExport |
+	| linksToExport parentContext resourceToExport scope spanContextToExport statusDescriptionToExport statusToExport traceStateToExport |
 	linksToExport := self effectiveLinks.
 	parentContext := self effectiveParentSpanContext.
 	resourceToExport := self effectiveResource.
 	scope := self effectiveInstrumentationScope.
+	spanContextToExport := self spanContext.
 	statusDescriptionToExport := self effectiveStatusDescription.
+	statusToExport := self effectiveStatus.
+	traceStateToExport := spanContextToExport traceState.
 	stonWriter writeObject: self streamMap: [ :map |
 			map
-				at: #spanId put: self spanId;
-				at: #traceId put: self traceId;
+				at: #spanId put: spanContextToExport spanId;
+				at: #traceId put: spanContextToExport traceId;
 				at: #name put: name;
 				at: #context put: context;
 				at: #kind put: kind;
 				at: #startTime put: startTime;
 				at: #endTime put: endTime;
-				at: #status put: self status;
-				at: #traceFlags put: self traceFlags;
+				at: #status put: statusToExport;
+				at: #traceFlags put: spanContextToExport traceFlags;
 				at: #instrumentationName put: scope name.
 			scope isEmpty ifFalse: [ map at: #instrumentationScope put: scope ].
 			parentContext ifNotNil: [
 					map
 						at: #parentSpanContext put: parentContext;
 						at: #parentId put: parentContext spanId ].
-			self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
+			traceStateToExport ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
 			statusDescriptionToExport ifNotNil: [ :description | map at: #statusDescription put: description ].
 			attributes isEmptyOrNil ifFalse: [ map at: #attributes put: attributes ].
 			events isEmptyOrNil ifFalse: [ map at: #events put: events ].
@@ -1073,24 +1058,6 @@ OTSpan >> stonOn: stonWriter [
 			self droppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self droppedAttributesCount ].
 			self droppedEventsCount > 0 ifTrue: [ map at: #droppedEventsCount put: self droppedEventsCount ].
 			self droppedLinksCount > 0 ifTrue: [ map at: #droppedLinksCount put: self droppedLinksCount ] ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> traceFlags [
-
-	^ traceFlags ifNil: [ '01' ]
-]
-
-{ #category : 'accessing' }
-OTSpan >> traceId [
-
-	^ traceId
-]
-
-{ #category : 'accessing' }
-OTSpan >> traceState [
-
-	^ traceState
 ]
 
 { #category : 'accessing' }

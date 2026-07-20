@@ -49,8 +49,7 @@ OTCompositeSampler >> finalizedTraceStateFrom: aTraceState sampled: aBoolean thr
 { #category : 'private' }
 OTCompositeSampler >> parentTraceStateFrom: aContext [
 
-	^ (aContext ifNotNil: [ aContext span ])
-		ifNotNil: [ :parentSpan | parentSpan traceState ]
+	^ (aContext ifNotNil: [ aContext span ]) ifNotNil: [ :parentSpan | parentSpan spanContext traceState ]
 ]
 
 { #category : 'sampling' }

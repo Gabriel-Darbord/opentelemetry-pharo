@@ -66,34 +66,10 @@ OTNonRecordingSpan >> spanContext [
 	^ wrappedSpanContext
 ]
 
-{ #category : 'accessing' }
-OTNonRecordingSpan >> spanId [
-
-	^ self spanContext spanId
-]
-
 { #category : 'control' }
 OTNonRecordingSpan >> start [
 
 	^ self
-]
-
-{ #category : 'accessing' }
-OTNonRecordingSpan >> traceFlags [
-
-	^ self spanContext traceFlags
-]
-
-{ #category : 'accessing' }
-OTNonRecordingSpan >> traceId [
-
-	^ self spanContext traceId
-]
-
-{ #category : 'accessing' }
-OTNonRecordingSpan >> traceState [
-
-	^ self spanContext traceState
 ]
 
 { #category : 'private' }

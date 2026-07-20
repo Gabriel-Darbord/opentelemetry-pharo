@@ -39,23 +39,6 @@ OTParentBasedSampler class >> root: aRootSampler remoteParentSampled: aRemotePar
 		localParentNotSampledSampler: aLocalParentNotSampledSampler;
 		yourself
 ]
-{ #category : 'accessing' }
-OTParentBasedSampler >> description [
-
-	^ String streamContents: [ :stream |
-		stream
-			nextPutAll: 'ParentBased{root:';
-			nextPutAll: rootSampler description;
-			nextPutAll: ',remoteParentSampled:';
-			nextPutAll: remoteParentSampledSampler description;
-			nextPutAll: ',remoteParentNotSampled:';
-			nextPutAll: remoteParentNotSampledSampler description;
-			nextPutAll: ',localParentSampled:';
-			nextPutAll: localParentSampledSampler description;
-			nextPutAll: ',localParentNotSampled:';
-			nextPutAll: localParentNotSampledSampler description;
-			nextPut: $} ]
-]
 
 { #category : 'private - lifecycle' }
 OTParentBasedSampler >> componentSamplers [
@@ -75,16 +58,22 @@ OTParentBasedSampler >> componentSamplers [
 	^ delegates
 ]
 
-{ #category : 'private' }
-OTParentBasedSampler >> isConsistentThreshold: aThreshold forParentSpanContext: aSpanContext traceState: aTraceState [
+{ #category : 'accessing' }
+OTParentBasedSampler >> description [
 
-	| sampled |
-	sampled := OTConsistentProbability
-		sampledWithRandomness: (OTConsistentProbability
-				randomnessValueFromTraceId: aSpanContext traceId
-				traceState: aTraceState)
-		threshold: aThreshold.
-	^ sampled = aSpanContext isSampled
+	^ String streamContents: [ :stream |
+		stream
+			nextPutAll: 'ParentBased{root:';
+			nextPutAll: rootSampler description;
+			nextPutAll: ',remoteParentSampled:';
+			nextPutAll: remoteParentSampledSampler description;
+			nextPutAll: ',remoteParentNotSampled:';
+			nextPutAll: remoteParentNotSampledSampler description;
+			nextPutAll: ',localParentSampled:';
+			nextPutAll: localParentSampledSampler description;
+			nextPutAll: ',localParentNotSampled:';
+			nextPutAll: localParentNotSampledSampler description;
+			nextPut: $} ]
 ]
 
 { #category : 'initialization' }
@@ -98,20 +87,16 @@ OTParentBasedSampler >> initialize [
 	localParentNotSampledSampler := OTAlwaysOffSampler new
 ]
 
-{ #category : 'lifecycle' }
-OTParentBasedSampler >> shutdown [
+{ #category : 'private' }
+OTParentBasedSampler >> isConsistentThreshold: aThreshold forParentSpanContext: aSpanContext traceState: aTraceState [
 
-	| allShutdown |
-	allShutdown := true.
-	self componentSamplers do: [ :each |
-		allShutdown := each shutdown & allShutdown ].
-	^ allShutdown
-]
-
-{ #category : 'lifecycle' }
-OTParentBasedSampler >> start [
-
-	self componentSamplers do: [ :each | each start ]
+	| sampled |
+	sampled := OTConsistentProbability
+		sampledWithRandomness: (OTConsistentProbability
+				randomnessValueFromTraceId: aSpanContext traceId
+				traceState: aTraceState)
+		threshold: aThreshold.
+	^ sampled = aSpanContext isSampled
 ]
 
 { #category : 'accessing' }
@@ -138,6 +123,38 @@ OTParentBasedSampler >> localParentSampledSampler: aSampler [
 
 	aSampler ifNil: [ self error: 'ParentBasedSampler requires a local-parent-sampled delegate sampler' ].
 	localParentSampledSampler := aSampler
+]
+
+{ #category : 'private' }
+OTParentBasedSampler >> normalizedInheritedTraceStateForParentSpanContext: aSpanContext traceState: aTraceState [
+
+	| threshold |
+	aTraceState ifNil: [ ^ nil ].
+	threshold := OTConsistentProbability thresholdFromTraceState: aTraceState.
+	threshold ifNil: [ ^ aTraceState ].
+	(self
+		isConsistentThreshold: threshold
+		forParentSpanContext: aSpanContext
+		traceState: aTraceState) ifTrue: [ ^ aTraceState ].
+	^ aTraceState withoutOtelValueAt: 'th'
+]
+
+{ #category : 'private' }
+OTParentBasedSampler >> normalizedSamplingResult: aSamplingResult parentSpanContext: aSpanContext traceState: aTraceState [
+
+	| normalizedTraceState |
+	aSamplingResult traceState ifNotNil: [ ^ aSamplingResult ].
+	normalizedTraceState := self
+		normalizedInheritedTraceStateForParentSpanContext: aSpanContext
+		traceState: aTraceState.
+	aSamplingResult isRecordAndSample ifFalse: [
+		normalizedTraceState := normalizedTraceState ifNotNil: [ :traceState |
+			traceState withoutOtelValueAt: 'th' ] ].
+	normalizedTraceState == aTraceState ifTrue: [ ^ aSamplingResult ].
+	^ OTSamplingResult
+		decision: aSamplingResult decision
+		attributes: aSamplingResult attributes
+		traceState: normalizedTraceState
 ]
 
 { #category : 'accessing' }
@@ -194,80 +211,61 @@ OTParentBasedSampler >> sampledParentSampler: aSampler [
 	^ aSampler
 ]
 
-{ #category : 'private' }
-OTParentBasedSampler >> normalizedInheritedTraceStateForParentSpanContext: aSpanContext traceState: aTraceState [
-
-	| threshold |
-	aTraceState ifNil: [ ^ nil ].
-	threshold := OTConsistentProbability thresholdFromTraceState: aTraceState.
-	threshold ifNil: [ ^ aTraceState ].
-	(self
-		isConsistentThreshold: threshold
-		forParentSpanContext: aSpanContext
-		traceState: aTraceState) ifTrue: [ ^ aTraceState ].
-	^ aTraceState withoutOtelValueAt: 'th'
-]
-
-{ #category : 'private' }
-OTParentBasedSampler >> normalizedSamplingResult: aSamplingResult parentSpanContext: aSpanContext traceState: aTraceState [
-
-	| normalizedTraceState |
-	aSamplingResult traceState ifNotNil: [ ^ aSamplingResult ].
-	normalizedTraceState := self
-		normalizedInheritedTraceStateForParentSpanContext: aSpanContext
-		traceState: aTraceState.
-	aSamplingResult isRecordAndSample ifFalse: [
-		normalizedTraceState := normalizedTraceState ifNotNil: [ :traceState |
-			traceState withoutOtelValueAt: 'th' ] ].
-	normalizedTraceState == aTraceState ifTrue: [ ^ aSamplingResult ].
-	^ OTSamplingResult
-		decision: aSamplingResult decision
-		attributes: aSamplingResult attributes
-		traceState: normalizedTraceState
-]
-
 { #category : 'sampling' }
 OTParentBasedSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
-	| parentSpan parentSpanContext delegate result |
+	| delegate parentSpan parentSpanContext result |
 	parentSpan := aContext ifNotNil: [ aContext span ].
 	parentSpan ifNil: [
-		^ rootSampler
-			shouldSampleIn: aContext
-			traceId: aTraceId
-			name: aString
-			kind: aSpanKind
-			attributes: someAttributes
-			links: someLinks ].
+			^ rootSampler
+				  shouldSampleIn: aContext
+				  traceId: aTraceId
+				  name: aString
+				  kind: aSpanKind
+				  attributes: someAttributes
+				  links: someLinks ].
 	parentSpanContext := parentSpan spanContext.
 	parentSpanContext isValid ifFalse: [
-		^ rootSampler
-			shouldSampleIn: aContext
-			traceId: aTraceId
-			name: aString
-			kind: aSpanKind
-			attributes: someAttributes
-			links: someLinks ].
+			^ rootSampler
+				  shouldSampleIn: aContext
+				  traceId: aTraceId
+				  name: aString
+				  kind: aSpanKind
+				  attributes: someAttributes
+				  links: someLinks ].
 	delegate := parentSpanContext isRemote
-		ifTrue: [
-			parentSpanContext isSampled
-				ifTrue: [ remoteParentSampledSampler ]
-				ifFalse: [ remoteParentNotSampledSampler ] ]
-		ifFalse: [
-			parentSpanContext isSampled
-				ifTrue: [ localParentSampledSampler ]
-				ifFalse: [ localParentNotSampledSampler ] ].
+		            ifTrue: [
+				            parentSpanContext isSampled
+					            ifTrue: [ remoteParentSampledSampler ]
+					            ifFalse: [ remoteParentNotSampledSampler ] ]
+		            ifFalse: [
+				            parentSpanContext isSampled
+					            ifTrue: [ localParentSampledSampler ]
+					            ifFalse: [ localParentNotSampledSampler ] ].
 	result := delegate
-		shouldSampleIn: aContext
-		traceId: aTraceId
-		name: aString
-		kind: aSpanKind
-		attributes: someAttributes
-		links: someLinks.
-	^ self
-		normalizedSamplingResult: result
-		parentSpanContext: parentSpanContext
-		traceState: parentSpan traceState
+		          shouldSampleIn: aContext
+		          traceId: aTraceId
+		          name: aString
+		          kind: aSpanKind
+		          attributes: someAttributes
+		          links: someLinks.
+	^ self normalizedSamplingResult: result parentSpanContext: parentSpanContext traceState: parentSpanContext traceState
+]
+
+{ #category : 'lifecycle' }
+OTParentBasedSampler >> shutdown [
+
+	| allShutdown |
+	allShutdown := true.
+	self componentSamplers do: [ :each |
+		allShutdown := each shutdown & allShutdown ].
+	^ allShutdown
+]
+
+{ #category : 'lifecycle' }
+OTParentBasedSampler >> start [
+
+	self componentSamplers do: [ :each | each start ]
 ]
 
 { #category : 'accessing' }
