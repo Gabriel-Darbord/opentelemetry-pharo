@@ -234,9 +234,9 @@ OTTracerProviderTest >> testDisabledTracerPreservesParentSpanContext [
 	tracer := provider tracerNamed: 'demo.scope'.
 	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
 	provider tracerConfigurator: [ :scope | false ].
-	disabledSpan := ((tracer spanBuilderNamed: 'child')
-		inContext: (parentSpan inContext: OTContext new);
-		startSpan).
+	disabledSpan := (tracer spanBuilderNamed: 'child')
+		                inContext: (OTContext new withSpan: parentSpan);
+		                startSpan.
 	self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
 	self deny: disabledSpan identicalTo: parentSpan.
 	self assert: disabledSpan traceId equals: parentSpan traceId.

@@ -86,9 +86,9 @@ OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 	tracer := provider tracerNamed: 'demo.scope'.
 	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
 	parentSpan end.
-	childSpan := ((tracer spanBuilderNamed: 'child')
-		inContext: (parentSpan inContext: OTContext new);
-		startSpan).
+	childSpan := (tracer spanBuilderNamed: 'child')
+		             inContext: (OTContext new withSpan: parentSpan);
+		             startSpan.
 	self assert: childSpan parent identicalTo: parentSpan.
 	self assert: childSpan traceId equals: parentSpan traceId
 ]

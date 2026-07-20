@@ -606,14 +606,6 @@ OTSpan >> exceptionTypeFor: anException [
 	^ anException class name asString
 ]
 
-{ #category : 'accessing' }
-OTSpan >> inContext: aContext [
-
-	| baseContext |
-	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
-	^ baseContext withSpan: self
-]
-
 { #category : 'initialization' }
 OTSpan >> initialize [
 
