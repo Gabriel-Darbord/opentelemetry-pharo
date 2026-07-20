@@ -178,7 +178,8 @@ OTSpanBuilder >> links: aCollection [
 { #category : 'configuring' }
 OTSpanBuilder >> noParent [
 
-	rootRequested := true
+	rootRequested := true.
+	self
 ]
 
 { #category : 'private' }
@@ -254,5 +255,6 @@ OTSpanBuilder >> startSpan [
 { #category : 'configuring' }
 OTSpanBuilder >> startTimestamp: aDateAndTime [
 
-	startTime := aDateAndTime
+	startTime := aDateAndTime.
+	self
 ]

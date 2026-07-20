@@ -197,6 +197,17 @@ OTSpanBuilderTest >> testNoParentIgnoresParentContextForSamplingAndTraceIdentity
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testNoParentReturnsBuilderForFluentConfiguration [
+
+	| builder provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	builder := tracer spanBuilderNamed: 'operation'.
+	self assert: builder noParent identicalTo: builder
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 
 	| eventsToExport exportRecord provider span tracer |
@@ -475,6 +486,18 @@ OTSpanBuilderTest >> testSpanBuilderUsesImplicitCurrentContextByDefault [
 	OpenTelemetry useContext: currentContext during: [ span := (tracer spanBuilderNamed: 'operation') startSpan ].
 	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: span spanContext traceId equals: parentSpan spanContext traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testStartTimestampReturnsBuilderForFluentConfiguration [
+
+	| builder provider requestedStartTime tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	builder := tracer spanBuilderNamed: 'operation'.
+	requestedStartTime := DateAndTime unixEpoch + (Duration milliSeconds: 123).
+	self assert: (builder startTimestamp: requestedStartTime) identicalTo: builder
 ]
 
 { #category : 'tests' }
