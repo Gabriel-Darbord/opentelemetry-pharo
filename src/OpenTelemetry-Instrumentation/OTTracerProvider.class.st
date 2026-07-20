@@ -5,7 +5,10 @@ Class {
 	#name : 'OTTracerProvider',
 	#superclass : 'Object',
 	#instVars : [
-		'tracers'
+		'tracers',
+		'stateLock',
+		'shutdownRequested',
+		'shutdownCompleted'
 	],
 	#classVars : [
 		'Current'
@@ -1065,7 +1068,9 @@ OTTracerProvider class >> writeShellQuotedCommandArgument: anObject on: aStream 
 { #category : 'accessing' }
 OTTracerProvider >> addSpanProcessor: aSpanProcessor [
 
-	self spanProcessors add: aSpanProcessor.
+	stateLock critical: [
+			self ensureOpenLocked.
+			(self class spanProcessorsByProvider at: self ifAbsentPut: [ OrderedCollection new ]) add: aSpanProcessor ].
 	^ aSpanProcessor
 ]
 
@@ -1081,41 +1086,50 @@ OTTracerProvider >> asTwoDigitLowercaseHex: anInteger [
 { #category : 'private - lifecycle' }
 OTTracerProvider >> ensureOpen [
 
-	self isShutdown ifTrue: [ Error signal: 'This tracer provider has been shut down' ].
-	^ self
+	stateLock critical: [ self ensureOpenLocked ].
+	self
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> ensureOpenLocked [
+
+	(shutdownRequested = true or: [ shutdownCompleted = true ]) ifTrue: [ Error signal: 'This tracer provider has been shut down' ].
+	self
 ]
 
 { #category : 'processing' }
 OTTracerProvider >> forceFlush [
 
-	| processors allFlushed |
-	processors := self spanProcessors.
+	| processors allFlushed stopping |
+	processors := stateLock critical: [
+			              stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
+			              (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy ].
+	stopping ifTrue: [ ^ false ].
 	processors isEmpty ifTrue: [ ^ false ].
 	allFlushed := true.
 	processors do: [ :each |
-		allFlushed := (self
-			withSpanProcessor: each
-			operationNamed: 'forceFlush'
-			default: false
-			do: [ each forceFlush ]) & allFlushed ].
+			allFlushed := (self
+				               withSpanProcessor: each
+				               operationNamed: 'forceFlush'
+				               default: false
+				               do: [ each forceFlush ]) & allFlushed ].
 	^ allFlushed
 ]
 
 { #category : 'accessing' }
 OTTracerProvider >> idGenerator [
 
-	^ self class idGeneratorByProvider
-		at: self
-		ifAbsentPut: [ self class defaultIdGenerator ]
+	^ stateLock critical: [ self class idGeneratorByProvider at: self ifAbsentPut: [ self class defaultIdGenerator ] ]
 ]
 
 { #category : 'accessing' }
 OTTracerProvider >> idGenerator: anIdGenerator [
 
-	self ensureOpen.
-	self class idGeneratorByProvider
-		at: self
-		put: (anIdGenerator ifNil: [ self class defaultIdGenerator ] ifNotNil: [ anIdGenerator ]).
+	stateLock critical: [
+			self ensureOpenLocked.
+			self class idGeneratorByProvider
+				at: self
+				put: (anIdGenerator ifNil: [ self class defaultIdGenerator ] ifNotNil: [ anIdGenerator ]) ].
 	^ self idGenerator
 ]
 
@@ -1123,13 +1137,22 @@ OTTracerProvider >> idGenerator: anIdGenerator [
 OTTracerProvider >> initialize [
 
 	super initialize.
-	tracers := Dictionary new
+	tracers := Dictionary new.
+	stateLock := Semaphore forMutualExclusion.
+	shutdownRequested := false.
+	shutdownCompleted := false
 ]
 
 { #category : 'testing' }
 OTTracerProvider >> isShutdown [
 
-	^ (self class shutdownByProvider at: self ifAbsent: [ false ]) = true
+	^ stateLock critical: [ shutdownCompleted = true ]
+]
+
+{ #category : 'testing' }
+OTTracerProvider >> isStopping [
+
+	^ stateLock critical: [ shutdownRequested = true ]
 ]
 
 { #category : 'tracing' }
@@ -1248,46 +1271,37 @@ OTTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope
 { #category : 'accessing' }
 OTTracerProvider >> resource [
 
-	^ self class resourceByProvider
-		at: self
-		ifAbsentPut: [ OTResource empty ]
+	^ stateLock critical: [ self class resourceByProvider at: self ifAbsentPut: [ OTResource empty ] ]
 ]
 
 { #category : 'accessing' }
 OTTracerProvider >> resource: anOTResource [
 
-	self ensureOpen.
-	self class resourceByProvider
-		at: self
-		put: (anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ]).
+	stateLock critical: [
+			self ensureOpenLocked.
+			self class resourceByProvider at: self put: (anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ]) ].
 	^ self resource
 ]
 
 { #category : 'accessing' }
 OTTracerProvider >> sampler [
 
-	^ self class samplerByProvider
-		at: self
-		ifAbsentPut: [ self class defaultSampler ]
+	^ stateLock critical: [ self class samplerByProvider at: self ifAbsentPut: [ self class defaultSampler ] ]
 ]
 
 { #category : 'accessing' }
 OTTracerProvider >> sampler: anOTSampler [
 
 	| effectiveSampler previousSampler |
-	self ensureOpen.
-	effectiveSampler := anOTSampler
-		ifNil: [ self class defaultSampler ]
-		ifNotNil: [ anOTSampler ].
-	previousSampler := self class samplerByProvider
-		at: self
-		ifAbsent: [ nil ].
-	(previousSampler notNil and: [ previousSampler ~~ effectiveSampler ]) ifTrue: [
-		self shutdownSampler: previousSampler ].
-	self class samplerByProvider
-		at: self
-		put: effectiveSampler.
-	self startSampler: effectiveSampler.
+	effectiveSampler := anOTSampler ifNil: [ self class defaultSampler ] ifNotNil: [ anOTSampler ].
+	previousSampler := stateLock critical: [
+			                   | previous |
+			                   self ensureOpenLocked.
+			                   previous := self class samplerByProvider at: self ifAbsent: [ nil ].
+			                   previous == effectiveSampler ifFalse: [ self class samplerByProvider at: self put: effectiveSampler ].
+			                   previous ].
+	(previousSampler notNil and: [ previousSampler ~~ effectiveSampler ]) ifTrue: [ self shutdownSampler: previousSampler ].
+	previousSampler == effectiveSampler ifFalse: [ self startSampler: effectiveSampler ].
 	^ self sampler
 ]
 
@@ -1306,17 +1320,26 @@ OTTracerProvider >> samplingResultIn: aContext traceId: aTraceId name: aString k
 { #category : 'processing' }
 OTTracerProvider >> shutdown [
 
-	| processors allShutdown |
-	self isShutdown ifTrue: [ ^ false ].
-	allShutdown := self shutdownSampler: (self class samplerByProvider at: self ifAbsent: [ nil ]).
-	processors := self spanProcessors.
+	| allShutdown alreadyStopping processors sampler |
+	processors := #(  ).
+	sampler := nil.
+	alreadyStopping := stateLock critical: [
+			                   | stopping |
+			                   stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
+			                   stopping ifFalse: [
+					                   shutdownRequested := true.
+					                   processors := (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy.
+					                   sampler := self class samplerByProvider at: self ifAbsent: [ nil ] ].
+			                   stopping ].
+	alreadyStopping ifTrue: [ ^ false ].
+	allShutdown := self shutdownSampler: sampler.
 	processors do: [ :each |
-		allShutdown := (self
-			withSpanProcessor: each
-			operationNamed: 'shutdown'
-			default: false
-			do: [ each shutdown ]) & allShutdown ].
-	self class shutdownByProvider at: self put: true.
+			allShutdown := (self
+				                withSpanProcessor: each
+				                operationNamed: 'shutdown'
+				                default: false
+				                do: [ each shutdown ]) & allShutdown ].
+	stateLock critical: [ shutdownCompleted := true ].
 	^ allShutdown
 ]
 
@@ -1334,18 +1357,15 @@ OTTracerProvider >> shutdownSampler: aSampler [
 { #category : 'accessing' }
 OTTracerProvider >> spanLimits [
 
-	^ (self class spanLimitsByProvider
-		at: self
-		ifAbsentPut: [ OTSpanLimits default ]) copy
+	^ stateLock critical: [ (self class spanLimitsByProvider at: self ifAbsentPut: [ OTSpanLimits default ]) copy ]
 ]
 
 { #category : 'accessing' }
 OTTracerProvider >> spanLimits: anOTSpanLimits [
 
-	self ensureOpen.
-	self class spanLimitsByProvider
-		at: self
-		put: (anOTSpanLimits ifNil: [ OTSpanLimits default ] ifNotNil: [ anOTSpanLimits ]).
+	stateLock critical: [
+			self ensureOpenLocked.
+			self class spanLimitsByProvider at: self put: (anOTSpanLimits ifNil: [ OTSpanLimits default ] ifNotNil: [ anOTSpanLimits ]) ].
 	^ self spanLimits
 ]
 
@@ -1359,20 +1379,19 @@ OTTracerProvider >> spanProcessor: aSpanProcessor [
 { #category : 'accessing' }
 OTTracerProvider >> spanProcessors [
 
-	^ self class spanProcessorsByProvider
-		at: self
-		ifAbsentPut: [ OrderedCollection new ]
+	| processors |
+	processors := stateLock critical: [ (self class spanProcessorsByProvider at: self ifAbsentPut: [ OrderedCollection new ]) copy ].
+	^ processors
 ]
 
 { #category : 'accessing' }
 OTTracerProvider >> spanProcessors: aCollection [
 
-	self ensureOpen.
-	self class spanProcessorsByProvider
-		at: self
-		put: (aCollection
-			ifNil: [ OrderedCollection new ]
-			ifNotNil: [ aCollection asOrderedCollection ]).
+	stateLock critical: [
+			self ensureOpenLocked.
+			self class spanProcessorsByProvider
+				at: self
+				put: (aCollection ifNil: [ OrderedCollection new ] ifNotNil: [ aCollection asOrderedCollection ]) ].
 	^ self spanProcessors
 ]
 
@@ -1432,18 +1451,15 @@ OTTracerProvider >> tracerConfigurationValueFor: aTracer spanNamed: aString kind
 { #category : 'accessing' }
 OTTracerProvider >> tracerConfigurator [
 
-	^ self class tracerConfiguratorByProvider
-		at: self
-		ifAbsentPut: [ [ :scope | nil ] ]
+	^ stateLock critical: [ self class tracerConfiguratorByProvider at: self ifAbsentPut: [ [ :scope | nil ] ] ]
 ]
 
 { #category : 'accessing' }
 OTTracerProvider >> tracerConfigurator: aBlock [
 
-	self ensureOpen.
-	self class tracerConfiguratorByProvider
-		at: self
-		put: (aBlock ifNil: [ [ :scope | nil ] ] ifNotNil: [ aBlock ]).
+	stateLock critical: [
+			self ensureOpenLocked.
+			self class tracerConfiguratorByProvider at: self put: (aBlock ifNil: [ [ :scope | nil ] ] ifNotNil: [ aBlock ]) ].
 	^ self tracerConfigurator
 ]
 
@@ -1493,13 +1509,11 @@ OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSch
 
 	| scope |
 	scope := OTInstrumentationScope
-		named: (self class normalizedTracerNameFrom: aString)
-		version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
-		schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
-		attributes: aCollection.
-	^ tracers
-		at: scope
-		ifAbsentPut: [ self tracerForInstrumentationScope: scope ]
+		         named: (self class normalizedTracerNameFrom: aString)
+		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
+		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
+		         attributes: aCollection.
+	^ stateLock critical: [ tracers at: scope ifAbsentPut: [ self tracerForInstrumentationScope: scope ] ]
 ]
 
 { #category : 'private - error handling' }

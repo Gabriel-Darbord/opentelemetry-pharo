@@ -47,8 +47,63 @@ OTTracerProviderTest >> tearDown [
 		OTTracerProvider tracerNameWarningSink: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
-		OTSpan reset ]
-		ensure: [ super tearDown ]
+		OTSpan reset ] ensure: [
+			OTBlockingShutdownSpanProcessor allInstancesDo: [ :each | each allowShutdown ].
+			super tearDown ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testConcurrentShutdownIsIdempotent [
+
+	| firstDone firstResult processor provider secondDone secondResult |
+	provider := OTTracerProvider new.
+	processor := OTBlockingShutdownSpanProcessor new.
+	provider spanProcessor: processor.
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		firstResult := provider shutdown.
+		firstDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (processor waitForShutdownTimeoutMillis: 200).
+	[
+		secondResult := provider shutdown.
+		secondDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+	self deny: secondResult.
+	processor allowShutdown.
+	self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+	self assert: firstResult.
+	self assert: provider isShutdown.
+	self assert: processor shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testConcurrentTracerLookupReturnsSingleTracerInstance [
+
+	| done errors lock provider results start tracerCount |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	results := OrderedCollection new.
+	errors := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	start := Semaphore new.
+	done := Semaphore new.
+	tracerCount := 8.
+	tracerCount timesRepeat: [
+			[
+				| tracer |
+				start wait.
+				[
+					tracer := provider tracerNamed: 'demo.scope'.
+					lock critical: [ results add: tracer ] ]
+					on: Error
+					do: [ :error | lock critical: [ errors add: error ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	tracerCount timesRepeat: [ start signal ].
+	tracerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 500) not ].
+	self assert: errors isEmpty.
+	self assert: results size equals: tracerCount.
+	self assert: results asSet size equals: 1
 ]
 
 { #category : 'tests' }
@@ -298,6 +353,24 @@ OTTracerProviderTest >> testFailingTracerConfiguratorFallsBackToEnabledAndLogsWa
 			self assert: tracer enabled.
 			self assert: warnings asArray equals:
 				{ 'OpenTelemetry tracer configuration callback failed during enabled: boom' } ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testForceFlushReturnsFalseWhileShutdownIsInProgress [
+
+	| done processor provider shutdownResult |
+	provider := OTTracerProvider new.
+	processor := OTBlockingShutdownSpanProcessor new.
+	provider spanProcessor: processor.
+	done := Semaphore new.
+	[
+		shutdownResult := provider shutdown.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (processor waitForShutdownTimeoutMillis: 200).
+	self deny: provider forceFlush.
+	processor allowShutdown.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult
 ]
 
 { #category : 'tests' }
