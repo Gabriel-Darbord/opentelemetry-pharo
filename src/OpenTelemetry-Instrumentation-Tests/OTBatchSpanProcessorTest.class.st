@@ -68,6 +68,21 @@ OTBatchSpanProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExport
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testForceFlushReturnsFalseAfterShutdown [
+
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 1000.
+	self assert: processor shutdown.
+	self deny: processor forceFlush.
+	self assert: exporter forceFlushCount equals: 0.
+	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testForceFlushUsesExplicitExporterInsteadOfGlobalExporter [
 
 	| globalExporter |
@@ -82,6 +97,21 @@ OTBatchSpanProcessorTest >> testForceFlushUsesExplicitExporterInsteadOfGlobalExp
 	self assert: processor forceFlush.
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: globalExporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testOnEndAfterShutdownIsIgnoredWithoutExporting [
+
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 1000.
+	self assert: processor shutdown.
+	self deny: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	self assert: exporter exportedBatches isEmpty.
+	self assert: exporter shutdownCount equals: 1
 ]
 
 { #category : 'tests' }

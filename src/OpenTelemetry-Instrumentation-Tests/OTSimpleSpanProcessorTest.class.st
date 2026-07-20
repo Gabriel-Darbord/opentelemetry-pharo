@@ -42,6 +42,30 @@ OTSimpleSpanProcessorTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTSimpleSpanProcessorTest >> testForceFlushReturnsFalseAfterShutdown [
+
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	self assert: processor shutdown.
+	self deny: processor forceFlush.
+	self assert: exporter forceFlushCount equals: 1.
+	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
+OTSimpleSpanProcessorTest >> testOnEndAfterShutdownIsIgnoredWithoutExporting [
+
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	self assert: processor shutdown.
+	self deny: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	self assert: exporter exportedBatches isEmpty.
+	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTSimpleSpanProcessorTest >> testOnEndExportsPrintableAndStonSerializableSnapshot [
 
 	| exportedSnapshot printed serialized |
