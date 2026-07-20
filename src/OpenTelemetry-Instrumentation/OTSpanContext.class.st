@@ -34,7 +34,7 @@ OTSpanContext class >> byteArrayFromHex: aString size: anInteger [
 { #category : 'instance creation' }
 OTSpanContext class >> fromSpan: aSpan [
 
-	^ aSpan asSpanContext
+	^ aSpan spanContext
 ]
 
 { #category : 'ston persistence' }

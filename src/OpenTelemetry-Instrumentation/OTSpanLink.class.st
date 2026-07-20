@@ -25,12 +25,6 @@ OTSpanLink class >> fromSton: stonReader [
 ]
 
 { #category : 'instance creation' }
-OTSpanLink class >> spanContext: aSpanContext [
-
-	^ self spanContext: aSpanContext attributes: nil
-]
-
-{ #category : 'instance creation' }
 OTSpanLink class >> span: aSpan [
 
 	^ self span: aSpan attributes: nil
@@ -42,13 +36,10 @@ OTSpanLink class >> span: aSpan attributes: aDictionary [
 	^ self spanContext: (self spanContextFrom: aSpan) attributes: aDictionary
 ]
 
-{ #category : 'private' }
-OTSpanLink class >> spanContextFrom: anObject [
+{ #category : 'instance creation' }
+OTSpanLink class >> spanContext: aSpanContext [
 
-	anObject ifNil: [ Error signal: 'OpenTelemetry links require a span or span context' ].
-	^ [ anObject asSpanContext ]
-		on: MessageNotUnderstood
-		do: [ Error signal: 'OpenTelemetry links require a span or span context' ]
+	^ self spanContext: aSpanContext attributes: nil
 ]
 
 { #category : 'instance creation' }
@@ -68,6 +59,15 @@ OTSpanLink class >> spanContext: aSpanContext attributes: aDictionary droppedAtt
 		attributes: aDictionary;
 		droppedAttributesCount: anInteger;
 		yourself
+]
+
+{ #category : 'private' }
+OTSpanLink class >> spanContextFrom: anObject [
+
+	anObject ifNil: [ Error signal: 'OpenTelemetry links require a span or span context' ].
+	(anObject isKindOf: OTSpanContext) ifTrue: [ ^ anObject ].
+	(anObject isKindOf: OTSpan) ifTrue: [ ^ anObject spanContext ].
+	Error signal: 'OpenTelemetry links require a span or span context'
 ]
 
 { #category : 'comparing' }

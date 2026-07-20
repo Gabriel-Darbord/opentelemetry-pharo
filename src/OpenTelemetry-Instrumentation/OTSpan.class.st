@@ -518,12 +518,6 @@ OTSpan >> asExportRecord [
 	^ data
 ]
 
-{ #category : 'converting' }
-OTSpan >> asSpanContext [
-
-	^ self spanContext
-]
-
 { #category : 'accessing' }
 OTSpan >> attributeAt: key put: value [
 
@@ -594,7 +588,7 @@ OTSpan >> effectiveLinks [
 { #category : 'private' }
 OTSpan >> effectiveParentSpanContext [
 
-	^ parent ifNotNil: [ parent asSpanContext ]
+	^ parent ifNotNil: [ parent spanContext ]
 ]
 
 { #category : 'private' }
@@ -925,7 +919,10 @@ OTSpan >> restoreParent: aSpan [
 OTSpan >> restoreParentSpanContext: anObject [
 
 	self ensureMutableCreationState.
-	parent := anObject ifNotNil: [ anObject asSpanContext asNonRecordingSpan ]
+	parent := anObject ifNotNil: [
+			          (anObject isKindOf: OTSpanContext)
+				          ifTrue: [ anObject asNonRecordingSpan ]
+				          ifFalse: [ anObject spanContext asNonRecordingSpan ] ]
 ]
 
 { #category : 'private' }
