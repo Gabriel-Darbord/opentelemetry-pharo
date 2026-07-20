@@ -208,6 +208,36 @@ OTSpanBuilderTest >> testNoParentReturnsBuilderForFluentConfiguration [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testOkStatusClearsDescriptionAndBecomesFinal [
+
+	| exportRecord provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span setStatus: OTSpan error description: 'boom'.
+	span setStatus: OTSpan ok description: 'ignored'.
+	span setStatus: OTSpan error description: 'later'.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #status) equals: OTSpan ok.
+	self deny: (exportRecord includesKey: #statusDescription)
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testOkStatusIgnoresDescriptionImmediately [
+
+	| exportRecord provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span setStatus: OTSpan ok description: 'ignored'.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #status) equals: OTSpan ok.
+	self deny: (exportRecord includesKey: #statusDescription)
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordExceptionDoesNotImplicitlySetErrorStatus [
 
 	| eventsToExport exportRecord provider span tracer |
@@ -553,6 +583,20 @@ OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 	OpenTelemetry useContext: currentContext during: [ span := tracer startSpanNamed: 'operation' ].
 	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: span spanContext traceId equals: parentSpan spanContext traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testUnsetStatusUpdateIsIgnored [
+
+	| exportRecord provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span setStatus: OTSpan unset description: 'ignored'.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #status) equals: OTSpan unset.
+	self deny: (exportRecord includesKey: #statusDescription)
 ]
 
 { #category : 'tests' }
