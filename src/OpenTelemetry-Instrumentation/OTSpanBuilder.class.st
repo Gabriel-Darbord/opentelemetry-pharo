@@ -120,13 +120,6 @@ OTSpanBuilder >> addLinks: aCollection [
 ]
 
 { #category : 'configuring' }
-OTSpanBuilder >> asRoot [
-
-	rootRequested := true.
-	^ self
-]
-
-{ #category : 'configuring' }
 OTSpanBuilder >> attributeAt: aKey put: aValue [
 
 	attributes
@@ -151,15 +144,6 @@ OTSpanBuilder >> inContext: aContext [
 
 	parentContext := self class normalizedParentContextFrom: aContext.
 	usesCurrentContext := false.
-	rootRequested := false.
-	^ self
-]
-
-{ #category : 'configuring' }
-OTSpanBuilder >> inCurrentContext [
-
-	parentContext := nil.
-	usesCurrentContext := true.
 	rootRequested := false.
 	^ self
 ]
@@ -196,7 +180,7 @@ OTSpanBuilder >> links: aCollection [
 { #category : 'configuring' }
 OTSpanBuilder >> noParent [
 
-	^ self asRoot
+	rootRequested := true
 ]
 
 { #category : 'configuring' }

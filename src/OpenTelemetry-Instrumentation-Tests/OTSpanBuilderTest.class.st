@@ -41,29 +41,6 @@ OTSpanBuilderTest >> tearDown [
 ]
 
 { #category : 'tests' }
-OTSpanBuilderTest >> testAsRootIgnoresImplicitCurrentSpan [
-
-	| currentContext parentSpan provider rootSpan tracer |
-	provider := OTTracerProvider new.
-	provider
-		spanProcessor: OTSimpleSpanProcessor new;
-		sampler: (OTParentBasedSampler default
-				 rootSampler: OTAlwaysOffSampler new;
-				 yourself).
-	tracer := provider tracerNamed: 'demo.scope'.
-	parentSpan := self sampledParentSpan.
-	currentContext := OTContext new withSpan: parentSpan.
-	OpenTelemetry useContext: currentContext during: [
-			rootSpan := (tracer spanBuilderNamed: 'root')
-				            inCurrentContext;
-				            asRoot;
-				            startSpan ].
-	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
-	self assert: rootSpan spanContext isValid.
-	self deny: rootSpan spanContext traceId equals: parentSpan spanContext traceId
-]
-
-{ #category : 'tests' }
 OTSpanBuilderTest >> testAttributesGetterAnswersEmptyCollectionWhenUnset [
 
 	| exportRecord provider span tracer |
@@ -139,25 +116,25 @@ OTSpanBuilderTest >> testInContextNilUsesEmptyContextWithoutWarning [
 ]
 
 { #category : 'tests' }
-OTSpanBuilderTest >> testInCurrentContextUsesImplicitCurrentSpanAsParent [
+OTSpanBuilderTest >> testNoParentIgnoresImplicitCurrentSpan [
 
-	| currentContext parentSpan provider span tracer |
+	| currentContext parentSpan provider rootSpan tracer |
 	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		sampler: (OTParentBasedSampler default
+				 rootSampler: OTAlwaysOffSampler new;
+				 yourself).
 	tracer := provider tracerNamed: 'demo.scope'.
-	parentSpan := (OTSpanContext
-		               traceId: '00112233445566778899aabbccddeeff'
-		               spanId: '1122334455667788'
-		               traceFlags: '03'
-		               traceState: nil
-		               remote: false) asNonRecordingSpan.
+	parentSpan := self sampledParentSpan.
 	currentContext := OTContext new withSpan: parentSpan.
 	OpenTelemetry useContext: currentContext during: [
-			span := (tracer spanBuilderNamed: 'operation')
-				        inCurrentContext;
-				        startSpan ].
-	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
-	self assert: span spanContext traceId equals: parentSpan spanContext traceId
+			rootSpan := (tracer spanBuilderNamed: 'root')
+				            noParent;
+				            startSpan ].
+	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
+	self assert: rootSpan spanContext isValid.
+	self deny: rootSpan spanContext traceId equals: parentSpan spanContext traceId
 ]
 
 { #category : 'tests' }
