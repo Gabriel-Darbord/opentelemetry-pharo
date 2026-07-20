@@ -396,6 +396,44 @@ OTTracerProviderTest >> testExistingTracerPicksUpLaterResourceChangesForNewSpans
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerPicksUpLaterSpanProcessorRegistrationWithoutReacquiring [
+
+	| processor provider span tracer |
+	provider := OTTracerProvider new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'before') startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	processor := OTRecordingSpanProcessor new.
+	provider spanProcessor: processor.
+	span := (tracer spanBuilderNamed: 'after') startSpan.
+	self assert: span isRecording.
+	span end.
+	self assert: processor startedSpans asArray equals: { span }.
+	self assert: processor endingSpans asArray equals: { span }.
+	self assert: processor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerUsesReplacementSpanProcessorWithoutReacquiring [
+
+	| firstProcessor provider secondProcessor span tracer |
+	provider := OTTracerProvider new.
+	firstProcessor := OTRecordingSpanProcessor new.
+	provider spanProcessor: firstProcessor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	secondProcessor := OTRecordingSpanProcessor new.
+	provider spanProcessor: secondProcessor.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span end.
+	self assert: firstProcessor startedSpans isEmpty.
+	self assert: firstProcessor endingSpans isEmpty.
+	self assert: firstProcessor endedSpans isEmpty.
+	self assert: secondProcessor startedSpans asArray equals: { span }.
+	self assert: secondProcessor endingSpans asArray equals: { span }.
+	self assert: secondProcessor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testFailingTracerConfiguratorFallsBackToEnabledAndLogsWarning [
 
 	self
