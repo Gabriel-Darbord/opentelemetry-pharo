@@ -53,6 +53,25 @@ OTSpanBuilderTest >> testAttributesGetterAnswersEmptyCollectionWhenUnset [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testEndIgnoresRepeatedCallsAndKeepsFirstEndTimestamp [
+
+	| exportRecord firstTimestamp processor provider secondTimestamp span tracer |
+	processor := OTRecordingSpanProcessor new.
+	provider := OTTracerProvider new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	firstTimestamp := DateAndTime unixEpoch + (Duration milliSeconds: 1).
+	secondTimestamp := DateAndTime unixEpoch + (Duration milliSeconds: 2).
+	span end: firstTimestamp.
+	span end: secondTimestamp.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #endTime) equals: firstTimestamp.
+	self assert: processor endingSpans asArray equals: { span }.
+	self assert: processor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testEndedAndNonRecordingSpansIgnoreAddedLinks [
 
 	| endedSpan provider result tracer upstreamContext unsampledSpan |
