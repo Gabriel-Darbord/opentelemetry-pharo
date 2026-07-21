@@ -83,6 +83,23 @@ OTCurrentContextTest >> testDetachContextReturnsFalseWhenUsedFromAnotherProcess 
 ]
 
 { #category : 'tests' }
+OTCurrentContextTest >> testEndedSpanCanStillBeActivatedWithUseSpan [
+
+	| childSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := tracer startSpanNamed: 'operation'.
+	span end.
+	OpenTelemetry useSpan: span during: [
+			self assert: OpenTelemetry currentSpan identicalTo: span.
+			self assert: OpenTelemetry currentContext span identicalTo: span.
+			childSpan := tracer startSpanNamed: 'child'.
+			self assert: (childSpan asExportRecord at: #parentSpanContext) equals: span spanContext ].
+	self deny: OpenTelemetry currentSpan identicalTo: span
+]
+
+{ #category : 'tests' }
 OTCurrentContextTest >> testEndingActiveSpanDoesNotEvictItFromCurrentContext [
 
 	| provider span tracer |
