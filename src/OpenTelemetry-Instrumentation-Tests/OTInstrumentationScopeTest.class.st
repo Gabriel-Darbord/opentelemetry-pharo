@@ -6,20 +6,20 @@ Class {
 }
 
 { #category : 'tests' }
-OTInstrumentationScopeTest >> testDirectConstructorIgnoresInvalidAttributesWithoutError [
+OTInstrumentationScopeTest >> testDirectConstructorNormalizesIdentityFieldsAndIgnoresInvalidAttributesWithoutError [
 
 	| scope |
 	scope := nil.
 	self
 		shouldnt: [
 			scope := OTInstrumentationScope
-				         named: 'demo.scope'
-				         version: 42
-				         schemaUrl: 7
+				         named: 42
+				         version: 7
+				         schemaUrl: 9
 				         attributes: 42 ]
 		raise: Error.
-	self assert: scope name equals: 'demo.scope'.
-	self assert: scope version equals: 42.
-	self assert: scope schemaUrl equals: 7.
+	self assert: scope name equals: '42'.
+	self assert: scope version equals: '7'.
+	self assert: scope schemaUrl equals: '9'.
 	self assert: scope allAttributes isEmpty
 ]

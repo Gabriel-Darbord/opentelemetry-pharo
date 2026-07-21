@@ -131,8 +131,8 @@ OTInstrumentationScope >> name [
 { #category : 'accessing' }
 OTInstrumentationScope >> name: aString [
 
-	name := aString.
-	^ self
+	name := aString ifNil: [ '' ] ifNotNil: [ aString asString ].
+	self
 ]
 
 { #category : 'printing' }
@@ -153,8 +153,8 @@ OTInstrumentationScope >> schemaUrl [
 { #category : 'accessing' }
 OTInstrumentationScope >> schemaUrl: aString [
 
-	schemaUrl := aString.
-	^ self
+	schemaUrl := aString ifNil: [ '' ] ifNotNil: [ aString asString ].
+	self
 ]
 
 { #category : 'ston persistence' }
@@ -176,6 +176,6 @@ OTInstrumentationScope >> version [
 { #category : 'accessing' }
 OTInstrumentationScope >> version: aString [
 
-	version := aString.
-	^ self
+	version := aString ifNil: [ '' ] ifNotNil: [ aString asString ].
+	self
 ]
