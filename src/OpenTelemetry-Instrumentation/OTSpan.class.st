@@ -183,15 +183,7 @@ OTSpan class >> fromSton: stonReader [
 		         at: #instrumentationScope
 		         ifAbsent: [ OTInstrumentationScope named: (representation at: #instrumentationName ifAbsent: [ '' ]) ].
 	span restoreInstrumentationScope: scope.
-	(representation includesKey: #parentSpanContext)
-		ifTrue: [ span restoreParentSpanContext: (representation at: #parentSpanContext) ]
-		ifFalse: [
-				representation at: #parentId ifPresent: [ :parentId |
-						span restoreParentSpanContext: (self
-								 legacyParentSpanContextFromParentId: parentId
-								 traceId: (representation at: #traceId)
-								 traceFlags: traceFlags
-								 traceState: traceState) ] ].
+	representation at: #parentSpanContext ifPresent: [ :parentSpanContext | span restoreParentSpanContext: parentSpanContext ].
 	span restoreStartTime: (representation at: #startTime).
 	span
 		restoreStatus: (representation at: #status ifAbsent: [ self unset ])
@@ -214,17 +206,6 @@ OTSpan class >> internal [
 	"Default value. Indicates that the span is used internally."
 
 	^ #internal
-]
-
-{ #category : 'private' }
-OTSpan class >> legacyParentSpanContextFromParentId: aParentId traceId: aTraceId traceFlags: someTraceFlags traceState: aTraceState [
-
-	^ OTSpanContext
-		traceId: aTraceId
-		spanId: aParentId
-		traceFlags: someTraceFlags
-		traceState: aTraceState
-		remote: false
 ]
 
 { #category : 'private - logging' }
@@ -497,10 +478,7 @@ OTSpan >> asExportRecord [
 				  at: #traceFlags put: spanContextToExport traceFlags;
 				  at: #instrumentationName put: scope name.
 			  scope isEmpty ifFalse: [ data at: #instrumentationScope put: scope ].
-			  parentContext ifNotNil: [
-					  data
-						  at: #parentSpanContext put: parentContext;
-						  at: #parentId put: parentContext spanId ].
+			  parentContext ifNotNil: [ data at: #parentSpanContext put: parentContext ].
 			  traceStateToExport ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
 			  statusDescriptionToExport ifNotNil: [ :description | data at: #statusDescription put: description ].
 			  attributes isEmptyOrNil ifFalse: [ data at: #attributes put: attributes ].
@@ -1180,10 +1158,7 @@ OTSpan >> stonOn: stonWriter [
 				at: #traceFlags put: spanContextToExport traceFlags;
 				at: #instrumentationName put: scope name.
 			scope isEmpty ifFalse: [ map at: #instrumentationScope put: scope ].
-			parentContext ifNotNil: [
-					map
-						at: #parentSpanContext put: parentContext;
-						at: #parentId put: parentContext spanId ].
+			parentContext ifNotNil: [ map at: #parentSpanContext put: parentContext ].
 			traceStateToExport ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
 			statusDescriptionToExport ifNotNil: [ :description | map at: #statusDescription put: description ].
 			attributes isEmptyOrNil ifFalse: [ map at: #attributes put: attributes ].

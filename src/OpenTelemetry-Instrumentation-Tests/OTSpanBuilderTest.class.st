@@ -897,6 +897,23 @@ OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testStonRoundTripPreservesParentSpanContextWithoutLegacyParentId [
+
+	| parentSpan roundTripped serialized span tracer |
+	OTTracerProvider current spanProcessor: OTSimpleSpanProcessor new.
+	tracer := OTTracerProvider current tracerNamed: 'demo.scope'.
+	parentSpan := self sampledParentSpan.
+	span := (tracer spanBuilderNamed: 'child')
+		        inContext: (OTContext new withSpan: parentSpan);
+		        startSpan.
+	serialized := STON toString: span.
+	roundTripped := STON fromString: serialized.
+	self deny: (serialized includesSubstring: 'parentId').
+	self assert: roundTripped parentSpanContext equals: parentSpan spanContext.
+	self deny: (roundTripped asExportRecord includesKey: #parentId)
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 
 	| currentContext parentSpan provider span tracer |

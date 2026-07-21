@@ -1024,6 +1024,31 @@ OTTracerProviderTest >> testRecordOnlySpanReachesProcessorsButNotExporter [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testRecordingSpanExportRecordUsesParentSpanContextWithoutLegacyParentId [
+
+	| exportRecord parentSpanContext provider snapshot snapshotRecord span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpanContext := OTSpanContext
+		                     traceId: '12345678876543211234567887654321'
+		                     spanId: 'bbbbbbbbbbbbbbbb'
+		                     traceFlags: '01'
+		                     traceState: 'vendor=value'
+		                     remote: true.
+	span := (tracer spanBuilderNamed: 'operation')
+		        inContext: (OTContext new withSpan: parentSpanContext asNonRecordingSpan);
+		        startSpan.
+	exportRecord := span asExportRecord.
+	snapshot := OTSpanSnapshot fromSpan: span.
+	snapshotRecord := snapshot asExportRecord.
+	self assert: (exportRecord at: #parentSpanContext) equals: parentSpanContext.
+	self deny: (exportRecord includesKey: #parentId).
+	self assert: (snapshotRecord at: #parentSpanContext) equals: parentSpanContext.
+	self deny: (snapshotRecord includesKey: #parentId)
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testRecordingSpanExposesReadableSpanSurface [
 
 	| linkContext parentSpanContext provider resource snapshot span startTimestamp tracer |

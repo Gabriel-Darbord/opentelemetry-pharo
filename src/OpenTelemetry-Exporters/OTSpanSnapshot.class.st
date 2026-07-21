@@ -56,10 +56,7 @@ OTSpanSnapshot >> asExportRecord [
 		at: #traceFlags put: self traceFlags;
 		at: #instrumentationName put: self instrumentationScope name.
 	self instrumentationScope isEmpty ifFalse: [ data at: #instrumentationScope put: self instrumentationScope ].
-	self parentSpanContext ifNotNil: [ :aParentContext |
-			data
-				at: #parentSpanContext put: aParentContext;
-				at: #parentId put: aParentContext spanId ].
+	self parentSpanContext ifNotNil: [ :aParentContext | data at: #parentSpanContext put: aParentContext ].
 	self traceState ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
 	self statusDescription ifNotNil: [ :description | data at: #statusDescription put: description ].
 	attributes isEmptyOrNil ifFalse: [ data at: #attributes put: attributes ].
@@ -243,10 +240,7 @@ OTSpanSnapshot >> stonOn: stonWriter [
 				at: #traceFlags put: self traceFlags;
 				at: #instrumentationName put: self instrumentationScope name.
 			self instrumentationScope isEmpty ifFalse: [ map at: #instrumentationScope put: self instrumentationScope ].
-			self parentSpanContext ifNotNil: [ :aParentContext |
-					map
-						at: #parentSpanContext put: aParentContext;
-						at: #parentId put: aParentContext spanId ].
+			self parentSpanContext ifNotNil: [ :aParentContext | map at: #parentSpanContext put: aParentContext ].
 			self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
 			self statusDescription ifNotNil: [ :description | map at: #statusDescription put: description ].
 			attributes isEmptyOrNil ifFalse: [ map at: #attributes put: attributes ].
