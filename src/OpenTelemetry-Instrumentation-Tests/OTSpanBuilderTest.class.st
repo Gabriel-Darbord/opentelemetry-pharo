@@ -637,6 +637,25 @@ OTSpanBuilderTest >> testRecordingSpanExposesLinkConvenienceSetters [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanRecordsInvalidLinkedSpanContextWhenAttributesPresent [
+
+	| exportRecord invalidContext linksToExport provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	invalidContext := OTSpanContext invalid.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span addLinkSpanContext: invalidContext attributes: (OrderedDictionary new
+			 at: 'link.kind' put: 'follows_from';
+			 yourself).
+	exportRecord := span asExportRecord.
+	linksToExport := exportRecord at: #links.
+	self assert: linksToExport size equals: 1.
+	self assert: linksToExport first spanContext equals: invalidContext.
+	self assert: (linksToExport first attributes at: 'link.kind') equals: 'follows_from'
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanReturnsStableSpanContextAcrossLifecycle [
 
 	| firstContext provider secondContext span tracer |
@@ -709,6 +728,29 @@ OTSpanBuilderTest >> testSpanBuilderDefersImplicitCurrentContextUntilStart [
 	OpenTelemetry useContext: currentContext during: [ span := builder startSpan ].
 	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
 	self assert: span spanContext traceId equals: parentSpan spanContext traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderRecordsInvalidLinkedSpanContextWhenTraceStatePresent [
+
+	| exportRecord invalidContext linksToExport provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	invalidContext := OTSpanContext
+		                  traceId: OTSpanContext invalidTraceId
+		                  spanId: OTSpanContext invalidSpanId
+		                  traceFlags: '00'
+		                  traceState: 'vendor=value'
+		                  remote: true.
+	span := (tracer spanBuilderNamed: 'operation')
+		        addLinkSpanContext: invalidContext;
+		        startSpan.
+	exportRecord := span asExportRecord.
+	linksToExport := exportRecord at: #links.
+	self assert: linksToExport size equals: 1.
+	self assert: linksToExport first spanContext equals: invalidContext.
+	self assert: linksToExport first attributes isEmpty
 ]
 
 { #category : 'tests' }
