@@ -732,6 +732,32 @@ OTSpanBuilderTest >> testRecordingSpanIgnoresInvalidArgumentsWithoutError [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanInvalidEndTimestampFallsBackToCurrentTime [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self shouldnt: [ span end: 'invalid timestamp' ] raise: Error.
+	self assert: (span endTime isKindOf: DateAndTime)
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanInvalidEventTimestampFallsBackToCurrentTime [
+
+	| event provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self shouldnt: [ span addEventNamed: 'event' attributes: #(  ) timestamp: 'invalid timestamp' ] raise: Error.
+	event := span events first.
+	self assert: event name equals: 'event'.
+	self assert: (event timestamp isKindOf: DateAndTime)
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanRecordsInvalidLinkedSpanContextWhenAttributesPresent [
 
 	| exportRecord invalidContext linksToExport provider span tracer |
@@ -868,6 +894,23 @@ OTSpanBuilderTest >> testSpanBuilderIgnoresInvalidSpanKind [
 					        startSpan ]
 		raise: Error.
 	self assert: span kind equals: OTSpan internal
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderInvalidStartTimestampIsIgnored [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := nil.
+	self
+		shouldnt: [
+				span := (tracer spanBuilderNamed: 'operation')
+					        startTimestamp: 'invalid timestamp';
+					        startSpan ]
+		raise: Error.
+	self assert: (span startTime isKindOf: DateAndTime)
 ]
 
 { #category : 'tests' }

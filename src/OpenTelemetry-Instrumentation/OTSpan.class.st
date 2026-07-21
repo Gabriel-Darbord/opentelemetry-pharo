@@ -263,6 +263,15 @@ OTSpan class >> newInternal [
 	^ super new
 ]
 
+{ #category : 'private' }
+OTSpan class >> normalizedTimestamp: aDateAndTime forOperation: aString default: aBlock [
+
+	aDateAndTime ifNil: [ ^ aBlock value ].
+	(aDateAndTime isKindOf: DateAndTime) ifTrue: [ ^ aDateAndTime ].
+	self noteIgnoredInvalidArgument: aDateAndTime forOperation: aString.
+	^ aBlock value
+]
+
 { #category : 'private - logging' }
 OTSpan class >> noteIgnoredInvalidArgument: anObject forOperation: aString [
 
@@ -439,10 +448,15 @@ OTSpan >> addEventNamed: aString attributes: aCollection [
 { #category : 'recording' }
 OTSpan >> addEventNamed: aString attributes: aCollection timestamp: aDateAndTime [
 
+	| timestamp |
 	(aString isString or: [ aString isSymbol ]) ifFalse: [
 			self class noteIgnoredInvalidArgument: aString forOperation: 'OTSpan>>addEventNamed:attributes:timestamp:'.
 			^ self ].
-	^ [ self addEvent: (OTSpanEvent named: aString asString attributes: aCollection timestamp: aDateAndTime) ]
+	timestamp := self class
+		             normalizedTimestamp: aDateAndTime
+		             forOperation: 'OTSpan>>addEventNamed:attributes:timestamp:'
+		             default: [ DateAndTime now ].
+	^ [ self addEvent: (OTSpanEvent named: aString asString attributes: aCollection timestamp: timestamp) ]
 		  on: Error
 		  do: [
 				  self class noteIgnoredInvalidArgument: aCollection forOperation: 'OTSpan>>addEventNamed:attributes:timestamp:'.
@@ -605,6 +619,16 @@ OTSpan >> attributesCountWithinLimit: aLimit currentSize: aSize [
 ]
 
 { #category : 'private' }
+OTSpan >> beginEndingAt: aDateAndTime fromProcess: aProcess [
+
+	^ stateLock critical: [
+			  (ended or: [ endingProcess notNil ]) ifTrue: [ ^ nil ].
+			  endTime := aDateAndTime.
+			  endingProcess := aProcess.
+			  tracerProvider ]
+]
+
+{ #category : 'private' }
 OTSpan >> currentProcessMayMutateSpanState [
 
 	^ self recordingStateAllowsMutation and: [ endingProcess isNil or: [ endingProcess == Processor activeProcess ] ]
@@ -706,24 +730,13 @@ OTSpan >> end [
 { #category : 'control' }
 OTSpan >> end: aDateAndTime [
 
-	| currentProcess provider shouldEnd |
+	| currentProcess endTimestamp provider |
 	currentProcess := Processor activeProcess.
-	provider := nil.
-	shouldEnd := stateLock critical: [
-			             (ended or: [ endingProcess notNil ])
-				             ifTrue: [ false ]
-				             ifFalse: [
-						             endTime := aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ].
-						             endingProcess := currentProcess.
-						             provider := tracerProvider.
-						             true ] ].
-	shouldEnd ifFalse: [ ^ self ].
-	[ provider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ] ] ensure: [
-			stateLock critical: [
-					endingProcess == currentProcess ifTrue: [
-							endingProcess := nil.
-							ended := true ] ] ].
-	provider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ].
+	endTimestamp := self class normalizedTimestamp: aDateAndTime forOperation: 'OTSpan>>end:' default: [ DateAndTime now ].
+	provider := self beginEndingAt: endTimestamp fromProcess: currentProcess.
+	provider ifNil: [ ^ self ].
+	[ provider processEndingSpan: self ] ensure: [ self finishEndingFromProcess: currentProcess ].
+	provider processEndedSpan: self.
 	self
 ]
 
@@ -769,6 +782,15 @@ OTSpan >> exceptionStacktraceFor: anException [
 OTSpan >> exceptionTypeFor: anException [
 
 	^ anException class name asString
+]
+
+{ #category : 'private' }
+OTSpan >> finishEndingFromProcess: aProcess [
+
+	stateLock critical: [
+			endingProcess == aProcess ifTrue: [
+					endingProcess := nil.
+					ended := true ] ]
 ]
 
 { #category : 'testing' }

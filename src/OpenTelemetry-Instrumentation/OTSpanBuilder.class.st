@@ -311,6 +311,12 @@ OTSpanBuilder >> startSpan [
 { #category : 'configuring' }
 OTSpanBuilder >> startTimestamp: aDateAndTime [
 
+	aDateAndTime ifNil: [
+			startTime := nil.
+			^ self ].
+	(aDateAndTime isKindOf: DateAndTime) ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aDateAndTime forOperation: 'OTSpanBuilder>>startTimestamp:'.
+			^ self ].
 	startTime := aDateAndTime.
 	self
 ]
