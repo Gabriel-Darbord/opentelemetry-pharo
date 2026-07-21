@@ -54,11 +54,13 @@ OTJaegerRemoteSamplerTest >> perOperationResponseBytesDefaultSamplingProbability
 ]
 
 { #category : 'private' }
-OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithoutExplicitStrategyTypeWithRate: aNumber [
+OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithRate: aNumber [
 
 	| writer |
 	writer := OTProtobufWriter withBytes.
 	writer
+		writeTag: 1 wireType: 0;
+		writeVarint: 0;
 		writeTag: 2 wireType: 2;
 		writeEmbedded: [ :probabilistic |
 			probabilistic
@@ -68,13 +70,11 @@ OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithoutExplicitStrategyTy
 ]
 
 { #category : 'private' }
-OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithRate: aNumber [
+OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithoutExplicitStrategyTypeWithRate: aNumber [
 
 	| writer |
 	writer := OTProtobufWriter withBytes.
 	writer
-		writeTag: 1 wireType: 0;
-		writeVarint: 0;
 		writeTag: 2 wireType: 2;
 		writeEmbedded: [ :probabilistic |
 			probabilistic
@@ -131,6 +131,59 @@ OTJaegerRemoteSamplerTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testConcurrentShutdownReturnsTrueOnce [
+
+	| done gate lock results workerCount |
+	sampler
+		pollingIntervalMillis: 1000;
+		requestExecutor: [ :request | self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+	sampler start.
+	self waitUntil: [ sampler isStarted ] timeoutMillis: 1000 description: 'Jaeger remote sampler start'.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: sampler shutdown ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: (results count: [ :each | each = true ]) equals: 1.
+	self assert: (results count: [ :each | each = false ]) equals: workerCount - 1.
+	self assert: sampler isShutdown.
+	self deny: sampler isStarted
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testConcurrentStartReturnsSinglePollingProcess [
+
+	| done gate lock processes workerCount |
+	sampler
+		pollingIntervalMillis: 1000;
+		requestExecutor: [ :request | self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+	processes := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				| process |
+				gate wait.
+				process := sampler start.
+				lock critical: [ processes add: process ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: processes size equals: workerCount.
+	self assert: processes asSet size equals: 1.
+	self assert: sampler isStarted
+]
+
+{ #category : 'tests' }
 OTJaegerRemoteSamplerTest >> testNonOkGrpcStatusKeepsCurrentSamplerAndWarns [
 
 	| result warnings |
@@ -165,6 +218,23 @@ OTJaegerRemoteSamplerTest >> testProviderManagedSamplerRefreshesInBackground [
 		timeoutMillis: 1000
 		description: 'Jaeger remote sampler background refresh' ]
 		ensure: [ provider shutdown ]
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testRateLimitingSamplerUsesInjectedClock [
+
+	| directRateSampler first second third |
+	directRateSampler := OTRateLimitingSampler new.
+	directRateSampler
+		clockBlock: [ currentTime ];
+		maxTracesPerSecond: 1.
+	first := directRateSampler shouldSample.
+	second := directRateSampler shouldSample.
+	currentTime := currentTime + 1000.
+	third := directRateSampler shouldSample.
+	self assert: first.
+	self deny: second.
+	self assert: third
 ]
 
 { #category : 'tests' }
@@ -240,6 +310,23 @@ OTJaegerRemoteSamplerTest >> testRefreshUpdatesToRateLimitingSampler [
 ]
 
 { #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testSamplingRequestEncodesServiceNameAndTimeout [
+
+	| capturedRequest reader |
+	sampler requestExecutor: [ :request |
+		capturedRequest := request.
+		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+	self samplingResultForOperationNamed: 'checkout'.
+	self assert: capturedRequest serviceName equals: 'jaeger.api_v2.SamplingManager'.
+	self assert: capturedRequest methodName equals: 'GetSamplingStrategy'.
+	self assert: capturedRequest timeoutNanos equals: 4321000000.
+	reader := OTProtobufReader on: capturedRequest payload.
+	self assertReader: reader readsField: 1 wireType: 2.
+	self assert: reader readString equals: 'shopping-cart'.
+	self assert: reader atEnd
+]
+
+{ #category : 'tests' }
 OTJaegerRemoteSamplerTest >> testShutdownStopsBackgroundPolling [
 
 	| executionCount shutdownExecutionCount |
@@ -258,40 +345,6 @@ OTJaegerRemoteSamplerTest >> testShutdownStopsBackgroundPolling [
 	shutdownExecutionCount := executionCount.
 	(Delay forMilliseconds: 80) wait.
 	self assert: executionCount equals: shutdownExecutionCount
-]
-
-{ #category : 'tests' }
-OTJaegerRemoteSamplerTest >> testRateLimitingSamplerUsesInjectedClock [
-
-	| directRateSampler first second third |
-	directRateSampler := OTRateLimitingSampler new.
-	directRateSampler
-		clockBlock: [ currentTime ];
-		maxTracesPerSecond: 1.
-	first := directRateSampler shouldSample.
-	second := directRateSampler shouldSample.
-	currentTime := currentTime + 1000.
-	third := directRateSampler shouldSample.
-	self assert: first.
-	self deny: second.
-	self assert: third
-]
-
-{ #category : 'tests' }
-OTJaegerRemoteSamplerTest >> testSamplingRequestEncodesServiceNameAndTimeout [
-
-	| capturedRequest reader |
-	sampler requestExecutor: [ :request |
-		capturedRequest := request.
-		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
-	self samplingResultForOperationNamed: 'checkout'.
-	self assert: capturedRequest serviceName equals: 'jaeger.api_v2.SamplingManager'.
-	self assert: capturedRequest methodName equals: 'GetSamplingStrategy'.
-	self assert: capturedRequest timeoutNanos equals: 4321000000.
-	reader := OTProtobufReader on: capturedRequest payload.
-	self assertReader: reader readsField: 1 wireType: 2.
-	self assert: reader readString equals: 'shopping-cart'.
-	self assert: reader atEnd
 ]
 
 { #category : 'private' }

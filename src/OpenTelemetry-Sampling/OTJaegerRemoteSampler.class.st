@@ -24,7 +24,8 @@ Class {
 		'warningSink',
 		'pollingProcess',
 		'pollingSemaphore',
-		'shutdownRequested'
+		'shutdownRequested',
+		'stateLock'
 	],
 	#category : 'OpenTelemetry-Sampling',
 	#package : 'OpenTelemetry-Sampling'
@@ -102,36 +103,29 @@ OTJaegerRemoteSampler class >> serviceName: aString [
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> clockBlock: aBlockClosure [
 
-	clockBlock := aBlockClosure
-]
-
-{ #category : 'private' }
-OTJaegerRemoteSampler >> currentTimeMillis [
-
-	^ clockBlock value
-]
-
-{ #category : 'private - refreshing' }
-OTJaegerRemoteSampler >> ensurePollingProcess [
-
-	self isShutdown ifTrue: [ ^ nil ].
-	(self isStarted and: [ pollingProcess notNil ]) ifTrue: [ ^ pollingProcess ].
-	pollingProcess := [ self runPollingLoop ] forkAt: Processor userBackgroundPriority.
-	^ pollingProcess
+	stateLock critical: [ clockBlock := aBlockClosure ]
 ]
 
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> currentSampler [
 
-	^ currentSampler
+	^ stateLock critical: [ currentSampler ]
 ]
 
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> currentSampler: anOTSampler [
 
-	anOTSampler ifNil: [
-		Error signal: 'Jaeger remote sampler requires a delegate sampler' ].
-	currentSampler := anOTSampler
+	anOTSampler ifNil: [ Error signal: 'Jaeger remote sampler requires a delegate sampler' ].
+	stateLock critical: [ currentSampler := anOTSampler ].
+	^ anOTSampler
+]
+
+{ #category : 'private' }
+OTJaegerRemoteSampler >> currentTimeMillis [
+
+	| block |
+	block := stateLock critical: [ clockBlock ].
+	^ block value
 ]
 
 { #category : 'accessing' }
@@ -143,32 +137,50 @@ OTJaegerRemoteSampler >> description [
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> endpoint [
 
-	^ endpoint
+	^ stateLock critical: [ endpoint ]
 ]
 
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> endpoint: aString [
 
-	endpoint := self class normalizedEndpoint: aString.
-	grpcChannel := nil.
-	^ endpoint
+	| normalizedEndpoint |
+	normalizedEndpoint := self class normalizedEndpoint: aString.
+	stateLock critical: [
+			endpoint := normalizedEndpoint.
+			grpcChannel := nil ].
+	^ normalizedEndpoint
+]
+
+{ #category : 'private - refreshing' }
+OTJaegerRemoteSampler >> ensurePollingProcess [
+
+	| process |
+	process := stateLock critical: [
+			           shutdownRequested
+				           ifTrue: [ nil ]
+				           ifFalse: [
+						           (pollingProcess notNil and: [ pollingProcess isTerminated not ])
+							           ifTrue: [ pollingProcess ]
+							           ifFalse: [ pollingProcess := [ self runPollingLoop ] forkAt: Processor userBackgroundPriority ] ] ].
+	^ process
 ]
 
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> executeRequest: aRequest [
 
-	^ requestExecutor
-		ifNil: [ self grpcChannel executeUnaryRequest: aRequest ]
-		ifNotNil: [ requestExecutor value: aRequest ]
+	| executor |
+	executor := stateLock critical: [ requestExecutor ].
+	^ executor ifNil: [ self grpcChannel executeUnaryRequest: aRequest ] ifNotNil: [ executor value: aRequest ]
 ]
 
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> grpcChannel [
 
-	^ grpcChannel ifNil: [
-		grpcChannel := self grpcChannelClass
-			endpoint: (self grpcEndpointClass fromString: self endpoint)
-			transport: self grpcTransport ]
+	^ stateLock critical: [
+			  grpcTransport ifNil: [ grpcTransport := self grpcTransportClass new ].
+			  grpcChannel ifNil: [
+				  grpcChannel := self grpcChannelClass endpoint: (self grpcEndpointClass fromString: endpoint) transport: grpcTransport ].
+			  grpcChannel ]
 ]
 
 { #category : 'private - grpc' }
@@ -216,14 +228,16 @@ OTJaegerRemoteSampler >> grpcServiceName [
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> grpcTransport [
 
-	^ grpcTransport ifNil: [ grpcTransport := self grpcTransportClass new ]
+	^ stateLock critical: [ grpcTransport ifNil: [ grpcTransport := self grpcTransportClass new ] ]
 ]
 
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> grpcTransport: aTransport [
 
-	grpcTransport := aTransport.
-	grpcChannel := nil
+	stateLock critical: [
+			grpcTransport := aTransport.
+			grpcChannel := nil ].
+	^ aTransport
 ]
 
 { #category : 'private - grpc' }
@@ -249,6 +263,7 @@ OTJaegerRemoteSampler >> initialize [
 	currentSampler := self class defaultInitialSampler.
 	clockBlock := [ Time millisecondClockValue ].
 	refreshLock := Semaphore forMutualExclusion.
+	stateLock := Semaphore forMutualExclusion.
 	lastPollTimeMillis := nil.
 	warningSink := OTDiagnosticLogger defaultWarningSink.
 	pollingSemaphore := Semaphore new.
@@ -259,13 +274,13 @@ OTJaegerRemoteSampler >> initialize [
 { #category : 'testing' }
 OTJaegerRemoteSampler >> isShutdown [
 
-	^ shutdownRequested = true
+	^ stateLock critical: [ shutdownRequested = true ]
 ]
 
 { #category : 'testing' }
 OTJaegerRemoteSampler >> isStarted [
 
-	^ pollingProcess notNil and: [ pollingProcess isTerminated not ]
+	^ stateLock critical: [ pollingProcess notNil and: [ pollingProcess isTerminated not ] ]
 ]
 
 { #category : 'private - logging' }
@@ -313,29 +328,28 @@ OTJaegerRemoteSampler >> noteStatus: aStatus [
 	self warningSink value: message
 ]
 
-{ #category : 'accessing' }
-OTJaegerRemoteSampler >> pollingIntervalMillis [
-
-	^ pollingIntervalMillis
-]
-
-{ #category : 'accessing' }
-OTJaegerRemoteSampler >> pollingIntervalMillis: anInteger [
-
-	(anInteger isInteger and: [ anInteger > 0 ]) ifFalse: [
-		Error signal:
-			'Jaeger remote sampler polling interval must be a positive integer number of milliseconds' ].
-	pollingIntervalMillis := anInteger.
-	pollingSemaphore signal.
-	^ pollingIntervalMillis
-]
-
 { #category : 'private - refreshing' }
 OTJaegerRemoteSampler >> pollOnce [
 
 	refreshLock critical: [
 		lastPollTimeMillis := self currentTimeMillis.
 		self refreshSampler ]
+]
+
+{ #category : 'accessing' }
+OTJaegerRemoteSampler >> pollingIntervalMillis [
+
+	^ stateLock critical: [ pollingIntervalMillis ]
+]
+
+{ #category : 'accessing' }
+OTJaegerRemoteSampler >> pollingIntervalMillis: anInteger [
+
+	(anInteger isInteger and: [ anInteger > 0 ]) ifFalse: [
+		Error signal: 'Jaeger remote sampler polling interval must be a positive integer number of milliseconds' ].
+	stateLock critical: [ pollingIntervalMillis := anInteger ].
+	pollingSemaphore signal.
+	^ anInteger
 ]
 
 { #category : 'private - refreshing' }
@@ -385,7 +399,7 @@ OTJaegerRemoteSampler >> refreshSampler [
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> requestExecutor: aBlockClosure [
 
-	requestExecutor := aBlockClosure
+	stateLock critical: [ requestExecutor := aBlockClosure ]
 ]
 
 { #category : 'private - refreshing' }
@@ -425,16 +439,16 @@ OTJaegerRemoteSampler >> samplingRequestPayload [
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> serviceName [
 
-	^ serviceName
+	^ stateLock critical: [ serviceName ]
 ]
 
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> serviceName: aString [
 
-	serviceName := aString
-		ifNil: [ '' ]
-		ifNotNil: [ aString asString ].
-	^ serviceName
+	| normalizedServiceName |
+	normalizedServiceName := aString ifNil: [ '' ] ifNotNil: [ aString asString ].
+	stateLock critical: [ serviceName := normalizedServiceName ].
+	^ normalizedServiceName
 ]
 
 { #category : 'sampling' }
@@ -453,10 +467,16 @@ OTJaegerRemoteSampler >> shouldSampleIn: aContext traceId: aTraceId name: aStrin
 { #category : 'lifecycle' }
 OTJaegerRemoteSampler >> shutdown [
 
-	self isShutdown ifTrue: [ ^ false ].
-	shutdownRequested := true.
+	| shouldShutdown |
+	shouldShutdown := stateLock critical: [
+			                  shutdownRequested
+				                  ifTrue: [ false ]
+				                  ifFalse: [
+						                  shutdownRequested := true.
+						                  grpcChannel := nil.
+						                  true ] ].
+	shouldShutdown ifFalse: [ ^ false ].
 	self stopPollingProcess.
-	grpcChannel := nil.
 	^ true
 ]
 
@@ -469,37 +489,41 @@ OTJaegerRemoteSampler >> start [
 { #category : 'private - refreshing' }
 OTJaegerRemoteSampler >> stopPollingProcess [
 
-	pollingProcess ifNotNil: [
-		pollingSemaphore signal.
-		pollingProcess terminate.
-		pollingProcess := nil ]
+	| process |
+	process := stateLock critical: [
+			           | captured |
+			           captured := pollingProcess.
+			           pollingProcess := nil.
+			           captured ].
+	process ifNotNil: [
+			pollingSemaphore signal.
+			process terminate ]
 ]
 
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> timeoutMillis [
 
-	^ timeoutMillis
+	^ stateLock critical: [ timeoutMillis ]
 ]
 
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> timeoutMillis: anInteger [
 
 	(anInteger isInteger and: [ anInteger > 0 ]) ifFalse: [
-		Error signal:
-			'Jaeger remote sampler timeout must be a positive integer number of milliseconds' ].
-	timeoutMillis := anInteger.
-	^ timeoutMillis
+		Error signal: 'Jaeger remote sampler timeout must be a positive integer number of milliseconds' ].
+	stateLock critical: [ timeoutMillis := anInteger ].
+	^ anInteger
 ]
 
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> warningSink [
 
-	^ warningSink
+	^ stateLock critical: [ warningSink ]
 ]
 
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> warningSink: aBlockClosure [
 
-	warningSink := aBlockClosure.
-	^ self warningSink
+	stateLock critical: [ warningSink := aBlockClosure ].
+	^ aBlockClosure
 ]
