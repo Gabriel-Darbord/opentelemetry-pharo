@@ -195,3 +195,66 @@ OTOtlpGrpcSpanExporterTest >> testGrpcChannelNormalizesAuthorityEndpointFromConf
 	self assert: channel endpoint host equals: 'collector'.
 	self assert: channel endpoint port equals: 4317
 ]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testOpenConfiguredGrpcStreamToAppliesTlsFilesOnUnixLikeRuntime [
+
+	self withTemporaryTlsFilesDo: [ :caPath :certificatePath :keyPath |
+			| endpoint stream tlsExporter |
+			configuration
+				endpoint: 'https://collector:4317';
+				certificateFile: caPath;
+				clientCertificateFile: certificatePath;
+				clientKeyFile: keyPath.
+			tlsExporter := OTTestableOtlpGrpcSpanExporter configuration: configuration.
+			tlsExporter
+				operatingSystemName: 'linux';
+				grpcSecureSocketStreamClass: OTFakeSecureSocketStream.
+			endpoint := tlsExporter grpcEndpointClass fromString: configuration resolvedGrpcEndpoint.
+			stream := tlsExporter openConfiguredGrpcStreamTo: endpoint.
+			self assert: stream connected.
+			self assert: stream host equals: 'collector'.
+			self assert: stream port equals: 4317.
+			self assert: stream timeout equals: tlsExporter grpcTimeoutSeconds.
+			self assert: stream sslSession serverName equals: 'collector'.
+			self assert: stream sslSession certificateName notNil.
+			self assert: stream sslCertFileDuringConnect equals: caPath.
+			self deny: stream sslSession certificateName asFileReference exists ]
+]
+
+{ #category : 'private' }
+OTOtlpGrpcSpanExporterTest >> withTemporaryTlsFilesDo: aBlock [
+
+	| caFile certificateFile keyFile |
+	caFile := FileReference newTempFilePrefix: 'otel-ca-' suffix: '.pem'.
+	certificateFile := FileReference newTempFilePrefix: 'otel-client-cert-' suffix: '.pem'.
+	keyFile := FileReference newTempFilePrefix: 'otel-client-key-' suffix: '.pem'.
+	caFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN CERTIFICATE-----';
+				lf;
+				nextPutAll: 'CA';
+				lf;
+				nextPutAll: '-----END CERTIFICATE-----';
+				lf ].
+	certificateFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN CERTIFICATE-----';
+				lf;
+				nextPutAll: 'CLIENT';
+				lf;
+				nextPutAll: '-----END CERTIFICATE-----';
+				lf ].
+	keyFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN PRIVATE KEY-----';
+				lf;
+				nextPutAll: 'KEY';
+				lf;
+				nextPutAll: '-----END PRIVATE KEY-----';
+				lf ].
+	[ ^ aBlock value: caFile pathString value: certificateFile pathString value: keyFile pathString ] ensure: [
+			caFile ensureDelete.
+			certificateFile ensureDelete.
+			keyFile ensureDelete ]
+]
