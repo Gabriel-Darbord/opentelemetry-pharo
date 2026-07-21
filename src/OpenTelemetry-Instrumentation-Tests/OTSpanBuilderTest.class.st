@@ -243,6 +243,22 @@ OTSpanBuilderTest >> testEventsPreserveRecordingOrderEvenWithOutOfOrderTimestamp
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testInContextAfterNoParentUsesExplicitParentContext [
+
+	| explicitParent provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	explicitParent := self sampledParentSpan.
+	span := (tracer spanBuilderNamed: 'operation')
+		        noParent;
+		        inContext: (OTContext new withSpan: explicitParent);
+		        startSpan.
+	self assert: (span asExportRecord at: #parentSpanContext) equals: explicitParent spanContext.
+	self assert: span spanContext traceId equals: explicitParent spanContext traceId
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testInContextIgnoresInvalidSpanAsParentContext [
 
 	| parentSpan provider tracer |
@@ -287,6 +303,24 @@ OTSpanBuilderTest >> testInContextNilUsesEmptyContextWithoutWarning [
 				        startSpan.
 			self deny: (span asExportRecord includesKey: #parentSpanContext).
 			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testInCurrentContextAfterNoParentUsesImplicitCurrentSpan [
+
+	| currentContext parentSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := self sampledParentSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	OpenTelemetry useContext: currentContext during: [
+			span := (tracer spanBuilderNamed: 'operation')
+				        noParent;
+				        inCurrentContext;
+				        startSpan ].
+	self assert: (span asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
+	self assert: span spanContext traceId equals: parentSpan spanContext traceId
 ]
 
 { #category : 'tests' }
