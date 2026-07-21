@@ -108,6 +108,37 @@ OTTracerProviderTest >> testAllOnEndingCallbacksRunBeforeAnyOnEndCallback [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testConcurrentCurrentReturnsSingleProviderInstance [
+
+	| done errors firstProvider lock providers start providerCount |
+	OTTracerProvider current: nil.
+	OTSpanExporter current: OTRecordingSpanExporter new.
+	providers := OrderedCollection new.
+	errors := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	start := Semaphore new.
+	done := Semaphore new.
+	providerCount := 8.
+	providerCount timesRepeat: [
+			[
+				| provider |
+				start wait.
+				[
+					provider := OTTracerProvider current.
+					lock critical: [ providers add: provider ] ]
+					on: Error
+					do: [ :error | lock critical: [ errors add: error ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	providerCount timesRepeat: [ start signal ].
+	providerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 500) not ].
+	self assert: errors isEmpty.
+	self assert: providers size equals: providerCount.
+	self assert: providers asSet size equals: 1.
+	firstProvider := providers first.
+	self assert: firstProvider identicalTo: OTTracerProvider current
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testConcurrentShutdownIsIdempotent [
 
 	| firstDone firstResult processor provider secondDone secondResult |

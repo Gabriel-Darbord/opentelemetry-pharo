@@ -95,19 +95,29 @@ OTTracerProvider class >> configuredSpanLimits [
 { #category : 'accessing' }
 OTTracerProvider class >> current [
 
-	^ Current ifNil: [ Current := self readConfiguration ]
+	^ self currentLock critical: [ Current ifNil: [ Current := self readConfiguration ] ]
 ]
 
 { #category : 'accessing' }
 OTTracerProvider class >> current: aTracerProvider [
 
-	Current := aTracerProvider
+	self currentLock critical: [ Current := aTracerProvider ]
 ]
 
 { #category : 'instance creation' }
 OTTracerProvider class >> currentImagePath [
 
 	^ self systemAttributeAt: 1
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> currentLock [
+
+	^ OTClassStateStore valueAt: #otCurrentLock forClass: self ifAbsent: [
+			  | lock |
+			  lock := Semaphore forMutualExclusion.
+			  OTClassStateStore valueAt: #otCurrentLock forClass: self put: lock.
+			  lock ]
 ]
 
 { #category : 'instance creation' }
@@ -355,8 +365,13 @@ OTTracerProvider class >> integerEnvironmentValueAt: aString default: aDefaultVa
 { #category : 'private' }
 OTTracerProvider class >> invalidateCurrent [
 
-	Current ifNotNil: [ Current shutdown ].
-	Current := nil
+	| previous |
+	previous := self currentLock critical: [
+			            | captured |
+			            captured := Current.
+			            Current := nil.
+			            captured ].
+	previous ifNotNil: [ previous shutdown ]
 ]
 
 { #category : 'private' }
