@@ -421,10 +421,7 @@ OTTracerProviderTest >> testDisabledTracerReturnsExistingNonRecordingParentSpan 
 	disabledSpan := (tracer spanBuilderNamed: 'child')
 		                inContext: (OTContext new withSpan: parentSpan);
 		                startSpan.
-	self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
-	self deny: disabledSpan identicalTo: parentSpan.
-	self assert: disabledSpan spanContext equals: parentSpan spanContext.
-	self assert: disabledSpan instrumentationScope equals: tracer instrumentationScope
+	self assert: disabledSpan identicalTo: parentSpan
 ]
 
 { #category : 'tests' }
@@ -1612,10 +1609,7 @@ OTTracerProviderTest >> testTracerRetrievedAfterShutdownWithNonRecordingParentPr
 	span := (tracer spanBuilderNamed: 'child')
 		        inContext: (OTContext new withSpan: parentSpan);
 		        startSpan.
-	self assert: span class identicalTo: OTNonRecordingSpan.
-	self deny: span identicalTo: parentSpan.
-	self assert: span spanContext equals: parentSpan spanContext.
-	self assert: span instrumentationScope equals: tracer instrumentationScope
+	self assert: span identicalTo: parentSpan
 ]
 
 { #category : 'tests' }
