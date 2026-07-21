@@ -91,6 +91,24 @@ OTBaggageTest >> testClearCurrentRemovesImplicitBaggageWithoutTouchingSpan [
 ]
 
 { #category : 'tests' }
+OTBaggageTest >> testContextBoundariesIgnoreInvalidObjectsWithoutError [
+
+	| baggage context extracted updatedCurrent |
+	baggage := OTBaggage empty withEntryNamed: 'user.id' value: '42'.
+	context := nil.
+	extracted := nil.
+	updatedCurrent := nil.
+	self shouldnt: [ context := baggage inContext: 42 ] raise: Error.
+	self shouldnt: [ extracted := OTBaggage fromContext: 42 ] raise: Error.
+	self shouldnt: [ updatedCurrent := OpenTelemetry currentBaggage: 42 ] raise: Error.
+	self assert: context class identicalTo: OTContext.
+	self assert: context baggage equals: baggage.
+	self assert: extracted isEmpty.
+	self assert: updatedCurrent baggage isEmpty.
+	self assert: OTBaggage current isEmpty
+]
+
+{ #category : 'tests' }
 OTBaggageTest >> testCurrentBuilderStartsFromImplicitCurrentBaggage [
 
 	| baggage built |

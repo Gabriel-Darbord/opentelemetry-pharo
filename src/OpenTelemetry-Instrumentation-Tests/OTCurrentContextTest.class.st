@@ -48,6 +48,17 @@ OTCurrentContextTest >> testCurrentContextIsProcessLocal [
 ]
 
 { #category : 'tests' }
+OTCurrentContextTest >> testCurrentContextSetterIgnoresInvalidContextObject [
+
+	| currentContext |
+	currentContext := nil.
+	self shouldnt: [ currentContext := OpenTelemetry currentContext: 42 ] raise: Error.
+	self assert: currentContext class identicalTo: OTContext.
+	self assert: currentContext isEmpty.
+	self assert: OpenTelemetry currentContext isEmpty
+]
+
+{ #category : 'tests' }
 OTCurrentContextTest >> testDetachContextReturnsFalseWhenDetachOrderIsWrong [
 
 	| firstContext firstToken secondContext secondToken |

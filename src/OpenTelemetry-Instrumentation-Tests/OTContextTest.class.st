@@ -48,6 +48,17 @@ OTContextTest >> testSpanFromContextReturnsInvalidNonRecordingSpanWhenContextHas
 ]
 
 { #category : 'tests' }
+OTContextTest >> testWithBaggageIgnoresInvalidObject [
+
+	| context updated |
+	context := OTContext new.
+	updated := nil.
+	self shouldnt: [ updated := context withBaggage: 42 ] raise: Error.
+	self assert: updated baggage isEmpty.
+	self assert: context baggage isEmpty
+]
+
+{ #category : 'tests' }
 OTContextTest >> testWithBaggageReturnsNewContextWithoutMutatingOriginal [
 
 	| baggage context updated |
@@ -56,6 +67,22 @@ OTContextTest >> testWithBaggageReturnsNewContextWithoutMutatingOriginal [
 	updated := context withBaggage: baggage.
 	self assert: updated baggage equals: baggage.
 	self assert: context baggage isEmpty
+]
+
+{ #category : 'tests' }
+OTContextTest >> testWithSpanAcceptsSpanContextAndIgnoresInvalidObject [
+
+	| context invalidUpdated spanContext spanUpdated |
+	context := OTContext new.
+	spanContext := OTSpanContext invalid.
+	spanUpdated := nil.
+	invalidUpdated := nil.
+	self shouldnt: [ spanUpdated := context withSpan: spanContext ] raise: Error.
+	self shouldnt: [ invalidUpdated := context withSpan: 42 ] raise: Error.
+	self deny: spanUpdated span isRecording.
+	self assert: spanUpdated span spanContext identicalTo: spanContext.
+	self assert: invalidUpdated span isNil.
+	self assert: context span isNil
 ]
 
 { #category : 'tests' }

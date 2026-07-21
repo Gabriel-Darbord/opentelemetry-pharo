@@ -67,6 +67,25 @@ OTContext >> isEmpty [
 	^ self hasSpan not and: [ self hasBaggage not and: [ self hasProperties not ] ]
 ]
 
+{ #category : 'private' }
+OTContext >> normalizedBaggageFrom: anObject [
+
+	anObject ifNil: [ ^ OTBaggage empty ].
+	(anObject isKindOf: OTBaggage) ifTrue: [ ^ anObject ].
+	OTSpan noteIgnoredInvalidArgument: anObject forOperation: 'OTContext>>withBaggage:'.
+	^ OTBaggage empty
+]
+
+{ #category : 'private' }
+OTContext >> normalizedSpanFrom: anObject [
+
+	anObject ifNil: [ ^ nil ].
+	(anObject isKindOf: OTSpan) ifTrue: [ ^ anObject ].
+	(anObject isKindOf: OTSpanContext) ifTrue: [ ^ anObject asNonRecordingSpan ].
+	OTSpan noteIgnoredInvalidArgument: anObject forOperation: 'OTContext>>withSpan:'.
+	^ nil
+]
+
 { #category : 'accessing' }
 OTContext >> properties [
 
@@ -131,7 +150,7 @@ OTContext >> valueAt: aKey ifAbsent: aBlock [
 OTContext >> withBaggage: aBaggage [
 
 	^ self copy
-		  restoreBaggage: aBaggage;
+		  restoreBaggage: (self normalizedBaggageFrom: aBaggage);
 		  yourself
 ]
 
@@ -151,7 +170,7 @@ OTContext >> withPropertyAt: aKey put: aValue [
 OTContext >> withSpan: aSpan [
 
 	^ self copy
-		  restoreSpan: aSpan;
+		  restoreSpan: (self normalizedSpanFrom: aSpan);
 		  yourself
 ]
 

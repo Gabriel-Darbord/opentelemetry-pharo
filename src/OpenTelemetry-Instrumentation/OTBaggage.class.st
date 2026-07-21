@@ -122,9 +122,11 @@ OTBaggage class >> empty [
 { #category : 'accessing' }
 OTBaggage class >> fromContext: aContext [
 
-	^ aContext
-		ifNil: [ self empty ]
-		ifNotNil: [ aContext baggage ]
+	aContext ifNil: [ ^ self empty ].
+	(aContext isKindOf: OTContext) ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aContext forOperation: 'OTBaggage class>>fromContext:'.
+			^ self empty ].
+	^ aContext baggage
 ]
 
 { #category : 'private' }
@@ -232,7 +234,12 @@ OTBaggage >> hash [
 OTBaggage >> inContext: aContext [
 
 	| baseContext |
-	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [
+			               (aContext isKindOf: OTContext)
+				               ifTrue: [ aContext ]
+				               ifFalse: [
+						               OTSpan noteIgnoredInvalidArgument: aContext forOperation: 'OTBaggage>>inContext:'.
+						               OTContext new ] ].
 	^ baseContext withBaggage: self
 ]
 

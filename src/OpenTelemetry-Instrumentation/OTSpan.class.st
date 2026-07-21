@@ -117,17 +117,16 @@ OTSpan class >> currentContext [
 OTSpan class >> currentContext: aContext [
 
 	| context currentProcess |
-	context := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	context := aContext ifNil: [ OTContext new ] ifNotNil: [
+			           (aContext isKindOf: OTContext)
+				           ifTrue: [ aContext ]
+				           ifFalse: [
+						           self noteIgnoredInvalidArgument: aContext forOperation: 'OTSpan class>>currentContext:'.
+						           OTContext new ] ].
 	currentProcess := Processor activeProcess.
 	context isEmpty
-		ifTrue: [
-			self currentContextsByProcess
-				removeKey: currentProcess
-				ifAbsent: [  ] ]
-		ifFalse: [
-			self currentContextsByProcess
-				at: currentProcess
-				put: context ].
+		ifTrue: [ self currentContextsByProcess removeKey: currentProcess ifAbsent: [ ] ]
+		ifFalse: [ self currentContextsByProcess at: currentProcess put: context ].
 	^ context
 ]
 
