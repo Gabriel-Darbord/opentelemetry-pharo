@@ -1285,8 +1285,13 @@ OTTracerProvider >> processStartedSpan: aSpan parentContext: aContext [
 { #category : 'tracing' }
 OTTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope: anInstrumentationScope [
 
-	| span |
-	span := aSpan ifNil: [ OTSpan rootInInternal: aContext ] ifNotNil: [ OTSpan underInternal: aSpan ].
+	| effectiveContext span |
+	effectiveContext := aContext
+		                    ifNil: [ aSpan ifNil: [ OTContext new ] ifNotNil: [ aSpan effectiveContext ] ]
+		                    ifNotNil: [ aContext ].
+	span := OTSpan newInternal.
+	span restoreContext: effectiveContext.
+	aSpan ifNotNil: [ span restoreParent: aSpan ].
 	span restoreInstrumentationScope: anInstrumentationScope.
 	^ span
 ]

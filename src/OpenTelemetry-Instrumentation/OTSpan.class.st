@@ -383,47 +383,11 @@ OTSpan class >> resetLimitWarningState [
 		ifAbsent: [  ]
 ]
 
-{ #category : 'private' }
-OTSpan class >> rootInInternal: aContext [
-
-	| generatedSpanId span |
-	generatedSpanId := self newSpanId.
-	span := self newInternal.
-	span
-		restoreContext: aContext;
-		restoreSpanContext: (OTSpanContext
-				 traceId: self newTraceId
-				 spanId: generatedSpanId
-				 traceFlags: '01'
-				 traceState: nil
-				 remote: false).
-	^ span
-]
-
 { #category : 'enumeration' }
 OTSpan class >> server [
 	"Indicates that the span covers server-side handling of an RPC or other remote request."
 
 	^ #server
-]
-
-{ #category : 'private' }
-OTSpan class >> underInternal: parentSpan [
-
-	| generatedSpanId parentSpanContext span |
-	generatedSpanId := self newSpanId.
-	parentSpanContext := parentSpan spanContext.
-	span := self newInternal.
-	span
-		restoreParent: parentSpan;
-		restoreContext: parentSpan effectiveContext;
-		restoreSpanContext: (OTSpanContext
-				 traceId: parentSpanContext traceId
-				 spanId: generatedSpanId
-				 traceFlags: parentSpanContext traceFlags
-				 traceState: parentSpanContext traceState
-				 remote: false).
-	^ span
 ]
 
 { #category : 'enumeration' }

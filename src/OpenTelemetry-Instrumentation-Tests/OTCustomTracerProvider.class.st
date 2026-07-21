@@ -18,8 +18,13 @@ OTCustomTracerProvider >> nonRecordingSpanContext: aSpanContext context: aContex
 { #category : 'tracing' }
 OTCustomTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope: anInstrumentationScope [
 
-	| span |
-	span := aSpan ifNil: [ OTCustomRecordingSpan rootInInternal: aContext ] ifNotNil: [ OTCustomRecordingSpan underInternal: aSpan ].
+	| effectiveContext span |
+	effectiveContext := aContext
+		                    ifNil: [ aSpan ifNil: [ OTContext new ] ifNotNil: [ aSpan effectiveContext ] ]
+		                    ifNotNil: [ aContext ].
+	span := OTCustomRecordingSpan newInternal.
+	span restoreContext: effectiveContext.
+	aSpan ifNotNil: [ span restoreParent: aSpan ].
 	span restoreInstrumentationScope: anInstrumentationScope.
 	^ span
 ]

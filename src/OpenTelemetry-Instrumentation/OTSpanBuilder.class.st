@@ -256,7 +256,9 @@ OTSpanBuilder >> startSpan [
 				  instrumentationScope: tracer instrumentationScope ].
 	span := provider recordingSpanIn: effectiveParentContext parent: parentSpan instrumentationScope: tracer instrumentationScope.
 	effectiveTraceFlags := provider traceFlagsForSamplingResult: samplingResult parentSpan: parentSpan.
-	effectiveTraceState := samplingResult traceState ifNil: [ span spanContext traceState ] ifNotNil: [ samplingResult traceState ].
+	effectiveTraceState := samplingResult traceState
+		                       ifNil: [ parentSpanContext ifNotNil: [ parentSpanContext traceState ] ]
+		                       ifNotNil: [ samplingResult traceState ].
 	span
 		restoreLimits: provider spanLimits;
 		restoreSpanContext: (OTSpanContext

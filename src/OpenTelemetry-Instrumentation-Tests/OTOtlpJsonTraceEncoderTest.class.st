@@ -34,8 +34,9 @@ OTOtlpJsonTraceEncoderTest >> buildPrimarySpan [
 		               traceFlags: '03'
 		               traceState: 'link=value'
 		               remote: false.
-	span := OTSpan rootInInternal: OTContext new.
+	span := OTSpan newInternal.
 	span
+		restoreContext: OTContext new;
 		restoreSpanContext: (OTSpanContext
 				 traceId: '12345678876543211234567887654321'
 				 spanId: '8765432112345678'
