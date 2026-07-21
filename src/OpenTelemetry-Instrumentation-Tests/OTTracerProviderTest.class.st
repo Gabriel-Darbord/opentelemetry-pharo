@@ -879,6 +879,31 @@ OTTracerProviderTest >> testReadableSpanHasEndedTurnsTrueOnlyAfterOnEndingComple
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testRecordOnlySpanReachesProcessorsButNotExporter [
+
+	| exporter provider recordingProcessor span tracer |
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	recordingProcessor := OTRecordingSpanProcessor new.
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: recordingProcessor;
+		addSpanProcessor: OTSimpleSpanProcessor new;
+		sampler: (OTSamplingResultSampler result: OTSamplingResult recordOnly).
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span isRecording.
+	self deny: span spanContext isSampled.
+	self assert: recordingProcessor startedSpans asArray equals: { span }.
+	self assert: recordingProcessor endingSpans isEmpty.
+	self assert: recordingProcessor endedSpans isEmpty.
+	span end.
+	self assert: recordingProcessor endingSpans asArray equals: { span }.
+	self assert: recordingProcessor endedSpans asArray equals: { span }.
+	self assert: exporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testRecordingSpanExposesReadableSpanSurface [
 
 	| linkContext parentSpanContext provider resource snapshot span startTimestamp tracer |
