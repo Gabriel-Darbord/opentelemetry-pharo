@@ -777,6 +777,19 @@ OTSpanBuilderTest >> testSpanBuilderDefersImplicitCurrentContextUntilStart [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderKindNilDefaultsToInternal [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation')
+		        kind: nil;
+		        startSpan.
+	self assert: span kind equals: OTSpan internal
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testSpanBuilderRecordsInvalidLinkedSpanContextWhenTraceStatePresent [
 
 	| exportRecord invalidContext linksToExport provider span tracer |
@@ -797,6 +810,16 @@ OTSpanBuilderTest >> testSpanBuilderRecordsInvalidLinkedSpanContextWhenTraceStat
 	self assert: linksToExport size equals: 1.
 	self assert: linksToExport first spanContext equals: invalidContext.
 	self assert: linksToExport first attributes isEmpty
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderRejectsInvalidSpanKind [
+
+	| provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	self should: [ (tracer spanBuilderNamed: 'operation') kind: #bogus ] raise: Error
 ]
 
 { #category : 'tests' }

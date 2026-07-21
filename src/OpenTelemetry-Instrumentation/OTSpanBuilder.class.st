@@ -177,8 +177,7 @@ OTSpanBuilder >> initialize [
 { #category : 'configuring' }
 OTSpanBuilder >> kind: aSpanKind [
 
-	spanKind := aSpanKind ifNil: [ OTSpan internal ] ifNotNil: [ aSpanKind ].
-	^ self
+	spanKind := aSpanKind ifNil: [ OTSpan internal ] ifNotNil: [ OTSpan validateKind: aSpanKind ]
 ]
 
 { #category : 'configuring' }

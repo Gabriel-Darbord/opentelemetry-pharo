@@ -344,9 +344,27 @@ OTSpan class >> unset [
 ]
 
 { #category : 'enumeration' }
+OTSpan class >> validKinds [
+
+	^ {
+		  self internal.
+		  self server.
+		  self client.
+		  self producer.
+		  self consumer }
+]
+
+{ #category : 'enumeration' }
 OTSpan class >> validStatusCodes [
 
 	^ { self unset. self ok. self error }
+]
+
+{ #category : 'enumeration' }
+OTSpan class >> validateKind: aSpanKind [
+
+	(self validKinds includes: aSpanKind) ifTrue: [ ^ aSpanKind ].
+	Error signal: 'OpenTelemetry span kind must be one of ' , self validKinds printString
 ]
 
 { #category : 'private - logging' }
@@ -974,7 +992,7 @@ OTSpan >> restoreInstrumentationScope: anInstrumentationScope [
 OTSpan >> restoreKind: aSpanKind [
 
 	self ensureMutableCreationState.
-	kind := aSpanKind
+	kind := self class validateKind: aSpanKind
 ]
 
 { #category : 'private' }
