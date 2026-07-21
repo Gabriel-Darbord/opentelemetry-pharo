@@ -1566,6 +1566,31 @@ OTTracerProviderTest >> testTracerNamedWhitespaceOnlyStringNormalizesToEmptyName
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testTracerNamedInvalidScopeAttributesReturnWorkingTracerWithWarning [
+
+	self withTracerConfigurationWarningsDo: [ :warnings |
+		| provider tracer |
+		provider := OTTracerProvider new.
+		provider spanProcessor: OTSimpleSpanProcessor new.
+		tracer := nil.
+		self
+			shouldnt: [
+				tracer := provider
+					          tracerNamed: 'demo.scope'
+					          version: 42
+					          schemaUrl: 7
+					          attributes: 42 ]
+			raise: Error.
+		self assert: tracer instrumentationName equals: 'demo.scope'.
+		self assert: tracer instrumentationVersion equals: '42'.
+		self assert: tracer schemaUrl equals: '7'.
+		self assert: tracer scopeAttributes isEmpty.
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry tracer scope attributes were invalid and have been ignored: 42 (OpenTelemetry attributes must be provided as a dictionary or a collection of associations)' ]
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testTracerRetrievedAfterShutdownBehavesAsNoopTracer [
 
 	| parentSpan processor provider span tracer tracerAfterShutdown |

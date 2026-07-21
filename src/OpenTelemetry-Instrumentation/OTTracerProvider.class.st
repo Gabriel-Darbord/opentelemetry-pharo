@@ -422,6 +422,17 @@ OTTracerProvider class >> normalizedTracerNameFrom: aValue [
 	^ name
 ]
 
+{ #category : 'private' }
+OTTracerProvider class >> normalizedTracerScopeAttributesFrom: aCollection [
+
+	aCollection ifNil: [ ^ #() ].
+	^ [ OTAttributeNormalizer normalizeAttributes: aCollection ]
+		on: Error
+		do: [ :error |
+			self noteInvalidTracerScopeAttributes: aCollection error: error.
+			OrderedDictionary new ]
+]
+
 { #category : 'private - logging' }
 OTTracerProvider class >> noteDuplicateResourceDetectorName: aString [
 
@@ -457,6 +468,17 @@ OTTracerProvider class >> noteInvalidTracerName: aValue [
 	self tracerNameWarningSink value:
 		'OpenTelemetry tracer name was invalid and has been normalized to an empty string: '
 			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidTracerScopeAttributes: aValue error: anError [
+
+	self tracerConfigurationWarningSink value:
+		'OpenTelemetry tracer scope attributes were invalid and have been ignored: '
+			, aValue printString
+			, ' ('
+			, anError messageText
+			, ')'
 ]
 
 { #category : 'private - logging' }
@@ -1619,7 +1641,7 @@ OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSch
 		         named: (self class normalizedTracerNameFrom: aString)
 		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
 		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
-		         attributes: aCollection.
+		         attributes: (self class normalizedTracerScopeAttributesFrom: aCollection).
 	^ stateLock critical: [
 			  (shutdownRequested = true or: [ shutdownCompleted = true ])
 				  ifTrue: [ OTNoopTracer forProvider: self instrumentationScope: scope ]
