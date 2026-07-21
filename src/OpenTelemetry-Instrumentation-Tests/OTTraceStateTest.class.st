@@ -75,6 +75,19 @@ OTTraceStateTest >> testTraceStateClassCannotBeInstantiatedDirectlyOrMutated [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testTraceStateMutationsIgnoreNonStringInputsWithoutError [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'vendor=one,ot=rv:7fffffffffffff'.
+	self shouldnt: [ traceState withKey: 'vendor' value: 42 ] raise: Error.
+	self shouldnt: [ traceState withKey: 42 value: 'value' ] raise: Error.
+	self shouldnt: [ traceState withOtelValueAt: 42 put: 7 ] raise: Error.
+	self assert: (traceState withKey: 'vendor' value: 42) identicalTo: traceState.
+	self assert: (traceState withKey: 42 value: 'value') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 42 put: 7) identicalTo: traceState
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testUpdateMovesExistingEntryToFront [
 
 	| traceState updated |

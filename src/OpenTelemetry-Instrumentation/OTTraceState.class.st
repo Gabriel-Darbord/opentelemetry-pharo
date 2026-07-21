@@ -78,38 +78,37 @@ OTTraceState class >> isPrintableValueCharacter: aCharacter [
 { #category : 'private' }
 OTTraceState class >> isValidKey: aString [
 
-	| parts |
-	aString ifNil: [ ^ false ].
-	aString isEmpty ifTrue: [ ^ false ].
-	aString size <= 256 ifFalse: [ ^ false ].
-	(aString includes: Character space) ifTrue: [ ^ false ].
-	(aString occurrencesOf: $@) <= 1 ifFalse: [ ^ false ].
-	parts := aString substrings: '@'.
-	parts size = 1 ifTrue: [ ^ self isValidSimpleKey: aString ].
+	| normalized parts |
+	normalized := self validationStringFrom: aString.
+	normalized ifNil: [ ^ false ].
+	normalized isEmpty ifTrue: [ ^ false ].
+	normalized size <= 256 ifFalse: [ ^ false ].
+	(normalized includes: Character space) ifTrue: [ ^ false ].
+	(normalized occurrencesOf: $@) <= 1 ifFalse: [ ^ false ].
+	parts := normalized substrings: '@'.
+	parts size = 1 ifTrue: [ ^ self isValidSimpleKey: normalized ].
 	parts size = 2 ifFalse: [ ^ false ].
-	^ (self isValidTenantId: parts first)
-		and: [ self isValidSystemId: parts second ]
+	^ (self isValidTenantId: parts first) and: [ self isValidSystemId: parts second ]
 ]
 
 { #category : 'private' }
 OTTraceState class >> isValidOtelSubkey: aString [
 
-	aString ifNil: [ ^ false ].
-	aString isEmpty ifTrue: [ ^ false ].
-	(aString first between: $a and: $z) ifFalse: [ ^ false ].
-	^ aString allSatisfy: [ :each |
-		(each between: $a and: $z) or: [ each isDigit ] ]
+	| normalized |
+	normalized := self validationStringFrom: aString.
+	normalized ifNil: [ ^ false ].
+	normalized isEmpty ifTrue: [ ^ false ].
+	(normalized first between: $a and: $z) ifFalse: [ ^ false ].
+	^ normalized allSatisfy: [ :each | (each between: $a and: $z) or: [ each isDigit ] ]
 ]
 
 { #category : 'private' }
 OTTraceState class >> isValidOtelSubvalue: aString [
 
-	aString ifNil: [ ^ false ].
-	^ aString allSatisfy: [ :each |
-		each isDigit
-			or: [
-				each isLetter
-					or: [ '._-' includes: each ] ] ]
+	| normalized |
+	normalized := self validationStringFrom: aString.
+	normalized ifNil: [ ^ false ].
+	^ normalized allSatisfy: [ :each | each isDigit or: [ each isLetter or: [ '._-' includes: each ] ] ]
 ]
 
 { #category : 'private' }
@@ -141,11 +140,13 @@ OTTraceState class >> isValidTenantId: aString [
 { #category : 'private' }
 OTTraceState class >> isValidValue: aString [
 
-	aString ifNil: [ ^ false ].
-	aString isEmpty ifTrue: [ ^ false ].
-	aString size <= 256 ifFalse: [ ^ false ].
-	(aString last = Character space) ifTrue: [ ^ false ].
-	^ aString allSatisfy: [ :each | self isPrintableValueCharacter: each ]
+	| normalized |
+	normalized := self validationStringFrom: aString.
+	normalized ifNil: [ ^ false ].
+	normalized isEmpty ifTrue: [ ^ false ].
+	normalized size <= 256 ifFalse: [ ^ false ].
+	normalized last = Character space ifTrue: [ ^ false ].
+	^ normalized allSatisfy: [ :each | self isPrintableValueCharacter: each ]
 ]
 
 { #category : 'instance creation' }
@@ -216,6 +217,14 @@ OTTraceState class >> parseOtelListMember: aString into: anOrderedDictionary [
 	(anOrderedDictionary includesKey: key) ifTrue: [ ^ false ].
 	anOrderedDictionary at: key put: value.
 	^ true
+]
+
+{ #category : 'private' }
+OTTraceState class >> validationStringFrom: anObject [
+
+	anObject ifNil: [ ^ nil ].
+	(anObject isString or: [ anObject isSymbol ]) ifTrue: [ ^ anObject asString ].
+	^ nil
 ]
 
 { #category : 'comparing' }
