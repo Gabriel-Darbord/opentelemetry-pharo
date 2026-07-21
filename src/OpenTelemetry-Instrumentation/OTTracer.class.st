@@ -131,6 +131,7 @@ OTTracer >> scopeAttributes [
 { #category : 'tracing' }
 OTTracer >> spanBuilderNamed: aString [
 
+	(provider notNil and: [ provider isStopping ]) ifTrue: [ ^ OTNoopSpanBuilder forTracer: self name: aString ].
 	^ OTSpanBuilder forTracer: self name: aString
 ]
 

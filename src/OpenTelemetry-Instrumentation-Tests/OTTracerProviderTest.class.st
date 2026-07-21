@@ -466,6 +466,7 @@ OTTracerProviderTest >> testExistingTracerBehavesAsNoopAfterShutdown [
 	self assert: tracer enabled.
 	self assert: provider shutdown.
 	self deny: tracer enabled.
+	self assert: (tracer spanBuilderNamed: 'child') class identicalTo: OTNoopSpanBuilder.
 	span := (tracer spanBuilderNamed: 'child')
 		        inContext: (OTContext new withSpan: parentSpan);
 		        startSpan.
