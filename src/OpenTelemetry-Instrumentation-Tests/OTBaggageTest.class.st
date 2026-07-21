@@ -36,6 +36,23 @@ OTBaggageTest >> testBuildCurrentSetsImplicitBaggageAndPreservesSpan [
 ]
 
 { #category : 'tests' }
+OTBaggageTest >> testBuilderHelpersIgnoreInvalidBaggageObjectsWithoutError [
+
+	| built fromClassHelper fromInstanceHelper seeded |
+	seeded := OTBaggage empty withEntryNamed: 'user.id' value: '42'.
+	fromClassHelper := nil.
+	fromInstanceHelper := nil.
+	self shouldnt: [ fromClassHelper := OTBaggage builderFrom: 42 ] raise: Error.
+	self shouldnt: [ fromInstanceHelper := OTBaggageBuilder newFrom: 42 ] raise: Error.
+	self shouldnt: [ fromClassHelper putEntriesFrom: 42 ] raise: Error.
+	built := fromClassHelper
+		         putEntriesFrom: seeded;
+		         build.
+	self assert: (built valueAt: 'user.id') equals: '42'.
+	self assert: fromInstanceHelper build isEmpty
+]
+
+{ #category : 'tests' }
 OTBaggageTest >> testBuilderIgnoresNilEntryName [
 
 	| baggage builder |

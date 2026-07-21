@@ -65,18 +65,21 @@ OTBaggageBuilder >> initialize [
 OTBaggageBuilder >> initializeFrom: aBaggage [
 
 	self initialize.
-	aBaggage ifNotNil: [
-		aBaggage allEntries do: [ :each |
-			entriesByName at: each key put: each value ] ]
+	aBaggage ifNil: [ ^ self ].
+	(aBaggage isKindOf: OTBaggage) ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aBaggage forOperation: 'OTBaggageBuilder>>initializeFrom:'.
+			^ self ].
+	aBaggage allEntries do: [ :each | entriesByName at: each key put: each value ]
 ]
 
 { #category : 'updating' }
 OTBaggageBuilder >> putEntriesFrom: aBaggage [
 
 	aBaggage ifNil: [ ^ self ].
-	aBaggage allEntries do: [ :each |
-		entriesByName at: each key put: each value ].
-	^ self
+	(aBaggage isKindOf: OTBaggage) ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aBaggage forOperation: 'OTBaggageBuilder>>putEntriesFrom:'.
+			^ self ].
+	aBaggage allEntries do: [ :each | entriesByName at: each key put: each value ]
 ]
 
 { #category : 'updating' }
