@@ -384,6 +384,40 @@ OTTracerProviderTest >> testDisabledTracerPreservesParentSpanContext [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testDisabledTracerReturnsExistingNonRecordingParentSpan [
+
+	| disabledSpan parentSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (OTSpanContext
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '03'
+		               traceState: 'vendor=value'
+		               remote: true) asNonRecordingSpan.
+	provider tracerConfigurator: [ :scope | false ].
+	disabledSpan := (tracer spanBuilderNamed: 'child')
+		                inContext: (OTContext new withSpan: parentSpan);
+		                startSpan.
+	self assert: disabledSpan identicalTo: parentSpan
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testDisabledTracerWithoutParentReturnsInvalidNonRecordingSpan [
+
+	| disabledSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	provider tracerConfigurator: [ :scope | false ].
+	disabledSpan := (tracer spanBuilderNamed: 'child') startSpan.
+	self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
+	self deny: disabledSpan isRecording.
+	self deny: disabledSpan spanContext isValid
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testEndingSpanDuringShutdownDoesNotNotifySpanProcessor [
 
 	| blockingProcessor done provider recordingProcessor shutdownResult span tracer |
