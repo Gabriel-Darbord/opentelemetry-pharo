@@ -9,7 +9,8 @@ Class {
 	#superclass : 'OTSampler',
 	#instVars : [
 		'rate',
-		'count'
+		'count',
+		'stateLock'
 	],
 	#category : 'OpenTelemetry-Sampling',
 	#package : 'OpenTelemetry-Sampling'
@@ -18,30 +19,32 @@ Class {
 { #category : 'initialization' }
 OTFixedRateSampler >> initialize [
 
-	count := 0
+	super initialize.
+	count := 0.
+	stateLock := Semaphore forMutualExclusion
 ]
 
 { #category : 'accessing' }
 OTFixedRateSampler >> rate [
 
-	^ rate
+	^ stateLock critical: [ rate ]
 ]
 
 { #category : 'accessing' }
 OTFixedRateSampler >> rate: anInteger [
 	"Should be positive"
 
-	rate := anInteger.
-	^ self
+	stateLock critical: [ rate := anInteger ]
 ]
 
 { #category : 'asserting' }
 OTFixedRateSampler >> shouldSample [
 
-	count := count + 1.
-	^ count >= rate
-		  ifTrue: [
-			  count := 0.
-			  true ]
-		  ifFalse: [ false ]
+	^ stateLock critical: [
+			  count := count + 1.
+			  count >= rate
+				  ifTrue: [
+						  count := 0.
+						  true ]
+				  ifFalse: [ false ] ]
 ]

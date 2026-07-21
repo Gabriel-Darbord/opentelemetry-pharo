@@ -6,6 +6,30 @@ Class {
 }
 
 { #category : 'private' }
+OTSamplerTest >> concurrentRecordedSampleCountFor: aSampler workerCount: workerCount [
+
+	| acceptedCount acceptedLock done gate |
+	acceptedCount := 0.
+	acceptedLock := Semaphore forMutualExclusion.
+	done := Semaphore new.
+	gate := Semaphore new.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				(aSampler
+					 shouldSampleIn: OTContext new
+					 traceId: '00112233445566778899aabbccddeeff'
+					 name: 'operation'
+					 kind: OTSpan internal
+					 attributes: #(  )
+					 links: #(  )) isRecordAndSample ifTrue: [ acceptedLock critical: [ acceptedCount := acceptedCount + 1 ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	^ acceptedCount
+]
+
+{ #category : 'private' }
 OTSamplerTest >> contextWithTraceFlags: aTraceFlags traceState: aTraceState [
 
 	^ OTContext new
@@ -58,6 +82,15 @@ OTSamplerTest >> testFactoryMethodsReturnSamplerInstances [
 	self assert: (OTSampler traceIdRatioBased: 0.5) class identicalTo: OTTraceIdRatioBasedSampler.
 	self assert: OTSampler parentBased class identicalTo: OTParentBasedSampler.
 	self assert: (OTSampler parentBased: OTAlwaysOffSampler new) class identicalTo: OTParentBasedSampler
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testFixedRateSamplerAllowsExpectedConcurrentSampleCount [
+
+	| sampler workerCount |
+	sampler := OTSampler withRate: 3.
+	workerCount := 9.
+	10 timesRepeat: [ self assert: (self concurrentRecordedSampleCountFor: sampler workerCount: workerCount) equals: 3 ]
 ]
 
 { #category : 'tests' }
@@ -236,6 +269,20 @@ OTSamplerTest >> testProbabilitySamplerWarnsOnceWhenParentTraceIsNotMarkedRandom
 		assert: warnings asArray
 		equals: {
 				'WARNING: The ProbabilitySampler sampler is presuming TraceIDs are random and expects the Trace random flag to be set in confirmation.  Please upgrade your caller(s) to use W3C Trace Context Level 2.' }
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testRateLimitingSamplerAllowsOneConcurrentSampleWhenBalanceIsOne [
+
+	| sampler workerCount |
+	sampler := OTRateLimitingSampler new.
+	sampler
+		clockBlock: [ 1000 ];
+		maxTracesPerSecond: 1.
+	workerCount := 8.
+	10 timesRepeat: [
+			sampler maxTracesPerSecond: 1.
+			self assert: (self concurrentRecordedSampleCountFor: sampler workerCount: workerCount) equals: 1 ]
 ]
 
 { #category : 'tests' }
