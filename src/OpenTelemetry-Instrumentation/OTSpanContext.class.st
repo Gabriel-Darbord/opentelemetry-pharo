@@ -54,14 +54,16 @@ OTSpanContext class >> fromSton: stonReader [
 OTSpanContext class >> hexFromByteArray: aByteArray size: anInteger label: aLabelString [
 
 	(aByteArray isKindOf: ByteArray) ifFalse: [
-		Error signal: aLabelString , ' must be a ByteArray' ].
+			OTSpan noteIgnoredInvalidArgument: aByteArray forOperation: 'OTSpanContext class>>hexFromByteArray:size:label:'.
+			^ self invalidHexIdentifierOfSize: anInteger * 2 ].
 	aByteArray size = anInteger ifFalse: [
-		Error signal: aLabelString , ' must be a ' , anInteger asString , '-byte array' ].
+			OTSpan noteIgnoredInvalidArgument: aByteArray forOperation: 'OTSpanContext class>>hexFromByteArray:size:label:'.
+			^ self invalidHexIdentifierOfSize: anInteger * 2 ].
 	^ String streamContents: [ :stream |
-		aByteArray do: [ :each |
-			stream
-				nextPut: ('0123456789abcdef' at: ((each bitShift: -4) bitAnd: 16rF) + 1);
-				nextPut: ('0123456789abcdef' at: (each bitAnd: 16rF) + 1) ] ]
+			  aByteArray do: [ :each |
+					  stream
+						  nextPut: ('0123456789abcdef' at: ((each bitShift: -4) bitAnd: 16rF) + 1);
+						  nextPut: ('0123456789abcdef' at: (each bitAnd: 16rF) + 1) ] ]
 ]
 
 { #category : 'instance creation' }
@@ -73,6 +75,14 @@ OTSpanContext class >> invalid [
 		traceFlags: '00'
 		traceState: nil
 		remote: false
+]
+
+{ #category : 'private' }
+OTSpanContext class >> invalidHexIdentifierOfSize: anInteger [
+
+	anInteger = 32 ifTrue: [ ^ self invalidTraceId ].
+	anInteger = 16 ifTrue: [ ^ self invalidSpanId ].
+	^ String new: anInteger withAll: $0
 ]
 
 { #category : 'private' }
@@ -142,22 +152,22 @@ OTSpanContext class >> newTraceId [
 OTSpanContext class >> normalizedHexIdentifier: anIdentifier size: anInteger label: aLabelString [
 
 	| normalized |
-	anIdentifier ifNil: [ ^ nil ].
+	anIdentifier ifNil: [ ^ self invalidHexIdentifierOfSize: anInteger ].
 	normalized := anIdentifier asString asLowercase.
-	(self isLowercaseHexString: normalized size: anInteger) ifFalse: [
-		Error signal: aLabelString , ' must be a ' , anInteger asString , '-character lowercase hex string' ].
-	^ normalized
+	(self isLowercaseHexString: normalized size: anInteger) ifTrue: [ ^ normalized ].
+	OTSpan noteIgnoredInvalidArgument: anIdentifier forOperation: 'OTSpanContext class>>normalizedHexIdentifier:size:label:'.
+	^ self invalidHexIdentifierOfSize: anInteger
 ]
 
 { #category : 'private' }
 OTSpanContext class >> normalizedTraceFlags: someTraceFlags [
 
 	| normalized |
-	someTraceFlags ifNil: [ ^ nil ].
+	someTraceFlags ifNil: [ ^ '00' ].
 	normalized := someTraceFlags asString asLowercase.
-	(self isLowercaseHexString: normalized size: 2) ifFalse: [
-		Error signal: 'TraceFlags must be a 2-character lowercase hex string' ].
-	^ normalized
+	(self isLowercaseHexString: normalized size: 2) ifTrue: [ ^ normalized ].
+	OTSpan noteIgnoredInvalidArgument: someTraceFlags forOperation: 'OTSpanContext class>>normalizedTraceFlags:'.
+	^ '00'
 ]
 
 { #category : 'private - id generation' }

@@ -42,56 +42,80 @@ OTSpanContextTest >> testBinaryConstructorBuildsEquivalentSpanContext [
 { #category : 'tests' }
 OTSpanContextTest >> testBinaryConstructorRejectsMalformedByteArrays [
 
+	| invalidSpanIdContext invalidTraceIdContext |
+	invalidTraceIdContext := nil.
+	invalidSpanIdContext := nil.
 	self
-		should: [
-			OTSpanContext
-				traceIdBytes: #[1 2 3]
-				spanIdBytes: #[17 34 51 68 85 102 119 136]
-				traceFlags: '01'
-				traceState: nil
-				remote: false ]
+		shouldnt: [
+				invalidTraceIdContext := OTSpanContext
+					                         traceIdBytes: #[ 1 2 3 ]
+					                         spanIdBytes: #[ 17 34 51 68 85 102 119 136 ]
+					                         traceFlags: '01'
+					                         traceState: nil
+					                         remote: false ]
 		raise: Error.
 	self
-		should: [
-			OTSpanContext
-				traceIdBytes: #[0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255]
-				spanIdBytes: #[1 2 3]
-				traceFlags: '01'
-				traceState: nil
-				remote: false ]
-		raise: Error
+		shouldnt: [
+				invalidSpanIdContext := OTSpanContext
+					                        traceIdBytes: #[ 0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255 ]
+					                        spanIdBytes: #[ 1 2 3 ]
+					                        traceFlags: '01'
+					                        traceState: nil
+					                        remote: false ]
+		raise: Error.
+	self assert: invalidTraceIdContext traceIdHex equals: OTSpanContext invalidTraceId.
+	self assert: invalidTraceIdContext spanIdHex equals: '1122334455667788'.
+	self deny: invalidTraceIdContext isValid.
+	self assert: invalidSpanIdContext traceIdHex equals: '00112233445566778899aabbccddeeff'.
+	self assert: invalidSpanIdContext spanIdHex equals: OTSpanContext invalidSpanId.
+	self deny: invalidSpanIdContext isValid
 ]
 
 { #category : 'tests' }
 OTSpanContextTest >> testConstructorRejectsMalformedIdentifiers [
 
+	| invalidSpanIdContext invalidTraceFlagsContext invalidTraceIdContext |
+	invalidTraceIdContext := nil.
+	invalidSpanIdContext := nil.
+	invalidTraceFlagsContext := nil.
 	self
-		should: [
-			OTSpanContext
-				traceId: 'xyz'
-				spanId: '1122334455667788'
-				traceFlags: '01'
-				traceState: nil
-				remote: false ]
+		shouldnt: [
+				invalidTraceIdContext := OTSpanContext
+					                         traceId: 'xyz'
+					                         spanId: '1122334455667788'
+					                         traceFlags: '01'
+					                         traceState: nil
+					                         remote: false ]
 		raise: Error.
 	self
-		should: [
-			OTSpanContext
-				traceId: '00112233445566778899aabbccddeeff'
-				spanId: 'nope'
-				traceFlags: '01'
-				traceState: nil
-				remote: false ]
+		shouldnt: [
+				invalidSpanIdContext := OTSpanContext
+					                        traceId: '00112233445566778899aabbccddeeff'
+					                        spanId: 'nope'
+					                        traceFlags: '01'
+					                        traceState: nil
+					                        remote: false ]
 		raise: Error.
 	self
-		should: [
-			OTSpanContext
-				traceId: '00112233445566778899aabbccddeeff'
-				spanId: '1122334455667788'
-				traceFlags: 'gg'
-				traceState: nil
-				remote: false ]
-		raise: Error
+		shouldnt: [
+				invalidTraceFlagsContext := OTSpanContext
+					                            traceId: '00112233445566778899aabbccddeeff'
+					                            spanId: '1122334455667788'
+					                            traceFlags: 'gg'
+					                            traceState: nil
+					                            remote: false ]
+		raise: Error.
+	self assert: invalidTraceIdContext traceIdHex equals: OTSpanContext invalidTraceId.
+	self assert: invalidTraceIdContext spanIdHex equals: '1122334455667788'.
+	self assert: invalidTraceIdContext traceFlags equals: '01'.
+	self deny: invalidTraceIdContext isValid.
+	self assert: invalidSpanIdContext traceIdHex equals: '00112233445566778899aabbccddeeff'.
+	self assert: invalidSpanIdContext spanIdHex equals: OTSpanContext invalidSpanId.
+	self assert: invalidSpanIdContext traceFlags equals: '01'.
+	self deny: invalidSpanIdContext isValid.
+	self assert: invalidTraceFlagsContext traceIdHex equals: '00112233445566778899aabbccddeeff'.
+	self assert: invalidTraceFlagsContext spanIdHex equals: '1122334455667788'.
+	self assert: invalidTraceFlagsContext traceFlags equals: '00'
 ]
 
 { #category : 'tests' }
