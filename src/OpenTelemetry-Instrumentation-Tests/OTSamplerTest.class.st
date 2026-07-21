@@ -8,25 +8,35 @@ Class {
 { #category : 'private' }
 OTSamplerTest >> concurrentRecordedSampleCountFor: aSampler workerCount: workerCount [
 
-	| acceptedCount acceptedLock done gate |
+	| acceptedCount acceptedLock |
 	acceptedCount := 0.
 	acceptedLock := Semaphore forMutualExclusion.
-	done := Semaphore new.
-	gate := Semaphore new.
-	workerCount timesRepeat: [
-			[
-				gate wait.
+	self
+		concurrentlyRun: [
 				(aSampler
 					 shouldSampleIn: OTContext new
 					 traceId: '00112233445566778899aabbccddeeff'
 					 name: 'operation'
 					 kind: OTSpan internal
 					 attributes: #(  )
-					 links: #(  )) isRecordAndSample ifTrue: [ acceptedLock critical: [ acceptedCount := acceptedCount + 1 ] ].
+					 links: #(  )) isRecordAndSample ifTrue: [ acceptedLock critical: [ acceptedCount := acceptedCount + 1 ] ] ]
+		workerCount: workerCount.
+	^ acceptedCount
+]
+
+{ #category : 'private' }
+OTSamplerTest >> concurrentlyRun: aBlock workerCount: workerCount [
+
+	| done gate |
+	done := Semaphore new.
+	gate := Semaphore new.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				aBlock value.
 				done signal ] forkAt: Processor userBackgroundPriority ].
 	workerCount timesRepeat: [ gate signal ].
-	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
-	^ acceptedCount
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ]
 ]
 
 { #category : 'private' }
@@ -248,6 +258,31 @@ OTSamplerTest >> testProbabilitySamplerRejectsRatiosBelowSpecificationMinimum [
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerWarnsOnceUnderConcurrentSampling [
+
+	| sampler warnings warningsLock workerCount |
+	workerCount := 12.
+	warnings := OrderedCollection new.
+	warningsLock := Semaphore forMutualExclusion.
+	10 timesRepeat: [
+			OTProbabilisticSampler resetCompatibilityWarningState.
+			OTProbabilisticSampler compatibilityWarningSink: [ :message | warningsLock critical: [ warnings add: message ] ].
+			sampler := OTSampler probability: 0.5.
+			warnings removeAll.
+			self
+				concurrentlyRun: [
+						sampler
+							shouldSampleIn: (self contextWithTraceFlags: '01' traceState: nil)
+							traceId: '00112233445566778899aabbccddeeff'
+							name: 'operation'
+							kind: OTSpan internal
+							attributes: #(  )
+							links: #(  ) ]
+				workerCount: workerCount.
+			self assert: warnings asArray equals: { sampler compatibilityWarningMessage } ]
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testProbabilitySamplerWarnsOnceWhenParentTraceIsNotMarkedRandom [
 
 	| sampler warnings |
@@ -358,6 +393,31 @@ OTSamplerTest >> testTraceIdRatioBasedSamplerRespectsProbabilityBounds [
 		links: #().
 	self assert: sampled isRecordAndSample.
 	self assert: dropped isDrop
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testTraceIdRatioBasedSamplerWarnsOnceUnderConcurrentSampling [
+
+	| sampler warnings warningsLock workerCount |
+	workerCount := 12.
+	warnings := OrderedCollection new.
+	warningsLock := Semaphore forMutualExclusion.
+	10 timesRepeat: [
+			OTTraceIdRatioBasedSampler resetCompatibilityWarningState.
+			OTTraceIdRatioBasedSampler compatibilityWarningSink: [ :message | warningsLock critical: [ warnings add: message ] ].
+			sampler := OTSampler traceIdRatioBased: 0.5.
+			warnings removeAll.
+			self
+				concurrentlyRun: [
+						sampler
+							shouldSampleIn: (self contextWithTraceFlags: '01' traceState: nil)
+							traceId: '00112233445566778899aabbccddeeff'
+							name: 'operation'
+							kind: OTSpan internal
+							attributes: #(  )
+							links: #(  ) ]
+				workerCount: workerCount.
+			self assert: warnings asArray equals: { sampler childSamplerCompatibilityWarningMessage } ]
 ]
 
 { #category : 'tests' }

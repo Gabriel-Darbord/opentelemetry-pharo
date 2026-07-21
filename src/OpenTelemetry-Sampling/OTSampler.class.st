@@ -11,30 +11,44 @@ Class {
 	#package : 'OpenTelemetry-Sampling'
 }
 
+{ #category : 'instance creation' }
+OTSampler class >> alwaysRecord: aSampler [
+	"Wrap a sampler so DROP becomes RECORD_ONLY while preserving the original sampling rate"
+
+	^ OTAlwaysRecordSampler new rootSampler: aSampler
+]
+
 { #category : 'private - logging' }
 OTSampler class >> compatibilityWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otCompatibilityWarningSink
-		forClass: self
-		ifAbsent: [ self defaultCompatibilityWarningSink ]
+	^ self compatibilityWarningStateLock critical: [
+		  OTClassStateStore valueAt: #otCompatibilityWarningSink forClass: self ifAbsent: [ self defaultCompatibilityWarningSink ] ]
 ]
 
 { #category : 'private - logging' }
 OTSampler class >> compatibilityWarningSink: aBlock [
 
-	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otCompatibilityWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otCompatibilityWarningSink
-				forClass: self
-				put: aBlock ].
-	^ self compatibilityWarningSink
+	^ self compatibilityWarningStateLock critical: [
+			  aBlock
+				  ifNil: [ OTClassStateStore removeValueAt: #otCompatibilityWarningSink forClass: self ifAbsent: [ ] ]
+				  ifNotNil: [ OTClassStateStore valueAt: #otCompatibilityWarningSink forClass: self put: aBlock ].
+			  OTClassStateStore valueAt: #otCompatibilityWarningSink forClass: self ifAbsent: [ self defaultCompatibilityWarningSink ] ]
+]
+
+{ #category : 'private - logging' }
+OTSampler class >> compatibilityWarningStateLock [
+
+	^ OTClassStateStore valueAt: #otCompatibilityWarningStateLock forClass: self ifAbsent: [
+			  | lock |
+			  lock := Semaphore forMutualExclusion.
+			  OTClassStateStore valueAt: #otCompatibilityWarningStateLock forClass: self put: lock.
+			  lock ]
+]
+
+{ #category : 'instance creation' }
+OTSampler class >> composite: aComposableSampler [
+
+	^ OTCompositeSampler new delegate: aComposableSampler
 ]
 
 { #category : 'private - logging' }
@@ -46,30 +60,38 @@ OTSampler class >> defaultCompatibilityWarningSink [
 { #category : 'private - logging' }
 OTSampler class >> emittedCompatibilityWarningsBySampler [
 
-	^ OTClassStateStore
-		valueAt: #otCompatibilityWarningsBySampler
-		forClass: self
-		ifAbsent: [
-			| warningsBySampler |
-			warningsBySampler := WeakIdentityKeyDictionary new.
-			OTClassStateStore
-				valueAt: #otCompatibilityWarningsBySampler
-				forClass: self
-				put: warningsBySampler.
-			warningsBySampler ]
+	^ self compatibilityWarningStateLock critical: [
+			  OTClassStateStore valueAt: #otCompatibilityWarningsBySampler forClass: self ifAbsent: [
+					  | warningsBySampler |
+					  warningsBySampler := WeakIdentityKeyDictionary new.
+					  OTClassStateStore valueAt: #otCompatibilityWarningsBySampler forClass: self put: warningsBySampler.
+					  warningsBySampler ] ]
 ]
 
-{ #category : 'instance creation' }
-OTSampler class >> alwaysRecord: aSampler [
-	"Wrap a sampler so DROP becomes RECORD_ONLY while preserving the original sampling rate"
+{ #category : 'private - logging' }
+OTSampler class >> noteCompatibilityWarning: aString kind: aSymbol for: aSampler [
 
-	^ OTAlwaysRecordSampler new rootSampler: aSampler
-]
-
-{ #category : 'instance creation' }
-OTSampler class >> composite: aComposableSampler [
-
-	^ OTCompositeSampler new delegate: aComposableSampler
+	| shouldEmit sink |
+	shouldEmit := false.
+	sink := nil.
+	self compatibilityWarningStateLock critical: [
+			| emittedWarnings warningsBySampler |
+			warningsBySampler := OTClassStateStore valueAt: #otCompatibilityWarningsBySampler forClass: self ifAbsent: [
+					                     | warnings |
+					                     warnings := WeakIdentityKeyDictionary new.
+					                     OTClassStateStore valueAt: #otCompatibilityWarningsBySampler forClass: self put: warnings.
+					                     warnings ].
+			emittedWarnings := warningsBySampler at: aSampler ifAbsentPut: [ Set new ].
+			(emittedWarnings includes: aSymbol) ifFalse: [
+					emittedWarnings add: aSymbol.
+					shouldEmit := true.
+					sink := OTClassStateStore
+						        valueAt: #otCompatibilityWarningSink
+						        forClass: self
+						        ifAbsent: [ self defaultCompatibilityWarningSink ] ] ].
+	shouldEmit ifFalse: [ ^ false ].
+	sink value: aString.
+	^ true
 ]
 
 { #category : 'instance creation' }
@@ -97,6 +119,14 @@ OTSampler class >> probabilityOrAlwaysOff: aNumber [
 
 	aNumber = 0 ifTrue: [ ^ OTAlwaysOffSampler new ].
 	^ self probability: aNumber
+]
+
+{ #category : 'private - logging' }
+OTSampler class >> resetCompatibilityWarningState [
+
+	self compatibilityWarningStateLock critical: [
+			OTClassStateStore removeValueAt: #otCompatibilityWarningsBySampler forClass: self ifAbsent: [ ].
+			OTClassStateStore removeValueAt: #otCompatibilityWarningSink forClass: self ifAbsent: [ ] ]
 ]
 
 { #category : 'instance creation' }
@@ -127,33 +157,6 @@ OTSampler class >> withRate: anInteger [
 	^ OTFixedRateSampler new rate: anInteger
 ]
 
-{ #category : 'private - logging' }
-OTSampler class >> noteCompatibilityWarning: aString kind: aSymbol for: aSampler [
-
-	| emittedWarnings |
-	emittedWarnings := self
-		emittedCompatibilityWarningsBySampler
-		at: aSampler
-		ifAbsentPut: [ Set new ].
-	(emittedWarnings includes: aSymbol) ifTrue: [ ^ false ].
-	emittedWarnings add: aSymbol.
-	self compatibilityWarningSink value: aString.
-	^ true
-]
-
-{ #category : 'private - logging' }
-OTSampler class >> resetCompatibilityWarningState [
-
-	OTClassStateStore
-		removeValueAt: #otCompatibilityWarningsBySampler
-		forClass: self
-		ifAbsent: [  ].
-	OTClassStateStore
-		removeValueAt: #otCompatibilityWarningSink
-		forClass: self
-		ifAbsent: [  ]
-]
-
 { #category : 'accessing' }
 OTSampler >> description [
 
@@ -164,18 +167,6 @@ OTSampler >> description [
 OTSampler >> isShutdown [
 
 	^ false
-]
-
-{ #category : 'lifecycle' }
-OTSampler >> shutdown [
-
-	^ true
-]
-
-{ #category : 'lifecycle' }
-OTSampler >> start [
-
-	self
 ]
 
 { #category : 'asserting' }
@@ -190,4 +181,16 @@ OTSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpa
 	^ self shouldSample
 		ifTrue: [ OTSamplingResult recordAndSample ]
 		ifFalse: [ OTSamplingResult drop ]
+]
+
+{ #category : 'lifecycle' }
+OTSampler >> shutdown [
+
+	^ true
+]
+
+{ #category : 'lifecycle' }
+OTSampler >> start [
+
+	self
 ]
