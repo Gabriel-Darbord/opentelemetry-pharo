@@ -1381,6 +1381,8 @@ OTTracerProviderTest >> testTracerRetrievedAfterShutdownBehavesAsNoopTracer [
 	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
 	self assert: provider shutdown.
 	tracerAfterShutdown := provider tracerNamed: 'after.shutdown'.
+	self assert: tracerAfterShutdown class identicalTo: OTNoopTracer.
+	self assert: (tracerAfterShutdown spanBuilderNamed: 'child') class identicalTo: OTNoopSpanBuilder.
 	self deny: tracerAfterShutdown enabled.
 	span := (tracerAfterShutdown spanBuilderNamed: 'child')
 		        inContext: (OTContext new withSpan: parentSpan);
@@ -1389,6 +1391,24 @@ OTTracerProviderTest >> testTracerRetrievedAfterShutdownBehavesAsNoopTracer [
 	self deny: span isRecording.
 	self assert: span spanContext traceId equals: parentSpan spanContext traceId.
 	self assert: processor startedSpans asArray equals: { parentSpan }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerRetrievedAfterShutdownCanIgnoreImplicitParentWithNoParent [
+
+	| parentSpan provider rootSpan tracer tracerAfterShutdown |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
+	self assert: provider shutdown.
+	tracerAfterShutdown := provider tracerNamed: 'after.shutdown'.
+	OpenTelemetry useSpan: parentSpan during: [
+			rootSpan := (tracerAfterShutdown spanBuilderNamed: 'root')
+				            noParent;
+				            startSpan ].
+	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
+	self deny: rootSpan spanContext isValid
 ]
 
 { #category : 'tests' }

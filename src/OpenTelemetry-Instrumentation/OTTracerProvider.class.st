@@ -1543,7 +1543,10 @@ OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSch
 		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
 		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
 		         attributes: aCollection.
-	^ stateLock critical: [ tracers at: scope ifAbsentPut: [ self tracerForInstrumentationScope: scope ] ]
+	^ stateLock critical: [
+			  (shutdownRequested = true or: [ shutdownCompleted = true ])
+				  ifTrue: [ OTNoopTracer forProvider: self instrumentationScope: scope ]
+				  ifFalse: [ tracers at: scope ifAbsentPut: [ self tracerForInstrumentationScope: scope ] ] ]
 ]
 
 { #category : 'private - error handling' }
