@@ -1191,6 +1191,58 @@ OTTracerProviderTest >> testReplacingSamplerShutsDownPreviousLifecycleManagedSam
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testReplacingSpanProcessorsShutsDownRemovedProcessors [
+
+	| firstProcessor provider retainedProcessor secondProcessor span tracer |
+	provider := OTTracerProvider new.
+	firstProcessor := OTFailingSpanProcessor new.
+	retainedProcessor := OTFailingSpanProcessor new.
+	provider spanProcessors: {
+			firstProcessor.
+			retainedProcessor }.
+	tracer := provider tracerNamed: 'demo.scope'.
+	secondProcessor := OTFailingSpanProcessor new.
+	provider spanProcessors: {
+			retainedProcessor.
+			secondProcessor }.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span end.
+	self assert: firstProcessor shutdownCount equals: 1.
+	self assert: retainedProcessor shutdownCount equals: 0.
+	self assert: secondProcessor shutdownCount equals: 0.
+	self assert: firstProcessor startedSpans isEmpty.
+	self assert: firstProcessor endingSpans isEmpty.
+	self assert: firstProcessor endedSpans isEmpty.
+	self assert: retainedProcessor startedSpans asArray equals: { span }.
+	self assert: retainedProcessor endingSpans asArray equals: { span }.
+	self assert: retainedProcessor endedSpans asArray equals: { span }.
+	self assert: secondProcessor startedSpans asArray equals: { span }.
+	self assert: secondProcessor endingSpans asArray equals: { span }.
+	self assert: secondProcessor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testReplacingSpanProcessorsSuppressesShutdownFailureAndStillUsesReplacement [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+			| failingProcessor provider replacementProcessor span tracer |
+			provider := OTTracerProvider new.
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'shutdown' }.
+			provider spanProcessor: failingProcessor.
+			tracer := provider tracerNamed: 'demo.scope'.
+			replacementProcessor := OTFailingSpanProcessor new.
+			provider spanProcessor: replacementProcessor.
+			span := (tracer spanBuilderNamed: 'operation') startSpan.
+			span end.
+			self assert: replacementProcessor startedSpans asArray equals: { span }.
+			self assert: replacementProcessor endingSpans asArray equals: { span }.
+			self assert: replacementProcessor endedSpans asArray equals: { span }.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during shutdown for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testRootSpanMarksGeneratedTraceIdsAsRandom [
 
 	| provider tracer span |

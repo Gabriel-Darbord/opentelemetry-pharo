@@ -1410,11 +1410,21 @@ OTTracerProvider >> spanProcessors [
 { #category : 'accessing' }
 OTTracerProvider >> spanProcessors: aCollection [
 
-	stateLock critical: [
-			self ensureOpenLocked.
-			self class spanProcessorsByProvider
-				at: self
-				put: (aCollection ifNil: [ OrderedCollection new ] ifNotNil: [ aCollection asOrderedCollection ]) ].
+	| nextProcessors previousProcessors removedProcessors |
+	nextProcessors := aCollection ifNil: [ OrderedCollection new ] ifNotNil: [ aCollection asOrderedCollection ].
+	previousProcessors := stateLock critical: [
+			                      | previous |
+			                      self ensureOpenLocked.
+			                      previous := (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy.
+			                      self class spanProcessorsByProvider at: self put: nextProcessors.
+			                      previous ].
+	removedProcessors := previousProcessors reject: [ :each | nextProcessors anySatisfy: [ :retained | retained == each ] ].
+	removedProcessors do: [ :each |
+			self
+				withSpanProcessor: each
+				operationNamed: 'shutdown'
+				default: false
+				do: [ each shutdown ] ].
 	^ self spanProcessors
 ]
 
