@@ -41,12 +41,26 @@ OTSpanEvent class >> named: aString attributes: aCollection [
 { #category : 'instance creation' }
 OTSpanEvent class >> named: aString attributes: aCollection timestamp: aDateAndTime [
 
-	| event |
+	| event eventName timestamp |
 	event := self newInternal.
+	eventName := (aString isString or: [ aString isSymbol ])
+		             ifTrue: [ aString asString ]
+		             ifFalse: [
+				             aString ifNotNil: [
+					             OTSpan noteIgnoredInvalidArgument: aString forOperation: 'OTSpanEvent class>>named:attributes:timestamp:' ].
+				             '' ].
+	timestamp := OTSpan
+		             normalizedTimestamp: aDateAndTime
+		             forOperation: 'OTSpanEvent class>>named:attributes:timestamp:'
+		             default: [ DateAndTime now ].
 	event
-		restoreName: (aString ifNil: [ '' ] ifNotNil: [ aString ]);
-		restoreTimestamp: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]);
-		restoreAttributes: aCollection.
+		restoreName: eventName;
+		restoreTimestamp: timestamp.
+	[ event restoreAttributes: aCollection ]
+		on: Error
+		do: [
+				OTSpan noteIgnoredInvalidArgument: aCollection forOperation: 'OTSpanEvent class>>named:attributes:timestamp:'.
+				event restoreAttributes: #(  ) ].
 	^ event
 ]
 

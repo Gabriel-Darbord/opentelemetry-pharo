@@ -30,6 +30,16 @@ OTSpanLinkTest >> testAttributesAnswerDeepCopy [
 ]
 
 { #category : 'tests' }
+OTSpanLinkTest >> testConstructorIgnoresInvalidArgumentsWithoutError [
+
+	| link |
+	link := nil.
+	self shouldnt: [ link := OTSpanLink spanContext: 'not a span context' attributes: #( invalid ) ] raise: Error.
+	self deny: link spanContext isValid.
+	self assert: link attributes isEmpty
+]
+
+{ #category : 'tests' }
 OTSpanLinkTest >> testMutatorsAreNotExposed [
 
 	| link spanContext |

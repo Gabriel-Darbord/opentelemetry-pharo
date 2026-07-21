@@ -703,7 +703,7 @@ OTSpanBuilderTest >> testRecordingSpanExposesLinkConvenienceSetters [
 { #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanIgnoresInvalidArgumentsWithoutError [
 
-	| exportRecord provider span tracer |
+	| event exportRecord provider span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
@@ -727,7 +727,9 @@ OTSpanBuilderTest >> testRecordingSpanIgnoresInvalidArgumentsWithoutError [
 	self assert: (exportRecord at: #name) equals: 'operation'.
 	self assert: (exportRecord at: #status) equals: OTSpan unset.
 	self deny: (exportRecord includesKey: #attributes).
-	self deny: (exportRecord includesKey: #events).
+	event := (exportRecord at: #events) first.
+	self assert: event name equals: 'event'.
+	self assert: event attributes isEmpty.
 	self deny: (exportRecord includesKey: #links)
 ]
 

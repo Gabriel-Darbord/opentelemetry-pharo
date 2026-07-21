@@ -24,6 +24,17 @@ OTSpanEventTest >> testAttributesAnswerDeepCopy [
 ]
 
 { #category : 'tests' }
+OTSpanEventTest >> testConstructorIgnoresInvalidArgumentsWithoutError [
+
+	| event |
+	event := nil.
+	self shouldnt: [ event := OTSpanEvent named: 42 attributes: #( invalid ) timestamp: 'invalid timestamp' ] raise: Error.
+	self assert: event name equals: ''.
+	self assert: (event timestamp isKindOf: DateAndTime).
+	self assert: event attributes isEmpty
+]
+
+{ #category : 'tests' }
 OTSpanEventTest >> testMutatorsAreNotExposed [
 
 	| event |

@@ -57,10 +57,15 @@ OTSpanLink class >> spanContext: aSpanContext [
 { #category : 'instance creation' }
 OTSpanLink class >> spanContext: aSpanContext attributes: aDictionary [
 
-	^ self newInternal
-		  restoreSpanContext: aSpanContext;
-		  restoreAttributes: aDictionary;
-		  yourself
+	| link |
+	link := self newInternal.
+	link restoreSpanContext: aSpanContext.
+	[ link restoreAttributes: aDictionary ]
+		on: Error
+		do: [
+				OTSpan noteIgnoredInvalidArgument: aDictionary forOperation: 'OTSpanLink class>>spanContext:attributes:'.
+				link restoreAttributes: #(  ) ].
+	^ link yourself
 ]
 
 { #category : 'instance creation' }
@@ -76,10 +81,13 @@ OTSpanLink class >> spanContext: aSpanContext attributes: aDictionary droppedAtt
 { #category : 'private' }
 OTSpanLink class >> spanContextFrom: anObject [
 
-	anObject ifNil: [ Error signal: 'OpenTelemetry links require a span or span context' ].
+	anObject ifNil: [
+			OTSpan noteIgnoredInvalidArgument: anObject forOperation: 'OTSpanLink class>>spanContextFrom:'.
+			^ OTSpanContext invalid ].
 	(anObject isKindOf: OTSpanContext) ifTrue: [ ^ anObject ].
 	(anObject isKindOf: OTSpan) ifTrue: [ ^ anObject spanContext ].
-	Error signal: 'OpenTelemetry links require a span or span context'
+	OTSpan noteIgnoredInvalidArgument: anObject forOperation: 'OTSpanLink class>>spanContextFrom:'.
+	^ OTSpanContext invalid
 ]
 
 { #category : 'comparing' }
