@@ -1711,7 +1711,7 @@ OTConfigurationSource class >> optionalSamplerProbabilityFrom: aDictionary defau
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signalNamed: aString protocol: aProtocolString [
 
-	| compression configuration endpoint timeout |
+	| compression configuration endpoint insecure timeout |
 	configuration := OTOtlpExporterConfiguration new
 		signalName: aString;
 		relativePath: (OTOtlpExporterConfiguration defaultRelativePathForSignalNamed: aString);
@@ -1719,18 +1719,27 @@ OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signal
 		headers: (self headersDictionaryFrom: (self sequenceValueAt: 'headers_list' in: aDictionary));
 		userAgent: OTOtlpExporterConfiguration defaultUserAgent;
 		yourself.
+	insecure := self booleanValueAt: 'insecure' in: aDictionary.
+	configuration insecure: (insecure ifNil: [ false ] ifNotNil: [ insecure ]).
 	endpoint := self stringValueAt: 'endpoint' in: aDictionary.
 	endpoint := endpoint
 		ifNil: [
 			aProtocolString = 'grpc'
 				ifTrue: [
 					OTOtlpExporterConfiguration
-						normalizedSignalEndpoint: OTOtlpExporterConfiguration defaultBaseGrpcEndpoint ]
+						normalizedGrpcEndpoint: OTOtlpExporterConfiguration defaultBaseGrpcEndpoint
+						insecure: false ]
 				ifFalse: [
 					OTOtlpExporterConfiguration
 						normalizedBaseEndpoint: OTOtlpExporterConfiguration defaultBaseHttpEndpoint
 						appendingRelativePath: configuration relativePath ] ]
-		ifNotNil: [ OTOtlpExporterConfiguration normalizedSignalEndpoint: endpoint ].
+		ifNotNil: [
+			aProtocolString = 'grpc'
+				ifTrue: [
+					OTOtlpExporterConfiguration
+						normalizedGrpcEndpoint: endpoint
+						insecure: configuration insecure ]
+				ifFalse: [ OTOtlpExporterConfiguration normalizedSignalEndpoint: endpoint ] ].
 	configuration endpoint: endpoint.
 	compression := self stringValueAt: 'compression' in: aDictionary.
 	compression := compression

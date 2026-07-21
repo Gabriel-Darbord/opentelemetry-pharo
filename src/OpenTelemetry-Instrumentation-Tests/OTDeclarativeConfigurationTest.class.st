@@ -1503,6 +1503,34 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsSimpleTraceProcessorWithGrpcOtlpExporter [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_grpc:
+            endpoint: collector:4317
+            insecure: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| processor |
+			processor := OTTracerProvider current spanProcessors first.
+			self assert: processor class identicalTo: OTSimpleSpanProcessor.
+			self
+				assert: processor exporter class
+				identicalTo: OTOtlpGrpcSpanExporter.
+			self
+				assert: processor exporter configuration endpoint
+				equals: 'http://collector:4317/'.
+			self assert: processor exporter configuration insecure ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileSupportsSimpleLogProcessorWithOtlpExporter [
 
 	self
