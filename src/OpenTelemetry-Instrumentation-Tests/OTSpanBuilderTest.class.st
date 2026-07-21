@@ -904,6 +904,36 @@ OTSpanBuilderTest >> testTracerStartSpanNamedUsesImplicitCurrentContext [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testTracerWithoutProviderActsAsNoopForRootSpan [
+
+	| span tracer |
+	tracer := OTTracer forProvider: nil instrumentationName: 'demo.scope'.
+	self deny: tracer enabled.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span isRecording.
+	self deny: span spanContext isValid
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testTracerWithoutProviderPropagatesNonRecordingParentContext [
+
+	| parentContext span tracer |
+	tracer := OTTracer forProvider: nil instrumentationName: 'demo.scope'.
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '03'
+			                  traceState: 'vendor=value'
+			                  remote: true) asNonRecordingSpan.
+	span := (tracer spanBuilderNamed: 'operation')
+		        inContext: parentContext;
+		        startSpan.
+	self deny: span isRecording.
+	self assert: span identicalTo: parentContext span
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testUnsetStatusUpdateIsIgnored [
 
 	| exportRecord provider span tracer |

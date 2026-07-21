@@ -46,16 +46,14 @@ OTTracer >> enabled [
 { #category : 'tracing' }
 OTTracer >> enabledForSpanNamed: aString kind: aSpanKind in: aContext attributes: someAttributes links: someLinks [
 
-	^ provider
-		ifNil: [ true ]
-		ifNotNil: [
-			provider
-				tracerEnabled: self
-				forSpanNamed: aString
-				kind: aSpanKind
-				inContext: aContext
-				attributes: someAttributes
-				links: someLinks ]
+	^ provider ifNil: [ false ] ifNotNil: [
+			  provider
+				  tracerEnabled: self
+				  forSpanNamed: aString
+				  kind: aSpanKind
+				  inContext: aContext
+				  attributes: someAttributes
+				  links: someLinks ]
 ]
 
 { #category : 'accessing' }
@@ -131,7 +129,7 @@ OTTracer >> scopeAttributes [
 { #category : 'tracing' }
 OTTracer >> spanBuilderNamed: aString [
 
-	(provider notNil and: [ provider isStopping ]) ifTrue: [ ^ OTNoopSpanBuilder forTracer: self name: aString ].
+	(provider isNil or: [ provider isStopping ]) ifTrue: [ ^ OTNoopSpanBuilder forTracer: self name: aString ].
 	^ OTSpanBuilder forTracer: self name: aString
 ]
 
