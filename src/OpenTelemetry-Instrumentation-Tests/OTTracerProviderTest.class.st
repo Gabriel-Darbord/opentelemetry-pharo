@@ -406,7 +406,11 @@ OTTracerProviderTest >> testDisabledTracerReturnsExistingNonRecordingParentSpan 
 	| disabledSpan parentSpan provider tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
+	tracer := provider
+		          tracerNamed: 'demo.scope'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: self sampleAttributes.
 	parentSpan := (OTSpanContext
 		               traceId: '00112233445566778899aabbccddeeff'
 		               spanId: '1122334455667788'
@@ -417,7 +421,10 @@ OTTracerProviderTest >> testDisabledTracerReturnsExistingNonRecordingParentSpan 
 	disabledSpan := (tracer spanBuilderNamed: 'child')
 		                inContext: (OTContext new withSpan: parentSpan);
 		                startSpan.
-	self assert: disabledSpan identicalTo: parentSpan
+	self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
+	self deny: disabledSpan identicalTo: parentSpan.
+	self assert: disabledSpan spanContext equals: parentSpan spanContext.
+	self assert: disabledSpan instrumentationScope equals: tracer instrumentationScope
 ]
 
 { #category : 'tests' }
@@ -1581,6 +1588,33 @@ OTTracerProviderTest >> testTracerRetrievedAfterShutdownNoopSpanPreservesInstrum
 		          attributes: self sampleAttributes.
 	span := (tracer spanBuilderNamed: 'child') startSpan.
 	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span instrumentationScope equals: tracer instrumentationScope
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerRetrievedAfterShutdownWithNonRecordingParentPreservesScopeAndReturnsFreshSpan [
+
+	| parentSpan provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	self assert: provider shutdown.
+	tracer := provider
+		          tracerNamed: 'after.shutdown'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: self sampleAttributes.
+	parentSpan := (OTSpanContext
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '03'
+		               traceState: 'vendor=value'
+		               remote: true) asNonRecordingSpan.
+	span := (tracer spanBuilderNamed: 'child')
+		        inContext: (OTContext new withSpan: parentSpan);
+		        startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span identicalTo: parentSpan.
+	self assert: span spanContext equals: parentSpan spanContext.
 	self assert: span instrumentationScope equals: tracer instrumentationScope
 ]
 

@@ -20,9 +20,7 @@ OTNoopSpanBuilder >> startSpan [
 	provider ifNotNil: [ ^ provider nonRecordingSpanIn: effectiveParentContext instrumentationScope: tracer instrumentationScope ].
 	parentSpan := effectiveParentContext span.
 	parentSpan
-		ifNotNil: [
-				parentSpan isRecording ifFalse: [ ^ parentSpan ].
-				span := OTSpan wrapping: parentSpan spanContext ]
+		ifNotNil: [ span := OTSpan wrapping: parentSpan spanContext ]
 		ifNil: [ span := OTSpan wrapping: OTSpanContext invalid ].
 	span
 		restoreContext: (effectiveParentContext withSpan: span);

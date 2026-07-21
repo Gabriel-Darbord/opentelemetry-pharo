@@ -1193,9 +1193,7 @@ OTTracerProvider >> nonRecordingSpanIn: aContext instrumentationScope: anInstrum
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
 	parentSpan := baseContext span.
 	parentSpan
-		ifNotNil: [
-				parentSpan isRecording ifFalse: [ ^ parentSpan ].
-				span := OTSpan wrapping: parentSpan spanContext ]
+		ifNotNil: [ span := OTSpan wrapping: parentSpan spanContext ]
 		ifNil: [ span := OTSpan wrapping: OTSpanContext invalid ].
 	span
 		restoreContext: (baseContext withSpan: span);
