@@ -1515,6 +1515,9 @@ tracer_provider:
           otlp_grpc:
             endpoint: collector:4317
             insecure: true
+            certificate: /etc/otel/ca.pem
+            client_key: /etc/otel/client.key
+            client_certificate: /etc/otel/client.pem
 '
 		environmentValues: Dictionary new
 		during: [
@@ -1527,7 +1530,10 @@ tracer_provider:
 			self
 				assert: processor exporter configuration endpoint
 				equals: 'http://collector:4317/'.
-			self assert: processor exporter configuration insecure ]
+			self assert: processor exporter configuration insecure.
+			self assert: processor exporter configuration certificateFile equals: '/etc/otel/ca.pem'.
+			self assert: processor exporter configuration clientKeyFile equals: '/etc/otel/client.key'.
+			self assert: processor exporter configuration clientCertificateFile equals: '/etc/otel/client.pem' ]
 ]
 
 { #category : 'tests' }

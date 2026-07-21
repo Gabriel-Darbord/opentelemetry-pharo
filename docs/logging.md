@@ -136,6 +136,12 @@ When OTLP logging uses the gRPC protocol, the shared exporter configuration
 also accepts bare `host[:port]` authorities and the `OTEL_EXPORTER_OTLP_INSECURE`
 or `OTEL_EXPORTER_OTLP_LOGS_INSECURE` switches.
 
+The same shared OTLP TLS file options are also available for log export:
+`OTEL_EXPORTER_OTLP_CERTIFICATE`, `OTEL_EXPORTER_OTLP_LOGS_CERTIFICATE`,
+`OTEL_EXPORTER_OTLP_CLIENT_KEY`, `OTEL_EXPORTER_OTLP_LOGS_CLIENT_KEY`,
+`OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE`, and
+`OTEL_EXPORTER_OTLP_LOGS_CLIENT_CERTIFICATE`.
+
 ## TinyLogger Bridge
 
 If TinyLogger is loaded in the image, you can attach an OpenTelemetry logger as

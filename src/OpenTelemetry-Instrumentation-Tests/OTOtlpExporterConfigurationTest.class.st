@@ -231,6 +231,26 @@ OTOtlpExporterConfigurationTest >> testSignalSpecificSecuritySettingsOverrideSha
 				self deny: configuration insecure ]
 ]
 
+{ #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testSignalSpecificTlsFileSettingsOverrideSharedOnes [
+
+	| configuration |
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_EXPORTER_OTLP_CERTIFICATE' put: '/shared-ca.pem';
+				 at: 'OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE' put: '/trace-ca.pem';
+				 at: 'OTEL_EXPORTER_OTLP_CLIENT_KEY' put: '/shared-key.pem';
+				 at: 'OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY' put: '/trace-key.pem';
+				 at: 'OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE' put: '/shared-cert.pem';
+				 at: 'OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE' put: '/trace-cert.pem';
+				 yourself)
+		during: [
+				configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+				self assert: configuration certificateFile equals: '/trace-ca.pem'.
+				self assert: configuration clientKeyFile equals: '/trace-key.pem'.
+				self assert: configuration clientCertificateFile equals: '/trace-cert.pem' ]
+]
+
 { #category : 'private' }
 OTOtlpExporterConfigurationTest >> withEnvironmentValues: aDictionary during: aBlock [
 

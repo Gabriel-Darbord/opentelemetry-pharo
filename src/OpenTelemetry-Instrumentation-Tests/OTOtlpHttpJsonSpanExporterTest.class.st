@@ -118,6 +118,26 @@ OTOtlpHttpJsonSpanExporterTest >> testExportAppliesHttpJsonConfigurationAndSends
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testExportAppliesTlsFilesDuringHttpsExportOnUnixLikeRuntime [
+
+	self withTemporaryTlsFilesDo: [ :caPath :certificatePath :keyPath |
+			| tlsExporter |
+			configuration
+				endpoint: 'https://collector:4318/v1/traces';
+				certificateFile: caPath;
+				clientCertificateFile: certificatePath;
+				clientKeyFile: keyPath.
+			tlsExporter := OTTestableOtlpHttpJsonSpanExporter configuration: configuration.
+			tlsExporter
+				operatingSystemName: 'linux';
+				httpClient: client.
+			self assert: (tlsExporter export: { self sampleSpan }).
+			self assert: client sslCertFileDuringExecute equals: caPath.
+			self assert: client certificateDuringExecute notNil.
+			self deny: client certificateDuringExecute asFileReference exists ]
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testExportCompressesPayloadWhenConfigured [
 
 	configuration compression: 'gzip'.
@@ -240,6 +260,51 @@ OTOtlpHttpJsonSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 			self assert: (warnings first includesSubstring: 'partial success') ]
 ]
 
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testValidateConfiguredTlsOverridesRejectsUnsupportedPlatform [
+
+	self withTemporaryTlsFilesDo: [ :caPath :certificatePath :keyPath |
+			| tlsExporter |
+			configuration
+				endpoint: 'https://collector:4318/v1/traces';
+				certificateFile: caPath.
+			tlsExporter := OTTestableOtlpHttpJsonSpanExporter configuration: configuration.
+			tlsExporter operatingSystemName: 'Mac OS'.
+			self should: [ tlsExporter validateConfiguredTlsOverrides ] raise: Error ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testValidateConfiguredTlsOverridesRequiresSecureEndpoint [
+
+	self withTemporaryTlsFilesDo: [ :caPath :certificatePath :keyPath |
+			| tlsExporter |
+			configuration
+				endpoint: 'http://collector:4318/v1/traces';
+				certificateFile: caPath.
+			tlsExporter := OTTestableOtlpHttpJsonSpanExporter configuration: configuration.
+			tlsExporter operatingSystemName: 'linux'.
+			self should: [ tlsExporter validateConfiguredTlsOverrides ] raise: Error ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testWithConfiguredTlsClientCertificateNameDoBuildsCombinedPemOnUnixLikeRuntime [
+
+	self withTemporaryTlsFilesDo: [ :caPath :certificatePath :keyPath |
+			| combinedContents combinedPath tlsExporter |
+			configuration
+				endpoint: 'https://collector:4318/v1/traces';
+				clientCertificateFile: certificatePath;
+				clientKeyFile: keyPath.
+			tlsExporter := OTTestableOtlpHttpJsonSpanExporter configuration: configuration.
+			tlsExporter operatingSystemName: 'linux'.
+			tlsExporter withConfiguredTlsClientCertificateNameDo: [ :temporaryPath |
+					combinedPath := temporaryPath.
+					combinedContents := temporaryPath asFileReference contents ].
+			self assert: (combinedContents includesSubstring: 'CLIENT').
+			self assert: (combinedContents includesSubstring: 'KEY').
+			self deny: combinedPath asFileReference exists ]
+]
+
 { #category : 'private' }
 OTOtlpHttpJsonSpanExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
 
@@ -251,4 +316,41 @@ OTOtlpHttpJsonSpanExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
 		retryJitterBlock: [ :delayMillis | delayMillis ];
 		warningSink: [ :message | warnings add: message ].
 	^ aBlock value: retrySleeps value: warnings
+]
+
+{ #category : 'private' }
+OTOtlpHttpJsonSpanExporterTest >> withTemporaryTlsFilesDo: aBlock [
+
+	| caFile certificateFile keyFile |
+	caFile := FileReference newTempFilePrefix: 'otel-ca-' suffix: '.pem'.
+	certificateFile := FileReference newTempFilePrefix: 'otel-client-cert-' suffix: '.pem'.
+	keyFile := FileReference newTempFilePrefix: 'otel-client-key-' suffix: '.pem'.
+	caFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN CERTIFICATE-----';
+				lf;
+				nextPutAll: 'CA';
+				lf;
+				nextPutAll: '-----END CERTIFICATE-----';
+				lf ].
+	certificateFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN CERTIFICATE-----';
+				lf;
+				nextPutAll: 'CLIENT';
+				lf;
+				nextPutAll: '-----END CERTIFICATE-----';
+				lf ].
+	keyFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN PRIVATE KEY-----';
+				lf;
+				nextPutAll: 'KEY';
+				lf;
+				nextPutAll: '-----END PRIVATE KEY-----';
+				lf ].
+	[ ^ aBlock value: caFile pathString value: certificateFile pathString value: keyFile pathString ] ensure: [
+			caFile ensureDelete.
+			certificateFile ensureDelete.
+			keyFile ensureDelete ]
 ]

@@ -13,11 +13,38 @@ Class {
 		'timeoutMillis',
 		'compression',
 		'userAgent',
-		'insecure'
+		'insecure',
+		'certificateFile',
+		'clientKeyFile',
+		'clientCertificateFile'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
 }
+
+{ #category : 'private' }
+OTOtlpExporterConfiguration class >> certificateFileFromEnvironmentForSignalNamed: aSignalName [
+
+	^ self firstEnvironmentValueAt: {
+			  (self signalEnvironmentNameFor: aSignalName suffix: 'CERTIFICATE').
+			  'OTEL_EXPORTER_OTLP_CERTIFICATE' }
+]
+
+{ #category : 'private' }
+OTOtlpExporterConfiguration class >> clientCertificateFileFromEnvironmentForSignalNamed: aSignalName [
+
+	^ self firstEnvironmentValueAt: {
+			  (self signalEnvironmentNameFor: aSignalName suffix: 'CLIENT_CERTIFICATE').
+			  'OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE' }
+]
+
+{ #category : 'private' }
+OTOtlpExporterConfiguration class >> clientKeyFileFromEnvironmentForSignalNamed: aSignalName [
+
+	^ self firstEnvironmentValueAt: {
+			  (self signalEnvironmentNameFor: aSignalName suffix: 'CLIENT_KEY').
+			  'OTEL_EXPORTER_OTLP_CLIENT_KEY' }
+]
 
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> compressionFromEnvironmentForSignalNamed: aSignalName [
@@ -142,6 +169,9 @@ OTOtlpExporterConfiguration class >> forSignalNamed: aString relativePath: aRela
 		  headers: (self headersFromEnvironmentForSignalNamed: normalizedSignal);
 		  timeoutMillis: (self timeoutMillisFromEnvironmentForSignalNamed: normalizedSignal);
 		  compression: (self compressionFromEnvironmentForSignalNamed: normalizedSignal);
+		  certificateFile: (self certificateFileFromEnvironmentForSignalNamed: normalizedSignal);
+		  clientKeyFile: (self clientKeyFileFromEnvironmentForSignalNamed: normalizedSignal);
+		  clientCertificateFile: (self clientCertificateFileFromEnvironmentForSignalNamed: normalizedSignal);
 		  userAgent: self defaultUserAgent;
 		  yourself
 ]
@@ -319,7 +349,10 @@ OTOtlpExporterConfiguration >> = anObject [
 		  self timeoutMillis.
 		  self compression.
 		  self userAgent.
-		  self insecure } = {
+		  self insecure.
+		  self certificateFile.
+		  self clientKeyFile.
+		  self clientCertificateFile } = {
 		  anObject signalName.
 		  anObject relativePath.
 		  anObject endpoint.
@@ -328,7 +361,46 @@ OTOtlpExporterConfiguration >> = anObject [
 		  anObject timeoutMillis.
 		  anObject compression.
 		  anObject userAgent.
-		  anObject insecure }
+		  anObject insecure.
+		  anObject certificateFile.
+		  anObject clientKeyFile.
+		  anObject clientCertificateFile }
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> certificateFile [
+
+	^ certificateFile
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> certificateFile: aStringOrNil [
+
+	certificateFile := aStringOrNil
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> clientCertificateFile [
+
+	^ clientCertificateFile
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> clientCertificateFile: aStringOrNil [
+
+	clientCertificateFile := aStringOrNil
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> clientKeyFile [
+
+	^ clientKeyFile
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> clientKeyFile: aStringOrNil [
+
+	clientKeyFile := aStringOrNil
 ]
 
 { #category : 'accessing' }
@@ -358,6 +430,18 @@ OTOtlpExporterConfiguration >> endpoint: aString [
 	endpoint := aString
 ]
 
+{ #category : 'testing' }
+OTOtlpExporterConfiguration >> hasClientCertificateConfiguration [
+
+	^ self clientKeyFile notNil or: [ self clientCertificateFile notNil ]
+]
+
+{ #category : 'testing' }
+OTOtlpExporterConfiguration >> hasTlsFileOverrides [
+
+	^ self certificateFile notNil or: [ self hasClientCertificateConfiguration ]
+]
+
 { #category : 'comparing' }
 OTOtlpExporterConfiguration >> hash [
 
@@ -370,7 +454,10 @@ OTOtlpExporterConfiguration >> hash [
 		  self timeoutMillis.
 		  self compression.
 		  self userAgent.
-		  self insecure } hash
+		  self insecure.
+		  self certificateFile.
+		  self clientKeyFile.
+		  self clientCertificateFile } hash
 ]
 
 { #category : 'accessing' }
@@ -492,4 +579,17 @@ OTOtlpExporterConfiguration >> usesJsonEncoding [
 OTOtlpExporterConfiguration >> usesProtobufEncoding [
 
 	^ self protocol = 'http/protobuf' or: [ self protocol = 'grpc' ]
+]
+
+{ #category : 'testing' }
+OTOtlpExporterConfiguration >> usesSecureConnection [
+
+	| endpointString url |
+	endpointString := self isGrpcProtocol
+		                  ifTrue: [ self resolvedGrpcEndpoint ]
+		                  ifFalse: [ self endpoint ].
+	url := [ ZnUrl fromString: endpointString ]
+		       on: Error
+		       do: [ ^ false ].
+	^ url scheme = 'https'
 ]

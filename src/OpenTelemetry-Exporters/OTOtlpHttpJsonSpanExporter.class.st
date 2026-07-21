@@ -61,6 +61,16 @@ OTOtlpHttpJsonSpanExporter class >> supportedProtocol [
 	^ 'http/json'
 ]
 
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter class >> tlsEnvironmentLock [
+
+	^ OTClassStateStore valueAt: #otTlsEnvironmentLock forClass: self ifAbsent: [
+			  | lock |
+			  lock := Semaphore forMutualExclusion.
+			  OTClassStateStore valueAt: #otTlsEnvironmentLock forClass: self put: lock.
+			  lock ]
+]
+
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter class >> warningSink [
 
@@ -105,6 +115,12 @@ OTOtlpHttpJsonSpanExporter >> applyConfigurationToHttpClient [
 		headerAt: 'Accept-Encoding' put: 'gzip'
 ]
 
+{ #category : 'private - configuration' }
+OTOtlpHttpJsonSpanExporter >> applyTlsCertificateName: aStringOrNil toHttpClient: aClient [
+
+	aClient certificate: aStringOrNil
+]
+
 { #category : 'accessing' }
 OTOtlpHttpJsonSpanExporter >> configuration [
 
@@ -116,18 +132,6 @@ OTOtlpHttpJsonSpanExporter >> configuration [
 OTOtlpHttpJsonSpanExporter >> configuration: anOtlpConfiguration [
 
 	configuration := anOtlpConfiguration
-]
-
-{ #category : 'accessing' }
-OTOtlpHttpJsonSpanExporter >> encoder [
-
-	^ encoder ifNil: [ encoder := OTOtlpJsonTraceEncoder new ]
-]
-
-{ #category : 'accessing' }
-OTOtlpHttpJsonSpanExporter >> encoder: anEncoder [
-
-	encoder := anEncoder
 ]
 
 { #category : 'private - decoding' }
@@ -142,6 +146,18 @@ OTOtlpHttpJsonSpanExporter >> decodedResponseContentsFrom: aResponse [
 		ifAbsent: [ 'identity' ].
 	(encoding asString sameAs: 'gzip') ifFalse: [ ^ contents ].
 	^ (GZipReadStream on: contents readStream) upToEnd
+]
+
+{ #category : 'accessing' }
+OTOtlpHttpJsonSpanExporter >> encoder [
+
+	^ encoder ifNil: [ encoder := OTOtlpJsonTraceEncoder new ]
+]
+
+{ #category : 'accessing' }
+OTOtlpHttpJsonSpanExporter >> encoder: anEncoder [
+
+	encoder := anEncoder
 ]
 
 { #category : 'private - encoding' }
@@ -169,33 +185,31 @@ OTOtlpHttpJsonSpanExporter >> exportAttemptNumber: attemptNumber payloadString: 
 
 	| response responseCode |
 	[
-	self applyConfigurationToHttpClient.
-	self httpClient entity: (self entityForPayload: payloadString).
-	self configuration usesGzipCompression
-		ifTrue: [ self httpClient headerAt: 'Content-Encoding' put: 'gzip' ]
-		ifFalse: [ self removeRequestHeaderNamed: 'Content-Encoding' ].
-	response := self httpClient execute; response ]
+		self withConfiguredTlsDuring: [ :certificateName |
+				self applyConfigurationToHttpClient.
+				self applyTlsCertificateName: certificateName toHttpClient: self httpClient.
+				self httpClient entity: (self entityForPayload: payloadString).
+				self configuration usesGzipCompression
+					ifTrue: [ self httpClient headerAt: 'Content-Encoding' put: 'gzip' ]
+					ifFalse: [ self removeRequestHeaderNamed: 'Content-Encoding' ].
+				response := self httpClient
+					            execute;
+					            response ] ]
 		on: Error
 		do: [ :error |
-			attemptNumber >= self maxExportAttempts ifTrue: [
-				self noteRetryExhaustedForError: error.
-				^ false ].
-			self sleepForMilliseconds:
-				(self retryDelayMillisForAttempt: attemptNumber response: nil).
-			^ self
-				exportAttemptNumber: attemptNumber + 1
-				payloadString: payloadString ].
+				attemptNumber >= self maxExportAttempts ifTrue: [
+						self noteRetryExhaustedForError: error.
+						^ false ].
+				self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
+				^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString ].
 	responseCode := self responseCodeFrom: response.
 	responseCode = 200 ifTrue: [ ^ self handleSuccessResponse: response ].
 	(self isRetryableStatusCode: responseCode) ifFalse: [ ^ false ].
 	attemptNumber >= self maxExportAttempts ifTrue: [
-		self noteRetryExhaustedForResponse: response.
-		^ false ].
-	self sleepForMilliseconds:
-		(self retryDelayMillisForAttempt: attemptNumber response: response).
-	^ self
-		exportAttemptNumber: attemptNumber + 1
-		payloadString: payloadString
+			self noteRetryExhaustedForResponse: response.
+			^ false ].
+	self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: response).
+	^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString
 ]
 
 { #category : 'private - encoding' }
@@ -260,6 +274,16 @@ OTOtlpHttpJsonSpanExporter >> maxExportAttempts: anInteger [
 	^ self maxExportAttempts
 ]
 
+{ #category : 'private - success handling' }
+OTOtlpHttpJsonSpanExporter >> nonNegativeIntegerFrom: anObject default: aDefaultValue [
+
+	| parsed |
+	anObject ifNil: [ ^ aDefaultValue ].
+	(anObject isInteger and: [ anObject >= 0 ]) ifTrue: [ ^ anObject ].
+	parsed := OTSpanExporter strictPositiveIntegerFrom: anObject asString.
+	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+]
+
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteInvalidSuccessResponse: anError [
 
@@ -292,10 +316,19 @@ OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForResponse: aResponse [
 			, (self responseCodeFrom: aResponse) asString
 ]
 
-{ #category : 'private - encoding' }
-OTOtlpHttpJsonSpanExporter >> payloadStringFrom: spans [
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter >> operatingSystemName [
 
-	^ ZnUtils defaultJSONWriter toString: (self encoder encodeSpans: spans asArray)
+	^ Smalltalk vm operatingSystemName
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> parseRetryAfterMillisFrom: aValue [
+
+	| parsed |
+	aValue ifNil: [ ^ nil ].
+	parsed := OTSpanExporter strictPositiveIntegerFrom: aValue asString.
+	^ parsed ifNil: [ nil ] ifNotNil: [ parsed * 1000 ]
 ]
 
 { #category : 'private - success handling' }
@@ -313,6 +346,21 @@ OTOtlpHttpJsonSpanExporter >> partialSuccessFrom: aDictionary [
 	^ partialSuccess
 ]
 
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonSpanExporter >> payloadStringFrom: spans [
+
+	^ ZnUtils defaultJSONWriter toString: (self encoder encodeSpans: spans asArray)
+]
+
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter >> platformSupportsPemFileBasedTlsOverrides [
+
+	| normalizedName |
+	normalizedName := self operatingSystemName asLowercase.
+	^ (normalizedName includesSubstring: 'linux') or: [
+		  (normalizedName includesSubstring: 'unix') or: [ normalizedName includesSubstring: 'bsd' ] ]
+]
+
 { #category : 'private - success handling' }
 OTOtlpHttpJsonSpanExporter >> rejectedSpanCountFromPartialSuccess: aDictionary [
 
@@ -324,17 +372,17 @@ OTOtlpHttpJsonSpanExporter >> rejectedSpanCountFromPartialSuccess: aDictionary [
 		default: 0
 ]
 
-{ #category : 'private - retry' }
-OTOtlpHttpJsonSpanExporter >> responseCodeFrom: aResponse [
-
-	^ aResponse code
-]
-
 { #category : 'private - configuration' }
 OTOtlpHttpJsonSpanExporter >> removeRequestHeaderNamed: aString [
 
 	(self httpClient respondsTo: #headers) ifFalse: [ ^ self ].
 	self httpClient headers removeKey: aString ifAbsent: [  ]
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> responseCodeFrom: aResponse [
+
+	^ aResponse code
 ]
 
 { #category : 'private - decoding' }
@@ -360,6 +408,14 @@ OTOtlpHttpJsonSpanExporter >> responseHeaderAt: aString in: aResponse ifAbsent: 
 ]
 
 { #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> retryAfterMillisFromResponse: aResponse [
+
+	^ self
+		parseRetryAfterMillisFrom:
+			(self responseHeaderAt: 'Retry-After' in: aResponse ifAbsent: [ nil ])
+]
+
+{ #category : 'private - retry' }
 OTOtlpHttpJsonSpanExporter >> retryDelayMillisForAttempt: attemptNumber response: aResponse [
 
 	| retryAfter baseDelay cappedDelay |
@@ -370,14 +426,6 @@ OTOtlpHttpJsonSpanExporter >> retryDelayMillisForAttempt: attemptNumber response
 	baseDelay := self class defaultRetryBaseDelayMillis * (2 raisedTo: attemptNumber - 1).
 	cappedDelay := baseDelay min: self class defaultRetryMaxDelayMillis.
 	^ self retryJitterBlock value: cappedDelay
-]
-
-{ #category : 'private - retry' }
-OTOtlpHttpJsonSpanExporter >> retryAfterMillisFromResponse: aResponse [
-
-	^ self
-		parseRetryAfterMillisFrom:
-			(self responseHeaderAt: 'Retry-After' in: aResponse ifAbsent: [ nil ])
 ]
 
 { #category : 'private - retry' }
@@ -394,26 +442,6 @@ OTOtlpHttpJsonSpanExporter >> retryJitterBlock: aBlock [
 
 	retryJitterBlock := aBlock.
 	^ self retryJitterBlock
-]
-
-{ #category : 'private - retry' }
-OTOtlpHttpJsonSpanExporter >> parseRetryAfterMillisFrom: aValue [
-
-	| parsed |
-	aValue ifNil: [ ^ nil ].
-	parsed := OTSpanExporter strictPositiveIntegerFrom: aValue asString.
-	^ parsed ifNil: [ nil ] ifNotNil: [ parsed * 1000 ]
-]
-
-{ #category : 'private - success handling' }
-OTOtlpHttpJsonSpanExporter >> successfulResponseRepresentationFrom: aResponse [
-
-	| contents text |
-	contents := self decodedResponseContentsFrom: aResponse.
-	contents ifNil: [ Error signal: 'Missing OTLP success response body' ].
-	text := contents asString trimBoth.
-	text isEmpty ifTrue: [ Error signal: 'Missing OTLP success response body' ].
-	^ STONJSON fromString: text
 ]
 
 { #category : 'private - retry' }
@@ -437,13 +465,31 @@ OTOtlpHttpJsonSpanExporter >> sleepStrategy: aBlock [
 ]
 
 { #category : 'private - success handling' }
-OTOtlpHttpJsonSpanExporter >> nonNegativeIntegerFrom: anObject default: aDefaultValue [
+OTOtlpHttpJsonSpanExporter >> successfulResponseRepresentationFrom: aResponse [
 
-	| parsed |
-	anObject ifNil: [ ^ aDefaultValue ].
-	(anObject isInteger and: [ anObject >= 0 ]) ifTrue: [ ^ anObject ].
-	parsed := OTSpanExporter strictPositiveIntegerFrom: anObject asString.
-	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+	| contents text |
+	contents := self decodedResponseContentsFrom: aResponse.
+	contents ifNil: [ Error signal: 'Missing OTLP success response body' ].
+	text := contents asString trimBoth.
+	text isEmpty ifTrue: [ Error signal: 'Missing OTLP success response body' ].
+	^ STONJSON fromString: text
+]
+
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter >> textContentsAtPath: aString [
+
+	^ aString asFileReference contents
+]
+
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter >> validateConfiguredTlsOverrides [
+
+	self configuration hasTlsFileOverrides ifFalse: [ ^ self ].
+	self configuration usesSecureConnection ifFalse: [ Error signal: 'OTLP TLS file options require a secure https endpoint' ].
+	self platformSupportsPemFileBasedTlsOverrides ifFalse: [
+		Error signal: 'OTLP TLS file options are not supported on ' , self operatingSystemName ].
+	(self configuration clientKeyFile isNil xor: self configuration clientCertificateFile isNil) ifTrue: [
+		Error signal: 'OTLP client key and client certificate file options must be configured together' ]
 ]
 
 { #category : 'private - logging' }
@@ -457,4 +503,54 @@ OTOtlpHttpJsonSpanExporter >> warningSink: aBlock [
 
 	warningSink := aBlock.
 	^ self warningSink
+]
+
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter >> withConfiguredTlsClientCertificateNameDo: aBlock [
+
+	| combinedFile |
+	self configuration hasClientCertificateConfiguration ifFalse: [ ^ aBlock value: nil ].
+	combinedFile := self
+		                writeCombinedClientCertificateFileFrom: self configuration clientCertificateFile
+		                andKeyFrom: self configuration clientKeyFile.
+	[ ^ aBlock value: combinedFile pathString ] ensure: [ combinedFile ensureDelete ]
+]
+
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter >> withConfiguredTlsDuring: aBlock [
+
+	self validateConfiguredTlsOverrides.
+	^ self withConfiguredTlsEnvironmentDuring: [
+		  self withConfiguredTlsClientCertificateNameDo: [ :certificateName | aBlock value: certificateName ] ]
+]
+
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter >> withConfiguredTlsEnvironmentDuring: aBlock [
+
+	| environment originalValue absent |
+	self configuration certificateFile ifNil: [ ^ aBlock value ].
+	environment := Smalltalk os environment.
+	absent := Object new.
+	^ self class tlsEnvironmentLock critical: [
+			  originalValue := environment at: 'SSL_CERT_FILE' ifAbsent: [ absent ].
+			  environment at: 'SSL_CERT_FILE' put: self configuration certificateFile.
+			  [ ^ aBlock value ] ensure: [
+					  originalValue == absent
+						  ifTrue: [ environment removeKey: 'SSL_CERT_FILE' ifAbsent: [ ] ]
+						  ifFalse: [ environment at: 'SSL_CERT_FILE' put: originalValue ] ] ]
+]
+
+{ #category : 'private - tls' }
+OTOtlpHttpJsonSpanExporter >> writeCombinedClientCertificateFileFrom: certificatePath andKeyFrom: keyPath [
+
+	| certificateContents combinedFile keyContents |
+	certificateContents := self textContentsAtPath: certificatePath.
+	keyContents := self textContentsAtPath: keyPath.
+	combinedFile := FileReference newTempFilePrefix: 'otel-client-cert-' suffix: '.pem'.
+	combinedFile writeStreamDo: [ :stream |
+			stream nextPutAll: certificateContents.
+			(certificateContents endsWith: String lf asString) ifFalse: [ stream lf ].
+			stream nextPutAll: keyContents.
+			(keyContents endsWith: String lf asString) ifFalse: [ stream lf ] ].
+	^ combinedFile
 ]

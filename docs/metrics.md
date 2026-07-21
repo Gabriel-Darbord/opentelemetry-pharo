@@ -187,6 +187,7 @@ Current metric behavior:
 - `OTMeterProvider>>forceFlush` delegates to registered readers
 - OTLP metric exporters accept gzip compression, signal-specific headers, and per-reader temporality
 - OTLP/gRPC metric exporters also accept bare `host[:port]` authorities and the shared or metrics-specific `OTEL_EXPORTER_OTLP_*_INSECURE` switches
+- OTLP exporters also read the shared or metrics-specific TLS file options for trusted server certificates and client key/certificate pairs when the runtime can honor them
 - OTLP metric exporters can encode legacy summary data points for compatibility-oriented pipelines
 - OTLP metric exporters also encode metric-level metadata
 - the Prometheus reader serves cumulative metric snapshots over HTTP and uses cumulative temporality for every instrument kind

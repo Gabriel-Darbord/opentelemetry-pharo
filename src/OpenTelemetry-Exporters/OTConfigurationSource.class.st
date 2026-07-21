@@ -1711,7 +1711,7 @@ OTConfigurationSource class >> optionalSamplerProbabilityFrom: aDictionary defau
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signalNamed: aString protocol: aProtocolString [
 
-	| compression configuration endpoint insecure timeout |
+	| certificateFile clientCertificateFile clientKeyFile compression configuration endpoint insecure timeout |
 	configuration := OTOtlpExporterConfiguration new
 		signalName: aString;
 		relativePath: (OTOtlpExporterConfiguration defaultRelativePathForSignalNamed: aString);
@@ -1741,6 +1741,12 @@ OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signal
 						insecure: configuration insecure ]
 				ifFalse: [ OTOtlpExporterConfiguration normalizedSignalEndpoint: endpoint ] ].
 	configuration endpoint: endpoint.
+	certificateFile := self stringValueAt: 'certificate' in: aDictionary.
+	configuration certificateFile: certificateFile.
+	clientKeyFile := self stringValueAt: 'client_key' in: aDictionary.
+	configuration clientKeyFile: clientKeyFile.
+	clientCertificateFile := self stringValueAt: 'client_certificate' in: aDictionary.
+	configuration clientCertificateFile: clientCertificateFile.
 	compression := self stringValueAt: 'compression' in: aDictionary.
 	compression := compression
 		ifNil: [ OTOtlpExporterConfiguration defaultCompression ]

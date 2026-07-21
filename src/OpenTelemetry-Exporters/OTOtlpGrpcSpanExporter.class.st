@@ -149,9 +149,31 @@ OTOtlpGrpcSpanExporter >> grpcRequestForPayloadBytes: payloadBytes [
 ]
 
 { #category : 'private - grpc' }
+OTOtlpGrpcSpanExporter >> grpcSecureSocketStreamClass [
+
+	^ self grpcDependencyNamed: #ZdcSecureSocketStream
+]
+
+{ #category : 'private - grpc' }
+OTOtlpGrpcSpanExporter >> grpcSocketStreamClass [
+
+	^ self grpcDependencyNamed: #ZdcSocketStream
+]
+
+{ #category : 'private - grpc' }
+OTOtlpGrpcSpanExporter >> grpcTimeoutSeconds [
+
+	^ (self configuration timeoutMillis max: 1000) + 999 // 1000
+]
+
+{ #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter >> grpcTransport [
 
-	^ grpcTransport ifNil: [ grpcTransport := self grpcTransportClass new ]
+	^ grpcTransport ifNil: [
+			  | transport |
+			  transport := self grpcTransportClass new.
+			  transport streamFactory: [ :endpoint | self openConfiguredGrpcStreamTo: endpoint ].
+			  grpcTransport := transport ]
 ]
 
 { #category : 'private - grpc' }
@@ -202,6 +224,29 @@ OTOtlpGrpcSpanExporter >> noteRetryExhaustedForStatus: aStatus [
 	self warningSink value:
 		'OpenTelemetry OTLP trace export exhausted retries after gRPC status '
 			, aStatus codeName, ' (', aStatus code asString, ')'
+]
+
+{ #category : 'private - grpc' }
+OTOtlpGrpcSpanExporter >> openConfiguredGrpcStreamTo: aGRPCEndpoint [
+
+	| port |
+	port := aGRPCEndpoint port ifNil: [
+			        aGRPCEndpoint isSecure
+				        ifTrue: [ 443 ]
+				        ifFalse: [ 80 ] ].
+	aGRPCEndpoint isSecure ifFalse: [
+			| socketStream |
+			socketStream := self grpcSocketStreamClass openConnectionToHostNamed: aGRPCEndpoint host port: port.
+			socketStream timeout: self grpcTimeoutSeconds.
+			^ socketStream ].
+	^ self withConfiguredTlsDuring: [ :certificateName |
+			  | socketStream |
+			  socketStream := self grpcSecureSocketStreamClass openConnectionToHostNamed: aGRPCEndpoint host port: port.
+			  socketStream timeout: self grpcTimeoutSeconds.
+			  certificateName ifNotNil: [ socketStream sslSession certificateName: certificateName ].
+			  socketStream sslSession serverName: aGRPCEndpoint host.
+			  socketStream connect.
+			  socketStream ]
 ]
 
 { #category : 'private - encoding' }

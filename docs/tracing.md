@@ -288,6 +288,22 @@ and bare `host[:port]` authorities. Bare authorities default to a secure
 `https` connection unless `OTEL_EXPORTER_OTLP_INSECURE=true` or
 `OTEL_EXPORTER_OTLP_TRACES_INSECURE=true` is set.
 
+OTLP exporters also read the TLS file options from the OpenTelemetry exporter
+specification:
+
+- `OTEL_EXPORTER_OTLP_CERTIFICATE`
+- `OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE`
+- `OTEL_EXPORTER_OTLP_CLIENT_KEY`
+- `OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY`
+- `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE`
+- `OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE`
+
+These file-backed TLS options require a secure `https` endpoint. Client
+certificate authentication also requires both the client key and client
+certificate files together. The current Pharo TLS runtime supports these
+file-based overrides on Unix-like runtimes; unsupported runtimes fail the
+export attempt instead of silently ignoring the configuration.
+
 If you change exporter-related environment variables at runtime, reset the
 singleton objects before reading them again:
 
