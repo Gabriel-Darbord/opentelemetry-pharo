@@ -33,6 +33,25 @@ tracer := provider tracerNamed: 'my-app'.
 If you need version, schema URL, or scope attributes, use the richer tracer
 creation API on `OTTracerProvider`.
 
+## Checking Whether A Tracer Is Enabled
+
+`OTTracer` exposes `enabled` as a fast boolean check that instrumentation code
+can use before doing expensive work to prepare span creation arguments.
+
+```smalltalk
+tracer enabled ifTrue: [
+  attributes := self expensiveSpanAttributes.
+  span := (tracer spanBuilderNamed: 'request')
+    attributes: attributes;
+    startSpan.
+  [ self handleRequest ]
+    ensure: [ span end ] ]
+```
+
+Call `enabled` each time before creating a span when the guarded work is
+expensive. The answer is not guaranteed to stay fixed for the lifetime of the
+tracer because tracer configuration can change while the image is running.
+
 ## Starting And Ending A Span
 
 The smallest useful flow is:
