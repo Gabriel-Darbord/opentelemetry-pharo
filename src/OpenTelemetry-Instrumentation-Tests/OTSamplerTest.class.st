@@ -228,6 +228,29 @@ OTSamplerTest >> testProbabilitySamplerDoesNotWarnWhenExplicitRandomnessIsPresen
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerIgnoresParentSampledFlag [
+
+	| sampledParentResult sampler unsampledParentResult |
+	sampler := OTSampler probability: 0.5.
+	sampledParentResult := sampler
+		                       shouldSampleIn: (self contextWithTraceFlags: '01' traceState: 'ot=rv:80000000000000')
+		                       traceId: '00112233445566778899aabbccddeeff'
+		                       name: 'operation'
+		                       kind: OTSpan internal
+		                       attributes: #(  )
+		                       links: #(  ).
+	unsampledParentResult := sampler
+		                         shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:80000000000000')
+		                         traceId: '00112233445566778899aabbccddeeff'
+		                         name: 'operation'
+		                         kind: OTSpan internal
+		                         attributes: #(  )
+		                         links: #(  ).
+	self assert: sampledParentResult decision equals: unsampledParentResult decision.
+	self assert: sampledParentResult traceState equals: unsampledParentResult traceState
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
 
 	| result sampler |
