@@ -355,6 +355,27 @@ Invalid batch-processor values are ignored with a diagnostic warning. This
 implementation also honors `0` for `OTEL_BSP_SCHEDULE_DELAY` and
 `OTEL_BSP_EXPORT_TIMEOUT`; zero timeout means "no export timeout".
 
+## Concurrency
+
+In this guide, "concurrent" means shared across multiple Pharo `Process`
+instances.
+
+- `OTTracerProvider` supports concurrent tracer lookup, `forceFlush`, and
+  `shutdown`.
+- `OTTracer` instances are safe to reuse across concurrent callers. Tracer
+  configurator updates are meant to become visible without reacquiring the
+  tracer.
+- `OTSpan` instances are safe to mutate from concurrent callers. Once `end`
+  starts, only the synchronous `onEnding:` span-processor callbacks are
+  allowed to keep mutating that span; other concurrent mutations become no-ops.
+- `OTSpanProcessor` implementations are expected to be concurrency-safe. The
+  built-in simple and batch processors serialize calls into their exporter so
+  `export:` is not invoked concurrently by one processor instance.
+- `OTSpanExporter` implementations must make `forceFlush` and `shutdown` safe
+  under concurrent calls. Built-in exporters treat post-shutdown exports as
+  unsuccessful and are designed to cooperate with the processor-side export
+  serialization above.
+
 ## Sampling
 
 Sampling is configured through `OTTracerProvider`.
