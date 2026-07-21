@@ -33,6 +33,19 @@ tracer := provider tracerNamed: 'my-app'.
 If you need version, schema URL, or scope attributes, use the richer tracer
 creation API on `OTTracerProvider`.
 
+```smalltalk
+tracer := OTTracerProvider current
+  tracerNamed: 'my-http-client'
+  version: '1.2.3'
+  schemaUrl: 'https://opentelemetry.io/schemas/1.37.0'
+  attributes: {
+    'scope.answer' -> 42.
+    'scope.role' -> 'client' }.
+```
+
+That selector keys tracer identity by the full instrumentation scope tuple
+`(name, version, schemaUrl, attributes)`.
+
 ## Checking Whether A Tracer Is Enabled
 
 `OTTracer` exposes `enabled` as a fast boolean check that instrumentation code
