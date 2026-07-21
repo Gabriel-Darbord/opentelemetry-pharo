@@ -1440,6 +1440,21 @@ OTTracerProvider >> traceFlagsForSamplingResult: aSamplingResult parentSpan: aSp
 	^ self asTwoDigitLowercaseHex: parentFlags
 ]
 
+{ #category : 'private' }
+OTTracerProvider >> tracerConfigurationEnables: aTracer forSpanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
+
+	| configuredValue |
+	self isStopping ifTrue: [ ^ false ].
+	configuredValue := self
+		                   tracerConfigurationValueFor: aTracer
+		                   spanNamed: aString
+		                   kind: aSpanKind
+		                   inContext: aContext
+		                   attributes: someAttributes
+		                   links: someLinks.
+	^ configuredValue ifNil: [ true ] ifNotNil: [ configuredValue ]
+]
+
 { #category : 'private - error handling' }
 OTTracerProvider >> tracerConfigurationValueFor: aTracer spanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
 
@@ -1495,16 +1510,14 @@ OTTracerProvider >> tracerEnabled: aTracer [
 { #category : 'testing' }
 OTTracerProvider >> tracerEnabled: aTracer forSpanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
 
-	| configuredValue |
-	self isStopping ifTrue: [ ^ false ].
-	configuredValue := self
-		                   tracerConfigurationValueFor: aTracer
-		                   spanNamed: aString
-		                   kind: aSpanKind
-		                   inContext: aContext
-		                   attributes: someAttributes
-		                   links: someLinks.
-	^ configuredValue ifNil: [ true ] ifNotNil: [ configuredValue ]
+	(self
+		 tracerConfigurationEnables: aTracer
+		 forSpanNamed: aString
+		 kind: aSpanKind
+		 inContext: aContext
+		 attributes: someAttributes
+		 links: someLinks) ifFalse: [ ^ false ].
+	^ self spanProcessors isNotEmpty
 ]
 
 { #category : 'tracing' }

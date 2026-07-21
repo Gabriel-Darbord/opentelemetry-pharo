@@ -506,12 +506,14 @@ OTTracerProviderTest >> testExistingTracerPicksUpLaterSpanProcessorRegistrationW
 	| processor provider span tracer |
 	provider := OTTracerProvider new.
 	tracer := provider tracerNamed: 'demo.scope'.
+	self deny: tracer enabled.
 	span := (tracer spanBuilderNamed: 'before') startSpan.
 	self assert: span isRecording.
 	self assert: span spanContext isValid.
 	span end.
 	processor := OTRecordingSpanProcessor new.
 	provider spanProcessor: processor.
+	self assert: tracer enabled.
 	span := (tracer spanBuilderNamed: 'after') startSpan.
 	self assert: span isRecording.
 	span end.
@@ -1123,6 +1125,15 @@ OTTracerProviderTest >> testTracerConfiguratorCanUseSpanCreationArgumentsToDisab
 	self assert: blockedSpan class identicalTo: OTNonRecordingSpan.
 	self deny: blockedSpan spanContext isValid.
 	self assert: unblockedSpan isRecording
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerEnabledIsFalseWithoutProcessors [
+
+	| provider tracer |
+	provider := OTTracerProvider new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	self deny: tracer enabled
 ]
 
 { #category : 'tests' }
