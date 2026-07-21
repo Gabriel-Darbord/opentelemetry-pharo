@@ -48,6 +48,23 @@ OTCompositeSpanProcessorTest >> testConcurrentShutdownIsIdempotent [
 ]
 
 { #category : 'tests' }
+OTCompositeSpanProcessorTest >> testForceFlushContinuesAfterChildFailure [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+			| composite failingProcessor succeedingProcessor |
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'forceFlush' }.
+			succeedingProcessor := OTFailingSpanProcessor new.
+			composite := OTCompositeSpanProcessor withAll: {
+					             failingProcessor.
+					             succeedingProcessor }.
+			self deny: composite forceFlush.
+			self assert: succeedingProcessor forceFlushCount equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during forceFlush for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'tests' }
 OTCompositeSpanProcessorTest >> testForceFlushReturnsFalseAfterShutdown [
 
 	| composite |
@@ -86,6 +103,24 @@ OTCompositeSpanProcessorTest >> testOnEndAfterShutdownIsIgnored [
 ]
 
 { #category : 'tests' }
+OTCompositeSpanProcessorTest >> testOnEndContinuesAfterChildFailure [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+			| composite failingProcessor recordingProcessor span |
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'onEnd' }.
+			recordingProcessor := OTRecordingSpanProcessor new.
+			composite := OTCompositeSpanProcessor withAll: {
+					             failingProcessor.
+					             recordingProcessor }.
+			span := self sampledSpanWithSuffix: 1.
+			self deny: (composite onEnd: span).
+			self assert: recordingProcessor endedSpans asArray equals: { span }.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during onEnd for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'tests' }
 OTCompositeSpanProcessorTest >> testOnEndReturnsFalseWhileShutdownIsInProgress [
 
 	| blockingProcessor composite done recordingProcessor shutdownResult |
@@ -104,6 +139,71 @@ OTCompositeSpanProcessorTest >> testOnEndReturnsFalseWhileShutdownIsInProgress [
 	blockingProcessor allowShutdown.
 	self assert: (done waitTimeoutMilliseconds: 200) not.
 	self assert: shutdownResult
+]
+
+{ #category : 'tests' }
+OTCompositeSpanProcessorTest >> testOnEndingContinuesAfterChildFailure [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+			| composite exportRecord failingProcessor provider recordingProcessor span tracer |
+			provider := OTTracerProvider new.
+			tracer := provider tracerNamed: 'demo.scope'.
+			span := (tracer spanBuilderNamed: 'operation') startSpan.
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'onEnding' }.
+			recordingProcessor := OTRecordingSpanProcessor new.
+			composite := OTCompositeSpanProcessor withAll: {
+					             failingProcessor.
+					             recordingProcessor }.
+			self deny: (composite onEnding: span).
+			exportRecord := span asExportRecord.
+			self assert: recordingProcessor endingSpans asArray equals: { span }.
+			self assert: ((exportRecord at: #attributes) at: 'processor.onEnding') equals: true.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during onEnding for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'tests' }
+OTCompositeSpanProcessorTest >> testOnEndingReturnsFalseWhileShutdownIsInProgress [
+
+	| blockingProcessor composite done recordingProcessor shutdownResult span tracer provider |
+	blockingProcessor := OTBlockingShutdownSpanProcessor new.
+	recordingProcessor := OTRecordingSpanProcessor new.
+	composite := OTCompositeSpanProcessor withAll: {
+			             blockingProcessor.
+			             recordingProcessor }.
+	provider := OTTracerProvider new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	done := Semaphore new.
+	[
+		shutdownResult := composite shutdown.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (blockingProcessor waitForShutdownTimeoutMillis: 200).
+	self deny: (composite onEnding: span).
+	self assert: recordingProcessor endingSpans isEmpty.
+	blockingProcessor allowShutdown.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult
+]
+
+{ #category : 'tests' }
+OTCompositeSpanProcessorTest >> testOnStartContinuesAfterChildFailure [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+			| composite failingProcessor recordingProcessor span |
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'onStart' }.
+			recordingProcessor := OTRecordingSpanProcessor new.
+			composite := OTCompositeSpanProcessor withAll: {
+					             failingProcessor.
+					             recordingProcessor }.
+			span := self sampledSpanWithSuffix: 1.
+			self deny: (composite onStart: span parentContext: OTContext new).
+			self assert: recordingProcessor startedSpans asArray equals: { span }.
+			self assert: recordingProcessor startedParentContexts size equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during onStart for OTFailingSpanProcessor: processor failure' } ]
 ]
 
 { #category : 'tests' }
@@ -126,4 +226,33 @@ OTCompositeSpanProcessorTest >> testOnStartReturnsFalseWhileShutdownIsInProgress
 	blockingProcessor allowShutdown.
 	self assert: (done waitTimeoutMilliseconds: 200) not.
 	self assert: shutdownResult
+]
+
+{ #category : 'tests' }
+OTCompositeSpanProcessorTest >> testShutdownContinuesAfterChildFailure [
+
+	self withSpanProcessorWarningsDo: [ :warnings |
+			| composite failingProcessor succeedingProcessor |
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'forceFlush'. 'shutdown' }.
+			succeedingProcessor := OTFailingSpanProcessor new.
+			composite := OTCompositeSpanProcessor withAll: {
+					             failingProcessor.
+					             succeedingProcessor }.
+			self deny: composite shutdown.
+			self assert: composite isShutdown.
+			self assert: succeedingProcessor forceFlushCount equals: 1.
+			self assert: succeedingProcessor shutdownCount equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during forceFlush for OTFailingSpanProcessor: processor failure'.
+					'OpenTelemetry span processor callback failed during shutdown for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'private' }
+OTCompositeSpanProcessorTest >> withSpanProcessorWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider spanProcessorWarningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTTracerProvider spanProcessorWarningSink: nil ]
 ]
