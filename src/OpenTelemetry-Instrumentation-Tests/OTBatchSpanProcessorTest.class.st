@@ -51,6 +51,30 @@ OTBatchSpanProcessorTest >> testBeCurrentHandlesMissingCurrentProcessor [
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testConcurrentShutdownIsIdempotent [
+
+	| firstDone firstResult secondDone secondResult |
+	exporter := OTBlockingShutdownSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		firstResult := processor shutdown.
+		firstDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200).
+	[
+		secondResult := processor shutdown.
+		secondDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+	self deny: secondResult.
+	exporter allowShutdown.
+	self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+	self assert: firstResult.
+	self assert: processor isShutdown
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExporter [
 
 	exporter := OTRecordingSpanExporter new.
