@@ -350,6 +350,37 @@ OTSamplerTest >> testTimeIntervalSamplerAllowsOnlyOneConcurrentSamplePerInterval
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testTraceIdRatioBasedSamplerHigherProbabilitySamplesSupersetOfLowerProbability [
+
+	| higherProbabilitySampler lowerProbabilitySampler traceIds |
+	lowerProbabilitySampler := OTSampler traceIdRatioBased: 0.25.
+	higherProbabilitySampler := OTSampler traceIdRatioBased: 0.75.
+	traceIds := #( '00000000000000000000000000000000' '11111111111111111111111111111111' '22222222222222222222222222222222'
+	               '33333333333333333333333333333333' '44444444444444444444444444444444' '55555555555555555555555555555555'
+	               '66666666666666666666666666666666' '77777777777777777777777777777777' '88888888888888888888888888888888'
+	               '99999999999999999999999999999999' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+	               'cccccccccccccccccccccccccccccccc' 'dddddddddddddddddddddddddddddddd' 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+	               'ffffffffffffffffffffffffffffffff' ).
+	traceIds do: [ :traceId |
+			| higherDecision lowerDecision |
+			lowerDecision := (lowerProbabilitySampler
+				                  shouldSampleIn: OTContext new
+				                  traceId: traceId
+				                  name: 'operation'
+				                  kind: OTSpan internal
+				                  attributes: #(  )
+				                  links: #(  )) isRecordAndSample.
+			higherDecision := (higherProbabilitySampler
+				                   shouldSampleIn: OTContext new
+				                   traceId: traceId
+				                   name: 'operation'
+				                   kind: OTSpan internal
+				                   attributes: #(  )
+				                   links: #(  )) isRecordAndSample.
+			self deny: (lowerDecision and: [ higherDecision not ]) ]
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testTraceIdRatioBasedSamplerIsDeterministicForSameTraceId [
 
 	| sampler traceId first second |
