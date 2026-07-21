@@ -16,8 +16,7 @@ OpenTelemetry class >> attachContext: aContext [
 
 	| context previousContext |
 	previousContext := self currentContext.
-	context := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
-	self currentContext: context.
+	context := self currentContext: aContext.
 	^ OTContextToken previousContext: previousContext attachedContext: context process: Processor activeProcess
 ]
 
@@ -105,7 +104,8 @@ OpenTelemetry class >> detachContext: aContextToken [
 
 	aContextToken ifNil: [ ^ false ].
 	aContextToken isForActiveProcess ifFalse: [ ^ false ].
-	self currentContext == aContextToken attachedContext ifFalse: [ ^ false ].
+	(self currentContext == aContextToken attachedContext or: [
+		 aContextToken attachedContext isEmpty and: [ self currentContext isEmpty ] ]) ifFalse: [ ^ false ].
 	self currentContext: aContextToken previousContext.
 	^ true
 ]

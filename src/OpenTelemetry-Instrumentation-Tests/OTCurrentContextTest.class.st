@@ -127,6 +127,18 @@ OTCurrentContextTest >> testEndingActiveSpanDoesNotEvictItFromCurrentContext [
 ]
 
 { #category : 'tests' }
+OTCurrentContextTest >> testUseContextIgnoresInvalidContextObjectAndRestoresPreviousContext [
+
+	| outerContext |
+	outerContext := OTContext new withBaggage: (OTBaggage builder
+			                 putEntryNamed: 'scope' value: 'outer';
+			                 build).
+	OpenTelemetry currentContext: outerContext.
+	OpenTelemetry useContext: 42 during: [ self assert: OpenTelemetry currentContext isEmpty ].
+	self assert: OpenTelemetry currentContext identicalTo: outerContext
+]
+
+{ #category : 'tests' }
 OTCurrentContextTest >> testUseContextRestoresPreviousContextWithinProcess [
 
 	| innerContext outerContext |
