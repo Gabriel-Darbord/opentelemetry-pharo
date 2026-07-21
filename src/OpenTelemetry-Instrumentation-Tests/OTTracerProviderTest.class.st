@@ -50,6 +50,7 @@ OTTracerProviderTest >> tearDown [
 		OTSpanExporter current: nil.
 		OTSpan reset ] ensure: [
 			OTBlockingShutdownSpanProcessor allInstancesDo: [ :each | each allowShutdown ].
+			OTBlockingOnEndingSpanProcessor allInstancesDo: [ :each | each allowOnEnding ].
 			super tearDown ]
 ]
 
@@ -675,6 +676,35 @@ OTTracerProviderTest >> testNonRecordingSpanSamplerCanExplicitlyClearParentTrace
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self assert: span spanContext traceState class identicalTo: OTTraceState.
 	self assert: span spanContext traceState isEmpty
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testOnEndingRejectsConcurrentMutationsFromOtherThreads [
+
+	| endDone exportRecord mutationDone mutationResult processor provider span tracer |
+	provider := OTTracerProvider new.
+	processor := OTBlockingOnEndingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	endDone := Semaphore new.
+	[
+		span end.
+		endDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (processor waitForOnEndingTimeoutMillis: 200).
+	self assert: span isRecording.
+	mutationDone := Semaphore new.
+	[
+		mutationResult := span attributeAt: 'outside.thread' put: true.
+		mutationDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (mutationDone waitTimeoutMilliseconds: 200) not.
+	self assert: mutationResult identicalTo: span.
+	processor allowOnEnding.
+	self assert: (endDone waitTimeoutMilliseconds: 200) not.
+	exportRecord := span asExportRecord.
+	self deny: span isRecording.
+	self assert: ((exportRecord at: #attributes) at: 'processor.onEnding') equals: true.
+	self deny: ((exportRecord at: #attributes) includesKey: 'outside.thread')
 ]
 
 { #category : 'tests' }

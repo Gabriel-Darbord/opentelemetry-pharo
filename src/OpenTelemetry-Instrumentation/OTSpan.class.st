@@ -32,7 +32,9 @@ Class {
 		'limits',
 		'droppedAttributesCount',
 		'droppedEventsCount',
-		'droppedLinksCount'
+		'droppedLinksCount',
+		'stateLock',
+		'endingProcess'
 	],
 	#classVars : [
 		'Current'
@@ -462,16 +464,17 @@ OTSpan class >> wrapping: aSpanContext [
 { #category : 'recording' }
 OTSpan >> addEvent: anOTSpanEvent [
 
-	| currentEvents limitedEvent |
-	self isRecording ifFalse: [ ^ self ].
-	currentEvents := events ifNil: [ #(  ) ].
-	(self attributesCountWithinLimit: self effectiveLimits eventCountLimit currentSize: currentEvents size) ifFalse: [
-			self warnOnceAboutDiscardedData.
-			self restoreDroppedEventsCount: self effectiveDroppedEventsCount + 1.
-			^ self ].
-	limitedEvent := self limitedEventFrom: anOTSpanEvent.
-	events := currentEvents copyWith: limitedEvent.
-	^ limitedEvent
+	^ stateLock critical: [
+			  | currentEvents limitedEvent |
+			  self currentProcessMayMutateSpanState ifFalse: [ ^ self ].
+			  currentEvents := events ifNil: [ #(  ) ].
+			  (self attributesCountWithinLimit: self effectiveLimits eventCountLimit currentSize: currentEvents size) ifFalse: [
+					  self warnOnceAboutDiscardedData.
+					  self restoreDroppedEventsCount: self effectiveDroppedEventsCount + 1.
+					  ^ self ].
+			  limitedEvent := self limitedEventFrom: anOTSpanEvent.
+			  events := currentEvents copyWith: limitedEvent.
+			  limitedEvent ]
 ]
 
 { #category : 'recording' }
@@ -501,16 +504,17 @@ OTSpan >> addEventNamed: aString timestamp: aDateAndTime [
 { #category : 'recording' }
 OTSpan >> addLink: anOTSpanLink [
 
-	| currentLinks limitedLink |
-	self isRecording ifFalse: [ ^ self ].
-	currentLinks := self effectiveLinks.
-	(self attributesCountWithinLimit: self effectiveLimits linkCountLimit currentSize: currentLinks size) ifFalse: [
-			self warnOnceAboutDiscardedData.
-			self restoreDroppedLinksCount: self effectiveDroppedLinksCount + 1.
-			^ self ].
-	limitedLink := self limitedLinkFrom: anOTSpanLink.
-	links := currentLinks copyWith: limitedLink.
-	^ limitedLink
+	^ stateLock critical: [
+			  | currentLinks limitedLink |
+			  self currentProcessMayMutateSpanState ifFalse: [ ^ self ].
+			  currentLinks := self effectiveLinks.
+			  (self attributesCountWithinLimit: self effectiveLimits linkCountLimit currentSize: currentLinks size) ifFalse: [
+					  self warnOnceAboutDiscardedData.
+					  self restoreDroppedLinksCount: self effectiveDroppedLinksCount + 1.
+					  ^ self ].
+			  limitedLink := self limitedLinkFrom: anOTSpanLink.
+			  links := currentLinks copyWith: limitedLink.
+			  limitedLink ]
 ]
 
 { #category : 'recording' }
@@ -540,58 +544,61 @@ OTSpan >> addLinkSpanContext: aSpanContext attributes: aDictionary [
 { #category : 'private - exporting' }
 OTSpan >> asExportRecord [
 
-	| data linksToExport parentContext resourceToExport scope spanContextToExport statusDescriptionToExport statusToExport traceStateToExport |
-	data := OrderedDictionary new.
-	linksToExport := self effectiveLinks.
-	parentContext := self effectiveParentSpanContext.
-	resourceToExport := self effectiveResource.
-	scope := self effectiveInstrumentationScope.
-	spanContextToExport := self spanContext.
-	statusDescriptionToExport := self effectiveStatusDescription.
-	statusToExport := self effectiveStatus.
-	traceStateToExport := spanContextToExport traceState.
-	data
-		at: #spanId put: spanContextToExport spanId;
-		at: #traceId put: spanContextToExport traceId;
-		at: #name put: name;
-		at: #kind put: kind;
-		at: #startTime put: startTime;
-		at: #endTime put: endTime;
-		at: #status put: statusToExport;
-		at: #traceFlags put: spanContextToExport traceFlags;
-		at: #instrumentationName put: scope name.
-	scope isEmpty ifFalse: [ data at: #instrumentationScope put: scope ].
-	parentContext ifNotNil: [
-			data
-				at: #parentSpanContext put: parentContext;
-				at: #parentId put: parentContext spanId ].
-	traceStateToExport ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
-	statusDescriptionToExport ifNotNil: [ :description | data at: #statusDescription put: description ].
-	attributes isEmptyOrNil ifFalse: [ data at: #attributes put: attributes ].
-	events isEmptyOrNil ifFalse: [ data at: #events put: events ].
-	linksToExport ifNotEmpty: [ data at: #links put: linksToExport ].
-	resourceToExport isEmpty ifFalse: [ data at: #resource put: resourceToExport ].
-	self effectiveDroppedAttributesCount > 0 ifTrue: [ data at: #droppedAttributesCount put: self effectiveDroppedAttributesCount ].
-	self effectiveDroppedEventsCount > 0 ifTrue: [ data at: #droppedEventsCount put: self effectiveDroppedEventsCount ].
-	self effectiveDroppedLinksCount > 0 ifTrue: [ data at: #droppedLinksCount put: self effectiveDroppedLinksCount ].
-	^ data
+	^ stateLock critical: [
+			  | data linksToExport parentContext resourceToExport scope spanContextToExport statusDescriptionToExport statusToExport traceStateToExport |
+			  data := OrderedDictionary new.
+			  linksToExport := self effectiveLinks.
+			  parentContext := self effectiveParentSpanContext.
+			  resourceToExport := self effectiveResource.
+			  scope := self effectiveInstrumentationScope.
+			  spanContextToExport := self spanContext.
+			  statusDescriptionToExport := self effectiveStatusDescription.
+			  statusToExport := self effectiveStatus.
+			  traceStateToExport := spanContextToExport traceState.
+			  data
+				  at: #spanId put: spanContextToExport spanId;
+				  at: #traceId put: spanContextToExport traceId;
+				  at: #name put: name;
+				  at: #kind put: kind;
+				  at: #startTime put: startTime;
+				  at: #endTime put: endTime;
+				  at: #status put: statusToExport;
+				  at: #traceFlags put: spanContextToExport traceFlags;
+				  at: #instrumentationName put: scope name.
+			  scope isEmpty ifFalse: [ data at: #instrumentationScope put: scope ].
+			  parentContext ifNotNil: [
+					  data
+						  at: #parentSpanContext put: parentContext;
+						  at: #parentId put: parentContext spanId ].
+			  traceStateToExport ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
+			  statusDescriptionToExport ifNotNil: [ :description | data at: #statusDescription put: description ].
+			  attributes isEmptyOrNil ifFalse: [ data at: #attributes put: attributes ].
+			  events isEmptyOrNil ifFalse: [ data at: #events put: events ].
+			  linksToExport ifNotEmpty: [ data at: #links put: linksToExport ].
+			  resourceToExport isEmpty ifFalse: [ data at: #resource put: resourceToExport ].
+			  self effectiveDroppedAttributesCount > 0 ifTrue: [
+				  data at: #droppedAttributesCount put: self effectiveDroppedAttributesCount ].
+			  self effectiveDroppedEventsCount > 0 ifTrue: [ data at: #droppedEventsCount put: self effectiveDroppedEventsCount ].
+			  self effectiveDroppedLinksCount > 0 ifTrue: [ data at: #droppedLinksCount put: self effectiveDroppedLinksCount ].
+			  data ]
 ]
 
 { #category : 'accessing' }
 OTSpan >> attributeAt: key put: value [
 
-	| normalizedKey normalizedValue |
-	self isRecording ifFalse: [ ^ self ].
-	normalizedKey := OTAttributeNormalizer normalizeAttributeKey: key.
-	normalizedValue := OTAttributeNormalizer
-		                   normalizeAttributeValue: value
-		                   lengthLimit: self effectiveLimits attributeValueLengthLimit.
-	attributes ifNil: [ attributes := OrderedDictionary new ].
-	(self mayAddAttributeNamed: normalizedKey)
-		ifTrue: [ attributes at: normalizedKey put: normalizedValue ]
-		ifFalse: [
-				self warnOnceAboutDiscardedData.
-				self restoreDroppedAttributesCount: self effectiveDroppedAttributesCount + 1 ]
+	^ stateLock critical: [
+			  | normalizedKey normalizedValue |
+			  self currentProcessMayMutateSpanState ifFalse: [ ^ self ].
+			  normalizedKey := OTAttributeNormalizer normalizeAttributeKey: key.
+			  normalizedValue := OTAttributeNormalizer
+				                     normalizeAttributeValue: value
+				                     lengthLimit: self effectiveLimits attributeValueLengthLimit.
+			  attributes ifNil: [ attributes := OrderedDictionary new ].
+			  (self mayAddAttributeNamed: normalizedKey)
+				  ifTrue: [ attributes at: normalizedKey put: normalizedValue ]
+				  ifFalse: [
+						  self warnOnceAboutDiscardedData.
+						  self restoreDroppedAttributesCount: self effectiveDroppedAttributesCount + 1 ] ]
 ]
 
 { #category : 'private' }
@@ -599,6 +606,12 @@ OTSpan >> attributesCountWithinLimit: aLimit currentSize: aSize [
 
 	aLimit ifNil: [ ^ true ].
 	^ aSize < aLimit
+]
+
+{ #category : 'private' }
+OTSpan >> currentProcessMayMutateSpanState [
+
+	^ self recordingStateAllowsMutation and: [ endingProcess isNil or: [ endingProcess == Processor activeProcess ] ]
 ]
 
 { #category : 'private' }
@@ -679,11 +692,25 @@ OTSpan >> end [
 { #category : 'control' }
 OTSpan >> end: aDateAndTime [
 
-	ended ifTrue: [ ^ self ].
-	self restoreEndTime: (aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ]).
-	tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ].
-	self markEnded.
-	tracerProvider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ]
+	| currentProcess provider shouldEnd |
+	currentProcess := Processor activeProcess.
+	provider := nil.
+	shouldEnd := stateLock critical: [
+			             (ended or: [ endingProcess notNil ])
+				             ifTrue: [ false ]
+				             ifFalse: [
+						             endTime := aDateAndTime ifNil: [ DateAndTime now ] ifNotNil: [ aDateAndTime ].
+						             endingProcess := currentProcess.
+						             provider := tracerProvider.
+						             true ] ].
+	shouldEnd ifFalse: [ ^ self ].
+	[ provider ifNotNil: [ :aTracerProvider | aTracerProvider processEndingSpan: self ] ] ensure: [
+			stateLock critical: [
+					endingProcess == currentProcess ifTrue: [
+							endingProcess := nil.
+							ended := true ] ] ].
+	provider ifNotNil: [ :aTracerProvider | aTracerProvider processEndedSpan: self ].
+	self
 ]
 
 { #category : 'private' }
@@ -724,6 +751,8 @@ OTSpan >> initialize [
 	super initialize.
 	spanContext := nil.
 	ended := false.
+	endingProcess := nil.
+	stateLock := Semaphore forMutualExclusion.
 	links := nil.
 	resource := OTResource empty.
 	instrumentationScope := OTInstrumentationScope named: ''.
@@ -737,7 +766,7 @@ OTSpan >> initialize [
 { #category : 'testing' }
 OTSpan >> isRecording [
 
-	^ ended not
+	^ stateLock critical: [ ended not ]
 ]
 
 { #category : 'private - logging' }
@@ -874,6 +903,12 @@ OTSpan >> recordException: anException attributes: aCollection timestamp: aDateA
 OTSpan >> recordException: anException timestamp: aDateAndTime [
 
 	^ self recordException: anException attributes: #(  ) timestamp: aDateAndTime
+]
+
+{ #category : 'private' }
+OTSpan >> recordingStateAllowsMutation [
+
+	^ ended not
 ]
 
 { #category : 'private' }
@@ -1047,16 +1082,26 @@ OTSpan >> setStatus: aSymbol [
 { #category : 'recording' }
 OTSpan >> setStatus: aSymbol description: aString [
 
-	self isRecording ifFalse: [ ^ self ].
-	self validateStatusCode: aSymbol.
-	aSymbol = self class unset ifTrue: [ ^ self ].
-	self effectiveStatus = self class ok ifTrue: [ ^ self ].
-	aSymbol = self class ok ifTrue: [
-			status := self class ok.
-			statusDescription := nil.
-			^ self ].
-	status := self class error.
-	statusDescription := self normalizedStatusDescription: aString
+	^ stateLock critical: [
+			  self currentProcessMayMutateSpanState
+				  ifFalse: [ self ]
+				  ifTrue: [
+						  self validateStatusCode: aSymbol.
+						  aSymbol = self class unset
+							  ifTrue: [ self ]
+							  ifFalse: [
+									  self effectiveStatus = self class ok
+										  ifTrue: [ self ]
+										  ifFalse: [
+												  aSymbol = self class ok
+													  ifTrue: [
+															  status := self class ok.
+															  statusDescription := nil.
+															  self ]
+													  ifFalse: [
+															  status := self class error.
+															  statusDescription := self normalizedStatusDescription: aString.
+															  self ] ] ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -1108,8 +1153,12 @@ OTSpan >> stonOn: stonWriter [
 { #category : 'recording' }
 OTSpan >> updateName: aString [
 
-	self isRecording ifFalse: [ ^ self ].
-	name := aString
+	^ stateLock critical: [
+			  self currentProcessMayMutateSpanState
+				  ifTrue: [
+						  name := aString.
+						  self ]
+				  ifFalse: [ self ] ]
 ]
 
 { #category : 'private' }

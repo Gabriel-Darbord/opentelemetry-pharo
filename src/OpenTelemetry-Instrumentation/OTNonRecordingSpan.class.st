@@ -73,6 +73,12 @@ OTNonRecordingSpan >> isRecording [
 	^ false
 ]
 
+{ #category : 'private' }
+OTNonRecordingSpan >> recordingStateAllowsMutation [
+
+	^ false
+]
+
 { #category : 'accessing' }
 OTNonRecordingSpan >> spanContext [
 
