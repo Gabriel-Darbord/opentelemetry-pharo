@@ -207,25 +207,40 @@ OTSpanBuilder >> restoreTracer: aTracer spanName: aString [
 { #category : 'starting' }
 OTSpanBuilder >> startSpan [
 
-	| effectiveParentContext effectiveTraceFlags effectiveTraceState idGenerator parentSpan parentSpanContext samplingResult span traceId |
+	| effectiveParentContext effectiveTraceFlags effectiveTraceState idGenerator parentSpan parentSpanContext provider samplingResult span traceId |
 	effectiveParentContext := usesCurrentContext
 		                          ifTrue: [ OTSpan currentContext ]
 		                          ifFalse: [ self class normalizedParentContextFrom: parentContext ].
 	rootRequested ifTrue: [ effectiveParentContext := effectiveParentContext withSpan: nil ].
+	provider := tracer provider.
+	provider ifNil: [
+			parentSpan := rootRequested
+				              ifTrue: [ nil ]
+				              ifFalse: [ tracer parentSpanFrom: effectiveParentContext ].
+			parentSpan
+				ifNotNil: [
+						parentSpan isRecording ifFalse: [ ^ parentSpan ].
+						span := OTSpan wrapping: parentSpan spanContext ]
+				ifNil: [ span := OTSpan wrapping: OTSpanContext invalid ].
+			span
+				restoreContext: (effectiveParentContext withSpan: span);
+				restoreInstrumentationScope: tracer instrumentationScope;
+				restoreResource: OTResource empty.
+			^ span ].
 	(tracer
 		 enabledForSpanNamed: spanName
 		 kind: spanKind
 		 in: effectiveParentContext
 		 attributes: attributes
 		 links: links) ifFalse: [
-		^ tracer provider nonRecordingSpanIn: effectiveParentContext instrumentationScope: tracer instrumentationScope ].
-	idGenerator := tracer provider idGenerator.
+		^ provider nonRecordingSpanIn: effectiveParentContext instrumentationScope: tracer instrumentationScope ].
+	idGenerator := provider idGenerator.
 	parentSpan := rootRequested
 		              ifTrue: [ nil ]
 		              ifFalse: [ tracer parentSpanFrom: effectiveParentContext ].
 	parentSpanContext := parentSpan ifNotNil: [ parentSpan spanContext ].
 	traceId := parentSpanContext ifNil: [ idGenerator generateTraceIdHex ] ifNotNil: [ parentSpanContext traceId ].
-	samplingResult := tracer provider
+	samplingResult := provider
 		                  samplingResultIn: effectiveParentContext
 		                  traceId: traceId
 		                  name: spanName
@@ -233,38 +248,35 @@ OTSpanBuilder >> startSpan [
 		                  attributes: attributes
 		                  links: links.
 	samplingResult isRecording ifFalse: [
-			^ tracer provider
+			^ provider
 				  nonRecordingSpanIn: effectiveParentContext
 				  parent: parentSpan
 				  traceId: traceId
 				  samplingResult: samplingResult
 				  instrumentationScope: tracer instrumentationScope ].
-	span := tracer provider
-		        recordingSpanIn: effectiveParentContext
-		        parent: parentSpan
-		        instrumentationScope: tracer instrumentationScope.
-	effectiveTraceFlags := tracer provider traceFlagsForSamplingResult: samplingResult parentSpan: parentSpan.
+	span := provider recordingSpanIn: effectiveParentContext parent: parentSpan instrumentationScope: tracer instrumentationScope.
+	effectiveTraceFlags := provider traceFlagsForSamplingResult: samplingResult parentSpan: parentSpan.
 	effectiveTraceState := samplingResult traceState ifNil: [ span spanContext traceState ] ifNotNil: [ samplingResult traceState ].
 	span
-		restoreLimits: tracer provider spanLimits;
+		restoreLimits: provider spanLimits;
 		restoreSpanContext: (OTSpanContext
 				 traceId: traceId
 				 spanId: idGenerator generateSpanIdHex
 				 traceFlags: effectiveTraceFlags
 				 traceState: effectiveTraceState
 				 remote: false);
-		restoreResource: tracer provider resource;
+		restoreResource: provider resource;
 		restoreContext: (effectiveParentContext withSpan: span);
 		restoreName: spanName;
 		restoreKind: spanKind;
 		restoreInstrumentationScope: tracer instrumentationScope;
-		restoreTracerProvider: tracer provider;
+		restoreTracerProvider: provider;
 		markStarted.
 	samplingResult attributes do: [ :each | span attributeAt: each key put: each value ].
 	attributes associationsDo: [ :each | span attributeAt: each key put: each value ].
 	span restoreLinks: links.
 	startTime ifNotNil: [ span restoreStartTime: startTime ].
-	tracer provider processStartedSpan: span parentContext: effectiveParentContext.
+	provider processStartedSpan: span parentContext: effectiveParentContext.
 	^ span
 ]
 

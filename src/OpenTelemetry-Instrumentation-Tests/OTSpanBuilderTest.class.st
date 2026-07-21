@@ -86,6 +86,18 @@ OTSpanBuilderTest >> testAttributesGetterAnswersEmptyCollectionWhenUnset [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testDirectBuilderForProviderlessTracerActsAsNoop [
+
+	| builder span tracer |
+	tracer := OTTracer forProvider: nil instrumentationName: 'demo.scope'.
+	builder := OTSpanBuilder forTracer: tracer name: 'operation'.
+	span := builder startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span isRecording.
+	self deny: span spanContext isValid
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testEndIgnoresRepeatedCallsAndKeepsFirstEndTimestamp [
 
 	| exportRecord firstTimestamp processor provider secondTimestamp span tracer |
