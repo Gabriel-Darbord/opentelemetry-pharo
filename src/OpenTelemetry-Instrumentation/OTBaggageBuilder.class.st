@@ -105,8 +105,11 @@ OTBaggageBuilder >> putEntryNamed: aName value: aValue metadata: aMetadataObject
 OTBaggageBuilder >> removeEntriesNamed: aCollection [
 
 	aCollection ifNil: [ ^ self ].
-	aCollection do: [ :each | self removeEntryNamed: each ].
-	^ self
+	(aCollection isString or: [ aCollection isSymbol ]) ifTrue: [ ^ self removeEntryNamed: aCollection ].
+	aCollection isCollection ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aCollection forOperation: 'OTBaggageBuilder>>removeEntriesNamed:'.
+			^ self ].
+	aCollection do: [ :each | self removeEntryNamed: each ]
 ]
 
 { #category : 'updating' }

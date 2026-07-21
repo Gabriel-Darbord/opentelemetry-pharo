@@ -340,9 +340,13 @@ OTBaggage >> withEntryNamed: aName value: aValue metadata: aMetadataString [
 OTBaggage >> withoutEntriesNamed: aCollection [
 
 	| updatedBaggage |
+	aCollection ifNil: [ ^ self ].
+	(aCollection isString or: [ aCollection isSymbol ]) ifTrue: [ ^ self withoutEntryNamed: aCollection ].
+	aCollection isCollection ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aCollection forOperation: 'OTBaggage>>withoutEntriesNamed:'.
+			^ self ].
 	updatedBaggage := self.
-	aCollection do: [ :eachName |
-		updatedBaggage := updatedBaggage withoutEntryNamed: eachName ].
+	aCollection do: [ :eachName | updatedBaggage := updatedBaggage withoutEntryNamed: eachName ].
 	^ updatedBaggage
 ]
 

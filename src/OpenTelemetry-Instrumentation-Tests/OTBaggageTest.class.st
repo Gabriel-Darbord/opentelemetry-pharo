@@ -186,6 +186,31 @@ OTBaggageTest >> testCurrentWithoutEntryNamedUpdatesImplicitBaggage [
 ]
 
 { #category : 'tests' }
+OTBaggageTest >> testRemovalHelpersAcceptSingleNamesAndIgnoreInvalidCollectionsWithoutError [
+
+	| baggage builder invalidUpdated removedByBuilder removedByString |
+	baggage := (OTBaggage empty withEntryNamed: 'user.id' value: '42') withEntryNamed: 'tenant.id' value: 'acme'.
+	builder := OTBaggage builderFrom: baggage.
+	invalidUpdated := nil.
+	removedByString := nil.
+	removedByBuilder := nil.
+	self shouldnt: [ invalidUpdated := baggage withoutEntriesNamed: 42 ] raise: Error.
+	self shouldnt: [ removedByString := baggage withoutEntriesNamed: 'user.id' ] raise: Error.
+	self
+		shouldnt: [
+				removedByBuilder := builder
+					                    removeEntriesNamed: 'tenant.id';
+					                    build ]
+		raise: Error.
+	self shouldnt: [ builder removeEntriesNamed: 42 ] raise: Error.
+	self assert: invalidUpdated identicalTo: baggage.
+	self deny: (removedByString includesEntryNamed: 'user.id').
+	self assert: (removedByString valueAt: 'tenant.id') equals: 'acme'.
+	self deny: (removedByBuilder includesEntryNamed: 'tenant.id').
+	self assert: (removedByBuilder valueAt: 'user.id') equals: '42'
+]
+
+{ #category : 'tests' }
 OTBaggageTest >> testWithEntriesFromIgnoresInvalidCallbackInputAndSuppressesCallbackErrors [
 
 	| baggage invalidCallback updated |
