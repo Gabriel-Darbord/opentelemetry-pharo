@@ -882,6 +882,35 @@ OTSpanBuilderTest >> testSpanBuilderIgnoresInvalidBuilderArgumentsWithoutError [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderBulkLinkHelpersAcceptSingleLinkAndIgnoreInvalidCollectionsWithoutError [
+
+	| explicitLink exportRecord provider span tracer upstreamContext |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	upstreamContext := OTSpanContext
+		                   traceId: '00112233445566778899aabbccddeeff'
+		                   spanId: '1122334455667788'
+		                   traceFlags: '01'
+		                   traceState: nil
+		                   remote: true.
+	explicitLink := OTSpanLink spanContext: upstreamContext attributes: (OrderedDictionary new
+			                 at: 'kind' put: 'explicit';
+			                 yourself).
+	span := nil.
+	self
+		shouldnt: [
+				span := (tracer spanBuilderNamed: 'operation')
+					        addLinks: 42;
+					        addLinks: explicitLink;
+					        links: explicitLink;
+					        startSpan ]
+		raise: Error.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #links) asArray equals: { explicitLink }
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testSpanBuilderIgnoresInvalidSpanKind [
 
 	| provider span tracer |
