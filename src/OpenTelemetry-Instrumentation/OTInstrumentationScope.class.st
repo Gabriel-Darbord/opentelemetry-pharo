@@ -104,8 +104,10 @@ OTInstrumentationScope >> attributes [
 { #category : 'accessing' }
 OTInstrumentationScope >> attributes: aCollection [
 
-	attributes := OTAttributeNormalizer normalizeAttributes: aCollection.
-	^ self
+	attributes := [ OTAttributeNormalizer normalizeAttributes: aCollection ]
+		on: Error
+		do: [ OrderedDictionary new ].
+	self
 ]
 
 { #category : 'comparing' }
