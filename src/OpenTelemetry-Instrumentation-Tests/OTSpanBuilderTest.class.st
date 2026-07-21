@@ -41,6 +41,39 @@ OTSpanBuilderTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testAsRootIgnoresImplicitCurrentSpan [
+
+	| currentContext parentSpan provider rootSpan tracer |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		sampler: (OTParentBasedSampler default
+				 rootSampler: OTAlwaysOffSampler new;
+				 yourself).
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := self sampledParentSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	OpenTelemetry useContext: currentContext during: [
+			rootSpan := (tracer spanBuilderNamed: 'root')
+				            asRoot;
+				            startSpan ].
+	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
+	self assert: rootSpan spanContext isValid.
+	self deny: rootSpan spanContext traceId equals: parentSpan spanContext traceId
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testAsRootReturnsBuilderForFluentConfiguration [
+
+	| builder provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	builder := tracer spanBuilderNamed: 'operation'.
+	self assert: builder asRoot identicalTo: builder
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testAttributesGetterAnswersEmptyCollectionWhenUnset [
 
 	| exportRecord provider span tracer |
@@ -254,6 +287,29 @@ OTSpanBuilderTest >> testInContextNilUsesEmptyContextWithoutWarning [
 				        startSpan.
 			self deny: (span asExportRecord includesKey: #parentSpanContext).
 			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testInCurrentContextOverridesExplicitParentContext [
+
+	| currentParent explicitParent provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	currentParent := self sampledParentSpan.
+	explicitParent := (OTSpanContext
+		                   traceId: 'fedcba98765432100123456789abcdef'
+		                   spanId: '8877665544332211'
+		                   traceFlags: '01'
+		                   traceState: 'alpha=beta'
+		                   remote: false) asNonRecordingSpan.
+	OpenTelemetry useContext: (OTContext new withSpan: currentParent) during: [
+			span := (tracer spanBuilderNamed: 'operation')
+				        inContext: (OTContext new withSpan: explicitParent);
+				        inCurrentContext;
+				        startSpan ].
+	self assert: (span asExportRecord at: #parentSpanContext) equals: currentParent spanContext.
+	self assert: span spanContext traceId equals: currentParent spanContext traceId
 ]
 
 { #category : 'tests' }
