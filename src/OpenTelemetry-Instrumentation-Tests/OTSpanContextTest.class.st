@@ -259,6 +259,8 @@ OTSpanContextTest >> testSpanClassesCannotBeInstantiatedDirectly [
 
 	self should: [ OTSpan new ] raise: Error.
 	self should: [ OTNonRecordingSpan new ] raise: Error.
+	self should: [ OTSpan perform: #newSpanId ] raise: MessageNotUnderstood.
+	self should: [ OTSpan perform: #newTraceId ] raise: MessageNotUnderstood.
 	self should: [ OTSpan perform: #rootInInternal: with: OTContext new ] raise: MessageNotUnderstood.
 	self should: [ OTSpan perform: #underInternal: with: (OTSpan wrapping: OTSpanContext invalid) ] raise: MessageNotUnderstood
 ]

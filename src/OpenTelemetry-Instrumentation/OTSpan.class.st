@@ -280,28 +280,10 @@ OTSpan class >> new [
 	Error signal: 'Spans must be created through an OTTracer. Use OTTracer>>startSpanNamed: or OTTracer>>spanBuilderNamed:.'
 ]
 
-{ #category : 'private - id generation' }
-OTSpan class >> newHexIdentifierOfSize: anInteger [
-
-	^ OTSpanContext newHexIdentifierOfSize: anInteger
-]
-
 { #category : 'private' }
 OTSpan class >> newInternal [
 
 	^ super new
-]
-
-{ #category : 'private - id generation' }
-OTSpan class >> newSpanId [
-
-	^ OTSpanContext newSpanId
-]
-
-{ #category : 'private - id generation' }
-OTSpan class >> newTraceId [
-
-	^ OTSpanContext newTraceId
 ]
 
 { #category : 'private - logging' }
