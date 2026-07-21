@@ -1164,6 +1164,28 @@ OTTracerProviderTest >> testRootSpanMarksGeneratedTraceIdsAsRandom [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testShutdownFlushesPendingBatchProcessorSpans [
+
+	| exporter provider span tracer |
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	provider := OTTracerProvider new.
+	provider spanProcessor: (OTBatchSpanProcessor new
+			 exporter: exporter;
+			 batchSize: 10;
+			 scheduledDelayMillis: 1000;
+			 yourself).
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	span end.
+	self assert: provider shutdown.
+	self assert: exporter exportedBatches size equals: 1.
+	self assert: exporter exportedBatches first size equals: 1.
+	self assert: exporter forceFlushCount equals: 1.
+	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 
 	| provider span |
