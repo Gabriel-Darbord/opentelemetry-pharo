@@ -12,50 +12,45 @@ Class {
 		'headers',
 		'timeoutMillis',
 		'compression',
-		'userAgent'
+		'userAgent',
+		'insecure'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
 }
 
-{ #category : 'instance creation' }
-OTOtlpExporterConfiguration class >> forSignalNamed: aString [
+{ #category : 'private' }
+OTOtlpExporterConfiguration class >> compressionFromEnvironmentForSignalNamed: aSignalName [
 
-	^ self
-		forSignalNamed: aString
-		relativePath: (self defaultRelativePathForSignalNamed: aString)
+	| value |
+	value := self
+		firstEnvironmentValueAt:
+			{ (self signalEnvironmentNameFor: aSignalName suffix: 'COMPRESSION').
+			'OTEL_EXPORTER_OTLP_COMPRESSION' }.
+	value ifNil: [ ^ self defaultCompression ].
+	value := value asLowercase.
+	(#( 'none' 'gzip' ) includes: value) ifTrue: [ ^ value ].
+	^ self defaultCompression
 ]
 
-{ #category : 'instance creation' }
-OTOtlpExporterConfiguration class >> forSignalNamed: aString relativePath: aRelativePath [
+{ #category : 'private' }
+OTOtlpExporterConfiguration class >> decodedHeaderComponentFrom: aString [
 
-	| normalizedSignal |
-	normalizedSignal := aString asUppercase.
-	^ self new
-		signalName: normalizedSignal;
-		relativePath: aRelativePath;
-		endpoint:
-			(self
-				endpointFromEnvironmentForSignalNamed: normalizedSignal
-				relativePath: aRelativePath);
-		protocol: (self protocolFromEnvironmentForSignalNamed: normalizedSignal);
-		headers: (self headersFromEnvironmentForSignalNamed: normalizedSignal);
-		timeoutMillis: (self timeoutMillisFromEnvironmentForSignalNamed: normalizedSignal);
-		compression: (self compressionFromEnvironmentForSignalNamed: normalizedSignal);
-		userAgent: self defaultUserAgent;
-		yourself
-]
-
-{ #category : 'accessing' }
-OTOtlpExporterConfiguration class >> defaultBaseHttpEndpoint [
-
-	^ 'http://localhost:4318'
+	^[ aString urlDecoded ]
+		on: Error
+		do: [ nil ]
 ]
 
 { #category : 'accessing' }
 OTOtlpExporterConfiguration class >> defaultBaseGrpcEndpoint [
 
 	^ 'http://localhost:4317'
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration class >> defaultBaseHttpEndpoint [
+
+	^ 'http://localhost:4318'
 ]
 
 { #category : 'accessing' }
@@ -94,11 +89,21 @@ OTOtlpExporterConfiguration class >> defaultUserAgent [
 ]
 
 { #category : 'private' }
-OTOtlpExporterConfiguration class >> decodedHeaderComponentFrom: aString [
+OTOtlpExporterConfiguration class >> endpointFromEnvironmentForSignalNamed: aSignalName relativePath: aRelativePath [
 
-	^[ aString urlDecoded ]
-		on: Error
-		do: [ nil ]
+	| insecure protocol sharedEndpoint signalSpecificEndpoint |
+	protocol := self protocolFromEnvironmentForSignalNamed: aSignalName.
+	insecure := self insecureFromEnvironmentForSignalNamed: aSignalName.
+	signalSpecificEndpoint := self environmentValueAt: (self signalEnvironmentNameFor: aSignalName suffix: 'ENDPOINT').
+	signalSpecificEndpoint ifNotNil: [
+			protocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: signalSpecificEndpoint insecure: insecure ].
+			^ self normalizedSignalEndpoint: signalSpecificEndpoint ].
+	sharedEndpoint := self environmentValueAt: 'OTEL_EXPORTER_OTLP_ENDPOINT'.
+	sharedEndpoint ifNotNil: [
+			protocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: sharedEndpoint insecure: insecure ].
+			^ self normalizedBaseEndpoint: sharedEndpoint appendingRelativePath: aRelativePath ].
+	protocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: self defaultBaseGrpcEndpoint insecure: false ].
+	^ self normalizedBaseEndpoint: self defaultBaseHttpEndpoint appendingRelativePath: aRelativePath
 ]
 
 { #category : 'private' }
@@ -108,46 +113,37 @@ OTOtlpExporterConfiguration class >> environmentValueAt: aString [
 ]
 
 { #category : 'private' }
-OTOtlpExporterConfiguration class >> endpointFromEnvironmentForSignalNamed: aSignalName relativePath: aRelativePath [
-
-	| protocol signalSpecificEndpoint sharedEndpoint |
-	protocol := self protocolFromEnvironmentForSignalNamed: aSignalName.
-	signalSpecificEndpoint := self
-		environmentValueAt: (self signalEnvironmentNameFor: aSignalName suffix: 'ENDPOINT').
-	signalSpecificEndpoint ifNotNil: [ ^ self normalizedSignalEndpoint: signalSpecificEndpoint ].
-	sharedEndpoint := self environmentValueAt: 'OTEL_EXPORTER_OTLP_ENDPOINT'.
-	sharedEndpoint ifNotNil: [
-		protocol = 'grpc' ifTrue: [ ^ self normalizedSignalEndpoint: sharedEndpoint ].
-		^ self
-			normalizedBaseEndpoint: sharedEndpoint
-			appendingRelativePath: aRelativePath ].
-	protocol = 'grpc' ifTrue: [
-		^ self normalizedSignalEndpoint: self defaultBaseGrpcEndpoint ].
-	^ self
-		normalizedBaseEndpoint: self defaultBaseHttpEndpoint
-		appendingRelativePath: aRelativePath
-]
-
-{ #category : 'private' }
-OTOtlpExporterConfiguration class >> compressionFromEnvironmentForSignalNamed: aSignalName [
-
-	| value |
-	value := self
-		firstEnvironmentValueAt:
-			{ (self signalEnvironmentNameFor: aSignalName suffix: 'COMPRESSION').
-			'OTEL_EXPORTER_OTLP_COMPRESSION' }.
-	value ifNil: [ ^ self defaultCompression ].
-	value := value asLowercase.
-	(#( 'none' 'gzip' ) includes: value) ifTrue: [ ^ value ].
-	^ self defaultCompression
-]
-
-{ #category : 'private' }
 OTOtlpExporterConfiguration class >> firstEnvironmentValueAt: someEnvironmentNames [
 
 	someEnvironmentNames do: [ :each |
 		(self environmentValueAt: each) ifNotNil: [ :value | ^ value ] ].
 	^ nil
+]
+
+{ #category : 'instance creation' }
+OTOtlpExporterConfiguration class >> forSignalNamed: aString [
+
+	^ self
+		forSignalNamed: aString
+		relativePath: (self defaultRelativePathForSignalNamed: aString)
+]
+
+{ #category : 'instance creation' }
+OTOtlpExporterConfiguration class >> forSignalNamed: aString relativePath: aRelativePath [
+
+	| normalizedSignal |
+	normalizedSignal := aString asUppercase.
+	^ self new
+		  signalName: normalizedSignal;
+		  relativePath: aRelativePath;
+		  protocol: (self protocolFromEnvironmentForSignalNamed: normalizedSignal);
+		  insecure: (self insecureFromEnvironmentForSignalNamed: normalizedSignal);
+		  endpoint: (self endpointFromEnvironmentForSignalNamed: normalizedSignal relativePath: aRelativePath);
+		  headers: (self headersFromEnvironmentForSignalNamed: normalizedSignal);
+		  timeoutMillis: (self timeoutMillisFromEnvironmentForSignalNamed: normalizedSignal);
+		  compression: (self compressionFromEnvironmentForSignalNamed: normalizedSignal);
+		  userAgent: self defaultUserAgent;
+		  yourself
 ]
 
 { #category : 'private' }
@@ -167,6 +163,18 @@ OTOtlpExporterConfiguration class >> headersFromEnvironmentForSignalNamed: aSign
 ]
 
 { #category : 'private' }
+OTOtlpExporterConfiguration class >> insecureFromEnvironmentForSignalNamed: aSignalName [
+
+	| value |
+	value := self firstEnvironmentValueAt: {
+			         (self signalEnvironmentNameFor: aSignalName suffix: 'INSECURE').
+			         'OTEL_EXPORTER_OTLP_INSECURE' }.
+	value ifNil: [ ^ false ].
+	value := self strictBooleanFrom: value.
+	^ value ifNil: [ false ] ifNotNil: [ value ]
+]
+
+{ #category : 'private' }
 OTOtlpExporterConfiguration class >> normalizedBaseEndpoint: aString appendingRelativePath: aRelativePath [
 
 	| normalizedEndpoint |
@@ -174,6 +182,25 @@ OTOtlpExporterConfiguration class >> normalizedBaseEndpoint: aString appendingRe
 	(normalizedEndpoint endsWith: '/') ifFalse: [
 		normalizedEndpoint := normalizedEndpoint , '/' ].
 	^ normalizedEndpoint , aRelativePath
+]
+
+{ #category : 'private' }
+OTOtlpExporterConfiguration class >> normalizedGrpcEndpoint: aString insecure: aBoolean [
+
+	| secureEndpoint url |
+	url := [ ZnUrl fromString: aString ]
+		       on: Error
+		       do: [ nil ].
+	(url notNil and: [ (#( 'http' 'https' ) includes: url scheme) and: [ url host notNil and: [ url host isNotEmpty ] ] ]) ifTrue: [
+		^ url printString ].
+	secureEndpoint := (aBoolean
+		                   ifTrue: [ 'http://' ]
+		                   ifFalse: [ 'https://' ]) , aString.
+	url := [ ZnUrl fromString: secureEndpoint ]
+		       on: Error
+		       do: [ nil ].
+	(url notNil and: [ url host notNil and: [ url host isNotEmpty ] ]) ifTrue: [ ^ url printString ].
+	^ self normalizedSignalEndpoint: aString
 ]
 
 { #category : 'private' }
@@ -240,6 +267,18 @@ OTOtlpExporterConfiguration class >> signalEnvironmentNameFor: aSignalName suffi
 ]
 
 { #category : 'private' }
+OTOtlpExporterConfiguration class >> strictBooleanFrom: aBooleanOrString [
+
+	| value |
+	(OTAttributeNormalizer isBoolean: aBooleanOrString) ifTrue: [ ^ aBooleanOrString ].
+	(aBooleanOrString isString or: [ aBooleanOrString isSymbol ]) ifFalse: [ ^ nil ].
+	value := aBooleanOrString asString trimBoth asLowercase.
+	value = 'true' ifTrue: [ ^ true ].
+	value = 'false' ifTrue: [ ^ false ].
+	^ nil
+]
+
+{ #category : 'private' }
 OTOtlpExporterConfiguration class >> strictPositiveIntegerFrom: aString [
 
 	| stream value |
@@ -271,14 +310,25 @@ OTOtlpExporterConfiguration >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class == self class ifFalse: [ ^ false ].
-	^ self signalName = anObject signalName
-		and: [ self relativePath = anObject relativePath
-		and: [ self endpoint = anObject endpoint
-		and: [ self protocol = anObject protocol
-		and: [ self headers = anObject headers
-		and: [ self timeoutMillis = anObject timeoutMillis
-		and: [ self compression = anObject compression
-		and: [ self userAgent = anObject userAgent ] ] ] ] ] ] ]
+	^ {
+		  self signalName.
+		  self relativePath.
+		  self endpoint.
+		  self protocol.
+		  self headers.
+		  self timeoutMillis.
+		  self compression.
+		  self userAgent.
+		  self insecure } = {
+		  anObject signalName.
+		  anObject relativePath.
+		  anObject endpoint.
+		  anObject protocol.
+		  anObject headers.
+		  anObject timeoutMillis.
+		  anObject compression.
+		  anObject userAgent.
+		  anObject insecure }
 ]
 
 { #category : 'accessing' }
@@ -297,15 +347,30 @@ OTOtlpExporterConfiguration >> compression: aString [
 OTOtlpExporterConfiguration >> endpoint [
 
 	^ endpoint ifNil: [
-		  self class
-			  normalizedBaseEndpoint: self class defaultBaseHttpEndpoint
-			  appendingRelativePath: self relativePath ]
+			  self isGrpcProtocol
+				  ifTrue: [ self class normalizedGrpcEndpoint: self class defaultBaseGrpcEndpoint insecure: false ]
+				  ifFalse: [ self class normalizedBaseEndpoint: self class defaultBaseHttpEndpoint appendingRelativePath: self relativePath ] ]
 ]
 
 { #category : 'accessing' }
 OTOtlpExporterConfiguration >> endpoint: aString [
 
 	endpoint := aString
+]
+
+{ #category : 'comparing' }
+OTOtlpExporterConfiguration >> hash [
+
+	^ {
+		  self signalName.
+		  self relativePath.
+		  self endpoint.
+		  self protocol.
+		  self headers.
+		  self timeoutMillis.
+		  self compression.
+		  self userAgent.
+		  self insecure } hash
 ]
 
 { #category : 'accessing' }
@@ -320,47 +385,22 @@ OTOtlpExporterConfiguration >> headers: aDictionary [
 	headers := aDictionary
 ]
 
-{ #category : 'comparing' }
-OTOtlpExporterConfiguration >> hash [
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> insecure [
 
-	^ { self signalName.
-	self relativePath.
-	self endpoint.
-	self protocol.
-	self headers.
-	self timeoutMillis.
-	self compression.
-	self userAgent } hash
+	^ insecure ifNil: [ false ]
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> insecure: aBoolean [
+
+	insecure := aBoolean
 ]
 
 { #category : 'testing' }
 OTOtlpExporterConfiguration >> isGrpcProtocol [
 
 	^ self protocol = 'grpc'
-]
-
-{ #category : 'testing' }
-OTOtlpExporterConfiguration >> usesGzipCompression [
-
-	^ self compression = 'gzip'
-]
-
-{ #category : 'testing' }
-OTOtlpExporterConfiguration >> usesHttpTransport [
-
-	^ self protocol beginsWith: 'http/'
-]
-
-{ #category : 'testing' }
-OTOtlpExporterConfiguration >> usesJsonEncoding [
-
-	^ self protocol = 'http/json'
-]
-
-{ #category : 'testing' }
-OTOtlpExporterConfiguration >> usesProtobufEncoding [
-
-	^ self protocol = 'http/protobuf' or: [ self protocol = 'grpc' ]
 ]
 
 { #category : 'accessing' }
@@ -386,6 +426,12 @@ OTOtlpExporterConfiguration >> relativePath [
 OTOtlpExporterConfiguration >> relativePath: aString [
 
 	relativePath := aString
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> resolvedGrpcEndpoint [
+
+	^ self class normalizedGrpcEndpoint: self endpoint insecure: self insecure
 ]
 
 { #category : 'accessing' }
@@ -422,4 +468,28 @@ OTOtlpExporterConfiguration >> userAgent [
 OTOtlpExporterConfiguration >> userAgent: aString [
 
 	userAgent := aString
+]
+
+{ #category : 'testing' }
+OTOtlpExporterConfiguration >> usesGzipCompression [
+
+	^ self compression = 'gzip'
+]
+
+{ #category : 'testing' }
+OTOtlpExporterConfiguration >> usesHttpTransport [
+
+	^ self protocol beginsWith: 'http/'
+]
+
+{ #category : 'testing' }
+OTOtlpExporterConfiguration >> usesJsonEncoding [
+
+	^ self protocol = 'http/json'
+]
+
+{ #category : 'testing' }
+OTOtlpExporterConfiguration >> usesProtobufEncoding [
+
+	^ self protocol = 'http/protobuf' or: [ self protocol = 'grpc' ]
 ]

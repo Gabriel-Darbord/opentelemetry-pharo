@@ -182,3 +182,16 @@ OTOtlpGrpcSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 	self assert: warnings size equals: 1.
 	self assert: (warnings first includesSubstring: 'partial success')
 ]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testGrpcChannelNormalizesAuthorityEndpointFromConfiguration [
+
+	| channel |
+	configuration
+		endpoint: 'collector:4317';
+		insecure: true.
+	channel := exporter grpcChannel.
+	self assert: channel endpoint scheme equals: 'http'.
+	self assert: channel endpoint host equals: 'collector'.
+	self assert: channel endpoint port equals: 4317
+]

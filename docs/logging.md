@@ -132,6 +132,10 @@ is accepted as the console-exporter alias.
 `OTEL_LOGS_EXPORTER=otlp/stdout` is also supported and writes one OTLP JSON
 payload per line to standard output.
 
+When OTLP logging uses the gRPC protocol, the shared exporter configuration
+also accepts bare `host[:port]` authorities and the `OTEL_EXPORTER_OTLP_INSECURE`
+or `OTEL_EXPORTER_OTLP_LOGS_INSECURE` switches.
+
 ## TinyLogger Bridge
 
 If TinyLogger is loaded in the image, you can attach an OpenTelemetry logger as

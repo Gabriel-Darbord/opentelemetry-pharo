@@ -76,9 +76,9 @@ OTOtlpGrpcSpanExporter >> exportAttemptNumber: attemptNumber payloadBytes: paylo
 OTOtlpGrpcSpanExporter >> grpcChannel [
 
 	^ grpcChannel ifNil: [
-		  grpcChannel := self grpcChannelClass
-			  endpoint: (self grpcEndpointClass fromString: self configuration endpoint)
-			  transport: self grpcTransport ]
+			  grpcChannel := self grpcChannelClass
+				                 endpoint: (self grpcEndpointClass fromString: self configuration resolvedGrpcEndpoint)
+				                 transport: self grpcTransport ]
 ]
 
 { #category : 'private - grpc' }

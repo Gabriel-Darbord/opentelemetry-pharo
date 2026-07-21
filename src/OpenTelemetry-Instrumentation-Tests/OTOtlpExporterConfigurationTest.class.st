@@ -38,6 +38,37 @@ OTOtlpExporterConfigurationTest >> testDefaultsFollowTraceHttpExporterSpec [
 ]
 
 { #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testGrpcAuthorityEndpointDefaultsToSecureTransport [
+
+	| configuration |
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
+				 at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'collector:4317';
+				 yourself)
+		during: [
+				configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+				self assert: configuration endpoint equals: 'https://collector:4317/'.
+				self deny: configuration insecure ]
+]
+
+{ #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testGrpcAuthorityEndpointUsesInsecureTransportWhenConfigured [
+
+	| configuration |
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
+				 at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'collector:4317';
+				 at: 'OTEL_EXPORTER_OTLP_INSECURE' put: 'true';
+				 yourself)
+		during: [
+				configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+				self assert: configuration endpoint equals: 'http://collector:4317/'.
+				self assert: configuration insecure ]
+]
+
+{ #category : 'tests' }
 OTOtlpExporterConfigurationTest >> testGrpcDefaultsFollowTraceExporterSpec [
 
 	| configuration |
@@ -55,16 +86,19 @@ OTOtlpExporterConfigurationTest >> testGrpcDefaultsFollowTraceExporterSpec [
 ]
 
 { #category : 'tests' }
-OTOtlpExporterConfigurationTest >> testSharedEndpointAppendsTracePath [
+OTOtlpExporterConfigurationTest >> testGrpcExplicitSchemeOverridesInsecureSetting [
 
+	| configuration |
 	self
 		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'http://collector:4318/mycollector';
-			yourself)
+				 at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
+				 at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'https://collector:4317';
+				 at: 'OTEL_EXPORTER_OTLP_INSECURE' put: 'true';
+				 yourself)
 		during: [
-			self assert:
-				(OTOtlpExporterConfiguration forSignalNamed: 'TRACES') endpoint
-				equals: 'http://collector:4318/mycollector/v1/traces' ]
+				configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+				self assert: configuration endpoint equals: 'https://collector:4317/'.
+				self assert: configuration insecure ]
 ]
 
 { #category : 'tests' }
@@ -79,20 +113,6 @@ OTOtlpExporterConfigurationTest >> testGrpcSharedEndpointIsUsedAsIs [
 				self assert:
 					(OTOtlpExporterConfiguration forSignalNamed: 'TRACES') endpoint
 					equals: 'http://collector:4317/mycollector' ]
-]
-
-{ #category : 'tests' }
-OTOtlpExporterConfigurationTest >> testSignalSpecificEndpointIsUsedAsIsExceptForMissingRootPath [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'http://collector:4318/base';
-			at: 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT' put: 'http://collector:4318';
-			yourself)
-		during: [
-			self assert:
-				(OTOtlpExporterConfiguration forSignalNamed: 'TRACES') endpoint
-				equals: 'http://collector:4318/' ]
 ]
 
 { #category : 'tests' }
@@ -127,6 +147,50 @@ OTOtlpExporterConfigurationTest >> testInvalidHeaderEntriesAreIgnored [
 ]
 
 { #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testInvalidScalarSettingsFallBackToSpecDefaults [
+
+	| configuration |
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'udp';
+			at: 'OTEL_EXPORTER_OTLP_TIMEOUT' put: '0';
+			at: 'OTEL_EXPORTER_OTLP_COMPRESSION' put: 'brotli';
+			yourself)
+		during: [
+			configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+			self assert: configuration protocol equals: 'http/protobuf'.
+			self assert: configuration timeoutMillis equals: 10000.
+			self assert: configuration compression equals: 'none' ]
+]
+
+{ #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testSharedEndpointAppendsTracePath [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'http://collector:4318/mycollector';
+			yourself)
+		during: [
+			self assert:
+				(OTOtlpExporterConfiguration forSignalNamed: 'TRACES') endpoint
+				equals: 'http://collector:4318/mycollector/v1/traces' ]
+]
+
+{ #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testSignalSpecificEndpointIsUsedAsIsExceptForMissingRootPath [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'http://collector:4318/base';
+			at: 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT' put: 'http://collector:4318';
+			yourself)
+		during: [
+			self assert:
+				(OTOtlpExporterConfiguration forSignalNamed: 'TRACES') endpoint
+				equals: 'http://collector:4318/' ]
+]
+
+{ #category : 'tests' }
 OTOtlpExporterConfigurationTest >> testSignalSpecificScalarSettingsOverrideSharedOnes [
 
 	| configuration |
@@ -151,20 +215,20 @@ OTOtlpExporterConfigurationTest >> testSignalSpecificScalarSettingsOverrideShare
 ]
 
 { #category : 'tests' }
-OTOtlpExporterConfigurationTest >> testInvalidScalarSettingsFallBackToSpecDefaults [
+OTOtlpExporterConfigurationTest >> testSignalSpecificSecuritySettingsOverrideSharedOnes [
 
 	| configuration |
 	self
 		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'udp';
-			at: 'OTEL_EXPORTER_OTLP_TIMEOUT' put: '0';
-			at: 'OTEL_EXPORTER_OTLP_COMPRESSION' put: 'brotli';
-			yourself)
+				 at: 'OTEL_EXPORTER_OTLP_PROTOCOL' put: 'grpc';
+				 at: 'OTEL_EXPORTER_OTLP_ENDPOINT' put: 'collector:4317';
+				 at: 'OTEL_EXPORTER_OTLP_INSECURE' put: 'true';
+				 at: 'OTEL_EXPORTER_OTLP_TRACES_INSECURE' put: 'false';
+				 yourself)
 		during: [
-			configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
-			self assert: configuration protocol equals: 'http/protobuf'.
-			self assert: configuration timeoutMillis equals: 10000.
-			self assert: configuration compression equals: 'none' ]
+				configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
+				self assert: configuration endpoint equals: 'https://collector:4317/'.
+				self deny: configuration insecure ]
 ]
 
 { #category : 'private' }

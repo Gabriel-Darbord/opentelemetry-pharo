@@ -283,6 +283,11 @@ each configured exporter. Console export uses `OTSimpleSpanProcessor`; the
 other built-in exporters use `OTBatchSpanProcessor`. `OTEL_TRACES_EXPORTER=logging`
 is accepted as the deprecated console-exporter alias.
 
+For OTLP/gRPC, `OTOtlpExporterConfiguration` accepts both full `http(s)` URLs
+and bare `host[:port]` authorities. Bare authorities default to a secure
+`https` connection unless `OTEL_EXPORTER_OTLP_INSECURE=true` or
+`OTEL_EXPORTER_OTLP_TRACES_INSECURE=true` is set.
+
 If you change exporter-related environment variables at runtime, reset the
 singleton objects before reading them again:
 
