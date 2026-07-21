@@ -179,9 +179,7 @@ OTSpan class >> fromSton: stonReader [
 	span restoreName: (representation at: #name).
 	span restoreContext: (representation at: #context).
 	span restoreKind: (representation at: #kind).
-	scope := representation
-		         at: #instrumentationScope
-		         ifAbsent: [ OTInstrumentationScope named: (representation at: #instrumentationName ifAbsent: [ '' ]) ].
+	scope := representation at: #instrumentationScope ifAbsent: [ OTInstrumentationScope named: '' ].
 	span restoreInstrumentationScope: scope.
 	representation at: #parentSpanContext ifPresent: [ :parentSpanContext | span restoreParentSpanContext: parentSpanContext ].
 	span restoreStartTime: (representation at: #startTime).
@@ -475,8 +473,7 @@ OTSpan >> asExportRecord [
 				  at: #startTime put: startTime;
 				  at: #endTime put: endTime;
 				  at: #status put: statusToExport;
-				  at: #traceFlags put: spanContextToExport traceFlags;
-				  at: #instrumentationName put: scope name.
+				  at: #traceFlags put: spanContextToExport traceFlags.
 			  scope isEmpty ifFalse: [ data at: #instrumentationScope put: scope ].
 			  parentContext ifNotNil: [ data at: #parentSpanContext put: parentContext ].
 			  traceStateToExport ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
@@ -1155,8 +1152,7 @@ OTSpan >> stonOn: stonWriter [
 				at: #startTime put: startTime;
 				at: #endTime put: endTime;
 				at: #status put: statusToExport;
-				at: #traceFlags put: spanContextToExport traceFlags;
-				at: #instrumentationName put: scope name.
+				at: #traceFlags put: spanContextToExport traceFlags.
 			scope isEmpty ifFalse: [ map at: #instrumentationScope put: scope ].
 			parentContext ifNotNil: [ map at: #parentSpanContext put: parentContext ].
 			traceStateToExport ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].

@@ -53,8 +53,7 @@ OTSpanSnapshot >> asExportRecord [
 		at: #startTime put: startTime;
 		at: #endTime put: endTime;
 		at: #status put: self status;
-		at: #traceFlags put: self traceFlags;
-		at: #instrumentationName put: self instrumentationScope name.
+		at: #traceFlags put: self traceFlags.
 	self instrumentationScope isEmpty ifFalse: [ data at: #instrumentationScope put: self instrumentationScope ].
 	self parentSpanContext ifNotNil: [ :aParentContext | data at: #parentSpanContext put: aParentContext ].
 	self traceState ifNotNil: [ :aTraceState | data at: #traceState put: aTraceState asHeaderValue ].
@@ -128,9 +127,7 @@ OTSpanSnapshot >> initializeFromSpan: aSpan [
 	events := (record at: #events ifAbsent: [ #(  ) ]) copy.
 	links := (record at: #links ifAbsent: [ #(  ) ]) copy.
 	resource := record at: #resource ifAbsent: [ OTResource empty ].
-	instrumentationScope := record
-		                        at: #instrumentationScope
-		                        ifAbsent: [ OTInstrumentationScope named: (record at: #instrumentationName ifAbsent: [ '' ]) ].
+	instrumentationScope := record at: #instrumentationScope ifAbsent: [ OTInstrumentationScope named: '' ].
 	droppedAttributesCount := record at: #droppedAttributesCount ifAbsent: [ 0 ].
 	droppedEventsCount := record at: #droppedEventsCount ifAbsent: [ 0 ].
 	droppedLinksCount := record at: #droppedLinksCount ifAbsent: [ 0 ]
@@ -237,8 +234,7 @@ OTSpanSnapshot >> stonOn: stonWriter [
 				at: #startTime put: startTime;
 				at: #endTime put: endTime;
 				at: #status put: self status;
-				at: #traceFlags put: self traceFlags;
-				at: #instrumentationName put: self instrumentationScope name.
+				at: #traceFlags put: self traceFlags.
 			self instrumentationScope isEmpty ifFalse: [ map at: #instrumentationScope put: self instrumentationScope ].
 			self parentSpanContext ifNotNil: [ :aParentContext | map at: #parentSpanContext put: aParentContext ].
 			self traceState ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].

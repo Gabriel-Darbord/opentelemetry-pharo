@@ -1029,7 +1029,11 @@ OTTracerProviderTest >> testRecordingSpanExportRecordUsesParentSpanContextWithou
 	| exportRecord parentSpanContext provider snapshot snapshotRecord span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
+	tracer := provider
+		          tracerNamed: 'demo.scope'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: self sampleAttributes.
 	parentSpanContext := OTSpanContext
 		                     traceId: '12345678876543211234567887654321'
 		                     spanId: 'bbbbbbbbbbbbbbbb'
@@ -1043,9 +1047,13 @@ OTTracerProviderTest >> testRecordingSpanExportRecordUsesParentSpanContextWithou
 	snapshot := OTSpanSnapshot fromSpan: span.
 	snapshotRecord := snapshot asExportRecord.
 	self assert: (exportRecord at: #parentSpanContext) equals: parentSpanContext.
+	self assert: (exportRecord at: #instrumentationScope) equals: tracer instrumentationScope.
 	self deny: (exportRecord includesKey: #parentId).
+	self deny: (exportRecord includesKey: #instrumentationName).
 	self assert: (snapshotRecord at: #parentSpanContext) equals: parentSpanContext.
-	self deny: (snapshotRecord includesKey: #parentId)
+	self assert: (snapshotRecord at: #instrumentationScope) equals: tracer instrumentationScope.
+	self deny: (snapshotRecord includesKey: #parentId).
+	self deny: (snapshotRecord includesKey: #instrumentationName)
 ]
 
 { #category : 'tests' }

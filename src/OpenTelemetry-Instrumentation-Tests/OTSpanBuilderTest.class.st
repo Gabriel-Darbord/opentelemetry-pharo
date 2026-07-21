@@ -900,8 +900,16 @@ OTSpanBuilderTest >> testStonRoundTripPreservesErrorStatusDescription [
 OTSpanBuilderTest >> testStonRoundTripPreservesParentSpanContextWithoutLegacyParentId [
 
 	| parentSpan roundTripped serialized span tracer |
-	OTTracerProvider current spanProcessor: OTSimpleSpanProcessor new.
-	tracer := OTTracerProvider current tracerNamed: 'demo.scope'.
+	OTTracerProvider current
+		spanProcessor: OTSimpleSpanProcessor new;
+		resource: OTResource empty.
+	tracer := OTTracerProvider current
+		          tracerNamed: 'demo.scope'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: (OrderedDictionary new
+				           at: 'scope.answer' put: 42;
+				           yourself).
 	parentSpan := self sampledParentSpan.
 	span := (tracer spanBuilderNamed: 'child')
 		        inContext: (OTContext new withSpan: parentSpan);
@@ -909,8 +917,11 @@ OTSpanBuilderTest >> testStonRoundTripPreservesParentSpanContextWithoutLegacyPar
 	serialized := STON toString: span.
 	roundTripped := STON fromString: serialized.
 	self deny: (serialized includesSubstring: 'parentId').
+	self deny: (serialized includesSubstring: 'instrumentationName').
 	self assert: roundTripped parentSpanContext equals: parentSpan spanContext.
-	self deny: (roundTripped asExportRecord includesKey: #parentId)
+	self assert: roundTripped instrumentationScope equals: tracer instrumentationScope.
+	self deny: (roundTripped asExportRecord includesKey: #parentId).
+	self deny: (roundTripped asExportRecord includesKey: #instrumentationName)
 ]
 
 { #category : 'tests' }
