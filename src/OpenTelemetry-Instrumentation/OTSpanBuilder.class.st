@@ -212,11 +212,10 @@ OTSpanBuilder >> startSpan [
 		                          ifTrue: [ OTSpan currentContext ]
 		                          ifFalse: [ self class normalizedParentContextFrom: parentContext ].
 	rootRequested ifTrue: [ effectiveParentContext := effectiveParentContext withSpan: nil ].
-	(tracer provider
-		 tracerConfigurationEnables: tracer
-		 forSpanNamed: spanName
+	(tracer
+		 enabledForSpanNamed: spanName
 		 kind: spanKind
-		 inContext: effectiveParentContext
+		 in: effectiveParentContext
 		 attributes: attributes
 		 links: links) ifFalse: [
 		^ tracer provider nonRecordingSpanIn: effectiveParentContext instrumentationScope: tracer instrumentationScope ].

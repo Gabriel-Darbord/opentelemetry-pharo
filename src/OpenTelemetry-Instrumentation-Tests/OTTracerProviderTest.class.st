@@ -581,8 +581,9 @@ OTTracerProviderTest >> testExistingTracerPicksUpLaterSpanProcessorRegistrationW
 	tracer := provider tracerNamed: 'demo.scope'.
 	self deny: tracer enabled.
 	span := (tracer spanBuilderNamed: 'before') startSpan.
-	self assert: span isRecording.
-	self assert: span spanContext isValid.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span isRecording.
+	self deny: span spanContext isValid.
 	span end.
 	processor := OTRecordingSpanProcessor new.
 	provider spanProcessor: processor.
@@ -593,6 +594,26 @@ OTTracerProviderTest >> testExistingTracerPicksUpLaterSpanProcessorRegistrationW
 	self assert: processor startedSpans asArray equals: { span }.
 	self assert: processor endingSpans asArray equals: { span }.
 	self assert: processor endedSpans asArray equals: { span }
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerPicksUpLaterSpanProcessorRemovalWithoutReacquiring [
+
+	| processor provider span tracer |
+	provider := OTTracerProvider new.
+	processor := OTFailingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	provider spanProcessors: #(  ).
+	self deny: tracer enabled.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: processor shutdownCount equals: 1.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span isRecording.
+	self deny: span spanContext isValid.
+	self assert: processor startedSpans isEmpty.
+	self assert: processor endingSpans isEmpty.
+	self assert: processor endedSpans isEmpty
 ]
 
 { #category : 'tests' }
@@ -1564,19 +1585,28 @@ OTTracerProviderTest >> testTracerRetrievedAfterShutdownNoopSpanPreservesInstrum
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testTracerWithoutProcessorsStartsNonRecordingSpan [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	self deny: tracer enabled.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span isRecording.
+	self deny: span spanContext isValid
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testTracerWithoutProcessorsStillReturnsRecordingSpan [
 
-	| exportRecord provider span |
+	| provider span |
 	provider := OTTracerProvider new.
 	span := (provider tracerNamed: 'demo.scope') startSpanNamed: 'operation' in: OTContext new.
-	self assert: span isRecording.
-	self assert: span spanContext isValid.
-	span
-		attributeAt: 'answer' put: 42;
-		addEventNamed: 'recorded'.
-	exportRecord := span asExportRecord.
-	self assert: ((exportRecord at: #attributes) at: 'answer') equals: 42.
-	self assert: (exportRecord at: #events) size equals: 1
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span isRecording.
+	self deny: span spanContext isValid.
+	self assert: span instrumentationName equals: 'demo.scope'
 ]
 
 { #category : 'tests' }
