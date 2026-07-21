@@ -347,7 +347,7 @@ OTTracerProviderTest >> testCustomTracerProviderCanCustomizeTracerClass [
 ]
 
 { #category : 'tests' }
-OTTracerProviderTest >> testCustomTracerProviderWrapsNoopSpanContextsWithCustomSpanClass [
+OTTracerProviderTest >> testCustomTracerProviderUsesStandardNoopWrappedSpanClass [
 
 	| parentSpan provider returnedSpan tracer |
 	provider := OTCustomTracerProvider new.
@@ -358,7 +358,7 @@ OTTracerProviderTest >> testCustomTracerProviderWrapsNoopSpanContextsWithCustomS
 	returnedSpan := (tracer spanBuilderNamed: 'operation')
 		                inContext: (OTContext new withSpan: parentSpan);
 		                startSpan.
-	self assert: returnedSpan class identicalTo: OTCustomNonRecordingSpan.
+	self assert: returnedSpan class identicalTo: OTNonRecordingSpan.
 	self assert: returnedSpan spanContext traceId equals: parentSpan spanContext traceId.
 	self assert: returnedSpan spanContext spanId equals: parentSpan spanContext spanId
 ]
