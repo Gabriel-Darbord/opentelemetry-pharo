@@ -273,33 +273,51 @@ OTSpanBuilderTest >> testInContextAfterNoParentUsesExplicitParentContext [
 { #category : 'tests' }
 OTSpanBuilderTest >> testInContextIgnoresInvalidSpanAsParentContext [
 
-	| parentSpan provider tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	parentSpan := (OTSpanContext
-		               traceId: '00112233445566778899aabbccddeeff'
-		               spanId: '1122334455667788'
-		               traceFlags: '03'
-		               traceState: nil
-		               remote: true) asNonRecordingSpan.
-	self should: [ (tracer spanBuilderNamed: 'operation') inContext: parentSpan ] raise: Error
+	self withParentContextWarningsDo: [ :warnings |
+			| parentSpan provider span tracer |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			tracer := provider tracerNamed: 'demo.scope'.
+			parentSpan := (OTSpanContext
+				               traceId: '00112233445566778899aabbccddeeff'
+				               spanId: '1122334455667788'
+				               traceFlags: '03'
+				               traceState: nil
+				               remote: true) asNonRecordingSpan.
+			span := nil.
+			self
+				shouldnt: [
+						span := (tracer spanBuilderNamed: 'operation')
+							        inContext: parentSpan;
+							        startSpan ]
+				raise: Error.
+			self deny: (span asExportRecord includesKey: #parentSpanContext).
+			self assert: warnings size equals: 1 ]
 ]
 
 { #category : 'tests' }
 OTSpanBuilderTest >> testInContextIgnoresInvalidSpanContextAsParentContext [
 
-	| provider spanContext tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	spanContext := OTSpanContext
-		               traceId: '00112233445566778899aabbccddeeff'
-		               spanId: '1122334455667788'
-		               traceFlags: '03'
-		               traceState: nil
-		               remote: true.
-	self should: [ (tracer spanBuilderNamed: 'operation') inContext: spanContext ] raise: Error
+	self withParentContextWarningsDo: [ :warnings |
+			| provider span spanContext tracer |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			tracer := provider tracerNamed: 'demo.scope'.
+			spanContext := OTSpanContext
+				               traceId: '00112233445566778899aabbccddeeff'
+				               spanId: '1122334455667788'
+				               traceFlags: '03'
+				               traceState: nil
+				               remote: true.
+			span := nil.
+			self
+				shouldnt: [
+						span := (tracer spanBuilderNamed: 'operation')
+							        inContext: spanContext;
+							        startSpan ]
+				raise: Error.
+			self deny: (span asExportRecord includesKey: #parentSpanContext).
+			self assert: warnings size equals: 1 ]
 ]
 
 { #category : 'tests' }
@@ -683,6 +701,37 @@ OTSpanBuilderTest >> testRecordingSpanExposesLinkConvenienceSetters [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordingSpanIgnoresInvalidArgumentsWithoutError [
+
+	| exportRecord provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	self
+		shouldnt: [
+				span
+					attributeAt: nil put: 1;
+					setStatus: nil description: nil;
+					setStatus: #bogus description: 1;
+					updateName: nil;
+					addEvent: nil;
+					addEventNamed: nil;
+					addEventNamed: 'event' attributes: #( invalid ) timestamp: DateAndTime now;
+					addLink: nil;
+					addLinkSpan: nil attributes: nil;
+					addLinkSpanContext: nil attributes: nil;
+					recordException: nil ]
+		raise: Error.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #name) equals: 'operation'.
+	self assert: (exportRecord at: #status) equals: OTSpan unset.
+	self deny: (exportRecord includesKey: #attributes).
+	self deny: (exportRecord includesKey: #events).
+	self deny: (exportRecord includesKey: #links)
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordingSpanRecordsInvalidLinkedSpanContextWhenAttributesPresent [
 
 	| exportRecord invalidContext linksToExport provider span tracer |
@@ -777,6 +826,51 @@ OTSpanBuilderTest >> testSpanBuilderDefersImplicitCurrentContextUntilStart [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderIgnoresInvalidBuilderArgumentsWithoutError [
+
+	| exportRecord provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := nil.
+	self
+		shouldnt: [
+				span := (tracer spanBuilderNamed: nil)
+					        kind: #bogus;
+					        inContext: 'not a context';
+					        addLink: nil;
+					        addLinkSpan: nil attributes: nil;
+					        addLinkSpanContext: nil attributes: nil;
+					        attributeAt: nil put: 42;
+					        attributes: #( invalid );
+					        startSpan ]
+		raise: Error.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #name) equals: ''.
+	self assert: (exportRecord at: #kind) equals: OTSpan internal.
+	self deny: (exportRecord includesKey: #attributes).
+	self deny: (exportRecord includesKey: #links).
+	self deny: (exportRecord includesKey: #parentSpanContext)
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderIgnoresInvalidSpanKind [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := nil.
+	self
+		shouldnt: [
+				span := (tracer spanBuilderNamed: 'operation')
+					        kind: #bogus;
+					        startSpan ]
+		raise: Error.
+	self assert: span kind equals: OTSpan internal
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testSpanBuilderKindNilDefaultsToInternal [
 
 	| provider span tracer |
@@ -810,16 +904,6 @@ OTSpanBuilderTest >> testSpanBuilderRecordsInvalidLinkedSpanContextWhenTraceStat
 	self assert: linksToExport size equals: 1.
 	self assert: linksToExport first spanContext equals: invalidContext.
 	self assert: linksToExport first attributes isEmpty
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanBuilderRejectsInvalidSpanKind [
-
-	| provider tracer |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	self should: [ (tracer spanBuilderNamed: 'operation') kind: #bogus ] raise: Error
 ]
 
 { #category : 'tests' }

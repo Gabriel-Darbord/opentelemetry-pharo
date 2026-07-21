@@ -39,7 +39,8 @@ OTSpanBuilder class >> normalizedParentContextFrom: aContext [
 
 	aContext ifNil: [ ^ OTContext new ].
 	(aContext isKindOf: OTContext) ifTrue: [ ^ aContext ].
-	Error signal: 'OpenTelemetry span builders require an OTContext parent. Wrap spans with OTContext>>withSpan:.'
+	self noteInvalidParentContext: aContext.
+	^ OTContext new
 ]
 
 { #category : 'private - logging' }
@@ -79,10 +80,12 @@ OTSpanBuilder class >> parentContextWarningSink: aBlock [
 { #category : 'configuring' }
 OTSpanBuilder >> addLink: aSpanLink [
 
-	(aSpanLink isNil or: [ (aSpanLink isKindOf: OTSpanLink) not ]) ifTrue: [
-		Error signal: 'OpenTelemetry span builders require OTSpanLink instances' ].
+	aSpanLink ifNil: [ ^ self ].
+	(aSpanLink isKindOf: OTSpanLink) ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aSpanLink forOperation: 'OTSpanBuilder>>addLink:'.
+			^ self ].
 	links add: aSpanLink.
-	^ self
+	self
 ]
 
 { #category : 'configuring' }
@@ -94,7 +97,14 @@ OTSpanBuilder >> addLinkSpan: aSpan [
 { #category : 'configuring' }
 OTSpanBuilder >> addLinkSpan: aSpan attributes: aDictionary [
 
-	^ self addLink: (OTSpanLink span: aSpan attributes: aDictionary)
+	| link |
+	aSpan ifNil: [ ^ self ].
+	link := [ OTSpanLink span: aSpan attributes: aDictionary ]
+		        on: Error
+		        do: [
+				        OTSpan noteIgnoredInvalidArgument: aSpan forOperation: 'OTSpanBuilder>>addLinkSpan:attributes:'.
+				        ^ self ].
+	^ self addLink: link
 ]
 
 { #category : 'configuring' }
@@ -106,7 +116,14 @@ OTSpanBuilder >> addLinkSpanContext: aSpanContext [
 { #category : 'configuring' }
 OTSpanBuilder >> addLinkSpanContext: aSpanContext attributes: aDictionary [
 
-	^ self addLink: (OTSpanLink spanContext: aSpanContext attributes: aDictionary)
+	| link |
+	aSpanContext ifNil: [ ^ self ].
+	link := [ OTSpanLink spanContext: aSpanContext attributes: aDictionary ]
+		        on: Error
+		        do: [
+				        OTSpan noteIgnoredInvalidArgument: aSpanContext forOperation: 'OTSpanBuilder>>addLinkSpanContext:attributes:'.
+				        ^ self ].
+	^ self addLink: link
 ]
 
 { #category : 'configuring' }
@@ -126,10 +143,13 @@ OTSpanBuilder >> asRoot [
 { #category : 'configuring' }
 OTSpanBuilder >> attributeAt: aKey put: aValue [
 
-	attributes
-		at: (OTAttributeNormalizer normalizeAttributeKey: aKey)
-		put: (OTAttributeNormalizer normalizeAttributeValue: aValue).
-	^ self
+	[
+	attributes at: (OTAttributeNormalizer normalizeAttributeKey: aKey) put: (OTAttributeNormalizer normalizeAttributeValue: aValue) ]
+		on: Error
+		do: [
+				OTSpan noteIgnoredInvalidArgument: aKey forOperation: 'OTSpanBuilder>>attributeAt:put:'.
+				^ self ].
+	self
 ]
 
 { #category : 'configuring' }
@@ -137,10 +157,13 @@ OTSpanBuilder >> attributes: aCollection [
 
 	| normalized |
 	aCollection ifNil: [ ^ self ].
-	normalized := OTAttributeNormalizer normalizeAttributes: aCollection.
-	normalized associationsDo: [ :each |
-		attributes at: each key put: each value ].
-	^ self
+	normalized := [ OTAttributeNormalizer normalizeAttributes: aCollection ]
+		              on: Error
+		              do: [
+				              OTSpan noteIgnoredInvalidArgument: aCollection forOperation: 'OTSpanBuilder>>attributes:'.
+				              ^ self ].
+	normalized associationsDo: [ :each | attributes at: each key put: each value ].
+	self
 ]
 
 { #category : 'configuring' }
@@ -177,7 +200,7 @@ OTSpanBuilder >> initialize [
 { #category : 'configuring' }
 OTSpanBuilder >> kind: aSpanKind [
 
-	spanKind := aSpanKind ifNil: [ OTSpan internal ] ifNotNil: [ OTSpan validateKind: aSpanKind ]
+	spanKind := OTSpan validateKind: aSpanKind
 ]
 
 { #category : 'configuring' }
@@ -200,7 +223,11 @@ OTSpanBuilder >> noParent [
 OTSpanBuilder >> restoreTracer: aTracer spanName: aString [
 
 	tracer := aTracer.
-	spanName := aString ifNil: [ '' ] ifNotNil: [ aString ]
+	(aString isString or: [ aString isSymbol ]) ifTrue: [
+			spanName := aString asString.
+			^ spanName ].
+	aString ifNotNil: [ OTSpan noteIgnoredInvalidArgument: aString forOperation: 'OTTracer>>spanBuilderNamed:' ].
+	spanName := ''
 ]
 
 { #category : 'starting' }

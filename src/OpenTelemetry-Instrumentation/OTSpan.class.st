@@ -77,6 +77,13 @@ OTSpan class >> alwaysServer [
 	^ alwaysServer ifNil: [ alwaysServer := [ :request | #server ] ]
 ]
 
+{ #category : 'private - logging' }
+OTSpan class >> argumentSummaryFor: anObject [
+
+	anObject ifNil: [ ^ 'nil' ].
+	^ 'an instance of ' , anObject class name asString
+]
+
 { #category : 'enumeration' }
 OTSpan class >> client [
 	"Indicates that the span covers the client-side wrapper around an RPC or other remote request."
@@ -257,6 +264,13 @@ OTSpan class >> newInternal [
 ]
 
 { #category : 'private - logging' }
+OTSpan class >> noteIgnoredInvalidArgument: anObject forOperation: aString [
+
+	OTDiagnosticLogger current warning:
+		'OpenTelemetry ignored an invalid argument for ' , aString , ': ' , (self argumentSummaryFor: anObject)
+]
+
+{ #category : 'private - logging' }
 OTSpan class >> noteLimitWarningFor: aSpan message: aString [
 
 	| warned |
@@ -363,8 +377,10 @@ OTSpan class >> validStatusCodes [
 { #category : 'enumeration' }
 OTSpan class >> validateKind: aSpanKind [
 
+	aSpanKind ifNil: [ ^ self internal ].
 	(self validKinds includes: aSpanKind) ifTrue: [ ^ aSpanKind ].
-	Error signal: 'OpenTelemetry span kind must be one of ' , self validKinds printString
+	self noteIgnoredInvalidArgument: aSpanKind forOperation: 'span kind selection'.
+	^ self internal
 ]
 
 { #category : 'private - logging' }
@@ -392,6 +408,9 @@ OTSpan class >> wrapping: aSpanContext [
 { #category : 'recording' }
 OTSpan >> addEvent: anOTSpanEvent [
 
+	(anOTSpanEvent isKindOf: OTSpanEvent) ifFalse: [
+			self class noteIgnoredInvalidArgument: anOTSpanEvent forOperation: 'OTSpan>>addEvent:'.
+			^ self ].
 	^ stateLock critical: [
 			  | currentEvents limitedEvent |
 			  self currentProcessMayMutateSpanState ifFalse: [ ^ self ].
@@ -420,7 +439,14 @@ OTSpan >> addEventNamed: aString attributes: aCollection [
 { #category : 'recording' }
 OTSpan >> addEventNamed: aString attributes: aCollection timestamp: aDateAndTime [
 
-	^ self addEvent: (OTSpanEvent named: aString attributes: aCollection timestamp: aDateAndTime)
+	(aString isString or: [ aString isSymbol ]) ifFalse: [
+			self class noteIgnoredInvalidArgument: aString forOperation: 'OTSpan>>addEventNamed:attributes:timestamp:'.
+			^ self ].
+	^ [ self addEvent: (OTSpanEvent named: aString asString attributes: aCollection timestamp: aDateAndTime) ]
+		  on: Error
+		  do: [
+				  self class noteIgnoredInvalidArgument: aCollection forOperation: 'OTSpan>>addEventNamed:attributes:timestamp:'.
+				  self ]
 ]
 
 { #category : 'recording' }
@@ -432,6 +458,10 @@ OTSpan >> addEventNamed: aString timestamp: aDateAndTime [
 { #category : 'recording' }
 OTSpan >> addLink: anOTSpanLink [
 
+	anOTSpanLink ifNil: [ ^ self ].
+	(anOTSpanLink isKindOf: OTSpanLink) ifFalse: [
+			self class noteIgnoredInvalidArgument: anOTSpanLink forOperation: 'OTSpan>>addLink:'.
+			^ self ].
 	^ stateLock critical: [
 			  | currentLinks limitedLink |
 			  self currentProcessMayMutateSpanState ifFalse: [ ^ self ].
@@ -454,7 +484,14 @@ OTSpan >> addLinkSpan: aSpan [
 { #category : 'recording' }
 OTSpan >> addLinkSpan: aSpan attributes: aDictionary [
 
-	^ self addLink: (OTSpanLink span: aSpan attributes: aDictionary)
+	| link |
+	aSpan ifNil: [ ^ self ].
+	link := [ OTSpanLink span: aSpan attributes: aDictionary ]
+		        on: Error
+		        do: [
+				        self class noteIgnoredInvalidArgument: aSpan forOperation: 'OTSpan>>addLinkSpan:attributes:'.
+				        ^ self ].
+	^ self addLink: link
 ]
 
 { #category : 'recording' }
@@ -466,7 +503,27 @@ OTSpan >> addLinkSpanContext: aSpanContext [
 { #category : 'recording' }
 OTSpan >> addLinkSpanContext: aSpanContext attributes: aDictionary [
 
-	^ self addLink: (OTSpanLink spanContext: aSpanContext attributes: aDictionary)
+	| link |
+	aSpanContext ifNil: [ ^ self ].
+	link := [ OTSpanLink spanContext: aSpanContext attributes: aDictionary ]
+		        on: Error
+		        do: [
+				        self class noteIgnoredInvalidArgument: aSpanContext forOperation: 'OTSpan>>addLinkSpanContext:attributes:'.
+				        ^ self ].
+	^ self addLink: link
+]
+
+{ #category : 'private' }
+OTSpan >> applyStatusCode: aSymbol description: aString [
+
+	aSymbol = self class ok
+		ifTrue: [
+				status := self class ok.
+				statusDescription := nil ]
+		ifFalse: [
+				status := self class error.
+				statusDescription := self normalizedStatusDescription: aString ].
+	self
 ]
 
 { #category : 'private - exporting' }
@@ -513,10 +570,19 @@ OTSpan >> attributeAt: key put: value [
 	^ stateLock critical: [
 			  | normalizedKey normalizedValue |
 			  self currentProcessMayMutateSpanState ifFalse: [ ^ self ].
-			  normalizedKey := OTAttributeNormalizer normalizeAttributeKey: key.
-			  normalizedValue := OTAttributeNormalizer
+			  normalizedKey := [ OTAttributeNormalizer normalizeAttributeKey: key ]
+				                   on: Error
+				                   do: [
+						                   self class noteIgnoredInvalidArgument: key forOperation: 'OTSpan>>attributeAt:put:'.
+						                   ^ self ].
+			  normalizedValue := [
+			                     OTAttributeNormalizer
 				                     normalizeAttributeValue: value
-				                     lengthLimit: self effectiveLimits attributeValueLengthLimit.
+				                     lengthLimit: self effectiveLimits attributeValueLengthLimit ]
+				                     on: Error
+				                     do: [
+						                     self class noteIgnoredInvalidArgument: value forOperation: 'OTSpan>>attributeAt:put:'.
+						                     ^ self ].
 			  attributes ifNil: [ attributes := OrderedDictionary new ].
 			  (self mayAddAttributeNamed: normalizedKey)
 				  ifTrue: [ attributes at: normalizedKey put: normalizedValue ]
@@ -753,6 +819,17 @@ OTSpan >> isRecording [
 	^ stateLock critical: [ ended not ]
 ]
 
+{ #category : 'private' }
+OTSpan >> isValidStatusCodeArgument: aSymbol [
+
+	aSymbol ifNil: [
+			self class noteIgnoredInvalidArgument: aSymbol forOperation: 'OTSpan>>setStatus:description:'.
+			^ false ].
+	(self class validStatusCodes includes: aSymbol) ifTrue: [ ^ true ].
+	self class noteIgnoredInvalidArgument: aSymbol forOperation: 'OTSpan>>setStatus:description:'.
+	^ false
+]
+
 { #category : 'accessing' }
 OTSpan >> kind [
 
@@ -863,8 +940,14 @@ OTSpan >> normalizedExceptionAttributesFor: anException additionalAttributes: aC
 { #category : 'private' }
 OTSpan >> normalizedStatusDescription: aString [
 
-	(aString isNil or: [ aString isEmpty ]) ifTrue: [ ^ nil ].
-	^ aString
+	| description |
+	aString ifNil: [ ^ nil ].
+	(aString isString or: [ aString isSymbol ]) ifFalse: [
+			self class noteIgnoredInvalidArgument: aString forOperation: 'OTSpan>>setStatus:description:'.
+			^ nil ].
+	description := aString asString.
+	description isEmpty ifTrue: [ ^ nil ].
+	^ description
 ]
 
 { #category : 'accessing' }
@@ -902,8 +985,17 @@ OTSpan >> recordException: anException attributes: aCollection [
 OTSpan >> recordException: anException attributes: aCollection timestamp: aDateAndTime [
 
 	| exceptionAttributes |
+	anException ifNil: [
+			self class noteIgnoredInvalidArgument: anException forOperation: 'OTSpan>>recordException:attributes:timestamp:'.
+			^ self ].
 	self isRecording ifFalse: [ ^ self ].
-	exceptionAttributes := (self normalizedExceptionAttributesFor: anException additionalAttributes: aCollection) associations.
+	exceptionAttributes := [ (self normalizedExceptionAttributesFor: anException additionalAttributes: aCollection) associations ]
+		                       on: Error
+		                       do: [
+				                       self class
+					                       noteIgnoredInvalidArgument: anException
+					                       forOperation: 'OTSpan>>recordException:attributes:timestamp:'.
+				                       ^ self ].
 	self addEventNamed: 'exception' attributes: exceptionAttributes timestamp: aDateAndTime
 ]
 
@@ -1096,26 +1188,12 @@ OTSpan >> setStatus: aSymbol [
 { #category : 'recording' }
 OTSpan >> setStatus: aSymbol description: aString [
 
+	(self isValidStatusCodeArgument: aSymbol) ifFalse: [ ^ self ].
 	^ stateLock critical: [
-			  self currentProcessMayMutateSpanState
-				  ifFalse: [ self ]
-				  ifTrue: [
-						  self validateStatusCode: aSymbol.
-						  aSymbol = self class unset
-							  ifTrue: [ self ]
-							  ifFalse: [
-									  self effectiveStatus = self class ok
-										  ifTrue: [ self ]
-										  ifFalse: [
-												  aSymbol = self class ok
-													  ifTrue: [
-															  status := self class ok.
-															  statusDescription := nil.
-															  self ]
-													  ifFalse: [
-															  status := self class error.
-															  statusDescription := self normalizedStatusDescription: aString.
-															  self ] ] ] ] ]
+			  self currentProcessMayMutateSpanState ifFalse: [ ^ self ].
+			  aSymbol = self class unset ifTrue: [ ^ self ].
+			  self effectiveStatus = self class ok ifTrue: [ ^ self ].
+			  self applyStatusCode: aSymbol description: aString ]
 ]
 
 { #category : 'accessing' }
@@ -1205,10 +1283,13 @@ OTSpan >> traceState [
 { #category : 'recording' }
 OTSpan >> updateName: aString [
 
+	(aString isString or: [ aString isSymbol ]) ifFalse: [
+			self class noteIgnoredInvalidArgument: aString forOperation: 'OTSpan>>updateName:'.
+			^ self ].
 	^ stateLock critical: [
 			  self currentProcessMayMutateSpanState
 				  ifTrue: [
-						  name := aString.
+						  name := aString asString.
 						  self ]
 				  ifFalse: [ self ] ]
 ]
