@@ -18,6 +18,19 @@ OTOtlpProtobufTraceEncoderTest >> assertReader: aReader readsField: aFieldNumber
 ]
 
 { #category : 'private' }
+OTOtlpProtobufTraceEncoderTest >> keyValueEntryFromBytes: aByteArray [
+
+	| entryReader key value |
+	entryReader := OTProtobufReader on: aByteArray.
+	self assertReader: entryReader readsField: 1 wireType: 2.
+	key := entryReader readString.
+	self assertReader: entryReader readsField: 2 wireType: 2.
+	value := self scalarAnyValueFromBytes: entryReader readBytes.
+	self assert: entryReader atEnd.
+	^ key -> value
+]
+
+{ #category : 'private' }
 OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 
 	| link parentContext provider span tracer |
@@ -81,6 +94,19 @@ OTOtlpProtobufTraceEncoderTest >> sampleSpan [
 	^ span
 ]
 
+{ #category : 'private' }
+OTOtlpProtobufTraceEncoderTest >> scalarAnyValueFromBytes: aByteArray [
+
+	| reader tag |
+	reader := OTProtobufReader on: aByteArray.
+	tag := reader readTag.
+	tag first = 1 ifTrue: [ ^ reader readString ].
+	tag first = 2 ifTrue: [ ^ reader readVarint = 1 ].
+	tag first = 3 ifTrue: [ ^ reader readVarint ].
+	tag first = 4 ifTrue: [ ^ reader readDouble ].
+	Error signal: 'Unsupported OTLP AnyValue in test: field ' , tag first asString
+]
+
 { #category : 'running' }
 OTOtlpProtobufTraceEncoderTest >> setUp [
 
@@ -97,7 +123,7 @@ OTOtlpProtobufTraceEncoderTest >> testEncodeEmptySpanCollectionProducesEmptyRequ
 { #category : 'tests' }
 OTOtlpProtobufTraceEncoderTest >> testEncodeSpanProducesExpectedOtlpTraceStructure [
 
-	| requestReader requestBytes resourceAttributeReader resourceReader resourceSpansBytes scopeAttributeReader scopeReader scopeSpansBytes spanAttributeReader spanBytes spanReader statusBytes statusReader |
+	| eventAttribute eventReader spanAttribute scopeAttribute resourceAttribute linkAttribute requestReader requestBytes resourceAttributeReader resourceReader resourceSpansBytes scopeAttributeReader scopeReader scopeSpansBytes spanBytes spanReader linkReader statusBytes statusReader |
 	requestBytes := encoder encodeSpans: { self sampleSpan }.
 	requestReader := OTProtobufReader on: requestBytes.
 	self assertReader: requestReader readsField: 1 wireType: 2.
@@ -108,7 +134,9 @@ OTOtlpProtobufTraceEncoderTest >> testEncodeSpanProducesExpectedOtlpTraceStructu
 	self assertReader: resourceReader readsField: 1 wireType: 2.
 	resourceAttributeReader := OTProtobufReader on: resourceReader readBytes.
 	self assertReader: resourceAttributeReader readsField: 1 wireType: 2.
-	self assert: (resourceAttributeReader readBytes notEmpty).
+	resourceAttribute := self keyValueEntryFromBytes: resourceAttributeReader readBytes.
+	self assert: resourceAttribute key equals: 'service.name'.
+	self assert: resourceAttribute value equals: 'demo-service'.
 	self assertReader: resourceAttributeReader readsField: 2 wireType: 0.
 	self assert: resourceAttributeReader readVarint equals: 0.
 	self assert: resourceAttributeReader atEnd.
@@ -127,7 +155,9 @@ OTOtlpProtobufTraceEncoderTest >> testEncodeSpanProducesExpectedOtlpTraceStructu
 	self assertReader: scopeAttributeReader readsField: 2 wireType: 2.
 	self assert: scopeAttributeReader readString equals: '1.2.3'.
 	self assertReader: scopeAttributeReader readsField: 3 wireType: 2.
-	self assert: (scopeAttributeReader readBytes notEmpty).
+	scopeAttribute := self keyValueEntryFromBytes: scopeAttributeReader readBytes.
+	self assert: scopeAttribute key equals: 'scope.attr'.
+	self assert: scopeAttribute value equals: true.
 	self assertReader: scopeAttributeReader readsField: 4 wireType: 0.
 	self assert: scopeAttributeReader readVarint equals: 0.
 	self assert: scopeAttributeReader atEnd.
@@ -156,22 +186,47 @@ OTOtlpProtobufTraceEncoderTest >> testEncodeSpanProducesExpectedOtlpTraceStructu
 	self assertReader: spanReader readsField: 8 wireType: 1.
 	self assert: spanReader readFixed64 equals: 2000000.
 	self assertReader: spanReader readsField: 9 wireType: 2.
-	spanAttributeReader := OTProtobufReader on: spanReader readBytes.
-	self assertReader: spanAttributeReader readsField: 1 wireType: 2.
-	self assert: spanAttributeReader readString equals: 'service.name'.
-	self assertReader: spanAttributeReader readsField: 2 wireType: 2.
-	self assert: (spanAttributeReader readBytes notEmpty).
-	self assert: spanAttributeReader atEnd.
+	spanAttribute := self keyValueEntryFromBytes: spanReader readBytes.
+	self assert: spanAttribute key equals: 'service.name'.
+	self assert: spanAttribute value equals: 'demo'.
 	self assertReader: spanReader readsField: 9 wireType: 2.
-	self assert: (spanReader readBytes notEmpty).
+	spanAttribute := self keyValueEntryFromBytes: spanReader readBytes.
+	self assert: spanAttribute key equals: 'attempt'.
+	self assert: spanAttribute value equals: 7.
 	self assertReader: spanReader readsField: 10 wireType: 0.
 	self assert: spanReader readVarint equals: 2.
 	self assertReader: spanReader readsField: 11 wireType: 2.
-	self assert: (spanReader readBytes notEmpty).
+	eventReader := OTProtobufReader on: spanReader readBytes.
+	self assertReader: eventReader readsField: 1 wireType: 1.
+	self assert: eventReader readFixed64 equals: 1000000.
+	self assertReader: eventReader readsField: 2 wireType: 2.
+	self assert: eventReader readString equals: 'tick'.
+	self assertReader: eventReader readsField: 3 wireType: 2.
+	eventAttribute := self keyValueEntryFromBytes: eventReader readBytes.
+	self assert: eventAttribute key equals: 'count'.
+	self assert: eventAttribute value equals: 3.
+	self assertReader: eventReader readsField: 4 wireType: 0.
+	self assert: eventReader readVarint equals: 1.
+	self assert: eventReader atEnd.
 	self assertReader: spanReader readsField: 12 wireType: 0.
 	self assert: spanReader readVarint equals: 3.
 	self assertReader: spanReader readsField: 13 wireType: 2.
-	self assert: (spanReader readBytes notEmpty).
+	linkReader := OTProtobufReader on: spanReader readBytes.
+	self assertReader: linkReader readsField: 1 wireType: 2.
+	self assert: linkReader readBytes equals: (OTSpanContext byteArrayFromHex: '11111111111111111111111111111111' size: 16).
+	self assertReader: linkReader readsField: 2 wireType: 2.
+	self assert: linkReader readBytes equals: (OTSpanContext byteArrayFromHex: '2222222222222222' size: 8).
+	self assertReader: linkReader readsField: 3 wireType: 2.
+	self assert: linkReader readString equals: 'linked=value'.
+	self assertReader: linkReader readsField: 4 wireType: 2.
+	linkAttribute := self keyValueEntryFromBytes: linkReader readBytes.
+	self assert: linkAttribute key equals: 'link.attr'.
+	self assert: linkAttribute value equals: 'link-value'.
+	self assertReader: linkReader readsField: 5 wireType: 0.
+	self assert: linkReader readVarint equals: 1.
+	self assertReader: linkReader readsField: 6 wireType: 5.
+	self assert: linkReader readFixed32 equals: 16r301.
+	self assert: linkReader atEnd.
 	self assertReader: spanReader readsField: 14 wireType: 0.
 	self assert: spanReader readVarint equals: 4.
 	self assertReader: spanReader readsField: 15 wireType: 2.
