@@ -601,6 +601,12 @@ OTSpan >> attributeAt: key put: value [
 						  self restoreDroppedAttributesCount: self effectiveDroppedAttributesCount + 1 ] ]
 ]
 
+{ #category : 'accessing' }
+OTSpan >> attributes [
+
+	^ stateLock critical: [ attributes ifNil: [ OrderedDictionary new ] ifNotNil: [ attributes copy ] ]
+]
+
 { #category : 'private' }
 OTSpan >> attributesCountWithinLimit: aLimit currentSize: aSize [
 
@@ -612,6 +618,24 @@ OTSpan >> attributesCountWithinLimit: aLimit currentSize: aSize [
 OTSpan >> currentProcessMayMutateSpanState [
 
 	^ self recordingStateAllowsMutation and: [ endingProcess isNil or: [ endingProcess == Processor activeProcess ] ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> droppedAttributesCount [
+
+	^ stateLock critical: [ self effectiveDroppedAttributesCount ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> droppedEventsCount [
+
+	^ stateLock critical: [ self effectiveDroppedEventsCount ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> droppedLinksCount [
+
+	^ stateLock critical: [ self effectiveDroppedLinksCount ]
 ]
 
 { #category : 'private' }
@@ -713,6 +737,12 @@ OTSpan >> end: aDateAndTime [
 	self
 ]
 
+{ #category : 'accessing' }
+OTSpan >> endTime [
+
+	^ stateLock critical: [ endTime ]
+]
+
 { #category : 'private' }
 OTSpan >> ensureMutableCreationState [
 
@@ -725,6 +755,12 @@ OTSpan >> ensureMutableSpanContextState [
 
 	startTime ifNil: [ ^ self ].
 	Error signal: 'OpenTelemetry recording span identity cannot change after the span has started'
+]
+
+{ #category : 'accessing' }
+OTSpan >> events [
+
+	^ stateLock critical: [ events ifNil: [ #(  ) ] ifNotNil: [ events copy ] ]
 ]
 
 { #category : 'private' }
@@ -745,6 +781,12 @@ OTSpan >> exceptionTypeFor: anException [
 	^ anException class name asString
 ]
 
+{ #category : 'testing' }
+OTSpan >> hasEnded [
+
+	^ stateLock critical: [ ended ]
+]
+
 { #category : 'initialization' }
 OTSpan >> initialize [
 
@@ -761,6 +803,12 @@ OTSpan >> initialize [
 	droppedAttributesCount := 0.
 	droppedEventsCount := 0.
 	droppedLinksCount := 0
+]
+
+{ #category : 'accessing' }
+OTSpan >> instrumentationLibrary [
+
+	^ self instrumentationScope
 ]
 
 { #category : 'accessing' }
@@ -785,6 +833,12 @@ OTSpan >> instrumentationVersion [
 OTSpan >> isRecording [
 
 	^ stateLock critical: [ ended not ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> kind [
+
+	^ stateLock critical: [ kind ]
 ]
 
 { #category : 'private - logging' }
@@ -825,6 +879,12 @@ OTSpan >> limitedLinkFrom: aLink [
 	^ limitedLink
 ]
 
+{ #category : 'accessing' }
+OTSpan >> links [
+
+	^ stateLock critical: [ self effectiveLinks copy ]
+]
+
 { #category : 'private' }
 OTSpan >> markEnded [
 
@@ -846,6 +906,12 @@ OTSpan >> mayAddAttributeNamed: aKey [
 			  self
 				  attributesCountWithinLimit: self effectiveLimits attributeCountLimit
 				  currentSize: (attributes ifNil: [ 0 ] ifNotNil: [ attributes size ]) ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> name [
+
+	^ stateLock critical: [ name ]
 ]
 
 { #category : 'private' }
@@ -881,6 +947,12 @@ OTSpan >> normalizedStatusDescription: aString [
 
 	(aString isNil or: [ aString isEmpty ]) ifTrue: [ ^ nil ].
 	^ aString
+]
+
+{ #category : 'accessing' }
+OTSpan >> parentSpanContext [
+
+	^ stateLock critical: [ self effectiveParentSpanContext ]
 ]
 
 { #category : 'printing' }
@@ -1134,6 +1206,30 @@ OTSpan >> spanContext [
 	^ spanContext ifNil: [ OTSpanContext invalid ]
 ]
 
+{ #category : 'accessing' }
+OTSpan >> spanId [
+
+	^ stateLock critical: [ spanContext spanId ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> startTime [
+
+	^ stateLock critical: [ startTime ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> status [
+
+	^ stateLock critical: [ self effectiveStatus ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> statusDescription [
+
+	^ stateLock critical: [ self effectiveStatusDescription ]
+]
+
 { #category : 'ston persistence' }
 OTSpan >> stonOn: stonWriter [
 
@@ -1172,6 +1268,24 @@ OTSpan >> stonOn: stonWriter [
 			self effectiveDroppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self effectiveDroppedAttributesCount ].
 			self effectiveDroppedEventsCount > 0 ifTrue: [ map at: #droppedEventsCount put: self effectiveDroppedEventsCount ].
 			self effectiveDroppedLinksCount > 0 ifTrue: [ map at: #droppedLinksCount put: self effectiveDroppedLinksCount ] ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> traceFlags [
+
+	^ stateLock critical: [ spanContext traceFlags ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> traceId [
+
+	^ stateLock critical: [ spanContext traceId ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> traceState [
+
+	^ stateLock critical: [ spanContext traceState ]
 ]
 
 { #category : 'recording' }

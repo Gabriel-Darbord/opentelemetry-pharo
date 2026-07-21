@@ -856,6 +856,109 @@ OTTracerProviderTest >> testProcessorErrorsDuringSpanLifecycleAreSuppressedAndLa
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testReadableSpanHasEndedTurnsTrueOnlyAfterOnEndingCompletes [
+
+	| done processor provider snapshot span tracer |
+	provider := OTTracerProvider new.
+	processor := OTBlockingOnEndingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	done := Semaphore new.
+	[ [ span end ] ensure: [ done signal ] ] forkAt: Processor userBackgroundPriority.
+	self assert: (processor waitForOnEndingTimeoutMillis: 1000).
+	self assert: span endTime notNil.
+	self deny: span hasEnded.
+	processor allowOnEnding.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: span hasEnded.
+	self deny: span isRecording.
+	snapshot := OTSpanSnapshot fromSpan: span.
+	self assert: snapshot hasEnded.
+	self assert: snapshot endTime equals: span endTime
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testRecordingSpanExposesReadableSpanSurface [
+
+	| linkContext parentSpanContext provider resource snapshot span startTimestamp tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	resource := OTResource attributes: (OrderedDictionary new
+			             at: 'service.name' put: 'spec-service';
+			             yourself).
+	provider resource: resource.
+	tracer := provider
+		          tracerNamed: 'demo.scope'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: self sampleAttributes.
+	parentSpanContext := OTSpanContext
+		                     traceId: '12345678876543211234567887654321'
+		                     spanId: 'bbbbbbbbbbbbbbbb'
+		                     traceFlags: '01'
+		                     traceState: 'vendor=value'
+		                     remote: true.
+	linkContext := OTSpanContext
+		               traceId: '11111111111111111111111111111111'
+		               spanId: '2222222222222222'
+		               traceFlags: '01'
+		               traceState: 'link=value'
+		               remote: true.
+	startTimestamp := DateAndTime unixEpoch + (Duration milliSeconds: 1).
+	span := (tracer spanBuilderNamed: 'operation')
+		        kind: OTSpan client;
+		        inContext: (OTContext new withSpan: parentSpanContext asNonRecordingSpan);
+		        startTimestamp: startTimestamp;
+		        startSpan.
+	span
+		attributeAt: 'db.system' put: 'sqlite';
+		addEventNamed: 'tick';
+		addLinkSpanContext: linkContext;
+		setStatus: OTSpan error description: 'boom'.
+	snapshot := OTSpanSnapshot fromSpan: span.
+	self assert: span name equals: 'operation'.
+	self assert: span kind equals: OTSpan client.
+	self assert: span startTime equals: startTimestamp.
+	self assert: span endTime equals: nil.
+	self deny: span hasEnded.
+	self assert: span traceId equals: parentSpanContext traceId.
+	self assert: span spanId equals: span spanContext spanId.
+	self assert: span traceFlags equals: span spanContext traceFlags.
+	self assert: span traceState equals: span spanContext traceState.
+	self assert: span parentSpanContext equals: parentSpanContext.
+	self assert: (span attributes at: 'db.system') equals: 'sqlite'.
+	self assert: span events size equals: 1.
+	self assert: span events first name equals: 'tick'.
+	self assert: span links size equals: 1.
+	self assert: span links first spanContext equals: linkContext.
+	self assert: span status equals: OTSpan error.
+	self assert: span statusDescription equals: 'boom'.
+	self assert: span droppedAttributesCount equals: 0.
+	self assert: span droppedEventsCount equals: 0.
+	self assert: span droppedLinksCount equals: 0.
+	self assert: span resource equals: resource.
+	self assert: span instrumentationName equals: 'demo.scope'.
+	self assert: span instrumentationVersion equals: '1.2.3'.
+	self assert: span instrumentationLibrary equals: span instrumentationScope.
+	self assert: snapshot name equals: span name.
+	self assert: snapshot kind equals: span kind.
+	self assert: snapshot startTime equals: span startTime.
+	self assert: snapshot endTime equals: span endTime.
+	self deny: snapshot hasEnded.
+	self assert: snapshot parentSpanContext equals: parentSpanContext.
+	self assert: (snapshot attributes at: 'db.system') equals: 'sqlite'.
+	self assert: snapshot events size equals: 1.
+	self assert: snapshot links size equals: 1.
+	self assert: snapshot status equals: OTSpan error.
+	self assert: snapshot statusDescription equals: 'boom'.
+	self assert: snapshot resource equals: resource.
+	self assert: snapshot instrumentationName equals: 'demo.scope'.
+	self assert: snapshot instrumentationVersion equals: '1.2.3'.
+	self assert: snapshot instrumentationLibrary equals: snapshot instrumentationScope
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 
 	| exportRecord provider resource scope snapshot span tracer |

@@ -108,6 +108,12 @@ OTSpanSnapshot >> events [
 	^ events
 ]
 
+{ #category : 'accessing' }
+OTSpanSnapshot >> hasEnded [
+
+	^ endTime notNil
+]
+
 { #category : 'initialization' }
 OTSpanSnapshot >> initializeFromSpan: aSpan [
 
@@ -131,6 +137,12 @@ OTSpanSnapshot >> initializeFromSpan: aSpan [
 	droppedAttributesCount := record at: #droppedAttributesCount ifAbsent: [ 0 ].
 	droppedEventsCount := record at: #droppedEventsCount ifAbsent: [ 0 ].
 	droppedLinksCount := record at: #droppedLinksCount ifAbsent: [ 0 ]
+]
+
+{ #category : 'accessing' }
+OTSpanSnapshot >> instrumentationLibrary [
+
+	^ self instrumentationScope
 ]
 
 { #category : 'accessing' }
