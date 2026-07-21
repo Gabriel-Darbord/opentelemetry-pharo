@@ -12,7 +12,8 @@ Class {
 	#superclass : 'OTSampler',
 	#instVars : [
 		'interval',
-		'last'
+		'last',
+		'stateLock'
 	],
 	#category : 'OpenTelemetry-Sampling',
 	#package : 'OpenTelemetry-Sampling'
@@ -29,13 +30,14 @@ OTTimeIntervalSampler >> initialize [
 
 	super initialize.
 	interval := 0.
-	last := nil
+	last := nil.
+	stateLock := Semaphore forMutualExclusion
 ]
 
 { #category : 'accessing' }
 OTTimeIntervalSampler >> interval [
 
-	^ interval
+	^ stateLock critical: [ interval ]
 ]
 
 { #category : 'accessing' }
@@ -43,27 +45,27 @@ OTTimeIntervalSampler >> interval: anInteger [
 
 	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [
 		Error signal: 'Sampling interval must be a non-negative integer number of milliseconds' ].
-	interval := anInteger.
-	^ self
+	stateLock critical: [ interval := anInteger ]
 ]
 
 { #category : 'initialization' }
 OTTimeIntervalSampler >> reset [
 
-	last := nil
+	stateLock critical: [ last := nil ]
 ]
 
 { #category : 'asserting' }
 OTTimeIntervalSampler >> shouldSample [
 
-	| now previous |
-	now := Time millisecondClockValue.
-	previous := last.
-	previous ifNil: [
-		last := now.
-		^ true ].
-	(now < previous or: [ now - previous >= self interval ]) ifTrue: [
-		last := now.
-		^ true ].
-	^ false
+	^ stateLock critical: [
+			  | now previous |
+			  now := Time millisecondClockValue.
+			  previous := last.
+			  previous ifNil: [
+					  last := now.
+					  ^ true ].
+			  (now < previous or: [ now - previous >= interval ]) ifTrue: [
+					  last := now.
+					  ^ true ].
+			  false ]
 ]

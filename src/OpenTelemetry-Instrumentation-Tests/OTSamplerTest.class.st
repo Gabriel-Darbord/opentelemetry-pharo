@@ -5,6 +5,38 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
+{ #category : 'private' }
+OTSamplerTest >> contextWithTraceFlags: aTraceFlags traceState: aTraceState [
+
+	^ OTContext new
+		withSpan: ((OTSpanContext
+			traceId: '00112233445566778899aabbccddeeff'
+			spanId: '1122334455667788'
+			traceFlags: aTraceFlags
+			traceState: aTraceState
+			remote: false) asNonRecordingSpan)
+]
+
+{ #category : 'private' }
+OTSamplerTest >> samplingResultFrom: aSampler parentTraceFlags: aTraceFlags traceState: aTraceState remote: aBoolean [
+
+	| context |
+	context := OTContext new
+		withSpan: ((OTSpanContext
+			traceId: '00112233445566778899aabbccddeeff'
+			spanId: '1122334455667788'
+			traceFlags: aTraceFlags
+			traceState: aTraceState
+			remote: aBoolean) asNonRecordingSpan).
+	^ aSampler
+		shouldSampleIn: context
+		traceId: '1234567890abcdef1234567890abcdef'
+		name: 'child'
+		kind: OTSpan internal
+		attributes: #()
+		links: #()
+]
+
 { #category : 'running' }
 OTSamplerTest >> tearDown [
 
@@ -26,15 +58,6 @@ OTSamplerTest >> testFactoryMethodsReturnSamplerInstances [
 	self assert: (OTSampler traceIdRatioBased: 0.5) class identicalTo: OTTraceIdRatioBasedSampler.
 	self assert: OTSampler parentBased class identicalTo: OTParentBasedSampler.
 	self assert: (OTSampler parentBased: OTAlwaysOffSampler new) class identicalTo: OTParentBasedSampler
-]
-
-{ #category : 'tests' }
-OTSamplerTest >> testProbabilitySamplerAcceptsSpecificationMinimumRatio [
-
-	| minimum sampler |
-	minimum := OTProbabilisticSampler minimumProbability.
-	sampler := OTSampler probability: minimum.
-	self assert: sampler probability equals: minimum
 ]
 
 { #category : 'tests' }
@@ -113,36 +136,13 @@ OTSamplerTest >> testParentBasedSamplerDelegatesByParentSamplingStateAndOrigin [
 		equals: 'localNotSampled=value'
 ]
 
-{ #category : 'private' }
-OTSamplerTest >> contextWithTraceFlags: aTraceFlags traceState: aTraceState [
+{ #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerAcceptsSpecificationMinimumRatio [
 
-	^ OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: aTraceFlags
-			traceState: aTraceState
-			remote: false) asNonRecordingSpan)
-]
-
-{ #category : 'private' }
-OTSamplerTest >> samplingResultFrom: aSampler parentTraceFlags: aTraceFlags traceState: aTraceState remote: aBoolean [
-
-	| context |
-	context := OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: aTraceFlags
-			traceState: aTraceState
-			remote: aBoolean) asNonRecordingSpan).
-	^ aSampler
-		shouldSampleIn: context
-		traceId: '1234567890abcdef1234567890abcdef'
-		name: 'child'
-		kind: OTSpan internal
-		attributes: #()
-		links: #()
+	| minimum sampler |
+	minimum := OTProbabilisticSampler minimumProbability.
+	sampler := OTSampler probability: minimum.
+	self assert: sampler probability equals: minimum
 ]
 
 { #category : 'tests' }
@@ -162,17 +162,6 @@ OTSamplerTest >> testProbabilitySamplerAddsThresholdToOpenTelemetryTraceStateWhe
 	self assert: result isRecordAndSample.
 	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (result traceState otelValueAt: 'th') equals: '8'
-]
-
-{ #category : 'tests' }
-OTSamplerTest >> testProbabilitySamplerRejectsRatiosBelowSpecificationMinimum [
-
-	self
-		should: [ OTSampler probability: OTProbabilisticSampler minimumProbability / 2 ]
-		raise: Error.
-	self
-		should: [ OTSampler probability: 0 ]
-		raise: Error
 ]
 
 { #category : 'tests' }
@@ -215,6 +204,17 @@ OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerRejectsRatiosBelowSpecificationMinimum [
+
+	self
+		should: [ OTSampler probability: OTProbabilisticSampler minimumProbability / 2 ]
+		raise: Error.
+	self
+		should: [ OTSampler probability: 0 ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testProbabilitySamplerWarnsOnceWhenParentTraceIsNotMarkedRandom [
 
 	| sampler warnings |
@@ -239,6 +239,35 @@ OTSamplerTest >> testProbabilitySamplerWarnsOnceWhenParentTraceIsNotMarkedRandom
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testTimeIntervalSamplerAllowsOnlyOneConcurrentSamplePerInterval [
+
+	| sampler workerCount |
+	sampler := OTSampler withInterval: 3600000.
+	workerCount := 8.
+	10 timesRepeat: [
+			| acceptedCount acceptedLock done gate |
+			sampler reset.
+			acceptedCount := 0.
+			acceptedLock := Semaphore forMutualExclusion.
+			done := Semaphore new.
+			gate := Semaphore new.
+			workerCount timesRepeat: [
+					[
+						gate wait.
+						(sampler
+							 shouldSampleIn: OTContext new
+							 traceId: '00112233445566778899aabbccddeeff'
+							 name: 'operation'
+							 kind: OTSpan internal
+							 attributes: #(  )
+							 links: #(  )) isRecordAndSample ifTrue: [ acceptedLock critical: [ acceptedCount := acceptedCount + 1 ] ].
+						done signal ] forkAt: Processor userBackgroundPriority ].
+			workerCount timesRepeat: [ gate signal ].
+			workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+			self assert: acceptedCount equals: 1 ]
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testTraceIdRatioBasedSamplerIsDeterministicForSameTraceId [
 
 	| sampler traceId first second |
@@ -259,6 +288,29 @@ OTSamplerTest >> testTraceIdRatioBasedSamplerIsDeterministicForSameTraceId [
 		attributes: #()
 		links: #().
 	self assert: first decision equals: second decision
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testTraceIdRatioBasedSamplerRespectsProbabilityBounds [
+
+	| sampled dropped traceId |
+	traceId := '1234567890abcdef1234567890abcdef'.
+	sampled := (OTSampler traceIdRatioBased: 1)
+		shouldSampleIn: OTContext new
+		traceId: traceId
+		name: 'operation'
+		kind: OTSpan internal
+		attributes: #()
+		links: #().
+	dropped := (OTSampler traceIdRatioBased: 0)
+		shouldSampleIn: OTContext new
+		traceId: traceId
+		name: 'operation'
+		kind: OTSpan internal
+		attributes: #()
+		links: #().
+	self assert: sampled isRecordAndSample.
+	self assert: dropped isDrop
 ]
 
 { #category : 'tests' }
@@ -306,27 +358,4 @@ OTSamplerTest >> testTraceIdRatioBasedSamplerWarnsWhenUsedAsChildSampler [
 		assert: warnings asArray
 		equals: {
 				'WARNING: The TraceIdRatioBased sampler is operating as a child sampler; the behavior is subject to change. Please upgrade this SDK configuration to use ProbabilitySampler.' }
-]
-
-{ #category : 'tests' }
-OTSamplerTest >> testTraceIdRatioBasedSamplerRespectsProbabilityBounds [
-
-	| sampled dropped traceId |
-	traceId := '1234567890abcdef1234567890abcdef'.
-	sampled := (OTSampler traceIdRatioBased: 1)
-		shouldSampleIn: OTContext new
-		traceId: traceId
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
-	dropped := (OTSampler traceIdRatioBased: 0)
-		shouldSampleIn: OTContext new
-		traceId: traceId
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
-	self assert: sampled isRecordAndSample.
-	self assert: dropped isDrop
 ]
