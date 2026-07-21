@@ -737,12 +737,6 @@ OTSpan >> initialize [
 ]
 
 { #category : 'accessing' }
-OTSpan >> instrumentationLibrary [
-
-	^ self instrumentationScope
-]
-
-{ #category : 'accessing' }
 OTSpan >> instrumentationName [
 
 	^ self instrumentationScope name

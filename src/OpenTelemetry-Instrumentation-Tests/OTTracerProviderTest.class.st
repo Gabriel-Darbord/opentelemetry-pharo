@@ -1085,7 +1085,8 @@ OTTracerProviderTest >> testRecordingSpanExposesReadableSpanSurface [
 	self assert: span resource equals: resource.
 	self assert: span instrumentationName equals: 'demo.scope'.
 	self assert: span instrumentationVersion equals: '1.2.3'.
-	self assert: span instrumentationLibrary equals: span instrumentationScope.
+	self assert: span instrumentationScope equals: tracer instrumentationScope.
+	self should: [ span instrumentationLibrary ] raise: MessageNotUnderstood.
 	self assert: snapshot name equals: span name.
 	self assert: snapshot kind equals: span kind.
 	self assert: snapshot startTime equals: span startTime.
@@ -1100,7 +1101,8 @@ OTTracerProviderTest >> testRecordingSpanExposesReadableSpanSurface [
 	self assert: snapshot resource equals: resource.
 	self assert: snapshot instrumentationName equals: 'demo.scope'.
 	self assert: snapshot instrumentationVersion equals: '1.2.3'.
-	self assert: snapshot instrumentationLibrary equals: snapshot instrumentationScope
+	self assert: snapshot instrumentationScope equals: span instrumentationScope.
+	self should: [ snapshot instrumentationLibrary ] raise: MessageNotUnderstood
 ]
 
 { #category : 'tests' }
