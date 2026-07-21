@@ -28,9 +28,8 @@ OTCompositeSpanProcessor >> componentProcessors [
 { #category : 'processing' }
 OTCompositeSpanProcessor >> forceFlush [
 
-	^ processors
-		inject: true
-		into: [ :allFlushed :each | (each forceFlush) & allFlushed ]
+	self isStopping ifTrue: [ ^ false ].
+	^ self processors inject: true into: [ :allFlushed :each | each forceFlush & allFlushed ]
 ]
 
 { #category : 'initialization' }
@@ -43,29 +42,26 @@ OTCompositeSpanProcessor >> initialize [
 { #category : 'processing' }
 OTCompositeSpanProcessor >> onEnd: aSpan [
 
-	^ processors
-		inject: true
-		into: [ :allAccepted :each | (each onEnd: aSpan) & allAccepted ]
+	self isStopping ifTrue: [ ^ false ].
+	^ self processors inject: true into: [ :allAccepted :each | (each onEnd: aSpan) & allAccepted ]
 ]
 
 { #category : 'processing' }
 OTCompositeSpanProcessor >> onEnding: aSpan [
 
-	^ processors
-		inject: true
-		into: [ :allAccepted :each |
-			each onEnding: aSpan.
-			allAccepted ]
+	self isStopping ifTrue: [ ^ false ].
+	^ self processors inject: true into: [ :allAccepted :each |
+			  each onEnding: aSpan.
+			  allAccepted ]
 ]
 
 { #category : 'processing' }
 OTCompositeSpanProcessor >> onStart: aSpan parentContext: aContext [
 
-	^ processors
-		inject: true
-		into: [ :allAccepted :each |
-			each onStart: aSpan parentContext: aContext.
-			allAccepted ]
+	self isStopping ifTrue: [ ^ false ].
+	^ self processors inject: true into: [ :allAccepted :each |
+			  each onStart: aSpan parentContext: aContext.
+			  allAccepted ]
 ]
 
 { #category : 'accessing' }
@@ -85,9 +81,10 @@ OTCompositeSpanProcessor >> processors: aCollection [
 { #category : 'processing' }
 OTCompositeSpanProcessor >> shutdown [
 
-	| flushed |
-	flushed := self forceFlush.
-	^ processors
-		inject: flushed
-		into: [ :allShutdown :each | (each shutdown) & allShutdown ]
+	| allShutdown flushed |
+	self beginShutdown ifFalse: [ ^ false ].
+	flushed := self processors inject: true into: [ :allFlushed :each | each forceFlush & allFlushed ].
+	allShutdown := self processors inject: true into: [ :allChildrenShutdown :each | each shutdown & allChildrenShutdown ].
+	self markShutdown.
+	^ allShutdown & flushed
 ]
