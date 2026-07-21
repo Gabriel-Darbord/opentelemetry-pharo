@@ -52,51 +52,58 @@ OTCompositeSampler >> parentTraceStateFrom: aContext [
 	^ (aContext ifNotNil: [ aContext span ]) ifNotNil: [ :parentSpan | parentSpan spanContext traceState ]
 ]
 
+{ #category : 'private' }
+OTCompositeSampler >> sanitizedTraceStateFrom: aTraceState preservingParentOtelEntriesFrom: parentTraceState [
+
+	| sanitizedTraceState preservedOtelValue |
+	sanitizedTraceState := OTTraceState from: aTraceState.
+	preservedOtelValue := parentTraceState ifNotNil: [ parentTraceState valueAt: 'ot' ].
+	sanitizedTraceState := sanitizedTraceState ifNotNil: [ sanitizedTraceState withoutKey: 'ot' ].
+	preservedOtelValue ifNil: [ ^ sanitizedTraceState ].
+	sanitizedTraceState ifNil: [ sanitizedTraceState := OTTraceState empty ].
+	^ sanitizedTraceState withKey: 'ot' value: preservedOtelValue
+]
+
 { #category : 'sampling' }
 OTCompositeSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
-	| decision intent randomness sampled traceState |
+	| decision intent parentTraceState randomness sampled traceState |
 	intent := delegate
-		samplingIntentIn: aContext
-		name: aString
-		kind: aSpanKind
-		attributes: someAttributes
-		links: someLinks.
+		          samplingIntentIn: aContext
+		          name: aString
+		          kind: aSpanKind
+		          attributes: someAttributes
+		          links: someLinks.
+	parentTraceState := self parentTraceStateFrom: aContext.
 	intent threshold ifNil: [
-		traceState := intent
-			traceStateForParent: (self parentTraceStateFrom: aContext)
-			decision: #drop.
-		^ OTSamplingResult
-			decision: #drop
-			attributes: #()
-			traceState: (self
-				finalizedTraceStateFrom: traceState
-				sampled: false
-				threshold: nil
-				adjustedCountReliable: intent adjustedCountReliable) ].
+			traceState := self
+				              sanitizedTraceStateFrom: (intent traceStateForParent: parentTraceState decision: #drop)
+				              preservingParentOtelEntriesFrom: parentTraceState.
+			^ OTSamplingResult decision: #drop attributes: #(  ) traceState: (self
+					   finalizedTraceStateFrom: traceState
+					   sampled: false
+					   threshold: nil
+					   adjustedCountReliable: intent adjustedCountReliable) ].
 	randomness := intent adjustedCountReliable
-		ifTrue: [
-			OTConsistentProbability
-				randomnessValueFromTraceId: aTraceId
-				traceState: (self parentTraceStateFrom: aContext) ]
-		ifFalse: [ OTConsistentProbability newRandomnessValue ].
-	sampled := OTConsistentProbability
-		sampledWithRandomness: randomness
-		threshold: intent threshold.
+		              ifTrue: [ OTConsistentProbability randomnessValueFromTraceId: aTraceId traceState: parentTraceState ]
+		              ifFalse: [ OTConsistentProbability newRandomnessValue ].
+	sampled := OTConsistentProbability sampledWithRandomness: randomness threshold: intent threshold.
 	decision := sampled
-		ifTrue: [ #recordAndSample ]
-		ifFalse: [ #drop ].
-	traceState := intent
-		traceStateForParent: (self parentTraceStateFrom: aContext)
-		decision: decision.
+		            ifTrue: [ #recordAndSample ]
+		            ifFalse: [ #drop ].
+	traceState := self
+		              sanitizedTraceStateFrom: (intent traceStateForParent: parentTraceState decision: decision)
+		              preservingParentOtelEntriesFrom: parentTraceState.
 	^ OTSamplingResult
-		decision: decision
-		attributes: (sampled ifTrue: [ intent attributes ] ifFalse: [ #() ])
-		traceState: (self
-			finalizedTraceStateFrom: traceState
-			sampled: sampled
-			threshold: intent threshold
-			adjustedCountReliable: intent adjustedCountReliable)
+		  decision: decision
+		  attributes: (sampled
+				   ifTrue: [ intent attributes ]
+				   ifFalse: [ #(  ) ])
+		  traceState: (self
+				   finalizedTraceStateFrom: traceState
+				   sampled: sampled
+				   threshold: intent threshold
+				   adjustedCountReliable: intent adjustedCountReliable)
 ]
 
 { #category : 'lifecycle' }

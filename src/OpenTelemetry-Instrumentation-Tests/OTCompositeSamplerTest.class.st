@@ -164,3 +164,49 @@ OTCompositeSamplerTest >> testCompositeRuleBasedUsesFirstMatchingRule [
 	self assert: traceResult isRecordAndSample.
 	self assert: (traceResult traceState otelValueAt: 'th') equals: '0'
 ]
+
+{ #category : 'tests' }
+OTCompositeSamplerTest >> testCompositeSamplerIgnoresInjectedOtelEntriesWhenNoParentProvidesThem [
+
+	| intent result sampler |
+	intent := OTSamplingIntent
+		          threshold: 0
+		          adjustedCountReliable: true
+		          attributesProvider: nil
+		          traceStateProvider: [ :traceState :decision | OTTraceState from: 'vendor=two,ot=rv:00000000000000;th:1' ].
+	sampler := OTSampler composite: (OTFixedSamplingIntentComposableSampler intent: intent).
+	result := sampler
+		          shouldSampleIn: OTContext new
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'operation'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
+	self assert: result isRecordAndSample.
+	self assert: (result traceState valueAt: 'vendor') equals: 'two'.
+	self assert: (result traceState otelValueAt: 'rv') equals: nil.
+	self assert: (result traceState otelValueAt: 'th') equals: '0'
+]
+
+{ #category : 'tests' }
+OTCompositeSamplerTest >> testCompositeSamplerPreservesParentOtelEntriesWhenComposableMutatesThem [
+
+	| intent result sampler |
+	intent := OTSamplingIntent
+		          threshold: 0
+		          adjustedCountReliable: true
+		          attributesProvider: nil
+		          traceStateProvider: [ :traceState :decision | OTTraceState from: 'vendor=two,ot=rv:00000000000000;th:1' ].
+	sampler := OTSampler composite: (OTFixedSamplingIntentComposableSampler intent: intent).
+	result := sampler
+		          shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'vendor=one,ot=rv:80000000000000;th:9')
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'operation'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
+	self assert: result isRecordAndSample.
+	self assert: (result traceState valueAt: 'vendor') equals: 'two'.
+	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
+	self assert: (result traceState otelValueAt: 'th') equals: '0'
+]
