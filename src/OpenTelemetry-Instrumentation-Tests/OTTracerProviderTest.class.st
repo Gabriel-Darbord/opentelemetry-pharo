@@ -455,6 +455,27 @@ OTTracerProviderTest >> testExistingScopeOnlyTracerConfiguratorStillDisablesTrac
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testExistingTracerBehavesAsNoopAfterShutdown [
+
+	| parentSpan processor provider span tracer |
+	provider := OTTracerProvider new.
+	processor := OTRecordingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
+	self assert: tracer enabled.
+	self assert: provider shutdown.
+	self deny: tracer enabled.
+	span := (tracer spanBuilderNamed: 'child')
+		        inContext: (OTContext new withSpan: parentSpan);
+		        startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span isRecording.
+	self assert: span spanContext traceId equals: parentSpan spanContext traceId.
+	self assert: processor startedSpans asArray equals: { parentSpan }
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testExistingTracerPicksUpLaterDisablementWithoutReacquiring [
 
 	| disabledSpan provider tracer |
