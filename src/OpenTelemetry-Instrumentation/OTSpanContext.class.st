@@ -34,7 +34,11 @@ OTSpanContext class >> byteArrayFromHex: aString size: anInteger [
 { #category : 'instance creation' }
 OTSpanContext class >> fromSpan: aSpan [
 
-	^ aSpan spanContext
+	aSpan ifNil: [ ^ self invalid ].
+	(aSpan isKindOf: self) ifTrue: [ ^ aSpan ].
+	(aSpan isKindOf: OTSpan) ifTrue: [ ^ aSpan spanContext ].
+	OTSpan noteIgnoredInvalidArgument: aSpan forOperation: 'OTSpanContext class>>fromSpan:'.
+	^ self invalid
 ]
 
 { #category : 'ston persistence' }

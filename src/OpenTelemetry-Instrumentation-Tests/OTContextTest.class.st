@@ -25,6 +25,16 @@ OTContextTest >> testCurrentSpanDefaultsToInvalidNonRecordingSpan [
 ]
 
 { #category : 'tests' }
+OTContextTest >> testSpanFromContextIgnoresInvalidContextObject [
+
+	| span |
+	span := nil.
+	self shouldnt: [ span := OTSpan fromContext: 42 ] raise: Error.
+	self deny: span isRecording.
+	self deny: span spanContext isValid
+]
+
+{ #category : 'tests' }
 OTContextTest >> testSpanFromContextReturnsInvalidNonRecordingSpanWhenContextHasNoSpan [
 
 	| currentSpan extractedSpan |

@@ -72,6 +72,26 @@ OTSpanContextTest >> testBinaryConstructorRejectsMalformedByteArrays [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testBoundaryWrappingHelpersIgnoreInvalidInputsWithoutError [
+
+	| invalidSpanContext invalidWrappedSpan wrongSpanContext wrongWrappedSpan |
+	invalidSpanContext := nil.
+	wrongSpanContext := nil.
+	invalidWrappedSpan := nil.
+	wrongWrappedSpan := nil.
+	self shouldnt: [ invalidSpanContext := OTSpanContext fromSpan: nil ] raise: Error.
+	self shouldnt: [ wrongSpanContext := OTSpanContext fromSpan: 42 ] raise: Error.
+	self shouldnt: [ invalidWrappedSpan := OTSpan wrapping: nil ] raise: Error.
+	self shouldnt: [ wrongWrappedSpan := OTSpan wrapping: 42 ] raise: Error.
+	self deny: invalidSpanContext isValid.
+	self deny: wrongSpanContext isValid.
+	self deny: invalidWrappedSpan isRecording.
+	self deny: invalidWrappedSpan spanContext isValid.
+	self deny: wrongWrappedSpan isRecording.
+	self deny: wrongWrappedSpan spanContext isValid
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testConstructorRejectsMalformedIdentifiers [
 
 	| invalidSpanIdContext invalidTraceFlagsContext invalidTraceIdContext |

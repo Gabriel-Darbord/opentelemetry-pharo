@@ -164,7 +164,11 @@ OTSpan class >> error [
 OTSpan class >> fromContext: aContext [
 
 	| span |
-	span := aContext ifNotNil: [ aContext span ].
+	aContext ifNil: [ ^ self wrapping: OTSpanContext invalid ].
+	(aContext isKindOf: OTContext) ifFalse: [
+			self noteIgnoredInvalidArgument: aContext forOperation: 'OTSpan class>>fromContext:'.
+			^ self wrapping: OTSpanContext invalid ].
+	span := aContext span.
 	^ span ifNil: [ self wrapping: OTSpanContext invalid ] ifNotNil: [ span ]
 ]
 
@@ -411,7 +415,13 @@ OTSpan class >> warnedSpans [
 { #category : 'instance creation' }
 OTSpan class >> wrapping: aSpanContext [
 
-	^ OTNonRecordingSpan withSpanContext: aSpanContext
+	| spanContext |
+	spanContext := aSpanContext.
+	spanContext ifNil: [ spanContext := OTSpanContext invalid ].
+	(spanContext isKindOf: OTSpanContext) ifFalse: [
+			self noteIgnoredInvalidArgument: aSpanContext forOperation: 'OTSpan class>>wrapping:'.
+			spanContext := OTSpanContext invalid ].
+	^ OTNonRecordingSpan withSpanContext: spanContext
 ]
 
 { #category : 'recording' }
