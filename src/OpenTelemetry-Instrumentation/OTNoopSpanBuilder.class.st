@@ -17,7 +17,7 @@ OTNoopSpanBuilder >> startSpan [
 		                          ifFalse: [ self class normalizedParentContextFrom: parentContext ].
 	rootRequested ifTrue: [ effectiveParentContext := effectiveParentContext withSpan: nil ].
 	provider := tracer provider.
-	provider ifNotNil: [ ^ provider nonRecordingSpanIn: effectiveParentContext ].
+	provider ifNotNil: [ ^ provider nonRecordingSpanIn: effectiveParentContext instrumentationScope: tracer instrumentationScope ].
 	parentSpan := effectiveParentContext span.
 	parentSpan
 		ifNotNil: [

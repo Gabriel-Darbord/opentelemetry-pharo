@@ -218,7 +218,8 @@ OTSpanBuilder >> startSpan [
 		 kind: spanKind
 		 inContext: effectiveParentContext
 		 attributes: attributes
-		 links: links) ifFalse: [ ^ tracer provider nonRecordingSpanIn: effectiveParentContext ].
+		 links: links) ifFalse: [
+		^ tracer provider nonRecordingSpanIn: effectiveParentContext instrumentationScope: tracer instrumentationScope ].
 	idGenerator := tracer provider idGenerator.
 	parentSpan := rootRequested
 		              ifTrue: [ nil ]

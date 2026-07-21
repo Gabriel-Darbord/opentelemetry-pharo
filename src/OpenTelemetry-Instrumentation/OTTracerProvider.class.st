@@ -1183,6 +1183,12 @@ OTTracerProvider >> nonRecordingSpanContext: aSpanContext context: aContext pare
 { #category : 'tracing' }
 OTTracerProvider >> nonRecordingSpanIn: aContext [
 
+	^ self nonRecordingSpanIn: aContext instrumentationScope: (OTInstrumentationScope named: '')
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> nonRecordingSpanIn: aContext instrumentationScope: anInstrumentationScope [
+
 	| baseContext parentSpan span |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
 	parentSpan := baseContext span.
@@ -1193,7 +1199,7 @@ OTTracerProvider >> nonRecordingSpanIn: aContext [
 		ifNil: [ span := OTSpan wrapping: OTSpanContext invalid ].
 	span
 		restoreContext: (baseContext withSpan: span);
-		restoreInstrumentationScope: (OTInstrumentationScope named: '');
+		restoreInstrumentationScope: anInstrumentationScope;
 		restoreResource: self resource.
 	^ span
 ]

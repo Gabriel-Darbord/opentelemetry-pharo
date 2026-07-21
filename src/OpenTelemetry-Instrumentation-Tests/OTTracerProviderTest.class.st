@@ -364,6 +364,23 @@ OTTracerProviderTest >> testCustomTracerProviderUsesStandardNoopWrappedSpanClass
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testDisabledTracerNonRecordingSpanPreservesInstrumentationScope [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider
+		          tracerNamed: 'demo.scope'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: self sampleAttributes.
+	provider tracerConfigurator: [ :scope | false ].
+	span := (tracer spanBuilderNamed: 'child') startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span instrumentationScope equals: tracer instrumentationScope
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testDisabledTracerPreservesParentSpanContext [
 
 	| disabledSpan parentSpan provider tracer |
@@ -1475,6 +1492,23 @@ OTTracerProviderTest >> testTracerRetrievedAfterShutdownCanIgnoreImplicitParentW
 				            startSpan ].
 	self assert: rootSpan class identicalTo: OTNonRecordingSpan.
 	self deny: rootSpan spanContext isValid
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerRetrievedAfterShutdownNoopSpanPreservesInstrumentationScope [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	self assert: provider shutdown.
+	tracer := provider
+		          tracerNamed: 'after.shutdown'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: self sampleAttributes.
+	span := (tracer spanBuilderNamed: 'child') startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span instrumentationScope equals: tracer instrumentationScope
 ]
 
 { #category : 'tests' }
