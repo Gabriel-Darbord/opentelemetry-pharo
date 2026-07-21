@@ -763,6 +763,24 @@ OTSpan >> initialize [
 	droppedLinksCount := 0
 ]
 
+{ #category : 'accessing' }
+OTSpan >> instrumentationName [
+
+	^ self instrumentationScope name
+]
+
+{ #category : 'accessing' }
+OTSpan >> instrumentationScope [
+
+	^ stateLock critical: [ self effectiveInstrumentationScope ]
+]
+
+{ #category : 'accessing' }
+OTSpan >> instrumentationVersion [
+
+	^ self instrumentationScope version
+]
+
 { #category : 'testing' }
 OTSpan >> isRecording [
 
@@ -909,6 +927,12 @@ OTSpan >> recordException: anException timestamp: aDateAndTime [
 OTSpan >> recordingStateAllowsMutation [
 
 	^ ended not
+]
+
+{ #category : 'accessing' }
+OTSpan >> resource [
+
+	^ stateLock critical: [ self effectiveResource ]
 ]
 
 { #category : 'private' }

@@ -858,7 +858,7 @@ OTTracerProviderTest >> testProcessorErrorsDuringSpanLifecycleAreSuppressedAndLa
 { #category : 'tests' }
 OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 
-	| exportRecord provider resource scope span tracer |
+	| exportRecord provider resource scope snapshot span tracer |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	resource := OTResource attributes: (OrderedDictionary new
@@ -873,6 +873,15 @@ OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	exportRecord := span asExportRecord.
 	scope := exportRecord at: #instrumentationScope.
+	snapshot := OTSpanSnapshot fromSpan: span.
+	self assert: span resource equals: resource.
+	self assert: span instrumentationScope equals: scope.
+	self assert: span instrumentationName equals: 'demo.scope'.
+	self assert: span instrumentationVersion equals: '1.2.3'.
+	self assert: snapshot resource equals: resource.
+	self assert: snapshot instrumentationScope equals: scope.
+	self assert: snapshot instrumentationName equals: 'demo.scope'.
+	self assert: snapshot instrumentationVersion equals: '1.2.3'.
 	self assert: (exportRecord at: #resource) equals: resource.
 	self assert: scope name equals: 'demo.scope'.
 	self assert: scope version equals: '1.2.3'.

@@ -134,9 +134,21 @@ OTSpanSnapshot >> initializeFromSpan: aSpan [
 ]
 
 { #category : 'accessing' }
+OTSpanSnapshot >> instrumentationName [
+
+	^ self instrumentationScope name
+]
+
+{ #category : 'accessing' }
 OTSpanSnapshot >> instrumentationScope [
 
 	^ instrumentationScope
+]
+
+{ #category : 'accessing' }
+OTSpanSnapshot >> instrumentationVersion [
+
+	^ self instrumentationScope version
 ]
 
 { #category : 'accessing' }
