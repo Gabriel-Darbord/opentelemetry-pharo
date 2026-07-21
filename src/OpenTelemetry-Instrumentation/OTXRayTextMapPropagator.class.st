@@ -174,9 +174,9 @@ OTXRayTextMapPropagator >> normalizedParentSpanId: aString [
 	aString ifNil: [ ^ nil ].
 	spanId := aString asLowercase.
 	(self isLowercaseHexString: spanId size: 16) ifFalse: [ ^ nil ].
-	^ (OTSpan isZeroHexIdentifier: spanId)
-		ifTrue: [ nil ]
-		ifFalse: [ spanId ]
+	^ (OTSpanContext isZeroHexIdentifier: spanId)
+		  ifTrue: [ nil ]
+		  ifFalse: [ spanId ]
 ]
 
 { #category : 'private' }
@@ -192,9 +192,9 @@ OTXRayTextMapPropagator >> normalizedTraceIdFromRoot: aString [
 	random := parts third.
 	(self isLowercaseHexString: timestamp size: 8) ifFalse: [ ^ nil ].
 	(self isLowercaseHexString: random size: 24) ifFalse: [ ^ nil ].
-	^ (OTSpan isZeroHexIdentifier: timestamp, random)
-		ifTrue: [ nil ]
-		ifFalse: [ timestamp, random ]
+	^ (OTSpanContext isZeroHexIdentifier: timestamp , random)
+		  ifTrue: [ nil ]
+		  ifFalse: [ timestamp , random ]
 ]
 
 { #category : 'private' }
@@ -213,8 +213,8 @@ OTXRayTextMapPropagator >> xrayRootFromTraceId: aString [
 	aString ifNil: [ ^ nil ].
 	traceId := aString asLowercase.
 	(self isLowercaseHexString: traceId size: 32) ifFalse: [ ^ nil ].
-	(OTSpan isZeroHexIdentifier: traceId) ifTrue: [ ^ nil ].
+	(OTSpanContext isZeroHexIdentifier: traceId) ifTrue: [ ^ nil ].
 	timestamp := traceId copyFrom: 1 to: 8.
 	random := traceId copyFrom: 9 to: 32.
-	^ self class traceIdVersion, '-', timestamp, '-', random
+	^ self class traceIdVersion , '-' , timestamp , '-' , random
 ]

@@ -287,8 +287,7 @@ OTB3TextMapPropagator >> isValidSpanId: aString [
 
 	| normalized |
 	normalized := aString ifNil: [ ^ false ] ifNotNil: [ aString trimBoth asLowercase ].
-	^ (self isHexString: normalized size: 16)
-		and: [ (OTSpan isZeroHexIdentifier: normalized) not ]
+	^ (self isHexString: normalized size: 16) and: [ (OTSpanContext isZeroHexIdentifier: normalized) not ]
 ]
 
 { #category : 'private' }
@@ -296,8 +295,7 @@ OTB3TextMapPropagator >> isValidTraceId: aString [
 
 	| normalized |
 	normalized := self normalizedTraceIdFromB3: aString.
-	^ (self isHexString: normalized size: 32)
-		and: [ (OTSpan isZeroHexIdentifier: normalized) not ]
+	^ (self isHexString: normalized size: 32) and: [ (OTSpanContext isZeroHexIdentifier: normalized) not ]
 ]
 
 { #category : 'private' }

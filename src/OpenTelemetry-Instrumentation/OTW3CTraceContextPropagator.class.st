@@ -169,8 +169,7 @@ OTW3CTraceContextPropagator >> isLowercaseHexString: aString size: anInteger [
 { #category : 'private' }
 OTW3CTraceContextPropagator >> isValidIdentifier: aString size: anInteger [
 
-	^ (self isLowercaseHexString: aString size: anInteger)
-		and: [ (OTSpan isZeroHexIdentifier: aString) not ]
+	^ (self isLowercaseHexString: aString size: anInteger) and: [ (OTSpanContext isZeroHexIdentifier: aString) not ]
 ]
 
 { #category : 'private' }

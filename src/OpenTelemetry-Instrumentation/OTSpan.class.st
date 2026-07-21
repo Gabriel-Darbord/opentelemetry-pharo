@@ -1,12 +1,9 @@
 "
-I represent a single unit of work or a discrete operation in the OpenTelemetry framework.
-Spans are fundamental to distributed tracing and provide a way to track and measure the execution of specific activities within a software application.
+I represent one traced operation in the OpenTelemetry tracing API and SDK.
 
-Spans capture timing and contextual information related to an operation, including start and end timestamps, associated attributes, events, and status.
-They can be used to analyze performance bottlenecks, detect errors, and visualize the flow of activities across various components and services.
+A span carries immutable tracing identity through its SpanContext and accumulates recording state such as timing, attributes, events, links, and status while it is active.
 
-My instance-side API provides methods to set attributes, log events, set status, and control the timing of a span's lifecycle.
-Additionally, my class-side API supports the creation of child spans to represent nested operations.
+Application code obtains spans through OTTracer and OTSpanBuilder. Once created, spans can be enriched, ended, activated in context, exported, and inspected by SDK components such as span processors and exporters.
 "
 Class {
 	#name : 'OTSpan',
@@ -219,12 +216,6 @@ OTSpan class >> internal [
 	^ #internal
 ]
 
-{ #category : 'private - id generation' }
-OTSpan class >> isZeroHexIdentifier: aString [
-
-	^ OTSpanContext isZeroHexIdentifier: aString
-]
-
 { #category : 'private' }
 OTSpan class >> legacyParentSpanContextFromParentId: aParentId traceId: aTraceId traceFlags: someTraceFlags traceState: aTraceState [
 
@@ -310,12 +301,6 @@ OTSpan class >> producer [
 	Unlike client and server, there is no direct critical path latency relationship between producer and consumer spans."
 
 	^ #producer
-]
-
-{ #category : 'private - id generation' }
-OTSpan class >> randomHexDigit [
-
-	^ OTSpanContext randomHexDigit
 ]
 
 { #category : 'recording' }

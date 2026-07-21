@@ -270,9 +270,9 @@ OTJaegerTextMapPropagator >> normalizedSpanIdFromJaeger: aString [
 	spanId := aString ifNil: [ ^ nil ] ifNotNil: [ aString asLowercase ].
 	(self isHexString: spanId maxSize: 16) ifFalse: [ ^ nil ].
 	padded := spanId padLeftTo: 16 with: $0.
-	^ (OTSpan isZeroHexIdentifier: padded)
-		ifTrue: [ nil ]
-		ifFalse: [ padded ]
+	^ (OTSpanContext isZeroHexIdentifier: padded)
+		  ifTrue: [ nil ]
+		  ifFalse: [ padded ]
 ]
 
 { #category : 'private' }
@@ -282,9 +282,9 @@ OTJaegerTextMapPropagator >> normalizedTraceIdFromJaeger: aString [
 	traceId := aString ifNil: [ ^ nil ] ifNotNil: [ aString asLowercase ].
 	(self isHexString: traceId maxSize: 32) ifFalse: [ ^ nil ].
 	padded := traceId padLeftTo: 32 with: $0.
-	^ (OTSpan isZeroHexIdentifier: padded)
-		ifTrue: [ nil ]
-		ifFalse: [ padded ]
+	^ (OTSpanContext isZeroHexIdentifier: padded)
+		  ifTrue: [ nil ]
+		  ifFalse: [ padded ]
 ]
 
 { #category : 'private' }
