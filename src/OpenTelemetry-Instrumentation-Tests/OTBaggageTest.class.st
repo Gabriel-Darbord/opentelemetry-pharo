@@ -186,6 +186,19 @@ OTBaggageTest >> testCurrentWithoutEntryNamedUpdatesImplicitBaggage [
 ]
 
 { #category : 'tests' }
+OTBaggageTest >> testWithEntriesFromIgnoresInvalidCallbackInputAndSuppressesCallbackErrors [
+
+	| baggage invalidCallback updated |
+	baggage := OTBaggage empty withEntryNamed: 'user.id' value: '42'.
+	invalidCallback := nil.
+	updated := nil.
+	self shouldnt: [ invalidCallback := baggage withEntriesFrom: 42 ] raise: Error.
+	self shouldnt: [ updated := baggage withEntriesFrom: [ :builder | Error signal: 'boom' ] ] raise: Error.
+	self assert: invalidCallback identicalTo: baggage.
+	self assert: updated identicalTo: baggage
+]
+
+{ #category : 'tests' }
 OTBaggageTest >> testWithEntryNamedIgnoresNilEntryName [
 
 	| baggage |

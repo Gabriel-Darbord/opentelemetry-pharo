@@ -143,6 +143,17 @@ OTBaggage class >> normalizedEntryValueFrom: anObject [
 	^ anObject asString
 ]
 
+{ #category : 'private - logging' }
+OTBaggage class >> noteBuilderCallbackFailedDuring: anOperationName error: anError [
+
+	| message |
+	message := 'OpenTelemetry baggage callback failed during ' , anOperationName , ': ' , anError messageText.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ OTDiagnosticLogger defaultWarningSink value: message ]
+]
+
 { #category : 'actions' }
 OTBaggage class >> use: aBaggage during: aBlock [
 
@@ -290,8 +301,16 @@ OTBaggage >> valueAt: aName ifAbsent: anAbsentBlock [
 OTBaggage >> withEntriesFrom: aBlock [
 
 	| builder |
+	aBlock ifNil: [ ^ self ].
+	aBlock isBlock ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aBlock forOperation: 'OTBaggage>>withEntriesFrom:'.
+			^ self ].
 	builder := self builder.
-	aBlock value: builder.
+	[ aBlock value: builder ]
+		on: Error
+		do: [ :error |
+				self class noteBuilderCallbackFailedDuring: 'withEntriesFrom:' error: error.
+				^ self ].
 	^ builder build
 ]
 
