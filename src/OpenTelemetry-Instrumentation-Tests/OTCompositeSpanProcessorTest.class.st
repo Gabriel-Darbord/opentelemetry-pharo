@@ -147,6 +147,7 @@ OTCompositeSpanProcessorTest >> testOnEndingContinuesAfterChildFailure [
 	self withSpanProcessorWarningsDo: [ :warnings |
 			| composite exportRecord failingProcessor provider recordingProcessor span tracer |
 			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
 			tracer := provider tracerNamed: 'demo.scope'.
 			span := (tracer spanBuilderNamed: 'operation') startSpan.
 			failingProcessor := OTFailingSpanProcessor failingOperations: { 'onEnding' }.
