@@ -1371,6 +1371,27 @@ OTTracerProviderTest >> testTracerNamedWhitespaceOnlyStringNormalizesToEmptyName
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testTracerRetrievedAfterShutdownBehavesAsNoopTracer [
+
+	| parentSpan processor provider span tracer tracerAfterShutdown |
+	provider := OTTracerProvider new.
+	processor := OTRecordingSpanProcessor new.
+	provider spanProcessor: processor.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := (tracer spanBuilderNamed: 'parent') startSpan.
+	self assert: provider shutdown.
+	tracerAfterShutdown := provider tracerNamed: 'after.shutdown'.
+	self deny: tracerAfterShutdown enabled.
+	span := (tracerAfterShutdown spanBuilderNamed: 'child')
+		        inContext: (OTContext new withSpan: parentSpan);
+		        startSpan.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self deny: span isRecording.
+	self assert: span spanContext traceId equals: parentSpan spanContext traceId.
+	self assert: processor startedSpans asArray equals: { parentSpan }
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testTracerWithoutProcessorsStillReturnsRecordingSpan [
 
 	| exportRecord provider span |
