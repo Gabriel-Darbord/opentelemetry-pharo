@@ -818,13 +818,14 @@ OTSpan >> normalizeEventCollection: aCollection [
 { #category : 'private' }
 OTSpan >> normalizedExceptionAttributesFor: anException additionalAttributes: aCollection [
 
-	| attributesToRecord |
+	| attributesToRecord normalizedAdditionalAttributes |
 	attributesToRecord := OrderedDictionary new.
 	attributesToRecord
 		at: 'exception.type' put: (self exceptionTypeFor: anException);
 		at: 'exception.message' put: (self exceptionMessageFor: anException);
 		at: 'exception.stacktrace' put: (self exceptionStacktraceFor: anException).
-	aCollection ifNotNil: [ aCollection associationsDo: [ :each | attributesToRecord at: each key put: each value ] ].
+	normalizedAdditionalAttributes := OTAttributeNormalizer normalizeAttributes: aCollection.
+	normalizedAdditionalAttributes associationsDo: [ :each | attributesToRecord at: each key put: each value ].
 	^ attributesToRecord
 ]
 

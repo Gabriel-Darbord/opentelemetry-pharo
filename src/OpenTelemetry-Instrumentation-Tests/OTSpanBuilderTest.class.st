@@ -350,6 +350,27 @@ OTSpanBuilderTest >> testOkStatusIgnoresDescriptionImmediately [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testRecordExceptionAcceptsAssociationCollectionsAsAdditionalAttributes [
+
+	| event exportRecord provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := (tracer spanBuilderNamed: 'operation') startSpan.
+	[ Error signal: 'boom' ]
+		on: Error
+		do: [ :error |
+				span recordException: error attributes: {
+						('exception.message' -> 'override').
+						('exception.escaped' -> false) } ].
+	exportRecord := span asExportRecord.
+	event := (exportRecord at: #events) first.
+	self assert: event name equals: 'exception'.
+	self assert: (event attributes at: 'exception.message') equals: 'override'.
+	self assert: (event attributes at: 'exception.escaped') equals: false
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordExceptionAdditionalAttributesOverrideGeneratedExceptionFields [
 
 	| event exportRecord provider span tracer |
