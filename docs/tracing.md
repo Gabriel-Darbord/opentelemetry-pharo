@@ -401,6 +401,13 @@ The current implementation supports the standard built-in head samplers:
 - `parentbased_traceidratio`
 - `jaeger_remote`
 - `parentbased_jaeger_remote`
+- `xray`
+
+The X-Ray remote sampler reads `OTEL_TRACES_SAMPLER_ARG` as a comma-separated
+set of `key=value` options. The supported options are:
+
+- `endpoint=http://host:port`
+- `polling_interval=<seconds>`
 
 ## Propagation
 

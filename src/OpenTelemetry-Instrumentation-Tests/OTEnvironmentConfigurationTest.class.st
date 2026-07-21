@@ -131,42 +131,6 @@ OTEnvironmentConfigurationTest >> testCurrentLetsResourceAttributesOverrideDefau
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentLogsInvalidSamplerArgumentAndFallsBackToDefaultProbability [
-
-	self
-		withSamplerWarningsDo: [ :warnings |
-			self
-				withEnvironmentValues: (Dictionary new
-					at: 'OTEL_TRACES_SAMPLER' put: 'traceidratio';
-					at: 'OTEL_TRACES_SAMPLER_ARG' put: 'invalid';
-					yourself)
-				during: [
-					| sampler |
-					sampler := OTTracerProvider current sampler.
-					self assert: sampler class identicalTo: OTTraceIdRatioBasedSampler.
-					self assert: sampler probability equals: 1.
-					self assert: warnings size equals: 1.
-					self assert: warnings first equals:
-						'OpenTelemetry sampler argument was invalid and has been ignored for ''traceidratio'': ''invalid''' ] ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentLogsUnknownSamplerNameAndFallsBackToDefaultSampler [
-
-	self
-		withSamplerWarningsDo: [ :warnings |
-			self
-				withEnvironmentValues: (Dictionary new
-					at: 'OTEL_TRACES_SAMPLER' put: 'mystery';
-					yourself)
-				during: [
-					self assert: OTTracerProvider current sampler class identicalTo: OTParentBasedSampler.
-					self assert: warnings size equals: 1.
-					self assert: warnings first equals:
-						'OpenTelemetry sampler name was unrecognized and has been ignored: ''mystery''' ] ]
-]
-
-{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentLogsInvalidJaegerRemoteSamplerArgumentAndUsesDefaults [
 
 	self
@@ -188,39 +152,60 @@ OTEnvironmentConfigurationTest >> testCurrentLogsInvalidJaegerRemoteSamplerArgum
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsJaegerRemoteSamplerFromEnvironment [
+OTEnvironmentConfigurationTest >> testCurrentLogsInvalidSamplerArgumentAndFallsBackToDefaultProbability [
 
 	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_SERVICE_NAME' put: 'checkout-service';
-			at: 'OTEL_TRACES_SAMPLER' put: 'jaeger_remote';
-			at: 'OTEL_TRACES_SAMPLER_ARG'
-				put: 'endpoint=http://jaeger.example:14250,pollingIntervalMs=5000,initialSamplingRate=0.25';
-			yourself)
-		during: [
-			| initialSampler sampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTJaegerRemoteSampler.
-			self assert: sampler serviceName equals: 'checkout-service'.
-			self assert: sampler endpoint equals: 'http://jaeger.example:14250'.
-			self assert: sampler pollingIntervalMillis equals: 5000.
-			initialSampler := sampler currentSampler.
-			self assert: initialSampler class identicalTo: OTProbabilisticSampler.
-			self assert: initialSampler probability equals: 0.25 ]
+		withSamplerWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+					at: 'OTEL_TRACES_SAMPLER' put: 'traceidratio';
+					at: 'OTEL_TRACES_SAMPLER_ARG' put: 'invalid';
+					yourself)
+				during: [
+					| sampler |
+					sampler := OTTracerProvider current sampler.
+					self assert: sampler class identicalTo: OTTraceIdRatioBasedSampler.
+					self assert: sampler probability equals: 1.
+					self assert: warnings size equals: 1.
+					self assert: warnings first equals:
+						'OpenTelemetry sampler argument was invalid and has been ignored for ''traceidratio'': ''invalid''' ] ]
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsParentBasedJaegerRemoteSamplerFromEnvironment [
+OTEnvironmentConfigurationTest >> testCurrentLogsInvalidXRaySamplerArgumentAndUsesDefaults [
+
+	self withSamplerWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_TRACES_SAMPLER' put: 'xray';
+						 at: 'OTEL_TRACES_SAMPLER_ARG' put: 'endpoint=collector';
+						 yourself)
+				during: [
+						| sampler |
+						sampler := OTTracerProvider current sampler.
+						self assert: sampler class identicalTo: OTXRayRemoteSampler.
+						self assert: sampler endpoint equals: OTXRayRemoteSampler defaultEndpoint.
+						self assert: sampler pollingIntervalMillis equals: OTXRayRemoteSampler defaultPollingIntervalMillis.
+						self assert: warnings size equals: 1.
+						self
+							assert: warnings first
+							equals: 'OpenTelemetry sampler argument was invalid and has been ignored for ''xray'': ''endpoint=collector''' ] ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentLogsUnknownSamplerNameAndFallsBackToDefaultSampler [
 
 	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_SAMPLER' put: 'parentbased_jaeger_remote';
-			yourself)
-		during: [
-			| sampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTParentBasedSampler.
-			self assert: sampler rootSampler class identicalTo: OTJaegerRemoteSampler ]
+		withSamplerWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+					at: 'OTEL_TRACES_SAMPLER' put: 'mystery';
+					yourself)
+				during: [
+					self assert: OTTracerProvider current sampler class identicalTo: OTParentBasedSampler.
+					self assert: warnings size equals: 1.
+					self assert: warnings first equals:
+						'OpenTelemetry sampler name was unrecognized and has been ignored: ''mystery''' ] ]
 ]
 
 { #category : 'tests' }
@@ -294,22 +279,6 @@ OTEnvironmentConfigurationTest >> testCurrentReadsAlwaysOffSamplerFromEnvironmen
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsConfiguredPropagatorsCaseInsensitivelyAndDeduplicates [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_PROPAGATORS' put: 'TraceContext, baggage, TRACECONTEXT';
-			yourself)
-		during: [
-			| propagator |
-			propagator := OpenTelemetry textMapPropagator.
-			self assert: propagator class identicalTo: OTCompositeTextMapPropagator.
-			self
-				assert: (propagator componentPropagators collect: [ :each | each class ]) asArray
-				equals: { OTW3CTraceContextPropagator. OTW3CBaggagePropagator } ]
-]
-
-{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsBatchProcessorSizingFromEnvironment [
 
 	self
@@ -330,19 +299,55 @@ OTEnvironmentConfigurationTest >> testCurrentReadsBatchProcessorSizingFromEnviro
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentReadsZeroValuedBatchProcessorDelayAndTimeoutFromEnvironment [
+OTEnvironmentConfigurationTest >> testCurrentReadsConfiguredPropagatorsCaseInsensitivelyAndDeduplicates [
 
 	self
 		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_BSP_SCHEDULE_DELAY' put: '0';
-			at: 'OTEL_BSP_EXPORT_TIMEOUT' put: '0';
+			at: 'OTEL_PROPAGATORS' put: 'TraceContext, baggage, TRACECONTEXT';
 			yourself)
 		during: [
-			| processor |
-			processor := OTSpanProcessor current.
-			self assert: processor class identicalTo: OTBatchSpanProcessor.
-			self assert: processor scheduledDelayMillis equals: 0.
-			self assert: processor exportTimeoutMillis equals: 0 ]
+			| propagator |
+			propagator := OpenTelemetry textMapPropagator.
+			self assert: propagator class identicalTo: OTCompositeTextMapPropagator.
+			self
+				assert: (propagator componentPropagators collect: [ :each | each class ]) asArray
+				equals: { OTW3CTraceContextPropagator. OTW3CBaggagePropagator } ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsJaegerRemoteSamplerFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_SERVICE_NAME' put: 'checkout-service';
+			at: 'OTEL_TRACES_SAMPLER' put: 'jaeger_remote';
+			at: 'OTEL_TRACES_SAMPLER_ARG'
+				put: 'endpoint=http://jaeger.example:14250,pollingIntervalMs=5000,initialSamplingRate=0.25';
+			yourself)
+		during: [
+			| initialSampler sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTJaegerRemoteSampler.
+			self assert: sampler serviceName equals: 'checkout-service'.
+			self assert: sampler endpoint equals: 'http://jaeger.example:14250'.
+			self assert: sampler pollingIntervalMillis equals: 5000.
+			initialSampler := sampler currentSampler.
+			self assert: initialSampler class identicalTo: OTProbabilisticSampler.
+			self assert: initialSampler probability equals: 0.25 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsParentBasedJaegerRemoteSamplerFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_TRACES_SAMPLER' put: 'parentbased_jaeger_remote';
+			yourself)
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTParentBasedSampler.
+			self assert: sampler rootSampler class identicalTo: OTJaegerRemoteSampler ]
 ]
 
 { #category : 'tests' }
@@ -394,6 +399,42 @@ OTEnvironmentConfigurationTest >> testCurrentReadsTraceIdRatioSamplerCaseInsensi
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsXRaySamplerFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_SERVICE_NAME' put: 'checkout-service';
+				 at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'cloud.platform=aws_ec2';
+				 at: 'OTEL_TRACES_SAMPLER' put: 'xray';
+				 at: 'OTEL_TRACES_SAMPLER_ARG' put: 'endpoint=http://collector:2000,polling_interval=60';
+				 yourself)
+		during: [
+				| sampler |
+				sampler := OTTracerProvider current sampler.
+				self assert: sampler class identicalTo: OTXRayRemoteSampler.
+				self assert: sampler serviceName equals: 'checkout-service'.
+				self assert: sampler serviceType equals: 'aws_ec2'.
+				self assert: sampler endpoint equals: 'http://collector:2000'.
+				self assert: sampler pollingIntervalMillis equals: 60000 ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentReadsZeroValuedBatchProcessorDelayAndTimeoutFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_BSP_SCHEDULE_DELAY' put: '0';
+			at: 'OTEL_BSP_EXPORT_TIMEOUT' put: '0';
+			yourself)
+		during: [
+			| processor |
+			processor := OTSpanProcessor current.
+			self assert: processor class identicalTo: OTBatchSpanProcessor.
+			self assert: processor scheduledDelayMillis equals: 0.
+			self assert: processor exportTimeoutMillis equals: 0 ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsZeroValuedSpanLimitsFromEnvironment [
 
 	self
@@ -431,6 +472,18 @@ OTEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterAndSimpleProcess
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpExporterWhenTraceExporterSettingIsAbsent [
+
+	self
+		withEnvironmentValues: Dictionary new
+		during: [
+			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor.
+			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpHttpProtobufSpanExporter ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentUsesLoggingAliasWithSimpleProcessorForTraceExport [
 
 	self
@@ -445,26 +498,28 @@ OTEnvironmentConfigurationTest >> testCurrentUsesLoggingAliasWithSimpleProcessor
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesNoopPropagatorWhenConfiguredAsNone [
+OTEnvironmentConfigurationTest >> testCurrentUsesMultipleConfiguredExportersWithExporterSpecificProcessors [
 
 	self
 		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_PROPAGATORS' put: 'none';
+			at: 'OTEL_TRACES_EXPORTER' put: 'console, zipkin';
 			yourself)
 		during: [
-			self assert: OpenTelemetry textMapPropagator class identicalTo: OTNoopTextMapPropagator ]
-]
-
-{ #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpExporterWhenTraceExporterSettingIsAbsent [
-
-	self
-		withEnvironmentValues: Dictionary new
-		during: [
-			self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter.
-			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpHttpProtobufSpanExporter ]
+			| exporter provider spanProcessors |
+			exporter := OTSpanExporter current.
+			provider := OTTracerProvider current.
+			spanProcessors := provider spanProcessors.
+			self assert: exporter class identicalTo: OTCompositeSpanExporter.
+			self
+				assert: (exporter componentExporters collect: [ :each | each class ]) asArray
+				equals: { OTConsoleSpanExporter. OTZipkinSpanExporter }.
+			self assert: OTSpanProcessor current class identicalTo: OTCompositeSpanProcessor.
+			self
+				assert: (spanProcessors collect: [ :each | each class ]) asArray
+				equals: { OTSimpleSpanProcessor. OTBatchSpanProcessor }.
+			self
+				assert: (spanProcessors collect: [ :each | each exporter class ]) asArray
+				equals: { OTConsoleSpanExporter. OTZipkinSpanExporter } ]
 ]
 
 { #category : 'tests' }
@@ -477,6 +532,17 @@ OTEnvironmentConfigurationTest >> testCurrentUsesNoopExporterWhenTraceExportIsDi
 		during: [
 			self assert: OTSpanExporter current class identicalTo: OTNoopSpanExporter.
 			self assert: OTTracerProvider current spanProcessors isEmpty ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesNoopPropagatorWhenConfiguredAsNone [
+
+	self
+		withEnvironmentValues: (Dictionary new
+			at: 'OTEL_PROPAGATORS' put: 'none';
+			yourself)
+		during: [
+			self assert: OpenTelemetry textMapPropagator class identicalTo: OTNoopTextMapPropagator ]
 ]
 
 { #category : 'tests' }
@@ -524,31 +590,6 @@ OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenUsi
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesMultipleConfiguredExportersWithExporterSpecificProcessors [
-
-	self
-		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'console, zipkin';
-			yourself)
-		during: [
-			| exporter provider spanProcessors |
-			exporter := OTSpanExporter current.
-			provider := OTTracerProvider current.
-			spanProcessors := provider spanProcessors.
-			self assert: exporter class identicalTo: OTCompositeSpanExporter.
-			self
-				assert: (exporter componentExporters collect: [ :each | each class ]) asArray
-				equals: { OTConsoleSpanExporter. OTZipkinSpanExporter }.
-			self assert: OTSpanProcessor current class identicalTo: OTCompositeSpanProcessor.
-			self
-				assert: (spanProcessors collect: [ :each | each class ]) asArray
-				equals: { OTSimpleSpanProcessor. OTBatchSpanProcessor }.
-			self
-				assert: (spanProcessors collect: [ :each | each exporter class ]) asArray
-				equals: { OTConsoleSpanExporter. OTZipkinSpanExporter } ]
-]
-
-{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterAndBatchProcessorForOtlpStdoutSelection [
 
 	self
@@ -580,21 +621,6 @@ OTEnvironmentConfigurationTest >> testCurrentUsesZipkinExporterConfigurationFrom
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownTraceExporterNameAndFallsBackToDefaultExporter [
-
-	self withExporterWarningsDo: [ :warnings |
-		self
-			withEnvironmentValues: (Dictionary new
-				at: 'OTEL_TRACES_EXPORTER' put: 'mystery';
-				yourself)
-			during: [
-				self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter ].
-		self assert: warnings size equals: 1.
-		self assert: warnings first equals:
-			'OpenTelemetry trace exporter name was unrecognized and has been ignored: ''mystery''' ]
-]
-
-{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownPropagatorNameAndFallsBackToDefaultPropagator [
 
 	self withPropagatorWarningsDo: [ :warnings |
@@ -615,18 +641,18 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownPropagatorNameAndF
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOtherTraceExportersAndFallsBackToDefaultExporter [
+OTEnvironmentConfigurationTest >> testCurrentWarnsAboutUnknownTraceExporterNameAndFallsBackToDefaultExporter [
 
 	self withExporterWarningsDo: [ :warnings |
 		self
 			withEnvironmentValues: (Dictionary new
-				at: 'OTEL_TRACES_EXPORTER' put: 'console,none';
+				at: 'OTEL_TRACES_EXPORTER' put: 'mystery';
 				yourself)
 			during: [
 				self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter ].
 		self assert: warnings size equals: 1.
 		self assert: warnings first equals:
-			'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: ''console,none''' ]
+			'OpenTelemetry trace exporter name was unrecognized and has been ignored: ''mystery''' ]
 ]
 
 { #category : 'tests' }
@@ -647,6 +673,21 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOtherPro
 		self assert: warnings size equals: 1.
 		self assert: warnings first equals:
 			'OpenTelemetry propagator configuration mixes ''none'' with other propagators and has been ignored: ''tracecontext,none''' ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOtherTraceExportersAndFallsBackToDefaultExporter [
+
+	self withExporterWarningsDo: [ :warnings |
+		self
+			withEnvironmentValues: (Dictionary new
+				at: 'OTEL_TRACES_EXPORTER' put: 'console,none';
+				yourself)
+			during: [
+				self assert: OTSpanExporter current class identicalTo: OTOtlpHttpProtobufSpanExporter ].
+		self assert: warnings size equals: 1.
+		self assert: warnings first equals:
+			'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: ''console,none''' ]
 ]
 
 { #category : 'tests' }

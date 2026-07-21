@@ -768,47 +768,39 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 { #category : 'private' }
 OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherString resource: anOTResource [
 
-	| samplerName probability rootSampler |
+	| probability rootSampler samplerName |
 	samplerName := aString asString trimBoth asLowercase.
 	probability := self strictProbabilityFrom: anotherString.
 	samplerName = 'always_on' ifTrue: [ ^ OTAlwaysOnSampler new ].
 	samplerName = 'always_off' ifTrue: [ ^ OTAlwaysOffSampler new ].
 	samplerName = 'traceidratio' ifTrue: [
-		(anotherString notNil and: [ probability isNil ]) ifTrue: [
-			self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-		^ OTTraceIdRatioBasedSampler new
-			probability: (probability ifNil: [ 1 ]);
-			yourself ].
+			(anotherString notNil and: [ probability isNil ]) ifTrue: [
+				self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			^ OTTraceIdRatioBasedSampler new
+				  probability: (probability ifNil: [ 1 ]);
+				  yourself ].
 	samplerName = 'parentbased_always_on' ifTrue: [
-		^ OTParentBasedSampler default
-			rootSampler: OTAlwaysOnSampler new;
-			yourself ].
+			^ OTParentBasedSampler default
+				  rootSampler: OTAlwaysOnSampler new;
+				  yourself ].
 	samplerName = 'parentbased_always_off' ifTrue: [
-		^ OTParentBasedSampler default
-			rootSampler: OTAlwaysOffSampler new;
-			yourself ].
+			^ OTParentBasedSampler default
+				  rootSampler: OTAlwaysOffSampler new;
+				  yourself ].
 	samplerName = 'parentbased_traceidratio' ifTrue: [
-		(anotherString notNil and: [ probability isNil ]) ifTrue: [
-			self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-		rootSampler := OTTraceIdRatioBasedSampler new
-			probability: (probability ifNil: [ 1 ]);
-			yourself.
-		^ OTParentBasedSampler default
-			rootSampler: rootSampler;
-			yourself ].
+			(anotherString notNil and: [ probability isNil ]) ifTrue: [
+				self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			rootSampler := OTTraceIdRatioBasedSampler new
+				               probability: (probability ifNil: [ 1 ]);
+				               yourself.
+			^ OTParentBasedSampler default
+				  rootSampler: rootSampler;
+				  yourself ].
 	samplerName = 'jaeger_remote' ifTrue: [
-		^ self
-			jaegerRemoteSamplerForResource: anOTResource
-			argument: anotherString
-			parentBased: false ].
+		^ self jaegerRemoteSamplerForResource: anOTResource argument: anotherString parentBased: false ].
 	samplerName = 'parentbased_jaeger_remote' ifTrue: [
-		^ self
-			jaegerRemoteSamplerForResource: anOTResource
-			argument: anotherString
-			parentBased: true ].
-	samplerName = 'xray' ifTrue: [
-		self noteUnsupportedSamplerName: samplerName.
-		^ self defaultSampler ].
+		^ self jaegerRemoteSamplerForResource: anOTResource argument: anotherString parentBased: true ].
+	samplerName = 'xray' ifTrue: [ ^ self xrayRemoteSamplerForResource: anOTResource argument: anotherString ].
 	self noteUnknownSamplerName: samplerName.
 	^ self defaultSampler
 ]
@@ -839,6 +831,13 @@ OTTracerProvider class >> serviceNameForSamplerResource: anOTResource [
 
 	anOTResource ifNil: [ ^ self defaultServiceName ].
 	^ anOTResource serviceName ifNil: [ self defaultServiceName ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> serviceTypeForSamplerResource: anOTResource [
+
+	anOTResource ifNil: [ ^ '' ].
+	^ anOTResource attributeAt: 'cloud.platform' ifAbsent: [ '' ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -981,6 +980,42 @@ OTTracerProvider class >> strictProbabilityFrom: aString [
 	^ value
 ]
 
+{ #category : 'private' }
+OTTracerProvider class >> strictXRayRemoteSamplerOption: aString into: anOrderedDictionary [
+
+	| key parsedValue separator value |
+	aString isEmpty ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
+	separator := aString indexOf: $=.
+	separator <= 1 ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
+	key := (aString copyFrom: 1 to: separator - 1) trimBoth.
+	value := (aString copyFrom: separator + 1 to: aString size) trimBoth.
+	value isEmpty ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
+	key = 'endpoint' ifTrue: [
+			parsedValue := OTXRayRemoteSampler normalizedEndpoint: value.
+			anOrderedDictionary at: key put: parsedValue.
+			^ self ].
+	key = 'polling_interval' ifTrue: [
+			parsedValue := self strictPositiveIntegerFrom: value.
+			parsedValue ifNil: [ Error signal: 'Invalid X-Ray remote polling interval' ].
+			anOrderedDictionary at: 'pollingIntervalMillis' put: parsedValue * 1000.
+			^ self ].
+	Error signal: 'Unrecognized X-Ray remote sampler option'
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictXRayRemoteSamplerOptionsFrom: aString [
+
+	| options rawValue |
+	aString ifNil: [ ^ OrderedDictionary new ].
+	rawValue := aString asString trimBoth.
+	rawValue isEmpty ifTrue: [ ^ OrderedDictionary new ].
+	options := OrderedDictionary new.
+	[ (rawValue substrings: ',') do: [ :each | self strictXRayRemoteSamplerOption: each trimBoth into: options ] ]
+		on: Error
+		do: [ ^ nil ].
+	^ options
+]
+
 { #category : 'instance creation' }
 OTTracerProvider class >> systemAttributeAt: anInteger [
 
@@ -1063,6 +1098,13 @@ OTTracerProvider class >> updateJaegerRemoteSampler: aSampler withOptions: optio
 ]
 
 { #category : 'private' }
+OTTracerProvider class >> updateXRayRemoteSampler: aSampler withOptions: options [
+
+	options at: 'endpoint' ifPresent: [ :value | aSampler endpoint: value ].
+	options at: 'pollingIntervalMillis' ifPresent: [ :value | aSampler pollingIntervalMillis: value ]
+]
+
+{ #category : 'private' }
 OTTracerProvider class >> writeShellQuotedCommandArgument: anObject on: aStream [
 
 	| argument escapeCharacter needsQuoting quoteCharacter |
@@ -1078,6 +1120,20 @@ OTTracerProvider class >> writeShellQuotedCommandArgument: anObject on: aStream 
 		(each = quoteCharacter or: [ each = escapeCharacter ]) ifTrue: [ aStream nextPut: escapeCharacter ].
 		aStream nextPut: each ].
 	aStream nextPut: quoteCharacter
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> xrayRemoteSamplerForResource: anOTResource argument: anotherString [
+
+	| options sampler samplerName |
+	samplerName := 'xray'.
+	options := self strictXRayRemoteSamplerOptionsFrom: anotherString.
+	(anotherString notNil and: [ options isNil ]) ifTrue: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+	sampler := OTXRayRemoteSampler
+		           serviceName: (self serviceNameForSamplerResource: anOTResource)
+		           serviceType: (self serviceTypeForSamplerResource: anOTResource).
+	options ifNotNil: [ self updateXRayRemoteSampler: sampler withOptions: options ].
+	^ sampler
 ]
 
 { #category : 'accessing' }
