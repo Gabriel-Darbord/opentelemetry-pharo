@@ -1236,7 +1236,7 @@ OTSpan >> spanContext [
 { #category : 'accessing' }
 OTSpan >> spanId [
 
-	^ stateLock critical: [ spanContext spanId ]
+	^ stateLock critical: [ self spanContext spanId ]
 ]
 
 { #category : 'accessing' }
@@ -1296,19 +1296,19 @@ OTSpan >> stonOn: stonWriter [
 { #category : 'accessing' }
 OTSpan >> traceFlags [
 
-	^ stateLock critical: [ spanContext traceFlags ]
+	^ stateLock critical: [ self spanContext traceFlags ]
 ]
 
 { #category : 'accessing' }
 OTSpan >> traceId [
 
-	^ stateLock critical: [ spanContext traceId ]
+	^ stateLock critical: [ self spanContext traceId ]
 ]
 
 { #category : 'accessing' }
 OTSpan >> traceState [
 
-	^ stateLock critical: [ spanContext traceState ]
+	^ stateLock critical: [ self spanContext traceState ]
 ]
 
 { #category : 'recording' }

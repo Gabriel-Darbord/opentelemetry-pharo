@@ -229,6 +229,25 @@ OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
 ]
 
 { #category : 'tests' }
+OTSpanContextTest >> testNonRecordingSpanDelegatesIdentityAccessorsToWrappedSpanContext [
+
+	| context span |
+	context := OTSpanContext
+		           traceId: '00112233445566778899aabbccddeeff'
+		           spanId: '1122334455667788'
+		           traceFlags: '01'
+		           traceState: 'vendor=value'
+		           remote: false.
+	span := OTNonRecordingSpan withSpanContext: context.
+	self deny: span isRecording.
+	self assert: span spanContext identicalTo: context.
+	self assert: span traceId equals: context traceId.
+	self assert: span spanId equals: context spanId.
+	self assert: span traceFlags equals: context traceFlags.
+	self assert: span traceState equals: context traceState
+]
+
+{ #category : 'tests' }
 OTSpanContextTest >> testRecordingSpanDoesNotExposeCreationStateMutators [
 
 	| exportRecord originalKind originalParentContext provider replacementParentContext span tracer |
