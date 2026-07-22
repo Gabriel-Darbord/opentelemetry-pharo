@@ -26,9 +26,10 @@ OTOtlpJsonLineSpanExporter >> encoder: anEncoder [
 { #category : 'exporting' }
 OTOtlpJsonLineSpanExporter >> export: spans [
 
-	self isShutdown ifTrue: [ ^ false ].
-	self writeJsonLine: (self jsonLineFrom: spans).
-	^ true
+	^ self withExportLockDo: [
+			  self isShutdown ifTrue: [ ^ false ].
+			  self writeJsonLine: (self jsonLineFrom: spans).
+			  true ]
 ]
 
 { #category : 'private' }

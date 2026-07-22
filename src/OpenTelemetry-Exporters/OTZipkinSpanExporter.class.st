@@ -91,11 +91,12 @@ OTZipkinSpanExporter >> endpointValueFromAddressAttribute: addressAttributeName 
 { #category : 'exporting' }
 OTZipkinSpanExporter >> export: spans [
 
-	self isShutdown ifTrue: [ ^ false ].
-	^ (self httpClient
-		   contents: (self transform: spans);
-		   execute;
-		   response) code = 202
+	^ self withExportLockDo: [
+			  self isShutdown ifTrue: [ ^ false ].
+			  (self httpClient
+				   contents: (self transform: spans);
+				   execute;
+				   response) code = 202 ]
 ]
 
 { #category : 'private - utilities' }

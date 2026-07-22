@@ -12,8 +12,9 @@ Class {
 { #category : 'exporting' }
 OTJSONFileSpanExporter >> export: spans [
 
-	self isShutdown ifTrue: [ ^ false ].
-	(self directory asFileReference / DateAndTime now asString , 'json') ensureCreateFile writeStreamDo: [ :stream |
-		STON put: (spans collect: [ :each | each asExportRecord ]) asArray asJsonOnStream: stream ].
-	^ true
+	^ self withExportLockDo: [
+			  self isShutdown ifTrue: [ ^ false ].
+			  (self directory asFileReference / DateAndTime now asString , 'json') ensureCreateFile writeStreamDo: [ :stream |
+				  STON put: (spans collect: [ :each | each asExportRecord ]) asArray asJsonOnStream: stream ].
+			  true ]
 ]

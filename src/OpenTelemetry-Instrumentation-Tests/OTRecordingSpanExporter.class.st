@@ -38,6 +38,12 @@ OTRecordingSpanExporter >> allowsExportsAfterShutdown [
 { #category : 'accessing' }
 OTRecordingSpanExporter >> export: spans [
 
+	^ self withExportLockDo: [ self exportUnchecked: spans ]
+]
+
+{ #category : 'accessing' }
+OTRecordingSpanExporter >> exportUnchecked: spans [
+
 	(self isShutdown and: [ self allowsExportsAfterShutdown not ]) ifTrue: [ ^ false ].
 	self exportedBatches add: spans asArray.
 	^ true

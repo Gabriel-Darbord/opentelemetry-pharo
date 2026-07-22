@@ -11,6 +11,7 @@ Class {
 { #category : 'exporting' }
 OTNoopSpanExporter >> export: spans [
 
-	self isShutdown ifTrue: [ ^ false ].
-	^ true
+	^ self withExportLockDo: [
+			  self isShutdown ifTrue: [ ^ false ].
+			  true ]
 ]

@@ -132,6 +132,16 @@ OTSpanExporter class >> environmentValueAt: aString [
 	^ OTConfigurationSource environmentValueAt: aString
 ]
 
+{ #category : 'private - synchronization' }
+OTSpanExporter class >> exportLocksByExporter [
+
+	^ OTClassStateStore valueAt: #otExportLocksByExporter forClass: self ifAbsent: [
+			  | locks |
+			  locks := WeakIdentityKeyDictionary new.
+			  OTClassStateStore valueAt: #otExportLocksByExporter forClass: self put: locks.
+			  locks ]
+]
+
 { #category : 'instance creation' }
 OTSpanExporter class >> exporterFromEnvironmentName: aString [
 
@@ -364,6 +374,12 @@ OTSpanExporter >> export: spans [
 	self subclassResponsibility
 ]
 
+{ #category : 'private - synchronization' }
+OTSpanExporter >> exportLock [
+
+	^ self class exportLocksByExporter at: self ifAbsentPut: [ Semaphore forMutualExclusion ]
+]
+
 { #category : 'exporting' }
 OTSpanExporter >> forceFlush [
 
@@ -400,4 +416,10 @@ OTSpanExporter >> shutdown [
 	self beginShutdown ifFalse: [ ^ false ].
 	self markShutdown.
 	^ true
+]
+
+{ #category : 'private - synchronization' }
+OTSpanExporter >> withExportLockDo: aBlock [
+
+	^ self exportLock critical: aBlock
 ]

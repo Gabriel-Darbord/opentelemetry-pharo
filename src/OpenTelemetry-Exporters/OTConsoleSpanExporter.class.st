@@ -9,20 +9,21 @@ Class {
 	#package : 'OpenTelemetry-Exporters'
 }
 
+{ #category : 'exporting' }
+OTConsoleSpanExporter >> export: spans [
+
+	^ self withExportLockDo: [
+			  | stream |
+			  self isShutdown ifTrue: [ ^ false ].
+			  stream := self outputStream.
+			  stream
+				  nextPutAll: spans printString;
+				  lf.
+			  true ]
+]
+
 { #category : 'private' }
 OTConsoleSpanExporter >> outputStream [
 
 	^ Stdio stdout
-]
-
-{ #category : 'exporting' }
-OTConsoleSpanExporter >> export: spans [
-
-	| stream |
-	self isShutdown ifTrue: [ ^ false ].
-	stream := self outputStream.
-	stream
-		nextPutAll: spans printString;
-		lf.
-	^ true
 ]

@@ -36,10 +36,9 @@ OTOtlpGrpcSpanExporter >> executeGrpcRequest: aRequest [
 { #category : 'exporting' }
 OTOtlpGrpcSpanExporter >> export: spans [
 
-	self isShutdown ifTrue: [ ^ false ].
-	^ self
-		exportAttemptNumber: 1
-		payloadBytes: (self payloadBytesFrom: spans)
+	^ self withExportLockDo: [
+			  self isShutdown ifTrue: [ ^ false ].
+			  self exportAttemptNumber: 1 payloadBytes: (self payloadBytesFrom: spans) ]
 ]
 
 { #category : 'exporting' }

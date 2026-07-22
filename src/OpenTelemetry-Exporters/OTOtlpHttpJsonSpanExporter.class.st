@@ -174,10 +174,9 @@ OTOtlpHttpJsonSpanExporter >> entityForPayload: aString [
 { #category : 'exporting' }
 OTOtlpHttpJsonSpanExporter >> export: spans [
 
-	self isShutdown ifTrue: [ ^ false ].
-	^ self
-		exportAttemptNumber: 1
-		payloadString: (self payloadStringFrom: spans)
+	^ self withExportLockDo: [
+			  self isShutdown ifTrue: [ ^ false ].
+			  self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: spans) ]
 ]
 
 { #category : 'exporting' }

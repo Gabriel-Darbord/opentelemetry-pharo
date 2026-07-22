@@ -62,6 +62,30 @@ OTSpanExporterLifecycleTest >> testConcurrentShutdownIsIdempotent [
 ]
 
 { #category : 'tests' }
+OTSpanExporterLifecycleTest >> testExportIsSerializedAcrossConcurrentCallsOnSameExporterInstance [
+
+	| firstDone firstResult secondDone secondResult |
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		firstResult := exporter export: #( first ).
+		firstDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	[
+		secondResult := exporter export: #( second ).
+		secondDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (secondDone waitTimeoutMilliseconds: 50).
+	exporter allowBlockedExport.
+	self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+	self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+	self assert: firstResult.
+	self assert: secondResult.
+	self assert: exporter exportedBatches size equals: 2
+]
+
+{ #category : 'tests' }
 OTSpanExporterLifecycleTest >> testExportReturnsFalseAfterShutdown [
 
 	exporter := OTRecordingSpanExporter new.

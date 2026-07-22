@@ -29,10 +29,9 @@ OTCompositeSpanExporter >> componentExporters [
 { #category : 'exporting' }
 OTCompositeSpanExporter >> export: spans [
 
-	self isShutdown ifTrue: [ ^ false ].
-	^ exporters
-		inject: true
-		into: [ :allExported :each | (each export: spans) & allExported ]
+	^ self withExportLockDo: [
+			  self isShutdown ifTrue: [ ^ false ].
+			  exporters inject: true into: [ :allExported :each | (each export: spans) & allExported ] ]
 ]
 
 { #category : 'accessing' }
