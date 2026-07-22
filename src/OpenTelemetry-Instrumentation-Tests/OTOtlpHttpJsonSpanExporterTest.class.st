@@ -165,6 +165,14 @@ OTOtlpHttpJsonSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHead
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testExportLeavesHttpClientTimeoutUnsetForNoLimit [
+
+	configuration timeoutMillis: OTOtlpExporterConfiguration noTimeoutMillis.
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: client timeout isNil
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testExportRetriesRetryableHttpResponsesUntilSuccess [
 
 	client

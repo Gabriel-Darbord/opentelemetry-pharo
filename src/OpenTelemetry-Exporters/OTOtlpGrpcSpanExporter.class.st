@@ -129,21 +129,16 @@ OTOtlpGrpcSpanExporter >> grpcRequestClass [
 { #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter >> grpcRequestForPayloadBytes: payloadBytes [
 
-	| request requestPayload |
+	| request requestPayload timeoutMillis |
 	requestPayload := self configuration usesGzipCompression
-		ifTrue: [ self gzipCompressedBytesFor: payloadBytes ]
-		ifFalse: [ payloadBytes ].
-	request := self grpcRequestClass
-		service: self traceServiceName
-		method: self traceServiceMethodName
-		payload: requestPayload.
-	request
-		timeoutNanos: self configuration timeoutMillis * 1000000;
-		metadata: self grpcMetadataFromConfigurationHeaders.
-	(self hasUserAgentHeaderConfigured: self configuration headers)
-		ifFalse: [ request userAgent: self configuration userAgent ].
-	self configuration usesGzipCompression ifTrue: [
-		request messageEncoding: 'gzip' ].
+		                  ifTrue: [ self gzipCompressedBytesFor: payloadBytes ]
+		                  ifFalse: [ payloadBytes ].
+	request := self grpcRequestClass service: self traceServiceName method: self traceServiceMethodName payload: requestPayload.
+	timeoutMillis := self configuration timeoutMillisOrNil.
+	timeoutMillis ifNotNil: [ request timeoutNanos: timeoutMillis * 1000000 ].
+	request metadata: self grpcMetadataFromConfigurationHeaders.
+	(self hasUserAgentHeaderConfigured: self configuration headers) ifFalse: [ request userAgent: self configuration userAgent ].
+	self configuration usesGzipCompression ifTrue: [ request messageEncoding: 'gzip' ].
 	^ request
 ]
 
@@ -162,7 +157,10 @@ OTOtlpGrpcSpanExporter >> grpcSocketStreamClass [
 { #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter >> grpcTimeoutSeconds [
 
-	^ (self configuration timeoutMillis max: 1000) + 999 // 1000
+	| timeoutMillis |
+	timeoutMillis := self configuration timeoutMillisOrNil.
+	timeoutMillis ifNil: [ ^ nil ].
+	^ (timeoutMillis max: 1000) + 999 // 1000
 ]
 
 { #category : 'private - grpc' }
@@ -228,20 +226,21 @@ OTOtlpGrpcSpanExporter >> noteRetryExhaustedForStatus: aStatus [
 { #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter >> openConfiguredGrpcStreamTo: aGRPCEndpoint [
 
-	| port |
+	| port timeoutSeconds |
 	port := aGRPCEndpoint port ifNil: [
 			        aGRPCEndpoint isSecure
 				        ifTrue: [ 443 ]
 				        ifFalse: [ 80 ] ].
+	timeoutSeconds := self grpcTimeoutSeconds.
 	aGRPCEndpoint isSecure ifFalse: [
 			| socketStream |
 			socketStream := self grpcSocketStreamClass openConnectionToHostNamed: aGRPCEndpoint host port: port.
-			socketStream timeout: self grpcTimeoutSeconds.
+			timeoutSeconds ifNotNil: [ socketStream timeout: timeoutSeconds ].
 			^ socketStream ].
 	^ self withConfiguredTlsDuring: [ :certificateName |
 			  | socketStream |
 			  socketStream := self grpcSecureSocketStreamClass openConnectionToHostNamed: aGRPCEndpoint host port: port.
-			  socketStream timeout: self grpcTimeoutSeconds.
+			  timeoutSeconds ifNotNil: [ socketStream timeout: timeoutSeconds ].
 			  certificateName ifNotNil: [ socketStream sslSession certificateName: certificateName ].
 			  socketStream sslSession serverName: aGRPCEndpoint host.
 			  socketStream connect.

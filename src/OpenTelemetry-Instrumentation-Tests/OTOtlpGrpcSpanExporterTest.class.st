@@ -127,6 +127,19 @@ OTOtlpGrpcSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHeader [
 ]
 
 { #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportOmitsGrpcTimeoutForNoLimit [
+
+	| capturedRequest |
+	configuration timeoutMillis: OTOtlpExporterConfiguration noTimeoutMillis.
+	exporter requestExecutor: [ :request |
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: capturedRequest timeoutNanos isNil.
+	self assert: capturedRequest grpcTimeoutHeaderValue isNil
+]
+
+{ #category : 'tests' }
 OTOtlpGrpcSpanExporterTest >> testExportRetriesRetryableGrpcStatusesUntilSuccess [
 
 	| executionCount |
@@ -220,6 +233,19 @@ OTOtlpGrpcSpanExporterTest >> testOpenConfiguredGrpcStreamToAppliesTlsFilesOnUni
 			self assert: stream sslSession certificateName notNil.
 			self assert: stream sslCertFileDuringConnect equals: caPath.
 			self deny: stream sslSession certificateName asFileReference exists ]
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testOpenConfiguredGrpcStreamToLeavesSocketTimeoutUnsetForNoLimit [
+
+	| endpoint stream tlsExporter |
+	configuration timeoutMillis: OTOtlpExporterConfiguration noTimeoutMillis.
+	tlsExporter := OTTestableOtlpGrpcSpanExporter configuration: configuration.
+	tlsExporter grpcSecureSocketStreamClass: OTFakeSecureSocketStream.
+	endpoint := tlsExporter grpcEndpointClass fromString: 'https://collector:4317'.
+	stream := tlsExporter openConfiguredGrpcStreamTo: endpoint.
+	self assert: stream connected.
+	self assert: stream timeout isNil
 ]
 
 { #category : 'private' }

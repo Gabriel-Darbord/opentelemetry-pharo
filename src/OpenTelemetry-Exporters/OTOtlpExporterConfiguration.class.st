@@ -49,14 +49,21 @@ OTOtlpExporterConfiguration class >> clientKeyFileFromEnvironmentForSignalNamed:
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> compressionFromEnvironmentForSignalNamed: aSignalName [
 
-	| value |
-	value := self
-		firstEnvironmentValueAt:
-			{ (self signalEnvironmentNameFor: aSignalName suffix: 'COMPRESSION').
-			'OTEL_EXPORTER_OTLP_COMPRESSION' }.
-	value ifNil: [ ^ self defaultCompression ].
-	value := value asLowercase.
-	(#( 'none' 'gzip' ) includes: value) ifTrue: [ ^ value ].
+	| signalVariable sharedVariable value |
+	signalVariable := self signalEnvironmentNameFor: aSignalName suffix: 'COMPRESSION'.
+	value := self environmentValueAt: signalVariable.
+	value ifNotNil: [
+			value := value asLowercase.
+			(#( 'none' 'gzip' ) includes: value)
+				ifTrue: [ ^ value ]
+				ifFalse: [ self noteInvalidEnvironmentValue: value forVariable: signalVariable ] ].
+	sharedVariable := 'OTEL_EXPORTER_OTLP_COMPRESSION'.
+	value := self environmentValueAt: sharedVariable.
+	value ifNotNil: [
+			value := value asLowercase.
+			(#( 'none' 'gzip' ) includes: value)
+				ifTrue: [ ^ value ]
+				ifFalse: [ self noteInvalidEnvironmentValue: value forVariable: sharedVariable ] ].
 	^ self defaultCompression
 ]
 
@@ -115,21 +122,35 @@ OTOtlpExporterConfiguration class >> defaultUserAgent [
 	^ 'OTel-OTLP-Exporter-Pharo/', OTTracerProvider sdkVersion
 ]
 
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration class >> defaultWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> endpointFromEnvironmentForSignalNamed: aSignalName relativePath: aRelativePath [
 
-	| insecure protocol sharedEndpoint signalSpecificEndpoint |
-	protocol := self protocolFromEnvironmentForSignalNamed: aSignalName.
-	insecure := self insecureFromEnvironmentForSignalNamed: aSignalName.
+	^ self
+		  endpointFromEnvironmentForSignalNamed: aSignalName
+		  relativePath: aRelativePath
+		  protocol: (self protocolFromEnvironmentForSignalNamed: aSignalName)
+		  insecure: (self insecureFromEnvironmentForSignalNamed: aSignalName)
+]
+
+{ #category : 'private' }
+OTOtlpExporterConfiguration class >> endpointFromEnvironmentForSignalNamed: aSignalName relativePath: aRelativePath protocol: aProtocol insecure: anInsecureBoolean [
+
+	| sharedEndpoint signalSpecificEndpoint |
 	signalSpecificEndpoint := self environmentValueAt: (self signalEnvironmentNameFor: aSignalName suffix: 'ENDPOINT').
 	signalSpecificEndpoint ifNotNil: [
-			protocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: signalSpecificEndpoint insecure: insecure ].
+			aProtocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: signalSpecificEndpoint insecure: anInsecureBoolean ].
 			^ self normalizedSignalEndpoint: signalSpecificEndpoint ].
 	sharedEndpoint := self environmentValueAt: 'OTEL_EXPORTER_OTLP_ENDPOINT'.
 	sharedEndpoint ifNotNil: [
-			protocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: sharedEndpoint insecure: insecure ].
+			aProtocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: sharedEndpoint insecure: anInsecureBoolean ].
 			^ self normalizedBaseEndpoint: sharedEndpoint appendingRelativePath: aRelativePath ].
-	protocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: self defaultBaseGrpcEndpoint insecure: false ].
+	aProtocol = 'grpc' ifTrue: [ ^ self normalizedGrpcEndpoint: self defaultBaseGrpcEndpoint insecure: false ].
 	^ self normalizedBaseEndpoint: self defaultBaseHttpEndpoint appendingRelativePath: aRelativePath
 ]
 
@@ -158,14 +179,20 @@ OTOtlpExporterConfiguration class >> forSignalNamed: aString [
 { #category : 'instance creation' }
 OTOtlpExporterConfiguration class >> forSignalNamed: aString relativePath: aRelativePath [
 
-	| normalizedSignal |
+	| insecure normalizedSignal protocol |
 	normalizedSignal := aString asUppercase.
+	protocol := self protocolFromEnvironmentForSignalNamed: normalizedSignal.
+	insecure := self insecureFromEnvironmentForSignalNamed: normalizedSignal.
 	^ self new
 		  signalName: normalizedSignal;
 		  relativePath: aRelativePath;
-		  protocol: (self protocolFromEnvironmentForSignalNamed: normalizedSignal);
-		  insecure: (self insecureFromEnvironmentForSignalNamed: normalizedSignal);
-		  endpoint: (self endpointFromEnvironmentForSignalNamed: normalizedSignal relativePath: aRelativePath);
+		  protocol: protocol;
+		  insecure: insecure;
+		  endpoint: (self
+				   endpointFromEnvironmentForSignalNamed: normalizedSignal
+				   relativePath: aRelativePath
+				   protocol: protocol
+				   insecure: insecure);
 		  headers: (self headersFromEnvironmentForSignalNamed: normalizedSignal);
 		  timeoutMillis: (self timeoutMillisFromEnvironmentForSignalNamed: normalizedSignal);
 		  compression: (self compressionFromEnvironmentForSignalNamed: normalizedSignal);
@@ -195,13 +222,26 @@ OTOtlpExporterConfiguration class >> headersFromEnvironmentForSignalNamed: aSign
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> insecureFromEnvironmentForSignalNamed: aSignalName [
 
-	| value |
-	value := self firstEnvironmentValueAt: {
-			         (self signalEnvironmentNameFor: aSignalName suffix: 'INSECURE').
-			         'OTEL_EXPORTER_OTLP_INSECURE' }.
-	value ifNil: [ ^ false ].
-	value := self strictBooleanFrom: value.
-	^ value ifNil: [ false ] ifNotNil: [ value ]
+	| parsedValue signalVariable sharedVariable value |
+	signalVariable := self signalEnvironmentNameFor: aSignalName suffix: 'INSECURE'.
+	value := self environmentValueAt: signalVariable.
+	value ifNotNil: [
+			parsedValue := self strictBooleanFrom: value.
+			parsedValue ifNotNil: [ ^ parsedValue ].
+			self noteInvalidEnvironmentValue: value forVariable: signalVariable ].
+	sharedVariable := 'OTEL_EXPORTER_OTLP_INSECURE'.
+	value := self environmentValueAt: sharedVariable.
+	value ifNotNil: [
+			parsedValue := self strictBooleanFrom: value.
+			parsedValue ifNotNil: [ ^ parsedValue ].
+			self noteInvalidEnvironmentValue: value forVariable: sharedVariable ].
+	^ false
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration class >> noTimeoutMillis [
+
+	^ 2147483647
 ]
 
 { #category : 'private' }
@@ -241,6 +281,14 @@ OTOtlpExporterConfiguration class >> normalizedSignalEndpoint: aString [
 		do: [ aString ]
 ]
 
+{ #category : 'private - logging' }
+OTOtlpExporterConfiguration class >> noteInvalidEnvironmentValue: aValue forVariable: aString [
+
+	self warningSink value:
+		'OpenTelemetry OTLP exporter configuration was invalid and has been ignored for ' , aString printString , ': '
+		, aValue printString
+]
+
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> parsedHeadersFrom: aString [
 
@@ -278,15 +326,21 @@ OTOtlpExporterConfiguration class >> positiveIntegerEnvironmentValueAt: aString 
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> protocolFromEnvironmentForSignalNamed: aSignalName [
 
-	| value |
-	value := self
-		firstEnvironmentValueAt:
-			{ (self signalEnvironmentNameFor: aSignalName suffix: 'PROTOCOL').
-			'OTEL_EXPORTER_OTLP_PROTOCOL' }.
-	value ifNil: [ ^ self defaultProtocol ].
-	value := value asLowercase.
-	(#( 'grpc' 'http/protobuf' 'http/json' ) includes: value)
-		ifTrue: [ ^ value ].
+	| signalVariable sharedVariable value |
+	signalVariable := self signalEnvironmentNameFor: aSignalName suffix: 'PROTOCOL'.
+	value := self environmentValueAt: signalVariable.
+	value ifNotNil: [
+			value := value asLowercase.
+			(#( 'grpc' 'http/protobuf' 'http/json' ) includes: value)
+				ifTrue: [ ^ value ]
+				ifFalse: [ self noteInvalidEnvironmentValue: value forVariable: signalVariable ] ].
+	sharedVariable := 'OTEL_EXPORTER_OTLP_PROTOCOL'.
+	value := self environmentValueAt: sharedVariable.
+	value ifNotNil: [
+			value := value asLowercase.
+			(#( 'grpc' 'http/protobuf' 'http/json' ) includes: value)
+				ifTrue: [ ^ value ]
+				ifFalse: [ self noteInvalidEnvironmentValue: value forVariable: sharedVariable ] ].
 	^ self defaultProtocol
 ]
 
@@ -309,6 +363,20 @@ OTOtlpExporterConfiguration class >> strictBooleanFrom: aBooleanOrString [
 ]
 
 { #category : 'private' }
+OTOtlpExporterConfiguration class >> strictNonNegativeIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value >= 0 ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private' }
 OTOtlpExporterConfiguration class >> strictPositiveIntegerFrom: aString [
 
 	| stream value |
@@ -323,16 +391,41 @@ OTOtlpExporterConfiguration class >> strictPositiveIntegerFrom: aString [
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> timeoutMillisFromEnvironmentForSignalNamed: aSignalName [
 
-	| signalSpecific shared |
-	signalSpecific := self
-		positiveIntegerEnvironmentValueAt:
-			(self signalEnvironmentNameFor: aSignalName suffix: 'TIMEOUT')
-		default: nil.
-	signalSpecific ifNotNil: [ ^ signalSpecific ].
-	shared := self
-		positiveIntegerEnvironmentValueAt: 'OTEL_EXPORTER_OTLP_TIMEOUT'
-		default: nil.
-	^ shared ifNil: [ self defaultTimeoutMillis ] ifNotNil: [ shared ]
+	| parsedValue signalVariable sharedVariable value |
+	signalVariable := self signalEnvironmentNameFor: aSignalName suffix: 'TIMEOUT'.
+	value := self environmentValueAt: signalVariable.
+	value ifNotNil: [
+			parsedValue := self strictNonNegativeIntegerFrom: value.
+			parsedValue ifNotNil: [
+					^ parsedValue = 0
+						  ifTrue: [ self noTimeoutMillis ]
+						  ifFalse: [ parsedValue ] ].
+			self noteInvalidEnvironmentValue: value forVariable: signalVariable ].
+	sharedVariable := 'OTEL_EXPORTER_OTLP_TIMEOUT'.
+	value := self environmentValueAt: sharedVariable.
+	value ifNotNil: [
+			parsedValue := self strictNonNegativeIntegerFrom: value.
+			parsedValue ifNotNil: [
+					^ parsedValue = 0
+						  ifTrue: [ self noTimeoutMillis ]
+						  ifFalse: [ parsedValue ] ].
+			self noteInvalidEnvironmentValue: value forVariable: sharedVariable ].
+	^ self defaultTimeoutMillis
+]
+
+{ #category : 'private - logging' }
+OTOtlpExporterConfiguration class >> warningSink [
+
+	^ OTClassStateStore valueAt: #otWarningSink forClass: self ifAbsent: [ self defaultWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTOtlpExporterConfiguration class >> warningSink: aBlock [
+
+	aBlock
+		ifNil: [ OTClassStateStore removeValueAt: #otWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otWarningSink forClass: self put: aBlock ].
+	^ self warningSink
 ]
 
 { #category : 'comparing' }
@@ -546,6 +639,14 @@ OTOtlpExporterConfiguration >> timeoutMillis: anInteger [
 ]
 
 { #category : 'accessing' }
+OTOtlpExporterConfiguration >> timeoutMillisOrNil [
+
+	^ self usesUnlimitedTimeout
+		  ifTrue: [ nil ]
+		  ifFalse: [ self timeoutMillis ]
+]
+
+{ #category : 'accessing' }
 OTOtlpExporterConfiguration >> userAgent [
 
 	^ userAgent ifNil: [ self class defaultUserAgent ]
@@ -592,4 +693,10 @@ OTOtlpExporterConfiguration >> usesSecureConnection [
 		       on: Error
 		       do: [ ^ false ].
 	^ url scheme = 'https'
+]
+
+{ #category : 'testing' }
+OTOtlpExporterConfiguration >> usesUnlimitedTimeout [
+
+	^ self timeoutMillis = self class noTimeoutMillis
 ]

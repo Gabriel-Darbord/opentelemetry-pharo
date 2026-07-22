@@ -96,14 +96,14 @@ OTOtlpHttpJsonSpanExporter class >> warningSink: aBlock [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonSpanExporter >> applyConfigurationToHttpClient [
 
-	| client |
+	| client timeoutMillis |
 	client := self httpClient.
 	client
 		url: self configuration endpoint;
-		method: #POST;
-		timeout: self configuration timeoutMillis.
-	self configuration headers associationsDo: [ :each |
-		client headerAt: each key put: each value ].
+		method: #POST.
+	timeoutMillis := self configuration timeoutMillisOrNil.
+	timeoutMillis ifNotNil: [ client timeout: timeoutMillis ].
+	self configuration headers associationsDo: [ :each | client headerAt: each key put: each value ].
 	(self hasUserAgentHeaderConfigured: self configuration headers) ifFalse: [
 		client headerAt: 'User-Agent' put: self configuration userAgent ].
 	client
