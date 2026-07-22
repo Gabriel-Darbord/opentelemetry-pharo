@@ -81,6 +81,71 @@ OTSamplerTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testAlwaysRecordSamplerConvertsDropToRecordOnlyAndPreservesMetadata [
+
+	| result rootSampler sampler |
+	rootSampler := OTSamplingResultSampler result:
+		               (OTSamplingResult decision: #drop attributes: { ('sampler.answer' -> 42) } traceState: 'vendor=value').
+	sampler := OTSampler alwaysRecord: rootSampler.
+	result := sampler
+		          shouldSampleIn: OTContext new
+		          traceId: '1234567890abcdef1234567890abcdef'
+		          name: 'operation'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
+	self assert: result isRecordOnly.
+	self deny: result isRecordAndSample.
+	self assert: result attributes asArray equals: { ('sampler.answer' -> 42) }.
+	self assert: result traceState equals: 'vendor=value'
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testAlwaysRecordSamplerPreservesRecordingAndSampledDecisions [
+
+	| recordOnlyResult recordSampler recordOnlySampler sampledResult sampledSampler |
+	recordOnlySampler := OTSamplingResultSampler result: OTSamplingResult recordOnly.
+	recordSampler := OTSamplingResultSampler result: OTSamplingResult recordAndSample.
+	sampledSampler := OTSampler alwaysRecord: recordSampler.
+	recordOnlyResult := (OTSampler alwaysRecord: recordOnlySampler)
+		                    shouldSampleIn: OTContext new
+		                    traceId: '1234567890abcdef1234567890abcdef'
+		                    name: 'operation'
+		                    kind: OTSpan internal
+		                    attributes: #(  )
+		                    links: #(  ).
+	sampledResult := sampledSampler
+		                 shouldSampleIn: OTContext new
+		                 traceId: '1234567890abcdef1234567890abcdef'
+		                 name: 'operation'
+		                 kind: OTSpan internal
+		                 attributes: #(  )
+		                 links: #(  ).
+	self assert: recordOnlyResult isRecordOnly.
+	self assert: sampledResult isRecordAndSample
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testBuiltInSamplerDescriptionsFollowSpecification [
+
+	self assert: OTAlwaysOnSampler new description equals: 'AlwaysOnSampler'.
+	self assert: OTAlwaysOffSampler new description equals: 'AlwaysOffSampler'.
+	self assert: (OTSampler traceIdRatioBased: 0.0001) description equals: 'TraceIdRatioBased{0.0001}'
+]
+
+{ #category : 'tests' }
+OTSamplerTest >> testDefaultParentBasedSamplerUsesAlwaysOnRootAndParentDefaults [
+
+	| sampler |
+	sampler := OTSampler parentBased.
+	self assert: sampler rootSampler class identicalTo: OTAlwaysOnSampler.
+	self assert: sampler remoteParentSampledSampler class identicalTo: OTAlwaysOnSampler.
+	self assert: sampler remoteParentNotSampledSampler class identicalTo: OTAlwaysOffSampler.
+	self assert: sampler localParentSampledSampler class identicalTo: OTAlwaysOnSampler.
+	self assert: sampler localParentNotSampledSampler class identicalTo: OTAlwaysOffSampler
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testFactoryMethodsReturnSamplerInstances [
 
 	self assert: (OTSampler withInterval: 1000) class identicalTo: OTTimeIntervalSampler.
