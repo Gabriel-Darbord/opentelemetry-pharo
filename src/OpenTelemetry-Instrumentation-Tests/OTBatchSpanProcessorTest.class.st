@@ -122,6 +122,24 @@ OTBatchSpanProcessorTest >> testForceFlushReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testForceFlushReturnsFalseWhileShutdownIsInProgress [
+
+	| done shutdownResult |
+	exporter := OTBlockingShutdownSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	done := Semaphore new.
+	[
+		shutdownResult := processor shutdown.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200).
+	self deny: processor forceFlush.
+	exporter allowShutdown.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testForceFlushStillInvokesExporterForceFlushAfterExportFailure [
 
 	exporter := OTFailingExportSpanExporter new.
@@ -286,6 +304,28 @@ OTBatchSpanProcessorTest >> testOnEndReturnsBeforeBlockedBatchExportCompletes [
 	self assert: exporter exportedBatches isEmpty.
 	exporter allowBlockedExport.
 	self waitUntil: [ exporter exportedBatches size = 1 ] timeoutMillis: 500
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testOnEndReturnsFalseWhileShutdownIsInProgress [
+
+	| done shutdownResult |
+	exporter := OTBlockingShutdownSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 1000.
+	done := Semaphore new.
+	[
+		shutdownResult := processor shutdown.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200).
+	self deny: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	self assert: exporter exportedBatches isEmpty.
+	exporter allowShutdown.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult
 ]
 
 { #category : 'tests' }
