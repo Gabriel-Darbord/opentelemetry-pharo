@@ -470,6 +470,34 @@ OTSpanBuilderTest >> testOkStatusIgnoresDescriptionImmediately [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testProviderlessTracerPreservesParentSpanContextInNoopMode [
+
+	| currentContext parentSpan returnedSpan tracer |
+	tracer := OTTracer forProvider: nil instrumentationName: 'demo.scope'.
+	parentSpan := self sampledParentSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	returnedSpan := nil.
+	OpenTelemetry useContext: currentContext during: [ returnedSpan := (tracer spanBuilderNamed: 'child') startSpan ].
+	self assert: returnedSpan class identicalTo: OTNonRecordingSpan.
+	self deny: returnedSpan isRecording.
+	self assert: returnedSpan spanContext traceId equals: parentSpan spanContext traceId.
+	self assert: returnedSpan spanContext spanId equals: parentSpan spanContext spanId.
+	self assert: returnedSpan spanContext traceState equals: parentSpan spanContext traceState
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testProviderlessTracerReturnsExistingNonRecordingParentDirectly [
+
+	| currentContext parentSpan returnedSpan tracer |
+	tracer := OTTracer forProvider: nil instrumentationName: 'demo.scope'.
+	parentSpan := self sampledParentSpan.
+	currentContext := OTContext new withSpan: parentSpan.
+	returnedSpan := nil.
+	OpenTelemetry useContext: currentContext during: [ returnedSpan := (tracer spanBuilderNamed: 'child') startSpan ].
+	self assert: returnedSpan identicalTo: parentSpan
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testRecordExceptionAcceptsAssociationCollectionsAsAdditionalAttributes [
 
 	| event exportRecord provider span tracer |
@@ -814,6 +842,35 @@ OTSpanBuilderTest >> testSetAttributeOverwritesPreviousValueForSameKey [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderBulkLinkHelpersAcceptSingleLinkAndIgnoreInvalidCollectionsWithoutError [
+
+	| explicitLink exportRecord provider span tracer upstreamContext |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	upstreamContext := OTSpanContext
+		                   traceId: '00112233445566778899aabbccddeeff'
+		                   spanId: '1122334455667788'
+		                   traceFlags: '01'
+		                   traceState: nil
+		                   remote: true.
+	explicitLink := OTSpanLink spanContext: upstreamContext attributes: (OrderedDictionary new
+			                 at: 'kind' put: 'explicit';
+			                 yourself).
+	span := nil.
+	self
+		shouldnt: [
+				span := (tracer spanBuilderNamed: 'operation')
+					        addLinks: 42;
+					        addLinks: explicitLink;
+					        links: explicitLink;
+					        startSpan ]
+		raise: Error.
+	exportRecord := span asExportRecord.
+	self assert: (exportRecord at: #links) asArray equals: { explicitLink }
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testSpanBuilderCanAddLinkFromAnotherSpan [
 
 	| exportRecord linkedSpan linksToExport provider span tracer |
@@ -879,35 +936,6 @@ OTSpanBuilderTest >> testSpanBuilderIgnoresInvalidBuilderArgumentsWithoutError [
 	self deny: (exportRecord includesKey: #attributes).
 	self deny: (exportRecord includesKey: #links).
 	self deny: (exportRecord includesKey: #parentSpanContext)
-]
-
-{ #category : 'tests' }
-OTSpanBuilderTest >> testSpanBuilderBulkLinkHelpersAcceptSingleLinkAndIgnoreInvalidCollectionsWithoutError [
-
-	| explicitLink exportRecord provider span tracer upstreamContext |
-	provider := OTTracerProvider new.
-	provider spanProcessor: OTSimpleSpanProcessor new.
-	tracer := provider tracerNamed: 'demo.scope'.
-	upstreamContext := OTSpanContext
-		                   traceId: '00112233445566778899aabbccddeeff'
-		                   spanId: '1122334455667788'
-		                   traceFlags: '01'
-		                   traceState: nil
-		                   remote: true.
-	explicitLink := OTSpanLink spanContext: upstreamContext attributes: (OrderedDictionary new
-			                 at: 'kind' put: 'explicit';
-			                 yourself).
-	span := nil.
-	self
-		shouldnt: [
-				span := (tracer spanBuilderNamed: 'operation')
-					        addLinks: 42;
-					        addLinks: explicitLink;
-					        links: explicitLink;
-					        startSpan ]
-		raise: Error.
-	exportRecord := span asExportRecord.
-	self assert: (exportRecord at: #links) asArray equals: { explicitLink }
 ]
 
 { #category : 'tests' }

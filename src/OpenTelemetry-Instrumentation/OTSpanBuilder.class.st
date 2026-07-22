@@ -129,8 +129,7 @@ OTSpanBuilder >> addLinkSpanContext: aSpanContext attributes: aDictionary [
 { #category : 'configuring' }
 OTSpanBuilder >> addLinks: aCollection [
 
-	(self linkElementsFrom: aCollection forOperation: 'OTSpanBuilder>>addLinks:')
-		do: [ :each | self addLink: each ].
+	(self linkElementsFrom: aCollection forOperation: 'OTSpanBuilder>>addLinks:') do: [ :each | self addLink: each ].
 	self
 ]
 
@@ -203,31 +202,30 @@ OTSpanBuilder >> kind: aSpanKind [
 	spanKind := OTSpan validateKind: aSpanKind
 ]
 
-{ #category : 'configuring' }
-OTSpanBuilder >> links: aCollection [
-
-	links := OrderedCollection new.
-	(self linkElementsFrom: aCollection forOperation: 'OTSpanBuilder>>links:')
-		do: [ :each | self addLink: each ].
-	self
-]
-
 { #category : 'private' }
 OTSpanBuilder >> linkElementsFrom: anObject forOperation: anOperationName [
 
 	| elements |
-	anObject ifNil: [ ^ #() ].
+	anObject ifNil: [ ^ #(  ) ].
 	(anObject isKindOf: OTSpanLink) ifTrue: [ ^ { anObject } ].
-	((anObject isString) or: [ anObject isSymbol ]) ifTrue: [
-		OTSpan noteIgnoredInvalidArgument: anObject forOperation: anOperationName.
-		^ #() ].
+	(anObject isString or: [ anObject isSymbol ]) ifTrue: [
+			OTSpan noteIgnoredInvalidArgument: anObject forOperation: anOperationName.
+			^ #(  ) ].
 	elements := OrderedCollection new.
 	[ anObject do: [ :each | elements add: each ] ]
 		on: Error
 		do: [
-			OTSpan noteIgnoredInvalidArgument: anObject forOperation: anOperationName.
-			^ #() ].
+				OTSpan noteIgnoredInvalidArgument: anObject forOperation: anOperationName.
+				^ #(  ) ].
 	^ elements
+]
+
+{ #category : 'configuring' }
+OTSpanBuilder >> links: aCollection [
+
+	links := OrderedCollection new.
+	(self linkElementsFrom: aCollection forOperation: 'OTSpanBuilder>>links:') do: [ :each | self addLink: each ].
+	self
 ]
 
 { #category : 'configuring' }
