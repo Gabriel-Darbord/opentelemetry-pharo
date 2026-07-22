@@ -13,6 +13,7 @@ OTSpanExporterLifecycleTest >> tearDown [
 
 	[
 		OTSpanExporter warningSink: nil.
+		OTBlockingForceFlushSpanExporter allInstancesDo: [ :each | each allowForceFlush ].
 		OTBlockingShutdownSpanExporter allInstancesDo: [ :each | each allowShutdown ] ] ensure: [ super tearDown ]
 ]
 
@@ -92,6 +93,31 @@ OTSpanExporterLifecycleTest >> testCompositeShutdownIsIdempotentUnderConcurrentC
 	self assert: firstResult.
 	self assert: exporter isShutdown.
 	self assert: child shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
+OTSpanExporterLifecycleTest >> testConcurrentForceFlushIsSafe [
+
+	| firstDone firstResult secondDone secondResult |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		firstResult := exporter forceFlush.
+		firstDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200).
+	[
+		secondResult := exporter forceFlush.
+		secondDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (secondDone waitTimeoutMilliseconds: 50).
+	exporter allowForceFlush.
+	self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200).
+	exporter allowForceFlush.
+	self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+	self assert: firstResult.
+	self assert: secondResult.
+	self assert: exporter forceFlushCount equals: 2
 ]
 
 { #category : 'tests' }

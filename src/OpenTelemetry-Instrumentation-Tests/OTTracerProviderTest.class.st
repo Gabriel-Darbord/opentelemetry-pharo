@@ -50,6 +50,7 @@ OTTracerProviderTest >> tearDown [
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
 		OTSpan reset ] ensure: [
+			OTBlockingForceFlushSpanExporter allInstancesDo: [ :each | each allowForceFlush ].
 			OTBlockingShutdownSpanProcessor allInstancesDo: [ :each | each allowShutdown ].
 			OTBlockingOnEndingSpanProcessor allInstancesDo: [ :each | each allowOnEnding ].
 			super tearDown ]
@@ -138,6 +139,34 @@ OTTracerProviderTest >> testConcurrentCurrentReturnsSingleProviderInstance [
 	self assert: providers asSet size equals: 1.
 	firstProvider := providers first.
 	self assert: firstProvider identicalTo: OTTracerProvider current
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testConcurrentForceFlushIsSafe [
+
+	| exporter firstDone firstResult processor provider secondDone secondResult |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	processor := OTSimpleSpanProcessor new exporter: exporter.
+	provider := OTTracerProvider new.
+	provider spanProcessor: processor.
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		firstResult := provider forceFlush.
+		firstDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200).
+	[
+		secondResult := provider forceFlush.
+		secondDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (secondDone waitTimeoutMilliseconds: 50).
+	exporter allowForceFlush.
+	self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200).
+	exporter allowForceFlush.
+	self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+	self assert: firstResult.
+	self assert: secondResult.
+	self assert: exporter forceFlushCount equals: 2
 ]
 
 { #category : 'tests' }
