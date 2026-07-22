@@ -146,6 +146,22 @@ OTSpanBuilderTest >> testEndedAndNonRecordingSpansIgnoreAddedLinks [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testEndedSpanCanBeAttachedToContextAfterEnd [
+
+	| childSpan parentSpan provider tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentSpan := tracer startSpanNamed: 'parent'.
+	parentSpan end.
+	OpenTelemetry useSpan: parentSpan during: [
+			self assert: OpenTelemetry currentSpan identicalTo: parentSpan.
+			childSpan := tracer startSpanNamed: 'child' ].
+	self assert: (childSpan asExportRecord at: #parentSpanContext) equals: parentSpan spanContext.
+	self assert: childSpan spanContext traceId equals: parentSpan spanContext traceId
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testEndedSpanCanStillBeUsedAsParentThroughContext [
 
 	| childSpan parentSpan provider tracer |
