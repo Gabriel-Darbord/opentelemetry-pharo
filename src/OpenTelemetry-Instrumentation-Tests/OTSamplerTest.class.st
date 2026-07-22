@@ -418,7 +418,8 @@ OTSamplerTest >> testSamplerDescriptionsAreStableUnderConcurrentCalls [
 		            (OTSampler traceIdRatioBased: 0.5).
 		            (OTSampler probability: 0.5).
 		            OTSampler parentBased.
-		            (OTSampler alwaysRecord: OTAlwaysOffSampler new) }.
+		            (OTSampler alwaysRecord: OTAlwaysOffSampler new).
+		            (OTSampler composite: OTComposableSampler alwaysOn) }.
 	expectedDescriptions := samplers collect: [ :each | each description ].
 	lock := Semaphore forMutualExclusion.
 	observedDescriptions := OrderedCollection new.

@@ -131,6 +131,112 @@ OTJaegerRemoteSamplerTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testConcurrentDescriptionIsSafeWhileSamplerRefreshSwapsDelegates [
+
+	| descriptionLock descriptions done errors errorsLock gate pollCount pollCountLock refresherDone workerCount |
+	pollCount := 0.
+	pollCountLock := Semaphore forMutualExclusion.
+	sampler requestExecutor: [ :request |
+			| rate |
+			pollCountLock critical: [
+					pollCount := pollCount + 1.
+					rate := pollCount odd
+						        ifTrue: [ 0 ]
+						        ifFalse: [ 1 ] ].
+			self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: rate) ].
+	sampler pollOnce.
+	descriptions := OrderedCollection new.
+	descriptionLock := Semaphore forMutualExclusion.
+	errors := OrderedCollection new.
+	errorsLock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	refresherDone := Semaphore new.
+	workerCount := 8.
+	[
+		gate wait.
+		[
+			50 timesRepeat: [
+					sampler pollOnce.
+					Processor yield ] ]
+			on: Error
+			do: [ :error | errorsLock critical: [ errors add: error ] ].
+		refresherDone signal ] forkAt: Processor userBackgroundPriority.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				[
+					50 timesRepeat: [
+							descriptionLock critical: [ descriptions add: sampler description ].
+							Processor yield ] ]
+					on: Error
+					do: [ :error | errorsLock critical: [ errors add: error ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount + 1 timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 2000) not ].
+	self assert: (refresherDone waitTimeoutMilliseconds: 2000) not.
+	self assert: errors isEmpty.
+	self assert: descriptions size equals: workerCount * 50.
+	descriptions do: [ :each |
+			self assert: (each beginsWith: 'JaegerRemoteSampler{').
+			self assert: (each endsWith: '}') ].
+	self assert: pollCount equals: 51
+]
+
+{ #category : 'tests' }
+OTJaegerRemoteSamplerTest >> testConcurrentShouldSampleIsSafeWhileSamplerRefreshSwapsDelegates [
+
+	| decisionLock decisions done errors errorsLock gate pollCount pollCountLock refresherDone workerCount |
+	pollCount := 0.
+	pollCountLock := Semaphore forMutualExclusion.
+	sampler requestExecutor: [ :request |
+			| rate |
+			pollCountLock critical: [
+					pollCount := pollCount + 1.
+					rate := pollCount odd
+						        ifTrue: [ 0 ]
+						        ifFalse: [ 1 ] ].
+			self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: rate) ].
+	sampler pollOnce.
+	decisions := OrderedCollection new.
+	decisionLock := Semaphore forMutualExclusion.
+	errors := OrderedCollection new.
+	errorsLock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	refresherDone := Semaphore new.
+	workerCount := 8.
+	[
+		gate wait.
+		[
+			50 timesRepeat: [
+					sampler pollOnce.
+					Processor yield ] ]
+			on: Error
+			do: [ :error | errorsLock critical: [ errors add: error ] ].
+		refresherDone signal ] forkAt: Processor userBackgroundPriority.
+	workerCount timesRepeat: [
+			[
+				| result |
+				gate wait.
+				[
+					50 timesRepeat: [
+							result := self samplingResultForOperationNamed: 'checkout'.
+							decisionLock critical: [ decisions add: result decision ].
+							Processor yield ] ]
+					on: Error
+					do: [ :error | errorsLock critical: [ errors add: error ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount + 1 timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 2000) not ].
+	self assert: (refresherDone waitTimeoutMilliseconds: 2000) not.
+	self assert: errors isEmpty.
+	self assert: decisions size equals: workerCount * 50.
+	decisions do: [ :each | self assert: (#( drop recordAndSample ) includes: each) ].
+	self assert: pollCount equals: 51
+]
+
+{ #category : 'tests' }
 OTJaegerRemoteSamplerTest >> testConcurrentShutdownReturnsTrueOnce [
 
 	| done gate lock results workerCount |
