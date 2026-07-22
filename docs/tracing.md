@@ -308,6 +308,8 @@ Or let the library read environment configuration:
 
 - `OTEL_TRACES_EXPORTER`
 - OTLP exporter variables through `OTOtlpExporterConfiguration`
+- `OTEL_EXPORTER_ZIPKIN_ENDPOINT`
+- `OTEL_EXPORTER_ZIPKIN_TIMEOUT`
 
 `OTEL_TRACES_EXPORTER` defaults to `otlp`. This implementation also accepts a
 comma-separated list of exporters and installs exporter-specific processors for
@@ -335,6 +337,15 @@ certificate authentication also requires both the client key and client
 certificate files together. The current Pharo TLS runtime supports these
 file-based overrides on Unix-like runtimes; unsupported runtimes fail the
 export attempt instead of silently ignoring the configuration.
+
+For OTLP trace exporters, invalid scalar environment values are ignored with a
+diagnostic warning. Signal-specific values fall back to the shared OTLP value
+before falling back to the trace exporter defaults. `OTEL_EXPORTER_OTLP_TIMEOUT=0`
+and `OTEL_EXPORTER_OTLP_TRACES_TIMEOUT=0` mean "no timeout".
+
+Zipkin trace export uses the same timeout interpretation:
+`OTEL_EXPORTER_ZIPKIN_TIMEOUT=0` means "no timeout", while invalid values fall
+back to the default timeout with a diagnostic warning.
 
 If you change exporter-related environment variables at runtime, reset the
 singleton objects before reading them again:
@@ -406,7 +417,10 @@ Or rely on environment-driven configuration:
 
 Invalid batch-processor values are ignored with a diagnostic warning. This
 implementation also honors `0` for `OTEL_BSP_SCHEDULE_DELAY` and
-`OTEL_BSP_EXPORT_TIMEOUT`; zero timeout means "no export timeout".
+`OTEL_BSP_EXPORT_TIMEOUT`; zero timeout means "no export timeout". When the
+batch processor finishes exporting a batch and still has a partial batch
+queued, it starts a fresh `scheduledDelayMillis` window from that export
+completion before exporting the partial batch.
 
 ## Concurrency
 
