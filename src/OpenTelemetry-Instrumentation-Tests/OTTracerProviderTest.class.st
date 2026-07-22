@@ -1024,6 +1024,38 @@ OTTracerProviderTest >> testOnStartProcessorCanObserveLaterSpanUpdatesThroughCap
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testOutstandingTracerEventuallyObservesConcurrentConfiguratorUpdates [
+
+	| allowNext done expectedState provider tracer updateApplied |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	updateApplied := Semaphore new.
+	allowNext := Semaphore new.
+	done := Semaphore new.
+	[
+		1 to: 20 do: [ :index |
+				| desired |
+				desired := index odd.
+				expectedState := desired.
+				provider tracerConfigurator: [ :scope | desired ].
+				updateApplied signal.
+				allowNext wait ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	1 to: 20 do: [ :index |
+			| deadline |
+			self assert: (updateApplied waitTimeoutMilliseconds: 500) not.
+			deadline := Time millisecondClockValue + 500.
+			[
+				tracer enabled = expectedState
+					ifTrue: [ false ]
+					ifFalse: [ Time millisecondClockValue < deadline ] ] whileTrue: [ (Delay forMilliseconds: 5) wait ].
+			self assert: tracer enabled equals: expectedState.
+			allowNext signal ].
+	self assert: (done waitTimeoutMilliseconds: 500) not
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testParentBasedSamplerErasesInconsistentInheritedParentThreshold [
 
 	| parentContext provider span |
