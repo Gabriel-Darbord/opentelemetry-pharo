@@ -116,6 +116,26 @@ OTZipkinSpanExporterTest >> testServerSpanOmitsRemoteEndpointEvenWhenPeerAttribu
 ]
 
 { #category : 'tests' }
+OTZipkinSpanExporterTest >> testTransformIncludesReadableSpanFieldsInTagsAndParentMapping [
+
+	| tags transformed |
+	transformed := (exporter transform: { OTOtlpProtobufTraceEncoderTest new sampleSpan }) first.
+	tags := transformed at: 'tags'.
+	self assert: (transformed at: 'parentId') equals: 'bbbbbbbbbbbbbbbb'.
+	self assert: ((transformed at: 'localEndpoint') at: 'serviceName') equals: 'demo-service'.
+	self assert: (tags at: 'otel.scope.name') equals: 'demo.scope'.
+	self assert: (tags at: 'otel.scope.version') equals: '1.2.3'.
+	self assert: (tags at: 'otel.library.name') equals: 'demo.scope'.
+	self assert: (tags at: 'otel.library.version') equals: '1.2.3'.
+	self assert: (tags at: 'scope.attr') equals: 'true'.
+	self assert: (tags at: 'otel.dropped_attributes_count') equals: '2'.
+	self assert: (tags at: 'otel.dropped_events_count') equals: '3'.
+	self assert: (tags at: 'otel.dropped_links_count') equals: '4'.
+	self assert: (tags at: 'otel.status_code') equals: 'ERROR'.
+	self assert: (tags at: 'error') equals: 'boom'
+]
+
+{ #category : 'tests' }
 OTZipkinSpanExporterTest >> testUsesDefaultResourceServiceNameWhenSpanResourceHasNone [
 
 	| span transformed |
