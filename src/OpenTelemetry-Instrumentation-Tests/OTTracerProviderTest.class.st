@@ -862,6 +862,42 @@ OTTracerProviderTest >> testInvalidTracerConfigurationValuesAreIgnoredAndWarned 
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testLimitWarningsAreSuppressedOncePerSpanUnderConcurrentCalls [
+
+	| firstDone secondDone secondReached set span warnings warningsLock |
+	OTSpan resetLimitWarningState.
+	set := OTCoordinatedMembershipSet new.
+	warnings := OrderedCollection new.
+	warningsLock := Semaphore forMutualExclusion.
+	OTClassStateStore valueAt: #otWarnedSpans forClass: OTSpan put: set.
+	OTSpan limitWarningSink: [ :message | warningsLock critical: [ warnings add: message ] ].
+	span := OTSpan newInternal.
+	span initialize.
+	span restoreName: 'operation'.
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		[
+			OTSpan noteLimitWarningFor: span message: span limitDiscardWarningMessage.
+			firstDone signal ] forkAt: Processor userBackgroundPriority.
+		[
+			OTSpan noteLimitWarningFor: span message: span limitDiscardWarningMessage.
+			secondDone signal ] forkAt: Processor userBackgroundPriority.
+		self assert: (set waitForIncludesTimeoutMillis: 200).
+		secondReached := set waitForIncludesTimeoutMillis: 50.
+		set releaseIncludes.
+		secondReached ifFalse: [ self assert: (set waitForIncludesTimeoutMillis: 200) ].
+		set releaseIncludes.
+		self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+		self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+		self assert: warnings asArray equals: { span limitDiscardWarningMessage }.
+		self assert: set addCount equals: 1 ] ensure: [
+			set releaseIncludes.
+			set releaseIncludes.
+			OTSpan resetLimitWarningState ]
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testNonRecordingSpanInIgnoresInvalidContext [
 
 	| provider span |

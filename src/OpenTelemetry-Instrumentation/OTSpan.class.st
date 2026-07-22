@@ -217,6 +217,16 @@ OTSpan class >> internal [
 ]
 
 { #category : 'private - logging' }
+OTSpan class >> limitWarningLock [
+
+	^ OTClassStateStore valueAt: #otLimitWarningLock forClass: self ifAbsent: [
+			  | lock |
+			  lock := Semaphore forMutualExclusion.
+			  OTClassStateStore valueAt: #otLimitWarningLock forClass: self put: lock.
+			  lock ]
+]
+
+{ #category : 'private - logging' }
 OTSpan class >> limitWarningSink [
 
 	^ OTClassStateStore
@@ -285,10 +295,16 @@ OTSpan class >> noteIgnoredInvalidArgument: anObject forOperation: aString [
 { #category : 'private - logging' }
 OTSpan class >> noteLimitWarningFor: aSpan message: aString [
 
-	| warned |
-	warned := self warnedSpans.
-	(warned includes: aSpan) ifTrue: [ ^ false ].
-	warned add: aSpan.
+	| shouldWarn |
+	shouldWarn := self limitWarningLock critical: [
+			              | warned |
+			              warned := self warnedSpans.
+			              (warned includes: aSpan)
+				              ifTrue: [ false ]
+				              ifFalse: [
+						              warned add: aSpan.
+						              true ] ].
+	shouldWarn ifFalse: [ ^ false ].
 	self limitWarningSink value: aString.
 	^ true
 ]
@@ -345,14 +361,9 @@ OTSpan class >> reset [
 { #category : 'private - logging' }
 OTSpan class >> resetLimitWarningState [
 
-	OTClassStateStore
-		removeValueAt: #otWarnedSpans
-		forClass: self
-		ifAbsent: [  ].
-	OTClassStateStore
-		removeValueAt: #otLimitWarningSink
-		forClass: self
-		ifAbsent: [  ]
+	OTClassStateStore removeValueAt: #otWarnedSpans forClass: self ifAbsent: [ ].
+	OTClassStateStore removeValueAt: #otLimitWarningLock forClass: self ifAbsent: [ ].
+	OTClassStateStore removeValueAt: #otLimitWarningSink forClass: self ifAbsent: [ ]
 ]
 
 { #category : 'enumeration' }
