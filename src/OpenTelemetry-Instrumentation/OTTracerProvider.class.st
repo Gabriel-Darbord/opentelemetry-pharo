@@ -810,8 +810,12 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 	| probability rootSampler samplerName |
 	samplerName := aString asString trimBoth asLowercase.
 	probability := self strictProbabilityFrom: anotherString.
-	samplerName = 'always_on' ifTrue: [ ^ OTAlwaysOnSampler new ].
-	samplerName = 'always_off' ifTrue: [ ^ OTAlwaysOffSampler new ].
+	samplerName = 'always_on' ifTrue: [
+			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			^ OTAlwaysOnSampler new ].
+	samplerName = 'always_off' ifTrue: [
+			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			^ OTAlwaysOffSampler new ].
 	samplerName = 'traceidratio' ifTrue: [
 			(anotherString notNil and: [ probability isNil ]) ifTrue: [
 				self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
@@ -819,10 +823,12 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 				  probability: (probability ifNil: [ 1 ]);
 				  yourself ].
 	samplerName = 'parentbased_always_on' ifTrue: [
+			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
 			^ OTParentBasedSampler default
 				  rootSampler: OTAlwaysOnSampler new;
 				  yourself ].
 	samplerName = 'parentbased_always_off' ifTrue: [
+			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
 			^ OTParentBasedSampler default
 				  rootSampler: OTAlwaysOffSampler new;
 				  yourself ].

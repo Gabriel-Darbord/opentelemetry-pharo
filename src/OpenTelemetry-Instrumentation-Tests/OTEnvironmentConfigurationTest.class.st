@@ -131,6 +131,44 @@ OTEnvironmentConfigurationTest >> testCurrentLetsResourceAttributesOverrideDefau
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentLogsIgnoredSamplerArgumentForSamplersWithoutArguments [
+
+	self withSamplerWarningsDo: [ :warnings |
+			{
+				{
+					'always_on'.
+					OTAlwaysOnSampler.
+					nil }.
+				{
+					'always_off'.
+					OTAlwaysOffSampler.
+					nil }.
+				{
+					'parentbased_always_on'.
+					OTParentBasedSampler.
+					OTAlwaysOnSampler }.
+				{
+					'parentbased_always_off'.
+					OTParentBasedSampler.
+					OTAlwaysOffSampler } } do: [ :each |
+					warnings removeAll.
+					self
+						withEnvironmentValues: (Dictionary new
+								 at: 'OTEL_TRACES_SAMPLER' put: each first;
+								 at: 'OTEL_TRACES_SAMPLER_ARG' put: 'unexpected';
+								 yourself)
+						during: [
+								| sampler |
+								sampler := OTTracerProvider current sampler.
+								self assert: sampler class identicalTo: each second.
+								each third ifNotNil: [ self assert: sampler rootSampler class identicalTo: each third ].
+								self assert: warnings size equals: 1.
+								self
+									assert: warnings first
+									equals: 'OpenTelemetry sampler argument was invalid and has been ignored for ''' , each first , ''': ''unexpected''' ] ] ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentLogsInvalidJaegerRemoteSamplerArgumentAndUsesDefaults [
 
 	self
