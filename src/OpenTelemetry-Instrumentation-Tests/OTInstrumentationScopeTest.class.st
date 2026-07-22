@@ -12,11 +12,11 @@ OTInstrumentationScopeTest >> testDirectConstructorNormalizesIdentityFieldsAndIg
 	scope := nil.
 	self
 		shouldnt: [
-			scope := OTInstrumentationScope
-				         named: 42
-				         version: 7
-				         schemaUrl: 9
-				         attributes: 42 ]
+				scope := OTInstrumentationScope
+					         named: 42
+					         version: 7
+					         schemaUrl: 9
+					         attributes: 42 ]
 		raise: Error.
 	self assert: scope name equals: '42'.
 	self assert: scope version equals: '7'.

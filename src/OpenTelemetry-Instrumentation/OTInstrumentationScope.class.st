@@ -105,8 +105,8 @@ OTInstrumentationScope >> attributes [
 OTInstrumentationScope >> attributes: aCollection [
 
 	attributes := [ OTAttributeNormalizer normalizeAttributes: aCollection ]
-		on: Error
-		do: [ OrderedDictionary new ].
+		              on: Error
+		              do: [ OrderedDictionary new ].
 	self
 ]
 

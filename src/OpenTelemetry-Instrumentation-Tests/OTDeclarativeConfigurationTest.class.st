@@ -43,6 +43,30 @@ OTDeclarativeConfigurationTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileIgnoresInvalidDeclarativeResourceAttributesListWithWarning [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+resource:
+  attributes:
+    - name: service.name
+      value: config-service
+  attributes_list: good=value,bad=%ZZ
+'
+		environmentValues: Dictionary new
+		during: [
+			self withResourceWarningsDo: [ :warnings |
+				| resource |
+				resource := OTTracerProvider current resource.
+				self assert: resource serviceName equals: 'config-service'.
+				self assert: (resource attributeAt: 'good') isNil.
+				self assert: warnings size equals: 1.
+				self
+					assert: (warnings first includesSubstring: 'Failed to percent-decode resource.attributes_list entry') ] ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFilePerformsEnvironmentVariableSubstitutionWithoutRecursion [
 
 	self
@@ -63,6 +87,160 @@ resource:
 			resource := OTTracerProvider current resource.
 			self assert: resource serviceName equals: 'fallback-service'.
 			self assert: (resource attributeAt: 'nested.value') equals: '${DO_NOT_REPLACE_ME}' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeEnvDetectorFromRawEnvironment [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+resource:
+  attributes:
+    - name: service.name
+      value: config-service
+  detection/development:
+    detectors:
+      - env:
+'
+		environmentValues: (Dictionary new
+			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'deployment.environment.name=prod';
+			yourself)
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			self assert: resource serviceName equals: 'config-service'.
+			self
+				assert: (resource attributeAt: 'deployment.environment.name')
+				equals: 'prod' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeMetricViewAggregationParameters [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  views:
+    - selector:
+        instrument_name: request.duration
+        instrument_type: histogram
+      stream:
+        aggregation:
+          explicit_bucket_histogram:
+            boundaries:
+              - 1
+              - 10
+            record_min_max: false
+'
+		environmentValues: Dictionary new
+		during: [
+			| histogram metric point provider reader |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			histogram := (provider meterNamed: 'demo.metrics')
+				histogramNamed: 'request.duration'
+				unit: 'ms'
+				description: 'Request duration'.
+			histogram record: 0.
+			histogram record: 5.
+			histogram record: 15.
+			metric := reader collectSnapshot metrics first.
+			point := metric points first.
+			self assert: metric class identicalTo: OTHistogramMetricData.
+			self assert: point explicitBounds equals: #( 1.0 10.0 ).
+			self assert: point bucketCounts equals: #( 1 1 1 ).
+			self assert: point min isNil.
+			self assert: point max isNil ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeMetricViewSelectorsAndStreamOverrides [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  views:
+    - selector:
+        instrument_name: requests.total
+        instrument_type: counter
+        meter_name: alpha.metrics
+      stream:
+        name: alpha.requests
+        description: Alpha requests grouped by status
+        aggregation_cardinality_limit: 1
+        attribute_keys:
+          included:
+            - status
+            - user
+          excluded:
+            - user
+'
+		environmentValues: Dictionary new
+		during: [
+			| alphaMetric betaMetric overflowPoint point provider reader snapshot |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			((provider meterNamed: 'alpha.metrics')
+				counterNamed: 'requests.total')
+				add: 2
+				attributes: { 'status' -> '200'. 'user' -> 'alice' }.
+			((provider meterNamed: 'alpha.metrics')
+				counterNamed: 'requests.total')
+				add: 3
+				attributes: { 'status' -> '500'. 'user' -> 'bob' }.
+			((provider meterNamed: 'beta.metrics')
+				counterNamed: 'requests.total')
+				add: 7
+				attributes: { 'status' -> '201'. 'user' -> 'carol' }.
+			snapshot := reader collectSnapshot.
+			alphaMetric := snapshot metrics
+				detect: [ :each | each name = 'alpha.requests' ]
+				ifNone: [ self fail: 'Expected renamed alpha metric' ].
+			betaMetric := snapshot metrics
+				detect: [ :each | each name = 'requests.total' ]
+				ifNone: [ self fail: 'Expected default beta metric' ].
+			point := alphaMetric points
+				detect: [ :each | (each attributes at: 'status' ifAbsent: [ nil ]) = '200' ]
+				ifNone: [ self fail: 'Expected filtered alpha point' ].
+			overflowPoint := alphaMetric points
+				detect: [ :each |
+					(each attributes at: 'otel.metric.overflow' ifAbsent: [ false ]) = true ]
+				ifNone: [ self fail: 'Expected alpha overflow point' ].
+			self assert: alphaMetric description equals: 'Alpha requests grouped by status'.
+			self assert: point value equals: 2.
+			self deny: (point attributes includesKey: 'user').
+			self assert: overflowPoint value equals: 3.
+			self assert: betaMetric points first value equals: 7 ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeOsDetectorSeparatelyFromHostDetector [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+resource:
+  detection/development:
+    detectors:
+      - os:
+'
+		environmentValues: Dictionary new
+		during: [
+			| resource |
+			resource := OTTracerProvider current resource.
+			self assert: (resource attributeAt: 'os.type') notNil.
+			self assert: (resource attributeAt: 'host.name') isNil ]
 ]
 
 { #category : 'tests' }
@@ -116,75 +294,6 @@ resource:
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileIgnoresInvalidDeclarativeResourceAttributesListWithWarning [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-resource:
-  attributes:
-    - name: service.name
-      value: config-service
-  attributes_list: good=value,bad=%ZZ
-'
-		environmentValues: Dictionary new
-		during: [
-			self withResourceWarningsDo: [ :warnings |
-				| resource |
-				resource := OTTracerProvider current resource.
-				self assert: resource serviceName equals: 'config-service'.
-				self assert: (resource attributeAt: 'good') isNil.
-				self assert: warnings size equals: 1.
-				self
-					assert: (warnings first includesSubstring: 'Failed to percent-decode resource.attributes_list entry') ] ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeEnvDetectorFromRawEnvironment [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-resource:
-  attributes:
-    - name: service.name
-      value: config-service
-  detection/development:
-    detectors:
-      - env:
-'
-		environmentValues: (Dictionary new
-			at: 'OTEL_RESOURCE_ATTRIBUTES' put: 'deployment.environment.name=prod';
-			yourself)
-		during: [
-			| resource |
-			resource := OTTracerProvider current resource.
-			self assert: resource serviceName equals: 'config-service'.
-			self
-				assert: (resource attributeAt: 'deployment.environment.name')
-				equals: 'prod' ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeOsDetectorSeparatelyFromHostDetector [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-resource:
-  detection/development:
-    detectors:
-      - os:
-'
-		environmentValues: Dictionary new
-		during: [
-			| resource |
-			resource := OTTracerProvider current resource.
-			self assert: (resource attributeAt: 'os.type') notNil.
-			self assert: (resource attributeAt: 'host.name') isNil ]
-]
-
-{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeResourceDetectionAttributeFiltering [
 
 	self
@@ -212,6 +321,445 @@ resource:
 			self assert: (resource attributeAt: 'process.runtime.name') equals: 'pharo'.
 			self assert: (resource attributeAt: 'service.instance.id') isNil.
 			self assert: (resource attributeAt: 'process.command_args') isNil ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsDevelopmentJaegerRemoteSamplerAliasToEnvironmentSurface [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    jaeger_remote/development:
+      endpoint: http://jaeger.example:14250
+      interval: 5000
+      initial_sampler:
+        trace_id_ratio_based:
+          ratio: 0.25
+'
+		environmentValues: Dictionary new
+		during: [
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER')
+				equals: 'jaeger_remote'.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG')
+				equals: 'endpoint=http://jaeger.example:14250,pollingIntervalMs=5000,initialSamplingRate=0.25' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsLogProcessorSequenceWhenRepresentable [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+    - batch:
+        export_timeout: 222
+        max_export_batch_size: 33
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/custom/logs
+'
+		environmentValues: Dictionary new
+		during: [
+			| processors |
+			processors := OTLoggerProvider current logRecordProcessors.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_LOGS_EXPORTER')
+				equals: 'console,otlp'.
+			self assert: processors size equals: 2.
+			self assert: processors first class identicalTo: OTSimpleLogRecordProcessor.
+			self assert: processors second class identicalTo: OTBatchLogRecordProcessor.
+			self assert: processors first exporter class identicalTo: OTConsoleLogRecordExporter.
+			self
+				assert: processors second exporter class
+				identicalTo: OTOtlpHttpProtobufLogRecordExporter.
+			self assert: processors second exportTimeoutMillis equals: 222.
+			self assert: processors second maxExportBatchSize equals: 33.
+			self
+				assert: processors second exporter configuration endpoint
+				equals: 'http://collector:4318/custom/logs' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsLoggerConfiguratorDefaultsAndExplicitRules [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+  logger_configurator/development:
+    default_config:
+      enabled: true
+      minimum_severity: warn
+    loggers:
+      - name: io.opentelemetry.contrib.*
+        config:
+          enabled: false
+      - name: spec.logs
+        config:
+          enabled: true
+          minimum_severity: error
+          trace_based: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| context defaultLogger disabledLogger sampledContext spanContext tracedLogger |
+			disabledLogger := OTLoggerProvider current
+				loggerNamed: 'io.opentelemetry.contrib.library'.
+			self deny: disabledLogger enabled.
+
+			defaultLogger := OTLoggerProvider current loggerNamed: 'default.logs'.
+			self deny: (defaultLogger enabledIn: nil severityNumber: OTSeverity info eventName: nil).
+			self assert: (defaultLogger enabledIn: nil severityNumber: OTSeverity warn eventName: nil).
+
+			spanContext := OTSpanContext
+				traceId: '0123456789abcdef0123456789abcdef'
+				spanId: '0123456789abcdef'
+				traceFlags: '00'
+				traceState: nil
+				remote: false.
+			context := OTContext new withSpan: spanContext asNonRecordingSpan.
+			tracedLogger := OTLoggerProvider current loggerNamed: 'spec.logs'.
+			self deny: (tracedLogger enabledIn: context severityNumber: OTSeverity error eventName: nil).
+
+			sampledContext := OTContext new withSpan: (
+				OTSpanContext
+					traceId: 'fedcba9876543210fedcba9876543210'
+					spanId: 'fedcba9876543210'
+					traceFlags: '01'
+					traceState: nil
+					remote: false) asNonRecordingSpan.
+			self assert: (tracedLogger enabledIn: sampledContext severityNumber: OTSeverity error eventName: nil).
+			self deny: (tracedLogger enabledIn: sampledContext severityNumber: OTSeverity warn eventName: nil) ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsLoggerConfiguratorRulesInOrder [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+  logger_configurator/development:
+    default_config:
+      enabled: true
+    loggers:
+      - name: spec.*
+        config:
+          enabled: false
+      - name: spec.logs
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| logger |
+			logger := OTLoggerProvider current loggerNamed: 'spec.logs'.
+			self deny: logger enabled ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsMeterConfiguratorDefaultsAndExplicitRules [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  meter_configurator/development:
+    default_config:
+      enabled: false
+    meters:
+      - name: config.enabled
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| defaultInstrument enabledInstrument provider |
+			provider := OTMeterProvider current.
+			defaultInstrument := (provider meterNamed: 'default.scope')
+				counterNamed: 'requests.total'.
+			enabledInstrument := (provider meterNamed: 'config.enabled')
+				counterNamed: 'requests.total'.
+			self deny: defaultInstrument enabled.
+			self assert: enabledInstrument enabled ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsMeterConfiguratorRulesInOrder [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  meter_configurator/development:
+    default_config:
+      enabled: true
+    meters:
+      - name: spec.*
+        config:
+          enabled: false
+      - name: spec.meter
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| instrument |
+			instrument := (OTMeterProvider current meterNamed: 'spec.meter')
+				counterNamed: 'requests.total'.
+			self deny: instrument enabled ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsMetricReaderSequenceWhenRepresentable [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+    - periodic:
+        interval: 2222
+        timeout: 3333
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/custom/metrics
+            temporality_preference: delta
+            default_histogram_aggregation: base2_exponential_bucket_histogram
+'
+		environmentValues: Dictionary new
+		during: [
+			| counter histogram provider readers |
+			provider := OTMeterProvider current.
+			readers := provider metricReaders.
+			counter := (provider meterNamed: 'config.metrics')
+				counterNamed: 'requests.total'.
+			histogram := (provider meterNamed: 'config.metrics')
+				histogramNamed: 'request.duration'.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_METRICS_EXPORTER')
+				equals: 'prometheus,otlp'.
+			self assert: readers size equals: 2.
+			self assert: readers first class identicalTo: OTPrometheusMetricReader.
+			self assert: readers first host equals: 'metrics.example'.
+			self assert: readers first port equals: 9564.
+			self assert: readers second class identicalTo: OTPeriodicExportingMetricReader.
+			self
+				assert: readers second exporter class
+				identicalTo: OTOtlpHttpProtobufMetricExporter.
+			self assert: readers second exportIntervalMillis equals: 2222.
+			self assert: readers second exportTimeoutMillis equals: 3333.
+			self
+				assert: readers second exporter configuration endpoint
+				equals: 'http://collector:4318/custom/metrics'.
+			self assert: (readers second temporalityFor: counter) equals: #delta.
+			self
+				assert: (readers second aggregationFor: histogram)
+				equals: #base2ExponentialBucketHistogram ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsStructuredJaegerRemoteSamplerToEnvironmentSurface [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    jaeger_remote:
+      endpoint: http://jaeger.example:14250
+      interval: 5000
+      initial_sampler:
+        trace_id_ratio_based:
+          ratio: 0.25
+'
+		environmentValues: Dictionary new
+		during: [
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER')
+				equals: 'jaeger_remote'.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG')
+				equals: 'endpoint=http://jaeger.example:14250,pollingIntervalMs=5000,initialSamplingRate=0.25' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsStructuredParentBasedSampler [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    parent_based:
+      root:
+        trace_id_ratio_based:
+          ratio: 0.5
+      remote_parent_sampled:
+        always_on:
+      remote_parent_not_sampled:
+        always_off:
+      local_parent_sampled:
+        always_on:
+      local_parent_not_sampled:
+        always_off:
+'
+		environmentValues: Dictionary new
+		during: [
+			| rootSampler sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTParentBasedSampler.
+			rootSampler := sampler rootSampler.
+			self assert: rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: rootSampler probability equals: 0.5 ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsStructuredProbabilitySampler [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    probability:
+      ratio: 0.25
+'
+		environmentValues: Dictionary new
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTProbabilisticSampler.
+			self assert: sampler probability equals: 0.25 ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsTraceProcessorSequenceWhenRepresentable [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+    - batch:
+        schedule_delay: 123
+        max_queue_size: 456
+        exporter:
+          zipkin:
+            endpoint: http://zipkin.example:9411/api/v2/spans
+            timeout: 789
+'
+		environmentValues: Dictionary new
+		during: [
+			| processors |
+			processors := OTTracerProvider current spanProcessors.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_EXPORTER')
+				equals: 'console,zipkin'.
+			self assert: processors size equals: 2.
+			self assert: processors first class identicalTo: OTSimpleSpanProcessor.
+			self assert: processors second class identicalTo: OTBatchSpanProcessor.
+			self assert: processors first exporter class identicalTo: OTConsoleSpanExporter.
+			self assert: processors second exporter class identicalTo: OTZipkinSpanExporter.
+			self assert: processors second scheduledDelayMillis equals: 123.
+			self assert: processors second maxQueueSize equals: 456.
+			self
+				assert: processors second exporter httpClient request url asString
+				equals: 'http://zipkin.example:9411/api/v2/spans'.
+			self assert: processors second exporter httpClient timeout equals: 789 ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsTracerConfiguratorDefaultsAndExplicitRules [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+  tracer_configurator/development:
+    default_config:
+      enabled: false
+    tracers:
+      - name: config.enabled
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| disabledSpan disabledTracer enabledTracer enabledSpan |
+			disabledTracer := OTTracerProvider current tracerNamed: 'default.scope'.
+			enabledTracer := OTTracerProvider current tracerNamed: 'config.enabled'.
+			self deny: disabledTracer enabled.
+			self assert: enabledTracer enabled.
+			disabledSpan := (disabledTracer spanBuilderNamed: 'disabled') startSpan.
+			enabledSpan := (enabledTracer spanBuilderNamed: 'enabled') startSpan.
+			self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
+			self assert: enabledSpan isRecording ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileProjectsTracerConfiguratorRulesInOrder [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          console:
+  tracer_configurator/development:
+    default_config:
+      enabled: true
+    tracers:
+      - name: spec.*
+        config:
+          enabled: false
+      - name: spec.tracer
+        config:
+          enabled: true
+'
+		environmentValues: Dictionary new
+		during: [
+			| tracer |
+			tracer := OTTracerProvider current tracerNamed: 'spec.tracer'.
+			self deny: tracer enabled ]
 ]
 
 { #category : 'tests' }
@@ -326,78 +874,42 @@ logger_provider:
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsStructuredJaegerRemoteSamplerToEnvironmentSurface [
+OTDeclarativeConfigurationTest >> testConfigFileRejectsPeriodicPrometheusReader [
 
 	self
-		withConfigurationFileContents:
+		should: [
+			self
+				withConfigurationFileContents:
 'file_format: "1.1"
-tracer_provider:
-  sampler:
-    jaeger_remote:
-      endpoint: http://jaeger.example:14250
-      interval: 5000
-      initial_sampler:
-        trace_id_ratio_based:
-          ratio: 0.25
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
 '
-		environmentValues: Dictionary new
-		during: [
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER')
-				equals: 'jaeger_remote'.
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG')
-				equals: 'endpoint=http://jaeger.example:14250,pollingIntervalMs=5000,initialSamplingRate=0.25' ]
+				environmentValues: Dictionary new
+				during: [ OTMeterProvider current ] ]
+		raise: Error
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsStructuredParentBasedSampler [
+OTDeclarativeConfigurationTest >> testConfigFileRejectsProbabilitySamplerRatioBelowSpecificationMinimum [
 
 	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  sampler:
-    parent_based:
-      root:
-        trace_id_ratio_based:
-          ratio: 0.5
-      remote_parent_sampled:
-        always_on:
-      remote_parent_not_sampled:
-        always_off:
-      local_parent_sampled:
-        always_on:
-      local_parent_not_sampled:
-        always_off:
-'
-		environmentValues: Dictionary new
-		during: [
-			| rootSampler sampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTParentBasedSampler.
-			rootSampler := sampler rootSampler.
-			self assert: rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
-			self assert: rootSampler probability equals: 0.5 ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsStructuredProbabilitySampler [
-
-	self
-		withConfigurationFileContents:
+		should: [
+			self
+				withConfigurationFileContents:
 'file_format: "1.1"
 tracer_provider:
   sampler:
     probability:
-      ratio: 0.25
+      ratio: 0
 '
-		environmentValues: Dictionary new
-		during: [
-			| sampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTProbabilisticSampler.
-			self assert: sampler probability equals: 0.25 ]
+				environmentValues: Dictionary new
+				during: [ OTTracerProvider current sampler ] ]
+		raise: Error
 ]
 
 { #category : 'tests' }
@@ -683,549 +1195,41 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileSupportsParentBasedSamplerWithDevelopmentProbabilityDelegate [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  sampler:
-    parent_based:
-      root:
-        trace_id_ratio_based:
-      remote_parent_not_sampled:
-        probability/development:
-          ratio: 0.1
-'
-		environmentValues: Dictionary new
-		during: [
-			| sampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTParentBasedSampler.
-			self assert: sampler rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
-			self assert: sampler rootSampler probability equals: 1.
-			self
-				assert: sampler remoteParentNotSampledSampler class
-				identicalTo: OTProbabilisticSampler.
-			self assert: sampler remoteParentNotSampledSampler probability equals: 0.1 ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsDevelopmentJaegerRemoteSamplerAliasToEnvironmentSurface [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  sampler:
-    jaeger_remote/development:
-      endpoint: http://jaeger.example:14250
-      interval: 5000
-      initial_sampler:
-        trace_id_ratio_based:
-          ratio: 0.25
-'
-		environmentValues: Dictionary new
-		during: [
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER')
-				equals: 'jaeger_remote'.
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG')
-				equals: 'endpoint=http://jaeger.example:14250,pollingIntervalMs=5000,initialSamplingRate=0.25' ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileSupportsTraceIdRatioSamplerDefaultRatio [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  sampler:
-    trace_id_ratio_based:
-'
-		environmentValues: Dictionary new
-		during: [
-			| sampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTTraceIdRatioBasedSampler.
-			self assert: sampler probability equals: 1.
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER')
-				equals: 'traceidratio'.
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG')
-				equals: '1' ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileRejectsProbabilitySamplerRatioBelowSpecificationMinimum [
-
-	self
-		should: [
-			self
-				withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  sampler:
-    probability:
-      ratio: 0
-'
-				environmentValues: Dictionary new
-				during: [ OTTracerProvider current sampler ] ]
-		raise: Error
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileSupportsJaegerRemoteSamplerWithStructuredInitialSampler [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  sampler:
-    jaeger_remote:
-      endpoint: http://jaeger.example:14250
-      interval: 5000
-      initial_sampler:
-        parent_based:
-          root:
-            trace_id_ratio_based:
-              ratio: 0.25
-'
-		environmentValues: Dictionary new
-		during: [
-			| initialSampler sampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTJaegerRemoteSampler.
-			self assert: sampler endpoint equals: 'http://jaeger.example:14250'.
-			self assert: sampler pollingIntervalMillis equals: 5000.
-			initialSampler := sampler currentSampler.
-			self assert: initialSampler class identicalTo: OTParentBasedSampler.
-			self assert: initialSampler rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
-			self assert: initialSampler rootSampler probability equals: 0.25 ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileSupportsParentBasedSamplerWithExplicitDelegates [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  sampler:
-    parent_based:
-      root:
-        always_off:
-      remote_parent_sampled:
-        trace_id_ratio_based:
-          ratio: 0.1
-      local_parent_not_sampled:
-        trace_id_ratio_based:
-          ratio: 0.2
-'
-		environmentValues: Dictionary new
-		during: [
-			| sampler |
-			sampler := OTTracerProvider current sampler.
-			self assert: sampler class identicalTo: OTParentBasedSampler.
-			self assert: sampler rootSampler class identicalTo: OTAlwaysOffSampler.
-			self
-				assert: sampler remoteParentSampledSampler class
-				identicalTo: OTTraceIdRatioBasedSampler.
-			self assert: sampler remoteParentSampledSampler probability equals: 0.1.
-			self
-				assert: sampler localParentNotSampledSampler class
-				identicalTo: OTTraceIdRatioBasedSampler.
-			self assert: sampler localParentNotSampledSampler probability equals: 0.2 ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsTraceProcessorSequenceWhenRepresentable [
+OTDeclarativeConfigurationTest >> testConfigFileSupportsDistinctBatchTraceProcessorSettings [
 
 	self
 		withConfigurationFileContents:
 'file_format: "1.1"
 tracer_provider:
   processors:
-    - simple:
-        exporter:
-          console:
     - batch:
-        schedule_delay: 123
-        max_queue_size: 456
+        schedule_delay: 111
+        export_timeout: 333
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/v1/traces
+    - batch:
+        schedule_delay: 222
+        export_timeout: 444
         exporter:
           zipkin:
             endpoint: http://zipkin.example:9411/api/v2/spans
-            timeout: 789
 '
 		environmentValues: Dictionary new
 		during: [
 			| processors |
 			processors := OTTracerProvider current spanProcessors.
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_EXPORTER')
-				equals: 'console,zipkin'.
 			self assert: processors size equals: 2.
-			self assert: processors first class identicalTo: OTSimpleSpanProcessor.
+			self assert: processors first class identicalTo: OTBatchSpanProcessor.
+			self assert: processors first scheduledDelayMillis equals: 111.
+			self assert: processors first exportTimeoutMillis equals: 333.
+			self
+				assert: processors first exporter class
+				identicalTo: OTOtlpHttpProtobufSpanExporter.
 			self assert: processors second class identicalTo: OTBatchSpanProcessor.
-			self assert: processors first exporter class identicalTo: OTConsoleSpanExporter.
-			self assert: processors second exporter class identicalTo: OTZipkinSpanExporter.
-			self assert: processors second scheduledDelayMillis equals: 123.
-			self assert: processors second maxQueueSize equals: 456.
-			self
-				assert: processors second exporter httpClient request url asString
-				equals: 'http://zipkin.example:9411/api/v2/spans'.
-			self assert: processors second exporter httpClient timeout equals: 789 ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsLogProcessorSequenceWhenRepresentable [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-logger_provider:
-  processors:
-    - simple:
-        exporter:
-          console:
-    - batch:
-        export_timeout: 222
-        max_export_batch_size: 33
-        exporter:
-          otlp_http:
-            endpoint: http://collector:4318/custom/logs
-'
-		environmentValues: Dictionary new
-		during: [
-			| processors |
-			processors := OTLoggerProvider current logRecordProcessors.
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_LOGS_EXPORTER')
-				equals: 'console,otlp'.
-			self assert: processors size equals: 2.
-			self assert: processors first class identicalTo: OTSimpleLogRecordProcessor.
-			self assert: processors second class identicalTo: OTBatchLogRecordProcessor.
-			self assert: processors first exporter class identicalTo: OTConsoleLogRecordExporter.
-			self
-				assert: processors second exporter class
-				identicalTo: OTOtlpHttpProtobufLogRecordExporter.
-			self assert: processors second exportTimeoutMillis equals: 222.
-			self assert: processors second maxExportBatchSize equals: 33.
-			self
-				assert: processors second exporter configuration endpoint
-				equals: 'http://collector:4318/custom/logs' ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsLoggerConfiguratorDefaultsAndExplicitRules [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-logger_provider:
-  processors:
-    - simple:
-        exporter:
-          console:
-  logger_configurator/development:
-    default_config:
-      enabled: true
-      minimum_severity: warn
-    loggers:
-      - name: io.opentelemetry.contrib.*
-        config:
-          enabled: false
-      - name: spec.logs
-        config:
-          enabled: true
-          minimum_severity: error
-          trace_based: true
-'
-		environmentValues: Dictionary new
-		during: [
-			| context defaultLogger disabledLogger sampledContext spanContext tracedLogger |
-			disabledLogger := OTLoggerProvider current
-				loggerNamed: 'io.opentelemetry.contrib.library'.
-			self deny: disabledLogger enabled.
-
-			defaultLogger := OTLoggerProvider current loggerNamed: 'default.logs'.
-			self deny: (defaultLogger enabledIn: nil severityNumber: OTSeverity info eventName: nil).
-			self assert: (defaultLogger enabledIn: nil severityNumber: OTSeverity warn eventName: nil).
-
-			spanContext := OTSpanContext
-				traceId: '0123456789abcdef0123456789abcdef'
-				spanId: '0123456789abcdef'
-				traceFlags: '00'
-				traceState: nil
-				remote: false.
-			context := OTContext new withSpan: spanContext asNonRecordingSpan.
-			tracedLogger := OTLoggerProvider current loggerNamed: 'spec.logs'.
-			self deny: (tracedLogger enabledIn: context severityNumber: OTSeverity error eventName: nil).
-
-			sampledContext := OTContext new withSpan: (
-				OTSpanContext
-					traceId: 'fedcba9876543210fedcba9876543210'
-					spanId: 'fedcba9876543210'
-					traceFlags: '01'
-					traceState: nil
-					remote: false) asNonRecordingSpan.
-			self assert: (tracedLogger enabledIn: sampledContext severityNumber: OTSeverity error eventName: nil).
-			self deny: (tracedLogger enabledIn: sampledContext severityNumber: OTSeverity warn eventName: nil) ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsLoggerConfiguratorRulesInOrder [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-logger_provider:
-  processors:
-    - simple:
-        exporter:
-          console:
-  logger_configurator/development:
-    default_config:
-      enabled: true
-    loggers:
-      - name: spec.*
-        config:
-          enabled: false
-      - name: spec.logs
-        config:
-          enabled: true
-'
-		environmentValues: Dictionary new
-		during: [
-			| logger |
-			logger := OTLoggerProvider current loggerNamed: 'spec.logs'.
-			self deny: logger enabled ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsMeterConfiguratorDefaultsAndExplicitRules [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-meter_provider:
-  readers:
-    - periodic:
-        exporter:
-          console:
-  meter_configurator/development:
-    default_config:
-      enabled: false
-    meters:
-      - name: config.enabled
-        config:
-          enabled: true
-'
-		environmentValues: Dictionary new
-		during: [
-			| defaultInstrument enabledInstrument provider |
-			provider := OTMeterProvider current.
-			defaultInstrument := (provider meterNamed: 'default.scope')
-				counterNamed: 'requests.total'.
-			enabledInstrument := (provider meterNamed: 'config.enabled')
-				counterNamed: 'requests.total'.
-			self deny: defaultInstrument enabled.
-			self assert: enabledInstrument enabled ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsMeterConfiguratorRulesInOrder [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-meter_provider:
-  readers:
-    - periodic:
-        exporter:
-          console:
-  meter_configurator/development:
-    default_config:
-      enabled: true
-    meters:
-      - name: spec.*
-        config:
-          enabled: false
-      - name: spec.meter
-        config:
-          enabled: true
-'
-		environmentValues: Dictionary new
-		during: [
-			| instrument |
-			instrument := (OTMeterProvider current meterNamed: 'spec.meter')
-				counterNamed: 'requests.total'.
-			self deny: instrument enabled ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeMetricViewAggregationParameters [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-meter_provider:
-  readers:
-    - periodic:
-        exporter:
-          console:
-  views:
-    - selector:
-        instrument_name: request.duration
-        instrument_type: histogram
-      stream:
-        aggregation:
-          explicit_bucket_histogram:
-            boundaries:
-              - 1
-              - 10
-            record_min_max: false
-'
-		environmentValues: Dictionary new
-		during: [
-			| histogram metric point provider reader |
-			provider := OTMeterProvider current.
-			reader := provider metricReaders first.
-			histogram := (provider meterNamed: 'demo.metrics')
-				histogramNamed: 'request.duration'
-				unit: 'ms'
-				description: 'Request duration'.
-			histogram record: 0.
-			histogram record: 5.
-			histogram record: 15.
-			metric := reader collectSnapshot metrics first.
-			point := metric points first.
-			self assert: metric class identicalTo: OTHistogramMetricData.
-			self assert: point explicitBounds equals: #( 1.0 10.0 ).
-			self assert: point bucketCounts equals: #( 1 1 1 ).
-			self assert: point min isNil.
-			self assert: point max isNil ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsDeclarativeMetricViewSelectorsAndStreamOverrides [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-meter_provider:
-  readers:
-    - periodic:
-        exporter:
-          console:
-  views:
-    - selector:
-        instrument_name: requests.total
-        instrument_type: counter
-        meter_name: alpha.metrics
-      stream:
-        name: alpha.requests
-        description: Alpha requests grouped by status
-        aggregation_cardinality_limit: 1
-        attribute_keys:
-          included:
-            - status
-            - user
-          excluded:
-            - user
-'
-		environmentValues: Dictionary new
-		during: [
-			| alphaMetric betaMetric overflowPoint point provider reader snapshot |
-			provider := OTMeterProvider current.
-			reader := provider metricReaders first.
-			((provider meterNamed: 'alpha.metrics')
-				counterNamed: 'requests.total')
-				add: 2
-				attributes: { 'status' -> '200'. 'user' -> 'alice' }.
-			((provider meterNamed: 'alpha.metrics')
-				counterNamed: 'requests.total')
-				add: 3
-				attributes: { 'status' -> '500'. 'user' -> 'bob' }.
-			((provider meterNamed: 'beta.metrics')
-				counterNamed: 'requests.total')
-				add: 7
-				attributes: { 'status' -> '201'. 'user' -> 'carol' }.
-			snapshot := reader collectSnapshot.
-			alphaMetric := snapshot metrics
-				detect: [ :each | each name = 'alpha.requests' ]
-				ifNone: [ self fail: 'Expected renamed alpha metric' ].
-			betaMetric := snapshot metrics
-				detect: [ :each | each name = 'requests.total' ]
-				ifNone: [ self fail: 'Expected default beta metric' ].
-			point := alphaMetric points
-				detect: [ :each | (each attributes at: 'status' ifAbsent: [ nil ]) = '200' ]
-				ifNone: [ self fail: 'Expected filtered alpha point' ].
-			overflowPoint := alphaMetric points
-				detect: [ :each |
-					(each attributes at: 'otel.metric.overflow' ifAbsent: [ false ]) = true ]
-				ifNone: [ self fail: 'Expected alpha overflow point' ].
-			self assert: alphaMetric description equals: 'Alpha requests grouped by status'.
-			self assert: point value equals: 2.
-			self deny: (point attributes includesKey: 'user').
-			self assert: overflowPoint value equals: 3.
-			self assert: betaMetric points first value equals: 7 ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsMetricReaderSequenceWhenRepresentable [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-meter_provider:
-  readers:
-    - pull:
-        exporter:
-          prometheus:
-            host: metrics.example
-            port: 9564
-    - periodic:
-        interval: 2222
-        timeout: 3333
-        exporter:
-          otlp_http:
-            endpoint: http://collector:4318/custom/metrics
-            temporality_preference: delta
-            default_histogram_aggregation: base2_exponential_bucket_histogram
-'
-		environmentValues: Dictionary new
-		during: [
-			| counter histogram provider readers |
-			provider := OTMeterProvider current.
-			readers := provider metricReaders.
-			counter := (provider meterNamed: 'config.metrics')
-				counterNamed: 'requests.total'.
-			histogram := (provider meterNamed: 'config.metrics')
-				histogramNamed: 'request.duration'.
-			self
-				assert: (OTConfigurationSource environmentValueAt: 'OTEL_METRICS_EXPORTER')
-				equals: 'prometheus,otlp'.
-			self assert: readers size equals: 2.
-			self assert: readers first class identicalTo: OTPrometheusMetricReader.
-			self assert: readers first host equals: 'metrics.example'.
-			self assert: readers first port equals: 9564.
-			self assert: readers second class identicalTo: OTPeriodicExportingMetricReader.
-			self
-				assert: readers second exporter class
-				identicalTo: OTOtlpHttpProtobufMetricExporter.
-			self assert: readers second exportIntervalMillis equals: 2222.
-			self assert: readers second exportTimeoutMillis equals: 3333.
-			self
-				assert: readers second exporter configuration endpoint
-				equals: 'http://collector:4318/custom/metrics'.
-			self assert: (readers second temporalityFor: counter) equals: #delta.
-			self
-				assert: (readers second aggregationFor: histogram)
-				equals: #base2ExponentialBucketHistogram ]
+			self assert: processors second scheduledDelayMillis equals: 222.
+			self assert: processors second exportTimeoutMillis equals: 444.
+			self assert: processors second exporter class identicalTo: OTZipkinSpanExporter ]
 ]
 
 { #category : 'tests' }
@@ -1280,6 +1284,74 @@ meter_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsExcludedOnlyDeclarativeMetricViewAttributeKeys [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  views:
+    - selector:
+        instrument_name: requests.total
+      stream:
+        attribute_keys:
+          excluded:
+            - user
+'
+		environmentValues: Dictionary new
+		during: [
+			| metric point provider reader |
+			provider := OTMeterProvider current.
+			reader := provider metricReaders first.
+			((provider meterNamed: 'config.metrics')
+				counterNamed: 'requests.total')
+				add: 2
+				attributes: {
+					'status' -> '200'.
+					'user' -> 'alice'.
+					'region' -> 'eu' }.
+			metric := reader collectSnapshot metrics first.
+			point := metric points first.
+			self assert: (point attributes at: 'status') equals: '200'.
+			self assert: (point attributes at: 'region') equals: 'eu'.
+			self deny: (point attributes includesKey: 'user') ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsJaegerRemoteSamplerWithStructuredInitialSampler [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    jaeger_remote:
+      endpoint: http://jaeger.example:14250
+      interval: 5000
+      initial_sampler:
+        parent_based:
+          root:
+            trace_id_ratio_based:
+              ratio: 0.25
+'
+		environmentValues: Dictionary new
+		during: [
+			| initialSampler sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTJaegerRemoteSampler.
+			self assert: sampler endpoint equals: 'http://jaeger.example:14250'.
+			self assert: sampler pollingIntervalMillis equals: 5000.
+			initialSampler := sampler currentSampler.
+			self assert: initialSampler class identicalTo: OTParentBasedSampler.
+			self assert: initialSampler rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: initialSampler rootSampler probability equals: 0.25 ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileSupportsMultipleOtlpMetricReadersWithDistinctSettings [
 
 	self
@@ -1319,221 +1391,65 @@ meter_provider:
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileSupportsExcludedOnlyDeclarativeMetricViewAttributeKeys [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-meter_provider:
-  readers:
-    - periodic:
-        exporter:
-          console:
-  views:
-    - selector:
-        instrument_name: requests.total
-      stream:
-        attribute_keys:
-          excluded:
-            - user
-'
-		environmentValues: Dictionary new
-		during: [
-			| metric point provider reader |
-			provider := OTMeterProvider current.
-			reader := provider metricReaders first.
-			((provider meterNamed: 'config.metrics')
-				counterNamed: 'requests.total')
-				add: 2
-				attributes: {
-					'status' -> '200'.
-					'user' -> 'alice'.
-					'region' -> 'eu' }.
-			metric := reader collectSnapshot metrics first.
-			point := metric points first.
-			self assert: (point attributes at: 'status') equals: '200'.
-			self assert: (point attributes at: 'region') equals: 'eu'.
-			self deny: (point attributes includesKey: 'user') ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsTracerConfiguratorDefaultsAndExplicitRules [
+OTDeclarativeConfigurationTest >> testConfigFileSupportsParentBasedSamplerWithDevelopmentProbabilityDelegate [
 
 	self
 		withConfigurationFileContents:
 'file_format: "1.1"
 tracer_provider:
-  processors:
-    - simple:
-        exporter:
-          console:
-  tracer_configurator/development:
-    default_config:
-      enabled: false
-    tracers:
-      - name: config.enabled
-        config:
-          enabled: true
+  sampler:
+    parent_based:
+      root:
+        trace_id_ratio_based:
+      remote_parent_not_sampled:
+        probability/development:
+          ratio: 0.1
 '
 		environmentValues: Dictionary new
 		during: [
-			| disabledSpan disabledTracer enabledTracer enabledSpan |
-			disabledTracer := OTTracerProvider current tracerNamed: 'default.scope'.
-			enabledTracer := OTTracerProvider current tracerNamed: 'config.enabled'.
-			self deny: disabledTracer enabled.
-			self assert: enabledTracer enabled.
-			disabledSpan := (disabledTracer spanBuilderNamed: 'disabled') startSpan.
-			enabledSpan := (enabledTracer spanBuilderNamed: 'enabled') startSpan.
-			self assert: disabledSpan class identicalTo: OTNonRecordingSpan.
-			self assert: enabledSpan isRecording ]
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTParentBasedSampler.
+			self assert: sampler rootSampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler rootSampler probability equals: 1.
+			self
+				assert: sampler remoteParentNotSampledSampler class
+				identicalTo: OTProbabilisticSampler.
+			self assert: sampler remoteParentNotSampledSampler probability equals: 0.1 ]
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileProjectsTracerConfiguratorRulesInOrder [
+OTDeclarativeConfigurationTest >> testConfigFileSupportsParentBasedSamplerWithExplicitDelegates [
 
 	self
 		withConfigurationFileContents:
 'file_format: "1.1"
 tracer_provider:
-  processors:
-    - simple:
-        exporter:
-          console:
-  tracer_configurator/development:
-    default_config:
-      enabled: true
-    tracers:
-      - name: spec.*
-        config:
-          enabled: false
-      - name: spec.tracer
-        config:
-          enabled: true
+  sampler:
+    parent_based:
+      root:
+        always_off:
+      remote_parent_sampled:
+        trace_id_ratio_based:
+          ratio: 0.1
+      local_parent_not_sampled:
+        trace_id_ratio_based:
+          ratio: 0.2
 '
 		environmentValues: Dictionary new
 		during: [
-			| tracer |
-			tracer := OTTracerProvider current tracerNamed: 'spec.tracer'.
-			self deny: tracer enabled ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileSupportsDistinctBatchTraceProcessorSettings [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  processors:
-    - batch:
-        schedule_delay: 111
-        export_timeout: 333
-        exporter:
-          otlp_http:
-            endpoint: http://collector:4318/v1/traces
-    - batch:
-        schedule_delay: 222
-        export_timeout: 444
-        exporter:
-          zipkin:
-            endpoint: http://zipkin.example:9411/api/v2/spans
-'
-		environmentValues: Dictionary new
-		during: [
-			| processors |
-			processors := OTTracerProvider current spanProcessors.
-			self assert: processors size equals: 2.
-			self assert: processors first class identicalTo: OTBatchSpanProcessor.
-			self assert: processors first scheduledDelayMillis equals: 111.
-			self assert: processors first exportTimeoutMillis equals: 333.
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTParentBasedSampler.
+			self assert: sampler rootSampler class identicalTo: OTAlwaysOffSampler.
 			self
-				assert: processors first exporter class
-				identicalTo: OTOtlpHttpProtobufSpanExporter.
-			self assert: processors second class identicalTo: OTBatchSpanProcessor.
-			self assert: processors second scheduledDelayMillis equals: 222.
-			self assert: processors second exportTimeoutMillis equals: 444.
-			self assert: processors second exporter class identicalTo: OTZipkinSpanExporter ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileRejectsPeriodicPrometheusReader [
-
-	self
-		should: [
+				assert: sampler remoteParentSampledSampler class
+				identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler remoteParentSampledSampler probability equals: 0.1.
 			self
-				withConfigurationFileContents:
-'file_format: "1.1"
-meter_provider:
-  readers:
-    - periodic:
-        exporter:
-          prometheus:
-            host: metrics.example
-            port: 9564
-'
-				environmentValues: Dictionary new
-				during: [ OTMeterProvider current ] ]
-		raise: Error
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileSupportsSimpleTraceProcessorWithOtlpExporter [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  processors:
-    - simple:
-        exporter:
-          otlp_http:
-            endpoint: http://collector:4318/v1/traces
-'
-		environmentValues: Dictionary new
-		during: [
-			| processor |
-			processor := OTTracerProvider current spanProcessors first.
-			self assert: processor class identicalTo: OTSimpleSpanProcessor.
-			self
-				assert: processor exporter class
-				identicalTo: OTOtlpHttpProtobufSpanExporter.
-			self
-				assert: processor exporter configuration endpoint
-				equals: 'http://collector:4318/v1/traces' ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileSupportsSimpleTraceProcessorWithGrpcOtlpExporter [
-
-	self
-		withConfigurationFileContents:
-'file_format: "1.1"
-tracer_provider:
-  processors:
-    - simple:
-        exporter:
-          otlp_grpc:
-            endpoint: collector:4317
-            insecure: true
-            certificate: /etc/otel/ca.pem
-            client_key: /etc/otel/client.key
-            client_certificate: /etc/otel/client.pem
-'
-		environmentValues: Dictionary new
-		during: [
-			| processor |
-			processor := OTTracerProvider current spanProcessors first.
-			self assert: processor class identicalTo: OTSimpleSpanProcessor.
-			self
-				assert: processor exporter class
-				identicalTo: OTOtlpGrpcSpanExporter.
-			self
-				assert: processor exporter configuration endpoint
-				equals: 'http://collector:4317/'.
-			self assert: processor exporter configuration insecure.
-			self assert: processor exporter configuration certificateFile equals: '/etc/otel/ca.pem'.
-			self assert: processor exporter configuration clientKeyFile equals: '/etc/otel/client.key'.
-			self assert: processor exporter configuration clientCertificateFile equals: '/etc/otel/client.pem' ]
+				assert: sampler localParentNotSampledSampler class
+				identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler localParentNotSampledSampler probability equals: 0.2 ]
 ]
 
 { #category : 'tests' }
@@ -1563,6 +1479,85 @@ logger_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsSimpleTraceProcessorWithGrpcOtlpExporter [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_grpc:
+            endpoint: collector:4317
+            insecure: true
+            certificate: /etc/otel/ca.pem
+            client_key: /etc/otel/client.key
+            client_certificate: /etc/otel/client.pem
+'
+		environmentValues: Dictionary new
+		during: [
+				| processor |
+				processor := OTTracerProvider current spanProcessors first.
+				self assert: processor class identicalTo: OTSimpleSpanProcessor.
+				self assert: processor exporter class identicalTo: OTOtlpGrpcSpanExporter.
+				self assert: processor exporter configuration endpoint equals: 'http://collector:4317/'.
+				self assert: processor exporter configuration insecure.
+				self assert: processor exporter configuration certificateFile equals: '/etc/otel/ca.pem'.
+				self assert: processor exporter configuration clientKeyFile equals: '/etc/otel/client.key'.
+				self assert: processor exporter configuration clientCertificateFile equals: '/etc/otel/client.pem' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsSimpleTraceProcessorWithOtlpExporter [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/v1/traces
+'
+		environmentValues: Dictionary new
+		during: [
+			| processor |
+			processor := OTTracerProvider current spanProcessors first.
+			self assert: processor class identicalTo: OTSimpleSpanProcessor.
+			self
+				assert: processor exporter class
+				identicalTo: OTOtlpHttpProtobufSpanExporter.
+			self
+				assert: processor exporter configuration endpoint
+				equals: 'http://collector:4318/v1/traces' ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsTraceIdRatioSamplerDefaultRatio [
+
+	self
+		withConfigurationFileContents:
+'file_format: "1.1"
+tracer_provider:
+  sampler:
+    trace_id_ratio_based:
+'
+		environmentValues: Dictionary new
+		during: [
+			| sampler |
+			sampler := OTTracerProvider current sampler.
+			self assert: sampler class identicalTo: OTTraceIdRatioBasedSampler.
+			self assert: sampler probability equals: 1.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER')
+				equals: 'traceidratio'.
+			self
+				assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG')
+				equals: '1' ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileTakesPrecedenceOverEnvironmentVariables [
 
 	self
@@ -1588,17 +1583,6 @@ propagator:
 			self deny: provider spanProcessors isEmpty.
 			self assert: provider resource serviceName equals: 'config-service'.
 			self assert: OpenTelemetry textMapPropagator fields equals: #( 'baggage' ) ]
-]
-
-{ #category : 'private' }
-OTDeclarativeConfigurationTest >> withResourceWarningsDo: aBlock [
-
-	| warnings |
-	warnings := OrderedCollection new.
-	OTTracerProvider resourceConfigurationWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
 ]
 
 { #category : 'private' }
@@ -1639,4 +1623,15 @@ OTDeclarativeConfigurationTest >> withEnvironmentValues: aDictionary during: aBl
 							environment removeKey: key ] ]
 					ifFalse: [ environment at: key put: value ] ].
 			self resetTelemetryConfiguration ]
+]
+
+{ #category : 'private' }
+OTDeclarativeConfigurationTest >> withResourceWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider resourceConfigurationWarningSink: [ :message | warnings add: message ].
+	[
+		^ aBlock value: warnings ]
+		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
 ]
