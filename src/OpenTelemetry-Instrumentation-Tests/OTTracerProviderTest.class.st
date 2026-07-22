@@ -1856,6 +1856,27 @@ OTTracerProviderTest >> testTracerNamedNilReturnsWorkingTracerWithEmptyNameAndWa
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testTracerNamedRichOverloadNormalizesInvalidNameToEmptyStringAndPreservesScopeDetails [
+
+	self withTracerNameWarningsDo: [ :warnings |
+			| provider tracer |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			tracer := provider
+				          tracerNamed: nil
+				          version: '1.2.3'
+				          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+				          attributes: self sampleAttributes.
+			self assert: tracer instrumentationName equals: ''.
+			self assert: tracer instrumentationVersion equals: '1.2.3'.
+			self assert: tracer schemaUrl equals: 'https://opentelemetry.io/schemas/1.0.0'.
+			self assert: (tracer scopeAttributes at: 'scope.answer') equals: 42.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry tracer name was invalid and has been normalized to an empty string: nil' } ]
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testTracerNamedWhitespaceOnlyStringNormalizesToEmptyName [
 
 	self
@@ -1934,6 +1955,31 @@ OTTracerProviderTest >> testTracerRetrievedAfterShutdownNoopSpanPreservesInstrum
 	span := (tracer spanBuilderNamed: 'child') startSpan.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self assert: span instrumentationScope equals: tracer instrumentationScope
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerRetrievedAfterShutdownRichOverloadNormalizesInvalidNameToEmptyStringAndPreservesScope [
+
+	self withTracerNameWarningsDo: [ :warnings |
+			| provider span tracer |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			self assert: provider shutdown.
+			tracer := provider
+				          tracerNamed: '   '
+				          version: '1.2.3'
+				          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+				          attributes: self sampleAttributes.
+			self assert: tracer class identicalTo: OTNoopTracer.
+			self assert: tracer instrumentationName equals: ''.
+			self assert: tracer instrumentationVersion equals: '1.2.3'.
+			self assert: tracer schemaUrl equals: 'https://opentelemetry.io/schemas/1.0.0'.
+			self assert: (tracer scopeAttributes at: 'scope.answer') equals: 42.
+			span := (tracer spanBuilderNamed: 'child') startSpan.
+			self assert: span class identicalTo: OTNonRecordingSpan.
+			self assert: span instrumentationScope equals: tracer instrumentationScope.
+			self assert: warnings size equals: 1.
+			self assert: warnings first equals: 'OpenTelemetry tracer name was invalid and has been normalized to an empty string: ''   ''' ]
 ]
 
 { #category : 'tests' }
