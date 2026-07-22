@@ -93,10 +93,11 @@ OTZipkinSpanExporter >> export: spans [
 
 	^ self withExportLockDo: [
 			  self isShutdown ifTrue: [ ^ false ].
-			  (self httpClient
-				   contents: (self transform: spans);
-				   execute;
-				   response) code = 202 ]
+			  self withOperationNamed: 'export' default: false do: [
+					  (self httpClient
+						   contents: (self transform: spans);
+						   execute;
+						   response) code = 202 ] ]
 ]
 
 { #category : 'private - utilities' }
@@ -185,6 +186,12 @@ OTZipkinSpanExporter >> httpClient [
 			  accept: ZnMimeType applicationJson;
 			  contentWriter: [ :data |
 				  ZnEntity json: (ZnUtils defaultJSONWriter toString: data) ] ]
+]
+
+{ #category : 'accessing' }
+OTZipkinSpanExporter >> httpClient: anHttpClient [
+
+	httpClient := anHttpClient
 ]
 
 { #category : 'private - utilities' }

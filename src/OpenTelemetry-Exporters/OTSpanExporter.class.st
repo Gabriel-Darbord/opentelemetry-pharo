@@ -468,3 +468,13 @@ OTSpanExporter >> withExportLockDo: aBlock [
 
 	^ self exportLock critical: aBlock
 ]
+
+{ #category : 'private - error handling' }
+OTSpanExporter >> withOperationNamed: anOperationName default: aDefaultValue do: aBlock [
+
+	^ [ aBlock value ]
+		  on: Error
+		  do: [ :error |
+				  OTSpanExporter noteSpanExporter: self failedDuring: anOperationName error: error.
+				  aDefaultValue ]
+]

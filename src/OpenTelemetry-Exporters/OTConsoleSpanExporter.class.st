@@ -15,11 +15,12 @@ OTConsoleSpanExporter >> export: spans [
 	^ self withExportLockDo: [
 			  | stream |
 			  self isShutdown ifTrue: [ ^ false ].
-			  stream := self outputStream.
-			  stream
-				  nextPutAll: spans printString;
-				  lf.
-			  true ]
+			  self withOperationNamed: 'export' default: false do: [
+					  stream := self outputStream.
+					  stream
+						  nextPutAll: spans printString;
+						  lf.
+					  true ] ]
 ]
 
 { #category : 'private' }

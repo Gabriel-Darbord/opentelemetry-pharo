@@ -289,13 +289,15 @@ flexible here.
 
 Available built-in exporters include:
 
+- `OTOtlpGrpcSpanExporter`
 - `OTOtlpHttpProtobufSpanExporter` (default autoconfigured exporter)
-- `OTConsoleSpanExporter`
-- `OTNoopSpanExporter`
-- `OTZipkinSpanExporter`
 - `OTOtlpHttpJsonSpanExporter`
+- `OTConsoleSpanExporter`
+- `OTZipkinSpanExporter`
 - `OTOtlpJsonFileSpanExporter`
 - `OTJSONFileSpanExporter`
+- `OTSTONFileSpanExporter`
+- `OTNoopSpanExporter`
 - `OTOtlpStdoutSpanExporter`
 
 Set one explicitly:
@@ -442,6 +444,22 @@ instances.
   under concurrent calls. Built-in exporters treat post-shutdown exports as
   unsuccessful and are designed to cooperate with the processor-side export
   serialization above.
+- Built-in trace exporters also serialize `export:`, `forceFlush`, and
+  `shutdown` per exporter instance. Sharing one exporter instance across
+  multiple Pharo processes is supported, but one instance will not run two
+  exports at the same time.
+- `OTOtlpGrpcSpanExporter`, `OTOtlpHttpJsonSpanExporter`,
+  `OTOtlpHttpProtobufSpanExporter`, and `OTZipkinSpanExporter` perform
+  synchronous network I/O. They return `false` after shutdown, on transport
+  failure, on timeout, and on non-success responses. OTLP timeouts come from
+  `OTOtlpExporterConfiguration`; Zipkin timeout comes from
+  `OTEL_EXPORTER_ZIPKIN_TIMEOUT`.
+- `OTConsoleSpanExporter`, `OTJSONFileSpanExporter`,
+  `OTSTONFileSpanExporter`, `OTOtlpJsonFileSpanExporter`, and
+  `OTOtlpStdoutSpanExporter` perform synchronous local writes. They return
+  `false` after shutdown or when the underlying write fails.
+- `OTNoopSpanExporter` is concurrency-safe and always reports success until it
+  is shut down.
 
 ## Sampling
 

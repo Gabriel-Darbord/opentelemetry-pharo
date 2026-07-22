@@ -28,8 +28,9 @@ OTOtlpJsonLineSpanExporter >> export: spans [
 
 	^ self withExportLockDo: [
 			  self isShutdown ifTrue: [ ^ false ].
-			  self writeJsonLine: (self jsonLineFrom: spans).
-			  true ]
+			  self withOperationNamed: 'export' default: false do: [
+					  self writeJsonLine: (self jsonLineFrom: spans).
+					  true ] ]
 ]
 
 { #category : 'private' }

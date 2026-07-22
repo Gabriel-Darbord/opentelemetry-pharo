@@ -46,6 +46,12 @@ OTRecordingHttpClient >> code [
 ]
 
 { #category : 'accessing' }
+OTRecordingHttpClient >> contents: anObject [
+
+	entity := anObject
+]
+
+{ #category : 'accessing' }
 OTRecordingHttpClient >> entity [
 
 	^ entity

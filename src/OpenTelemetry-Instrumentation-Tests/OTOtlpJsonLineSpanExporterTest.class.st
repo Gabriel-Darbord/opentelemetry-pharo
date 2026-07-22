@@ -80,6 +80,18 @@ OTOtlpJsonLineSpanExporterTest >> testFileExporterAppendsOneJsonLinePerExport [
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineSpanExporterTest >> testJsonLineExporterReturnsFalseWhenWriteFailsAndWarns [
+
+	exporter := OTFailingOtlpJsonLineSpanExporter new.
+	self withExporterWarningsDo: [ :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'during export').
+			self assert: (warnings first includesSubstring: 'OTFailingOtlpJsonLineSpanExporter').
+			self assert: (warnings first includesSubstring: 'json-line write failure') ]
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineSpanExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerExport [
 
 	| line payload |
@@ -89,4 +101,17 @@ OTOtlpJsonLineSpanExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerE
 	self assert: line last equals: Character lf.
 	payload := STONJSON fromString: line allButLast.
 	self assert: (payload at: 'resourceSpans') size equals: 1
+]
+
+{ #category : 'private' }
+OTOtlpJsonLineSpanExporterTest >> withExporterWarningsDo: aBlock [
+
+	| logger warnings |
+	logger := OTDiagnosticLogger current.
+	warnings := OrderedCollection new.
+	OTDiagnosticLogger current: OTDiagnosticLogger new.
+	OTSpanExporter warningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [
+			OTSpanExporter warningSink: nil.
+			OTDiagnosticLogger current: logger ]
 ]

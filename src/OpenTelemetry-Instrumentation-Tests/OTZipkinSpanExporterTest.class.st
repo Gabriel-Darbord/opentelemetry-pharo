@@ -74,6 +74,35 @@ OTZipkinSpanExporterTest >> testClientSpanUsesHighestRankedRemoteEndpointAttribu
 ]
 
 { #category : 'tests' }
+OTZipkinSpanExporterTest >> testExportReturnsFalseOnClientFailureAndWarns [
+
+	| client |
+	client := OTRecordingHttpClient new.
+	client shouldRaiseOnExecute: true.
+	exporter httpClient: client.
+	self withExporterWarningsDo: [ :warnings |
+			self deny: (exporter export: { (self spanWithKind: OTSpan internal attributes: #(  )) }).
+			self assert: client executionCount equals: 1.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'during export').
+			self assert: (warnings first includesSubstring: 'OTZipkinSpanExporter').
+			self assert: (warnings first includesSubstring: 'simulated HTTP failure') ]
+]
+
+{ #category : 'tests' }
+OTZipkinSpanExporterTest >> testExportReturnsFalseOnNonAcceptedResponseCode [
+
+	| client |
+	client := OTRecordingHttpClient new.
+	client responseCode: 500.
+	exporter httpClient: client.
+	self withExporterWarningsDo: [ :warnings |
+			self deny: (exporter export: { (self spanWithKind: OTSpan internal attributes: #(  )) }).
+			self assert: client executionCount equals: 1.
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
 OTZipkinSpanExporterTest >> testServerSpanOmitsRemoteEndpointEvenWhenPeerAttributesExist [
 
 	| transformed |
@@ -100,4 +129,17 @@ OTZipkinSpanExporterTest >> testUsesDefaultResourceServiceNameWhenSpanResourceHa
 OTZipkinSpanExporterTest >> transformedSpanForKind: aSpanKind attributes: someAttributes [
 
 	^ (exporter transform: { (self spanWithKind: aSpanKind attributes: someAttributes) }) first
+]
+
+{ #category : 'private' }
+OTZipkinSpanExporterTest >> withExporterWarningsDo: aBlock [
+
+	| logger warnings |
+	logger := OTDiagnosticLogger current.
+	warnings := OrderedCollection new.
+	OTDiagnosticLogger current: OTDiagnosticLogger new.
+	OTSpanExporter warningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [
+			OTSpanExporter warningSink: nil.
+			OTDiagnosticLogger current: logger ]
 ]
