@@ -12,11 +12,33 @@ Class {
 	#package : 'OpenTelemetry-Exporters'
 }
 
+{ #category : 'private - configuration' }
+OTSimpleSpanProcessor class >> exportTimeoutMillisByProcessor [
+
+	^ OTClassStateStore valueAt: #otExportTimeoutMillisByProcessor forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
+]
+
 { #category : 'private - hooks' }
 OTSimpleSpanProcessor >> beforeOnEndExportingSnapshot: aSpanSnapshot [
 	"Extension hook for subclasses that need to coordinate before export begins."
 
 	self
+]
+
+{ #category : 'accessing' }
+OTSimpleSpanProcessor >> exportTimeoutMillis [
+
+	^ self class exportTimeoutMillisByProcessor at: self ifAbsent: [ OTSpanProcessor defaultBatchSpanProcessorExportTimeoutMillis ]
+]
+
+{ #category : 'accessing' }
+OTSimpleSpanProcessor >> exportTimeoutMillis: anInteger [
+
+	| normalized |
+	normalized := self validatedRuntimeInteger: anInteger minimum: 0 forOperation: 'exportTimeoutMillis:'.
+	normalized ifNil: [ ^ self exportTimeoutMillis ].
+	self class exportTimeoutMillisByProcessor at: self put: normalized.
+	^ normalized
 ]
 
 { #category : 'accessing' }
@@ -38,7 +60,7 @@ OTSimpleSpanProcessor >> exporter: aSpanExporter [
 { #category : 'processing' }
 OTSimpleSpanProcessor >> flush [
 
-	^ exportLock critical: [ self exporter forceFlush ]
+	^ exportLock critical: [ self runExporterOperation: [ self exporter forceFlush ] ]
 ]
 
 { #category : 'initialization' }
@@ -59,7 +81,14 @@ OTSimpleSpanProcessor >> onEnd: span [
 	self beforeOnEndExportingSnapshot: snapshot.
 	^ exportLock critical: [
 			  self isStopping ifTrue: [ ^ false ].
-			  self exporter export: { snapshot } ]
+			  self runExporterOperation: [ self exporter export: { snapshot } ] ]
+]
+
+{ #category : 'private - processing' }
+OTSimpleSpanProcessor >> runExporterOperation: aBlock [
+
+	self exportTimeoutMillis = 0 ifTrue: [ ^ aBlock value ].
+	^ aBlock valueWithinMilliseconds: self exportTimeoutMillis onTimeout: [ false ]
 ]
 
 { #category : 'processing' }
@@ -68,7 +97,15 @@ OTSimpleSpanProcessor >> shutdown [
 	| flushed shutdownResult |
 	self beginShutdown ifFalse: [ ^ false ].
 	flushed := self flush.
-	shutdownResult := exportLock critical: [ self exporter shutdown ].
+	shutdownResult := exportLock critical: [ self runExporterOperation: [ self exporter shutdown ] ].
 	self markShutdown.
 	^ shutdownResult & flushed
+]
+
+{ #category : 'private - configuration' }
+OTSimpleSpanProcessor >> validatedRuntimeInteger: aValue minimum: aMinimum forOperation: anOperationName [
+
+	(aValue isInteger and: [ aValue >= aMinimum ]) ifTrue: [ ^ aValue ].
+	self configurationWarningOwner noteInvalidRuntimeConfigurationValue: aValue forOperation: anOperationName.
+	^ nil
 ]

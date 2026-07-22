@@ -34,6 +34,7 @@ OTSimpleSpanProcessorTest >> tearDown [
 
 	[
 		(exporter isKindOf: OTBlockingSpanExporter) ifTrue: [ exporter allowBlockedExport ].
+		(exporter isKindOf: OTBlockingForceFlushSpanExporter) ifTrue: [ exporter allowForceFlush ].
 		(exporter isKindOf: OTBlockingShutdownSpanExporter) ifTrue: [ exporter allowShutdown ].
 		processor ifNotNil: [ processor shutdown ].
 		exporter ifNotNil: [ exporter shutdown ].
@@ -62,6 +63,21 @@ OTSimpleSpanProcessorTest >> testConcurrentShutdownIsIdempotent [
 	self assert: (firstDone waitTimeoutMilliseconds: 200) not.
 	self assert: firstResult.
 	self assert: processor isShutdown
+]
+
+{ #category : 'tests' }
+OTSimpleSpanProcessorTest >> testForceFlushHonorsExportTimeoutWhenExporterForceFlushIsBlocked [
+
+	| elapsed startedAt |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	processor exportTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	self deny: processor forceFlush.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200)
 ]
 
 { #category : 'tests' }
@@ -191,6 +207,22 @@ OTSimpleSpanProcessorTest >> testOnEndExportsSampledSpan [
 ]
 
 { #category : 'tests' }
+OTSimpleSpanProcessorTest >> testOnEndHonorsExportTimeoutWhenExporterExportIsBlocked [
+
+	| elapsed startedAt |
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	processor exportTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	self deny: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200)
+]
+
+{ #category : 'tests' }
 OTSimpleSpanProcessorTest >> testOnEndReturnsFalseWhileShutdownIsInProgress [
 
 	| done shutdownResult |
@@ -262,6 +294,42 @@ OTSimpleSpanProcessorTest >> testOnEndUsesExplicitExporterInsteadOfGlobalExporte
 	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: globalExporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
+OTSimpleSpanProcessorTest >> testShutdownHonorsExportTimeoutWhenExporterForceFlushIsBlocked [
+
+	| elapsed startedAt |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	processor exportTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	self deny: processor shutdown.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200).
+	self assert: exporter shutdownCount equals: 1.
+	self assert: processor isShutdown
+]
+
+{ #category : 'tests' }
+OTSimpleSpanProcessorTest >> testShutdownHonorsExportTimeoutWhenExporterShutdownIsBlocked [
+
+	| elapsed startedAt |
+	exporter := OTBlockingShutdownSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	processor exportTimeoutMillis: 25.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	startedAt := Time millisecondClockValue.
+	self deny: processor shutdown.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: elapsed < 250.
+	self assert: exporter forceFlushCount equals: 1.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200).
+	self assert: exporter exportedBatches size equals: 1.
+	self assert: processor isShutdown
 ]
 
 { #category : 'tests' }
