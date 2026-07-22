@@ -409,6 +409,27 @@ OTSamplerTest >> testRateLimitingSamplerAllowsOneConcurrentSampleWhenBalanceIsOn
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testSamplerDescriptionsAreStableUnderConcurrentCalls [
+
+	| expectedDescriptions lock observedDescriptions samplers |
+	samplers := {
+		            OTAlwaysOnSampler new.
+		            OTAlwaysOffSampler new.
+		            (OTSampler traceIdRatioBased: 0.5).
+		            (OTSampler probability: 0.5).
+		            OTSampler parentBased.
+		            (OTSampler alwaysRecord: OTAlwaysOffSampler new) }.
+	expectedDescriptions := samplers collect: [ :each | each description ].
+	lock := Semaphore forMutualExclusion.
+	observedDescriptions := OrderedCollection new.
+	self
+		concurrentlyRun: [
+		samplers withIndexDo: [ :each :index | lock critical: [ observedDescriptions add: index -> each description ] ] ]
+		workerCount: 16.
+	observedDescriptions do: [ :each | self assert: each value equals: (expectedDescriptions at: each key) ]
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testTimeIntervalSamplerAllowsOnlyOneConcurrentSamplePerInterval [
 
 	| sampler workerCount |
