@@ -122,6 +122,20 @@ OTBatchSpanProcessorTest >> testForceFlushReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testForceFlushStillInvokesExporterForceFlushAfterExportFailure [
+
+	exporter := OTFailingExportSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 1000.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	self deny: processor forceFlush.
+	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testForceFlushUsesExplicitExporterInsteadOfGlobalExporter [
 
 	| globalExporter |

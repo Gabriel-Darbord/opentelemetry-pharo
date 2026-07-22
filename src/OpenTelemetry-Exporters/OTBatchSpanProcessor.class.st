@@ -173,12 +173,10 @@ OTBatchSpanProcessor >> flush [
 { #category : 'processing' }
 OTBatchSpanProcessor >> forceFlush [
 
-	| flushed exported |
+	| exported flushed |
 	self isShutdown ifTrue: [ ^ false ].
 	flushed := self flush.
-	flushed ifFalse: [ ^ false ].
-	exported := self
-		runExporterOperation: [ self exporter forceFlush ].
+	exported := self runExporterOperation: [ self exporter forceFlush ].
 	^ flushed & exported
 ]
 
