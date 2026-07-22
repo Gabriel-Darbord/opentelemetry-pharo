@@ -89,11 +89,15 @@ OTTracer >> instrumentationVersion [
 OTTracer >> parentSpanFrom: aContext [
 
 	| parentSpan |
-	parentSpan := aContext ifNotNil: [ aContext span ].
+	aContext ifNil: [ ^ nil ].
+	(aContext isKindOf: OTContext) ifFalse: [
+			OTSpan noteIgnoredInvalidArgument: aContext forOperation: 'OTTracer>>parentSpanFrom:'.
+			^ nil ].
+	parentSpan := aContext span.
 	parentSpan ifNil: [ ^ nil ].
 	^ parentSpan spanContext isValid
-		ifTrue: [ parentSpan ]
-		ifFalse: [ nil ]
+		  ifTrue: [ parentSpan ]
+		  ifFalse: [ nil ]
 ]
 
 { #category : 'accessing' }

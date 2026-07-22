@@ -862,6 +862,22 @@ OTTracerProviderTest >> testInvalidTracerConfigurationValuesAreIgnoredAndWarned 
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testNonRecordingSpanInIgnoresInvalidContext [
+
+	| provider span |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	span := nil.
+	self
+		shouldnt: [ span := provider nonRecordingSpanIn: 42 instrumentationScope: (OTInstrumentationScope named: 'demo.scope') ]
+		raise: Error.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span effectiveContext class identicalTo: OTContext.
+	self deny: span spanContext isValid.
+	self assert: span instrumentationScope name equals: 'demo.scope'
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testNonRecordingSpanSamplerCanExplicitlyClearParentTraceState [
 
 	| parentContext provider sampler span |
@@ -1226,6 +1242,21 @@ OTTracerProviderTest >> testRecordingSpanExposesReadableSpanSurface [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testRecordingSpanInIgnoresInvalidContext [
+
+	| provider span |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	span := nil.
+	self
+		shouldnt: [ span := provider recordingSpanIn: 42 parent: nil instrumentationScope: (OTInstrumentationScope named: 'demo.scope') ]
+		raise: Error.
+	self assert: span isRecording.
+	self assert: span effectiveContext class identicalTo: OTContext.
+	self assert: span instrumentationScope name equals: 'demo.scope'
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testRecordingSpanInheritsProviderResourceAndScope [
 
 	| exportRecord provider resource scope snapshot span tracer |
@@ -1399,6 +1430,28 @@ OTTracerProviderTest >> testRootSpanMarksGeneratedTraceIdsAsRandom [
 	span := (tracer spanBuilderNamed: 'operation') startSpan.
 	self assert: span spanContext traceFlags equals: '03'.
 	self assert: span spanContext isRandom
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testSampledNonRecordingSpanInIgnoresInvalidContext [
+
+	| provider samplingResult span |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	samplingResult := OTSamplingResult decision: #drop attributes: #(  ) traceState: nil.
+	span := nil.
+	self
+		shouldnt: [
+				span := provider
+					        nonRecordingSpanIn: 42
+					        parent: nil
+					        traceId: '00112233445566778899aabbccddeeff'
+					        samplingResult: samplingResult
+					        instrumentationScope: (OTInstrumentationScope named: 'demo.scope') ]
+		raise: Error.
+	self assert: span class identicalTo: OTNonRecordingSpan.
+	self assert: span effectiveContext class identicalTo: OTContext.
+	self assert: span instrumentationScope name equals: 'demo.scope'
 ]
 
 { #category : 'tests' }
@@ -1703,6 +1756,16 @@ OTTracerProviderTest >> testTracerNamedWhitespaceOnlyStringNormalizesToEmptyName
 			tracer := provider tracerNamed: '   '.
 			self assert: tracer instrumentationName equals: ''.
 			self assert: warnings size equals: 1 ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerParentSpanFromIgnoresInvalidContext [
+
+	| parentSpan tracer |
+	tracer := OTTracer forProvider: nil instrumentationName: 'demo.scope'.
+	parentSpan := nil.
+	self shouldnt: [ parentSpan := tracer parentSpanFrom: 42 ] raise: Error.
+	self assert: parentSpan isNil
 ]
 
 { #category : 'tests' }

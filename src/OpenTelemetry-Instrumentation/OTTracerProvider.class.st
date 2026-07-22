@@ -1300,13 +1300,12 @@ OTTracerProvider >> nonRecordingSpanIn: aContext [
 OTTracerProvider >> nonRecordingSpanIn: aContext instrumentationScope: anInstrumentationScope [
 
 	| baseContext parentSpan span |
-	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	baseContext := self normalizedContextFrom: aContext forOperation: 'OTTracerProvider>>nonRecordingSpanIn:instrumentationScope:'.
 	parentSpan := baseContext span.
-	parentSpan
-		ifNotNil: [
-				parentSpan isRecording ifFalse: [ ^ parentSpan ].
-				span := OTSpan wrapping: parentSpan spanContext ]
-		ifNil: [ span := OTSpan wrapping: OTSpanContext invalid ].
+	span := parentSpan ifNil: [ OTSpan wrapping: OTSpanContext invalid ] ifNotNil: [
+			        parentSpan isRecording
+				        ifFalse: [ ^ parentSpan ]
+				        ifTrue: [ OTSpan wrapping: parentSpan spanContext ] ].
 	span
 		restoreContext: (baseContext withSpan: span);
 		restoreInstrumentationScope: anInstrumentationScope;
@@ -1318,7 +1317,9 @@ OTTracerProvider >> nonRecordingSpanIn: aContext instrumentationScope: anInstrum
 OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId samplingResult: aSamplingResult instrumentationScope: anInstrumentationScope [
 
 	| baseContext traceState spanContext span |
-	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
+	baseContext := self
+		               normalizedContextFrom: aContext
+		               forOperation: 'OTTracerProvider>>nonRecordingSpanIn:parent:traceId:samplingResult:instrumentationScope:'.
 	traceState := aSamplingResult traceState ifNil: [ aSpan ifNotNil: [ aSpan spanContext traceState ] ].
 	spanContext := OTSpanContext
 		               traceId: aTraceId
@@ -1335,6 +1336,15 @@ OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId
 		restoreContext: (baseContext withSpan: span);
 		restoreResource: self resource.
 	^ span
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> normalizedContextFrom: aContext forOperation: anOperationName [
+
+	aContext ifNil: [ ^ OTContext new ].
+	(aContext isKindOf: OTContext) ifTrue: [ ^ aContext ].
+	OTSpan noteIgnoredInvalidArgument: aContext forOperation: anOperationName.
+	^ OTContext new
 ]
 
 { #category : 'private - configuration' }
@@ -1422,7 +1432,10 @@ OTTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope
 	| effectiveContext span |
 	effectiveContext := aContext
 		                    ifNil: [ aSpan ifNil: [ OTContext new ] ifNotNil: [ aSpan effectiveContext ] ]
-		                    ifNotNil: [ aContext ].
+		                    ifNotNil: [
+		                    self
+			                    normalizedContextFrom: aContext
+			                    forOperation: 'OTTracerProvider>>recordingSpanIn:parent:instrumentationScope:' ].
 	span := OTSpan newInternal.
 	span restoreContext: effectiveContext.
 	aSpan ifNotNil: [ span restoreParent: aSpan ].
