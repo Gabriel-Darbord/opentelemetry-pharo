@@ -10,10 +10,35 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
+{ #category : 'private' }
+OTRecordingSpanExporter class >> exportsAllowedAfterShutdownByExporter [
+
+	^ OTClassStateStore valueAt: #otExportsAllowedAfterShutdownByExporter forClass: self ifAbsent: [
+			  | exporters |
+			  exporters := WeakIdentityKeyDictionary new.
+			  OTClassStateStore valueAt: #otExportsAllowedAfterShutdownByExporter forClass: self put: exporters.
+			  exporters ]
+]
+
+{ #category : 'accessing' }
+OTRecordingSpanExporter >> allowExportsAfterShutdown: aBoolean [
+
+	aBoolean
+		ifTrue: [ self class exportsAllowedAfterShutdownByExporter at: self put: true ]
+		ifFalse: [ self class exportsAllowedAfterShutdownByExporter removeKey: self ifAbsent: [ ] ].
+	^ aBoolean
+]
+
+{ #category : 'testing' }
+OTRecordingSpanExporter >> allowsExportsAfterShutdown [
+
+	^ self class exportsAllowedAfterShutdownByExporter at: self ifAbsent: [ false ]
+]
+
 { #category : 'accessing' }
 OTRecordingSpanExporter >> export: spans [
 
-	self isShutdown ifTrue: [ ^ false ].
+	(self isShutdown and: [ self allowsExportsAfterShutdown not ]) ifTrue: [ ^ false ].
 	self exportedBatches add: spans asArray.
 	^ true
 ]

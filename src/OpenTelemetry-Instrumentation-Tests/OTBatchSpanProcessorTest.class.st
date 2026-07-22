@@ -249,6 +249,31 @@ OTBatchSpanProcessorTest >> testOnEndReturnsBeforeBlockedBatchExportCompletes [
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testOnEndThatPassedInitialCheckIsIgnoredAfterShutdownCompletes [
+
+	| done onEndResult shutdownResult |
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTHookedBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 1000.
+	done := Semaphore new.
+	[
+		onEndResult := processor onEnd: (self sampledSpanWithSuffix: 1).
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (processor waitForOnEndHookTimeoutMillis: 200) not.
+	shutdownResult := processor shutdown.
+	processor allowOnEndToContinue.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult.
+	self deny: onEndResult.
+	self assert: exporter exportedBatches isEmpty.
+	self assert: exporter forceFlushCount equals: 1.
+	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testScheduledDelayFlushesPendingBatch [
 
 	exporter := OTRecordingSpanExporter new.

@@ -12,6 +12,13 @@ Class {
 	#package : 'OpenTelemetry-Exporters'
 }
 
+{ #category : 'private - hooks' }
+OTSimpleSpanProcessor >> beforeOnEndExportingSnapshot: aSpanSnapshot [
+	"Extension hook for subclasses that need to coordinate before export begins."
+
+	self
+]
+
 { #category : 'accessing' }
 OTSimpleSpanProcessor >> exporter [
 
@@ -49,7 +56,10 @@ OTSimpleSpanProcessor >> onEnd: span [
 	self isStopping ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
 	snapshot := OTSpanSnapshot fromSpan: span.
-	^ exportLock critical: [ self exporter export: { snapshot } ]
+	self beforeOnEndExportingSnapshot: snapshot.
+	^ exportLock critical: [
+			  self isStopping ifTrue: [ ^ false ].
+			  self exporter export: { snapshot } ]
 ]
 
 { #category : 'processing' }

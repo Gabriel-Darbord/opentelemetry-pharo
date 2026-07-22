@@ -82,6 +82,13 @@ OTBatchSpanProcessor >> batchSize: anInteger [
 	batchSize := maxQueueSize ifNil: [ normalized ] ifNotNil: [ normalized min: maxQueueSize ]
 ]
 
+{ #category : 'private - hooks' }
+OTBatchSpanProcessor >> beforeOnEndEnqueueingSnapshot: aSpanSnapshot [
+	"Extension hook for subclasses that need to coordinate before queueing begins."
+
+	self
+]
+
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> ensureFlushProcess [
 
@@ -293,9 +300,11 @@ OTBatchSpanProcessor >> onEnd: span [
 	self isShutdown ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
 	snapshot := OTSpanSnapshot fromSpan: span.
+	self beforeOnEndEnqueueingSnapshot: snapshot.
 	self ensureFlushProcess.
 	queueLock critical: [
 			| wasEmpty |
+			self isStopping ifTrue: [ ^ false ].
 			batch size >= maxQueueSize ifTrue: [ ^ false ].
 			wasEmpty := batch isEmpty.
 			batch add: snapshot.
