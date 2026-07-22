@@ -976,6 +976,13 @@ OTConfigurationSource class >> integerValueAt: aKey in: aDictionary [
 	^ self declarativeIntegerFrom: value
 ]
 
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> invalidDeclarativeOtlpExporterConfigurationAt: aKey value: aValue expected: aDescription [
+
+	Error signal:
+		'Invalid OTLP declarative configuration for ' , aKey printString , ': ' , aValue printString , '. Expected ' , aDescription
+]
+
 { #category : 'private - projection' }
 OTConfigurationSource class >> jaegerRemoteInitialSamplingRateFrom: aDictionary [
 
@@ -1449,9 +1456,37 @@ OTConfigurationSource class >> optionalSamplerProbabilityFrom: aDictionary defau
 ]
 
 { #category : 'private - configuration file' }
+OTConfigurationSource class >> otlpBooleanValueAt: aKey in: aDictionary default: aDefaultValue [
+
+	| rawValue value |
+	aDictionary ifNil: [ ^ aDefaultValue ].
+	(aDictionary includesKey: aKey) ifFalse: [ ^ aDefaultValue ].
+	rawValue := aDictionary at: aKey.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	value := self booleanValueAt: aKey in: aDictionary.
+	value ifNotNil: [ ^ value ].
+	self invalidDeclarativeOtlpExporterConfigurationAt: aKey value: rawValue expected: 'a boolean'
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> otlpCompressionValueAt: aKey in: aDictionary default: aDefaultValue [
+
+	| compression rawValue |
+	aDictionary ifNil: [ ^ aDefaultValue ].
+	(aDictionary includesKey: aKey) ifFalse: [ ^ aDefaultValue ].
+	rawValue := aDictionary at: aKey.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	compression := self stringValueAt: aKey in: aDictionary.
+	compression ifNil: [ self invalidDeclarativeOtlpExporterConfigurationAt: aKey value: rawValue expected: '''none'' or ''gzip''' ].
+	compression := compression asLowercase.
+	(#( 'none' 'gzip' ) includes: compression) ifTrue: [ ^ compression ].
+	self invalidDeclarativeOtlpExporterConfigurationAt: aKey value: rawValue expected: '''none'' or ''gzip'''
+]
+
+{ #category : 'private - configuration file' }
 OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signalNamed: aString protocol: aProtocolString [
 
-	| certificateFile clientCertificateFile clientKeyFile compression configuration endpoint insecure timeout |
+	| certificateFile clientCertificateFile clientKeyFile configuration endpoint |
 	configuration := OTOtlpExporterConfiguration new
 		                 signalName: aString;
 		                 relativePath: (OTOtlpExporterConfiguration defaultRelativePathForSignalNamed: aString);
@@ -1459,8 +1494,7 @@ OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signal
 		                 headers: (self headersDictionaryFrom: (self sequenceValueAt: 'headers_list' in: aDictionary));
 		                 userAgent: OTOtlpExporterConfiguration defaultUserAgent;
 		                 yourself.
-	insecure := self booleanValueAt: 'insecure' in: aDictionary.
-	configuration insecure: (insecure ifNil: [ false ] ifNotNil: [ insecure ]).
+	configuration insecure: (self otlpBooleanValueAt: 'insecure' in: aDictionary default: false).
 	endpoint := self stringValueAt: 'endpoint' in: aDictionary.
 	endpoint := endpoint
 		            ifNil: [
@@ -1484,13 +1518,35 @@ OTConfigurationSource class >> otlpExporterConfigurationFrom: aDictionary signal
 	configuration clientKeyFile: clientKeyFile.
 	clientCertificateFile := self stringValueAt: 'client_certificate' in: aDictionary.
 	configuration clientCertificateFile: clientCertificateFile.
-	compression := self stringValueAt: 'compression' in: aDictionary.
-	compression := compression ifNil: [ OTOtlpExporterConfiguration defaultCompression ] ifNotNil: [ compression asLowercase ].
-	(#( 'none' 'gzip' ) includes: compression) ifFalse: [ compression := OTOtlpExporterConfiguration defaultCompression ].
-	configuration compression: compression.
-	timeout := self positiveIntegerValueAt: 'timeout' in: aDictionary default: OTOtlpExporterConfiguration defaultTimeoutMillis.
-	configuration timeoutMillis: timeout.
+	configuration compression:
+		(self otlpCompressionValueAt: 'compression' in: aDictionary default: OTOtlpExporterConfiguration defaultCompression).
+	configuration timeoutMillis:
+		(self otlpTimeoutMillisAt: 'timeout' in: aDictionary default: OTOtlpExporterConfiguration defaultTimeoutMillis).
 	^ configuration
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> otlpTimeoutMillisAt: aKey in: aDictionary default: aDefaultValue [
+
+	| rawValue value |
+	aDictionary ifNil: [ ^ aDefaultValue ].
+	(aDictionary includesKey: aKey) ifFalse: [ ^ aDefaultValue ].
+	rawValue := aDictionary at: aKey.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	value := self integerValueAt: aKey in: aDictionary.
+	value ifNil: [
+			self
+				invalidDeclarativeOtlpExporterConfigurationAt: aKey
+				value: rawValue
+				expected: 'a non-negative integer timeout in milliseconds' ].
+	value >= 0 ifFalse: [
+			self
+				invalidDeclarativeOtlpExporterConfigurationAt: aKey
+				value: rawValue
+				expected: 'a non-negative integer timeout in milliseconds' ].
+	^ value = 0
+		  ifTrue: [ OTOtlpExporterConfiguration noTimeoutMillis ]
+		  ifFalse: [ value ]
 ]
 
 { #category : 'private - projection' }

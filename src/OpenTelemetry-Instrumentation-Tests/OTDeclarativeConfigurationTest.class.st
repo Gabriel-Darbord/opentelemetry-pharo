@@ -874,6 +874,64 @@ logger_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsInvalidCompressionForTraceOtlpExporter [
+
+	self
+		should: [
+				self
+					withConfigurationFileContents: 'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_http:
+            compression: brotli
+'
+					environmentValues: Dictionary new
+					during: [ OTTracerProvider current spanProcessors ] ]
+		raise: Error
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsInvalidInsecureForGrpcTraceOtlpExporter [
+
+	self
+		should: [
+				self
+					withConfigurationFileContents: 'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_grpc:
+            endpoint: collector:4317
+            insecure: maybe
+'
+					environmentValues: Dictionary new
+					during: [ OTTracerProvider current spanProcessors ] ]
+		raise: Error
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsNegativeTimeoutForTraceOtlpExporter [
+
+	self
+		should: [
+				self
+					withConfigurationFileContents: 'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_http:
+            timeout: -1
+'
+					environmentValues: Dictionary new
+					during: [ OTTracerProvider current spanProcessors ] ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsPeriodicPrometheusReader [
 
 	self
@@ -1388,6 +1446,27 @@ meter_provider:
 				equals: 'http://collector:4318/reader-b/metrics'.
 			self assert: (readers first temporalityFor: counter) equals: #cumulative.
 			self assert: (readers second temporalityFor: counter) equals: #delta ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsNoLimitTimeoutForGrpcTraceOtlpExporter [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          otlp_grpc:
+            endpoint: collector:4317
+            timeout: 0
+'
+		environmentValues: Dictionary new
+		during: [
+				| processor |
+				processor := OTTracerProvider current spanProcessors first.
+				self assert: processor exporter class identicalTo: OTOtlpGrpcSpanExporter.
+				self assert: processor exporter configuration timeoutMillis equals: OTOtlpExporterConfiguration noTimeoutMillis ]
 ]
 
 { #category : 'tests' }
