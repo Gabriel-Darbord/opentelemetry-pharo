@@ -139,6 +139,32 @@ OTBatchSpanProcessorTest >> testForceFlushUsesExplicitExporterInsteadOfGlobalExp
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testForceFlushWaitsForInFlightExportBeforeExportingQueuedSpan [
+
+	| flushDone flushResult |
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 1;
+		scheduledDelayMillis: 1000.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 2)).
+	flushDone := Semaphore new.
+	[
+		flushResult := processor forceFlush.
+		flushDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (flushDone waitTimeoutMilliseconds: 50).
+	exporter allowBlockedExport.
+	self assert: (flushDone waitTimeoutMilliseconds: 200) not.
+	self assert: flushResult.
+	self assert: exporter exportedBatches size equals: 2.
+	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testInvalidRuntimeConfigurationValuesAreIgnoredAndWarned [
 
 	exporter := OTRecordingSpanExporter new.
