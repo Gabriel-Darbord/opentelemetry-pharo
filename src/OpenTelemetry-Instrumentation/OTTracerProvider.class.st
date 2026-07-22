@@ -1268,6 +1268,22 @@ OTTracerProvider >> initialize [
 	shutdownCompleted := false
 ]
 
+{ #category : 'private' }
+OTTracerProvider >> installRegisteredTracer: aTracer forScope: anInstrumentationScope configurator: aBlock [
+
+	^ stateLock critical: [
+			  | currentConfigurator currentTracer |
+			  (shutdownRequested = true or: [ shutdownCompleted = true ]) ifTrue: [
+				  ^ OTNoopTracer forProvider: self instrumentationScope: anInstrumentationScope ].
+			  currentTracer := tracers at: anInstrumentationScope ifAbsent: [ nil ].
+			  currentTracer ifNotNil: [ ^ currentTracer ].
+			  currentConfigurator := self class tracerConfiguratorByProvider at: self ifAbsentPut: [ [ :tracerScope | nil ] ].
+			  currentConfigurator == aBlock ifTrue: [
+					  tracers at: anInstrumentationScope put: aTracer.
+					  ^ aTracer ].
+			  nil ]
+]
+
 { #category : 'testing' }
 OTTracerProvider >> isShutdown [
 
@@ -1446,11 +1462,15 @@ OTTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope
 { #category : 'private' }
 OTTracerProvider >> registeredTracerForScope: anInstrumentationScope [
 
-	| configurator |
-	configurator := self class tracerConfiguratorByProvider at: self ifAbsentPut: [ [ :tracerScope | nil ] ].
-	^ tracers
-		  at: anInstrumentationScope
-		  ifAbsentPut: [ self configuredTracerForInstrumentationScope: anInstrumentationScope withConfigurator: configurator ]
+	[
+		| configurator installedTracer snapshot tracer |
+		snapshot := self tracerRegistrationSnapshotForScope: anInstrumentationScope.
+		(snapshot at: 1) = #shutdown ifTrue: [ ^ snapshot at: 2 ].
+		(snapshot at: 1) = #existing ifTrue: [ ^ snapshot at: 2 ].
+		configurator := snapshot at: 2.
+		tracer := self configuredTracerForInstrumentationScope: anInstrumentationScope withConfigurator: configurator.
+		installedTracer := self installRegisteredTracer: tracer forScope: anInstrumentationScope configurator: configurator.
+		installedTracer ifNotNil: [ ^ installedTracer ] ] repeat
 ]
 
 { #category : 'accessing' }
@@ -1679,15 +1699,22 @@ OTTracerProvider >> tracerConfigurator [
 { #category : 'accessing' }
 OTTracerProvider >> tracerConfigurator: aBlock [
 
-	| effectiveConfigurator |
+	| computedConfigurations effectiveConfigurator tracerSnapshot |
 	effectiveConfigurator := self validatedTracerConfigurator: aBlock forOperation: 'tracerConfigurator:'.
 	effectiveConfigurator ifNil: [ ^ self tracerConfigurator ].
+	tracerSnapshot := stateLock critical: [
+			                  self ensureOpenLocked.
+			                  self class tracerConfiguratorByProvider at: self put: effectiveConfigurator.
+			                  tracers values asArray ].
+	computedConfigurations := tracerSnapshot collect: [ :each |
+		                          each
+		                          ->
+		                          (self
+			                           tracerConfigurationForInstrumentationScope: each instrumentationScope
+			                           withConfigurator: effectiveConfigurator) ].
 	stateLock critical: [
-			self ensureOpenLocked.
-			self class tracerConfiguratorByProvider at: self put: effectiveConfigurator.
-			tracers valuesDo: [ :each |
-					each tracerConfig:
-						(self tracerConfigurationForInstrumentationScope: each instrumentationScope withConfigurator: effectiveConfigurator) ] ].
+			(self class tracerConfiguratorByProvider at: self ifAbsent: [ nil ]) == effectiveConfigurator ifTrue: [
+				computedConfigurations do: [ :each | each key tracerConfig: each value ] ] ].
 	^ self tracerConfigurator
 ]
 
@@ -1737,10 +1764,27 @@ OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSch
 		         version: aVersionString
 		         schemaUrl: aSchemaUrlString
 		         attributes: aCollection.
+	^ self registeredTracerForScope: scope
+]
+
+{ #category : 'private' }
+OTTracerProvider >> tracerRegistrationSnapshotForScope: anInstrumentationScope [
+
 	^ stateLock critical: [
-			  (shutdownRequested = true or: [ shutdownCompleted = true ])
-				  ifTrue: [ OTNoopTracer forProvider: self instrumentationScope: scope ]
-				  ifFalse: [ self registeredTracerForScope: scope ] ]
+			  | configurator existingTracer |
+			  (shutdownRequested = true or: [ shutdownCompleted = true ]) ifTrue: [
+					  ^ {
+						    #shutdown.
+						    (OTNoopTracer forProvider: self instrumentationScope: anInstrumentationScope) } ].
+			  existingTracer := tracers at: anInstrumentationScope ifAbsent: [ nil ].
+			  existingTracer ifNotNil: [
+					  ^ {
+						    #existing.
+						    existingTracer } ].
+			  configurator := self class tracerConfiguratorByProvider at: self ifAbsentPut: [ [ :tracerScope | nil ] ].
+			  {
+				  #configure.
+				  configurator } ]
 ]
 
 { #category : 'private - configuration' }

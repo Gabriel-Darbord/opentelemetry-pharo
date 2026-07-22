@@ -1618,6 +1618,43 @@ OTTracerProviderTest >> testTracerCachesByFullInstrumentationScope [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testTracerConfiguratorCallbackCanLookUpNestedTracerDuringConfiguratorUpdate [
+
+	| done outerTracer provider |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	outerTracer := provider tracerNamed: 'outer.scope'.
+	done := Semaphore new.
+	[
+		provider tracerConfigurator: [ :scope |
+				scope name = 'outer.scope' ifTrue: [ provider tracerNamed: 'nested.scope' ].
+				OTTracerConfig disabled ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self deny: outerTracer enabled.
+	self deny: (provider tracerNamed: 'nested.scope') enabled
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerConfiguratorCallbackCanLookUpNestedTracerDuringTracerCreation [
+
+	| done provider returnedTracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	provider tracerConfigurator: [ :scope |
+			scope name = 'outer.scope' ifTrue: [ provider tracerNamed: 'nested.scope' ].
+			OTTracerConfig default ].
+	done := Semaphore new.
+	returnedTracer := nil.
+	[
+		returnedTracer := provider tracerNamed: 'outer.scope'.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: returnedTracer instrumentationName equals: 'outer.scope'.
+	self assert: (provider tracerNamed: 'nested.scope') instrumentationName equals: 'nested.scope'
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testTracerConfiguratorReturnsTracerConfigObjectsAndUpdatesOutstandingTracers [
 
 	| disabledTracer enabledTracer provider |
