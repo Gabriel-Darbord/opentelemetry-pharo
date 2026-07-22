@@ -31,7 +31,12 @@ OTCompositeSpanExporter >> export: spans [
 
 	^ self withExportLockDo: [
 			  self isShutdown ifTrue: [ ^ false ].
-			  exporters inject: true into: [ :allExported :each | (each export: spans) & allExported ] ]
+			  exporters inject: true into: [ :allExported :each |
+					  (self
+						   withExporter: each
+						   operationNamed: 'export'
+						   default: false
+						   do: [ each export: spans ]) & allExported ] ]
 ]
 
 { #category : 'accessing' }
@@ -55,7 +60,13 @@ OTCompositeSpanExporter >> forceFlush [
 	^ self withExportLockDo: [
 			  self isShutdown
 				  ifTrue: [ false ]
-				  ifFalse: [ exporters inject: true into: [ :allFlushed :each | each forceFlush & allFlushed ] ] ]
+				  ifFalse: [
+						  exporters inject: true into: [ :allFlushed :each |
+								  (self
+									   withExporter: each
+									   operationNamed: 'forceFlush'
+									   default: false
+									   do: [ each forceFlush ]) & allFlushed ] ] ]
 ]
 
 { #category : 'initialization' }
@@ -72,8 +83,28 @@ OTCompositeSpanExporter >> shutdown [
 	^ self withExportLockDo: [
 			  | allShutdown exportersSnapshot flushed |
 			  exportersSnapshot := self componentExporters.
-			  flushed := exportersSnapshot inject: true into: [ :allFlushed :each | each forceFlush & allFlushed ].
-			  allShutdown := exportersSnapshot inject: true into: [ :allClosed :each | each shutdown & allClosed ].
+			  flushed := exportersSnapshot inject: true into: [ :allFlushed :each |
+					             (self
+						              withExporter: each
+						              operationNamed: 'forceFlush'
+						              default: false
+						              do: [ each forceFlush ]) & allFlushed ].
+			  allShutdown := exportersSnapshot inject: true into: [ :allClosed :each |
+					                 (self
+						                  withExporter: each
+						                  operationNamed: 'shutdown'
+						                  default: false
+						                  do: [ each shutdown ]) & allClosed ].
 			  self markShutdown.
 			  flushed & allShutdown ]
+]
+
+{ #category : 'private - error handling' }
+OTCompositeSpanExporter >> withExporter: anExporter operationNamed: anOperationName default: aDefaultValue do: aBlock [
+
+	^ [ aBlock value ]
+		  on: Error
+		  do: [ :error |
+				  OTSpanExporter noteSpanExporter: anExporter failedDuring: anOperationName error: error.
+				  aDefaultValue ]
 ]

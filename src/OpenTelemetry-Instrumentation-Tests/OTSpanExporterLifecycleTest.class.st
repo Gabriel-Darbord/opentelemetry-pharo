@@ -11,7 +11,63 @@ Class {
 { #category : 'running' }
 OTSpanExporterLifecycleTest >> tearDown [
 
-	[ OTBlockingShutdownSpanExporter allInstancesDo: [ :each | each allowShutdown ] ] ensure: [ super tearDown ]
+	[
+		OTSpanExporter warningSink: nil.
+		OTBlockingShutdownSpanExporter allInstancesDo: [ :each | each allowShutdown ] ] ensure: [ super tearDown ]
+]
+
+{ #category : 'tests' }
+OTSpanExporterLifecycleTest >> testCompositeExportContinuesAfterChildFailure [
+
+	self withExporterWarningsDo: [ :warnings |
+			| composite failingExporter succeedingExporter |
+			failingExporter := OTFailingSpanExporter failingOperations: { 'export' }.
+			succeedingExporter := OTRecordingSpanExporter new.
+			composite := OTCompositeSpanExporter withAll: {
+					             failingExporter.
+					             succeedingExporter }.
+			self deny: (composite export: #( first )).
+			self assert: succeedingExporter exportedBatches asArray equals: { #( first ) }.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span exporter operation failed during export for OTFailingSpanExporter: exporter failure' } ]
+]
+
+{ #category : 'tests' }
+OTSpanExporterLifecycleTest >> testCompositeForceFlushContinuesAfterChildFailure [
+
+	self withExporterWarningsDo: [ :warnings |
+			| composite failingExporter succeedingExporter |
+			failingExporter := OTFailingSpanExporter failingOperations: { 'forceFlush' }.
+			succeedingExporter := OTRecordingSpanExporter new.
+			composite := OTCompositeSpanExporter withAll: {
+					             failingExporter.
+					             succeedingExporter }.
+			self deny: composite forceFlush.
+			self assert: succeedingExporter forceFlushCount equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span exporter operation failed during forceFlush for OTFailingSpanExporter: exporter failure' } ]
+]
+
+{ #category : 'tests' }
+OTSpanExporterLifecycleTest >> testCompositeShutdownContinuesAfterChildFailure [
+
+	self withExporterWarningsDo: [ :warnings |
+			| composite failingExporter succeedingExporter |
+			failingExporter := OTFailingSpanExporter failingOperations: { 'forceFlush'. 'shutdown' }.
+			succeedingExporter := OTRecordingSpanExporter new.
+			composite := OTCompositeSpanExporter withAll: {
+					             failingExporter.
+					             succeedingExporter }.
+			self deny: composite shutdown.
+			self assert: composite isShutdown.
+			self assert: succeedingExporter forceFlushCount equals: 1.
+			self assert: succeedingExporter shutdownCount equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span exporter operation failed during forceFlush for OTFailingSpanExporter: exporter failure'.
+					'OpenTelemetry span exporter operation failed during shutdown for OTFailingSpanExporter: exporter failure' } ]
 ]
 
 { #category : 'tests' }
@@ -187,4 +243,13 @@ OTSpanExporterLifecycleTest >> testShutdownWaitsForInFlightExportBeforeCompletin
 	self assert: exportResult.
 	self assert: shutdownResult.
 	self assert: exporter isShutdown
+]
+
+{ #category : 'private' }
+OTSpanExporterLifecycleTest >> withExporterWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTSpanExporter warningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTSpanExporter warningSink: nil ]
 ]

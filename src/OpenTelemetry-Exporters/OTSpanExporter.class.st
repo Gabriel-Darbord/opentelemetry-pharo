@@ -239,6 +239,15 @@ OTSpanExporter class >> noteInvalidZipkinTimeoutEnvironmentValue: aString [
 ]
 
 { #category : 'private - logging' }
+OTSpanExporter class >> noteSpanExporter: anExporter failedDuring: anOperationName error: anError [
+
+	| message |
+	message := 'OpenTelemetry span exporter operation failed during ' , anOperationName , ' for ' , anExporter class name , ': '
+	           , anError messageText.
+	OTDiagnosticLogger current handleSuppressedError: anError message: message fallback: [ self warningSink value: message ]
+]
+
+{ #category : 'private - logging' }
 OTSpanExporter class >> noteTraceExporterNoneConflictIn: aString [
 
 	self warningSink value:
