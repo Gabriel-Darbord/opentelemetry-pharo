@@ -36,6 +36,18 @@ OTTraceStateTest >> testInvalidMutationLeavesTraceStateUnchanged [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testMutationAllowsThirtySecondEntryButRejectsThirtyThird [
+
+	| full traceState updated |
+	traceState := self traceStateWithEntryCount: 31.
+	updated := traceState withKey: 'newkey' value: 'value'.
+	full := updated withKey: 'otherkey' value: 'value'.
+	self deny: updated identicalTo: traceState.
+	self assert: updated allEntries size equals: 32.
+	self assert: full identicalTo: updated
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testMutationThatWouldExceedHeaderLengthLeavesTraceStateUnchanged [
 
 	| traceState updated |
@@ -85,6 +97,12 @@ OTTraceStateTest >> testParsingRejectsHeaderLongerThanMaximumLength [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testParsingRejectsHeaderWithMoreThanThirtyTwoMembers [
+
+	self assert: (self traceStateWithEntryCount: 33) equals: nil
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testParsingSkipsEmptyMembersAndAcceptsWhitespaceOnlyHeader [
 
 	| traceState emptyTraceState |
@@ -92,6 +110,21 @@ OTTraceStateTest >> testParsingSkipsEmptyMembersAndAcceptsWhitespaceOnlyHeader [
 	emptyTraceState := OTTraceState fromHeader: '   '.
 	self assert: traceState asHeaderValue equals: 'rojo=one,congo=two'.
 	self assert: emptyTraceState isEmpty
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testTenantAndSystemKeyLengthBoundaries [
+
+	| invalidSystemKey invalidTenantKey traceState updated validKey |
+	traceState := OTTraceState empty.
+	validKey := (String new: 241 withAll: $a) , '@' , (String new: 14 withAll: $b).
+	invalidTenantKey := (String new: 242 withAll: $a) , '@' , (String new: 14 withAll: $b).
+	invalidSystemKey := (String new: 241 withAll: $a) , '@' , (String new: 15 withAll: $b).
+	updated := traceState withKey: validKey value: 'value'.
+	self deny: updated identicalTo: traceState.
+	self assert: (updated valueAt: validKey) equals: 'value'.
+	self assert: (traceState withKey: invalidTenantKey value: 'value') identicalTo: traceState.
+	self assert: (traceState withKey: invalidSystemKey value: 'value') identicalTo: traceState
 ]
 
 { #category : 'tests' }
@@ -124,4 +157,28 @@ OTTraceStateTest >> testUpdateMovesExistingEntryToFront [
 	traceState := OTTraceState fromHeader: 'rojo=one,congo=two,tenant@system=three'.
 	updated := traceState withKey: 'congo' value: 'updated'.
 	self assert: updated asHeaderValue equals: 'congo=updated,rojo=one,tenant@system=three'
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testWithOtelValueRejectsEmptyOrMalformedSubkeysAndSubvalues [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'vendor=one,ot=rv:7fffffffffffff'.
+	self assert: (traceState withOtelValueAt: '1th' put: '8') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 'th-' put: '8') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 'th' put: '') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 'th' put: 'bad:value') identicalTo: traceState
+]
+
+{ #category : 'private' }
+OTTraceStateTest >> traceStateWithEntryCount: anInteger [
+
+	^ OTTraceState fromHeader: (String streamContents: [ :stream |
+				   (1 to: anInteger) do: [ :index |
+						   index > 1 ifTrue: [ stream nextPut: $, ].
+						   stream
+							   nextPutAll: 'k';
+							   nextPutAll: index asString;
+							   nextPut: $=;
+							   nextPutAll: 'v' ] ])
 ]

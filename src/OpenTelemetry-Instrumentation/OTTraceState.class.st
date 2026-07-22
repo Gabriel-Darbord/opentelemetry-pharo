@@ -118,6 +118,7 @@ OTTraceState class >> isValidOtelSubvalue: aString [
 	| normalized |
 	normalized := self validationStringFrom: aString.
 	normalized ifNil: [ ^ false ].
+	normalized isEmpty ifTrue: [ ^ false ].
 	^ normalized allSatisfy: [ :each | each isDigit or: [ each isLetter or: [ '._-' includes: each ] ] ]
 ]
 
