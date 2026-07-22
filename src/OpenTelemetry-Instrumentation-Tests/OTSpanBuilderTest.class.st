@@ -188,6 +188,24 @@ OTSpanBuilderTest >> testEndedSpanIgnoresLateMutationsWhileKeepingStableContext 
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testEndedSpanRemainsActiveInCurrentContext [
+
+	| childSpan currentContext provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	span := tracer startSpanNamed: 'parent'.
+	currentContext := OTContext new withSpan: span.
+	OpenTelemetry useContext: currentContext during: [
+			span end.
+			self assert: OpenTelemetry currentSpan identicalTo: span.
+			self assert: OpenTelemetry currentContext identicalTo: currentContext.
+			childSpan := tracer startSpanNamed: 'child' ].
+	self assert: (childSpan asExportRecord at: #parentSpanContext) equals: span spanContext.
+	self assert: childSpan spanContext traceId equals: span spanContext traceId
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testEndingParentSpanDoesNotAffectChildSpan [
 
 	| childSpan parentSpan provider tracer |
@@ -1051,6 +1069,26 @@ OTSpanBuilderTest >> testStartTimestampReturnsBuilderForFluentConfiguration [
 	builder := tracer spanBuilderNamed: 'operation'.
 	requestedStartTime := DateAndTime unixEpoch + (Duration milliSeconds: 123).
 	self assert: (builder startTimestamp: requestedStartTime) identicalTo: builder
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testStartedChildSpanIsLocalEvenWithRemoteParent [
+
+	| parentContext provider span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	tracer := provider tracerNamed: 'demo.scope'.
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '03'
+			                  traceState: 'vendor=value'
+			                  remote: true) asNonRecordingSpan.
+	span := (tracer spanBuilderNamed: 'child')
+		        inContext: parentContext;
+		        startSpan.
+	self deny: span spanContext isRemote.
+	self assert: span parentSpanContext isRemote
 ]
 
 { #category : 'tests' }
