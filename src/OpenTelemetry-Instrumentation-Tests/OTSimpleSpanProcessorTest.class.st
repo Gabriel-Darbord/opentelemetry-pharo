@@ -95,6 +95,21 @@ OTSimpleSpanProcessorTest >> testForceFlushReturnsFalseWhileShutdownIsInProgress
 ]
 
 { #category : 'tests' }
+OTSimpleSpanProcessorTest >> testInvalidExporterConfigurationIsIgnoredAndWarned [
+
+	exporter := OTRecordingSpanExporter new.
+	processor := OTSimpleSpanProcessor new exporter: exporter.
+	self withConfigurationWarningsDo: [ :warnings |
+			processor exporter: 42.
+			self assert: processor exporter identicalTo: exporter.
+			self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+			self assert: exporter exportedBatches size equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor configuration was invalid and has been ignored for ''exporter:'': 42' } ]
+]
+
+{ #category : 'tests' }
 OTSimpleSpanProcessorTest >> testOnEndAcceptsRecordOnlySpanWithoutExporting [
 
 	| provider span tracer |
@@ -214,4 +229,13 @@ OTSimpleSpanProcessorTest >> waitUntil: aBlock timeoutMillis: anInteger [
 		Time millisecondClockValue >= deadline ]
 		whileFalse: [ (Delay forMilliseconds: 10) wait ].
 	self fail: 'Timed out waiting for simple span processor work'
+]
+
+{ #category : 'private' }
+OTSimpleSpanProcessorTest >> withConfigurationWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTSpanProcessor configurationWarningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTSpanProcessor configurationWarningSink: nil ]
 ]

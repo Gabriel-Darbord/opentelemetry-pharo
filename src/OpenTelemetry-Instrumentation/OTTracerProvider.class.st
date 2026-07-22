@@ -425,12 +425,12 @@ OTTracerProvider class >> normalizedTracerNameFrom: aValue [
 { #category : 'private' }
 OTTracerProvider class >> normalizedTracerScopeAttributesFrom: aCollection [
 
-	aCollection ifNil: [ ^ #() ].
+	aCollection ifNil: [ ^ #(  ) ].
 	^ [ OTAttributeNormalizer normalizeAttributes: aCollection ]
-		on: Error
-		do: [ :error |
-			self noteInvalidTracerScopeAttributes: aCollection error: error.
-			OrderedDictionary new ]
+		  on: Error
+		  do: [ :error |
+				  self noteInvalidTracerScopeAttributes: aCollection error: error.
+				  OrderedDictionary new ]
 ]
 
 { #category : 'private - logging' }
@@ -463,6 +463,14 @@ OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSample
 ]
 
 { #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidSpanProcessorConfiguration: aValue forOperation: anOperationName [
+
+	self spanProcessorWarningSink value:
+		'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for '
+		, anOperationName asString printString , ': ' , aValue printString
+]
+
+{ #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidTracerName: aValue [
 
 	self tracerNameWarningSink value:
@@ -474,11 +482,8 @@ OTTracerProvider class >> noteInvalidTracerName: aValue [
 OTTracerProvider class >> noteInvalidTracerScopeAttributes: aValue error: anError [
 
 	self tracerConfigurationWarningSink value:
-		'OpenTelemetry tracer scope attributes were invalid and have been ignored: '
-			, aValue printString
-			, ' ('
-			, anError messageText
-			, ')'
+		'OpenTelemetry tracer scope attributes were invalid and have been ignored: ' , aValue printString , ' (' , anError messageText
+		, ')'
 ]
 
 { #category : 'private - logging' }
@@ -1161,6 +1166,7 @@ OTTracerProvider class >> xrayRemoteSamplerForResource: anOTResource argument: a
 { #category : 'accessing' }
 OTTracerProvider >> addSpanProcessor: aSpanProcessor [
 
+	(self validatedSpanProcessorConfiguration: aSpanProcessor forOperation: 'addSpanProcessor:') ifNil: [ ^ self spanProcessors ].
 	stateLock critical: [
 			self ensureOpenLocked.
 			(self class spanProcessorsByProvider at: self ifAbsentPut: [ OrderedCollection new ]) add: aSpanProcessor ].
@@ -1303,6 +1309,20 @@ OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId
 		restoreContext: (baseContext withSpan: span);
 		restoreResource: self resource.
 	^ span
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> normalizedSpanProcessorsFrom: aCollection forOperation: anOperationName [
+
+	aCollection ifNil: [ ^ OrderedCollection new ].
+	(aCollection isCollection and: [ aCollection isString not ]) ifFalse: [
+			self class noteInvalidSpanProcessorConfiguration: aCollection forOperation: anOperationName.
+			^ nil ].
+	^ aCollection inject: OrderedCollection new into: [ :normalized :each |
+			  (each isKindOf: OTSpanProcessor)
+				  ifTrue: [ normalized add: each ]
+				  ifFalse: [ self class noteInvalidSpanProcessorConfiguration: each forOperation: anOperationName ].
+			  normalized ]
 ]
 
 { #category : 'processing' }
@@ -1478,6 +1498,7 @@ OTTracerProvider >> spanLimits: anOTSpanLimits [
 { #category : 'accessing' }
 OTTracerProvider >> spanProcessor: aSpanProcessor [
 
+	(self validatedSpanProcessorConfiguration: aSpanProcessor forOperation: 'spanProcessor:') ifNil: [ ^ self spanProcessors ].
 	self spanProcessors: { aSpanProcessor }.
 	^ aSpanProcessor
 ]
@@ -1494,7 +1515,8 @@ OTTracerProvider >> spanProcessors [
 OTTracerProvider >> spanProcessors: aCollection [
 
 	| nextProcessors previousProcessors removedProcessors |
-	nextProcessors := aCollection ifNil: [ OrderedCollection new ] ifNotNil: [ aCollection asOrderedCollection ].
+	nextProcessors := self normalizedSpanProcessorsFrom: aCollection forOperation: 'spanProcessors:'.
+	nextProcessors ifNil: [ ^ self spanProcessors ].
 	previousProcessors := stateLock critical: [
 			                      | previous |
 			                      self ensureOpenLocked.
@@ -1646,6 +1668,14 @@ OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSch
 			  (shutdownRequested = true or: [ shutdownCompleted = true ])
 				  ifTrue: [ OTNoopTracer forProvider: self instrumentationScope: scope ]
 				  ifFalse: [ tracers at: scope ifAbsentPut: [ self tracerForInstrumentationScope: scope ] ] ]
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName [
+
+	(aSpanProcessor isKindOf: OTSpanProcessor) ifTrue: [ ^ aSpanProcessor ].
+	self class noteInvalidSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName.
+	^ nil
 ]
 
 { #category : 'private - error handling' }

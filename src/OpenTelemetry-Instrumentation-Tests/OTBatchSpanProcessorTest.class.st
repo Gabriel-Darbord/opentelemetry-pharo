@@ -139,6 +139,40 @@ OTBatchSpanProcessorTest >> testForceFlushUsesExplicitExporterInsteadOfGlobalExp
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testInvalidRuntimeConfigurationValuesAreIgnoredAndWarned [
+
+	exporter := OTRecordingSpanExporter new.
+	processor := OTBatchSpanProcessor new exporter: exporter.
+	processor
+		batchSize: 1;
+		maxQueueSize: 4;
+		scheduledDelayMillis: 20;
+		exportTimeoutMillis: 25.
+	self withConfigurationWarningsDo: [ :warnings |
+			processor
+				batchSize: 0;
+				maxQueueSize: 'x';
+				scheduledDelayMillis: 'x';
+				exportTimeoutMillis: -1;
+				exporter: 42.
+			self assert: processor batchSize equals: 1.
+			self assert: processor maxQueueSize equals: 4.
+			self assert: processor scheduledDelayMillis equals: 20.
+			self assert: processor exportTimeoutMillis equals: 25.
+			self assert: processor exporter identicalTo: exporter.
+			self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+			self assert: processor forceFlush.
+			self assert: exporter exportedBatches size equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor configuration was invalid and has been ignored for ''batchSize:'': 0'.
+					'OpenTelemetry span processor configuration was invalid and has been ignored for ''maxQueueSize:'': ''x'''.
+					'OpenTelemetry span processor configuration was invalid and has been ignored for ''scheduledDelayMillis:'': ''x'''.
+					'OpenTelemetry span processor configuration was invalid and has been ignored for ''exportTimeoutMillis:'': -1'.
+					'OpenTelemetry span processor configuration was invalid and has been ignored for ''exporter:'': 42' } ]
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testOnEndAcceptsRecordOnlySpanWithoutExporting [
 
 	| provider span tracer |
@@ -293,4 +327,13 @@ OTBatchSpanProcessorTest >> waitUntil: aBlock timeoutMillis: anInteger [
 		Time millisecondClockValue >= deadline ]
 		whileFalse: [ (Delay forMilliseconds: 10) wait ].
 	self fail: 'Timed out waiting for background batch export'
+]
+
+{ #category : 'private' }
+OTBatchSpanProcessorTest >> withConfigurationWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTSpanProcessor configurationWarningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTSpanProcessor configurationWarningSink: nil ]
 ]

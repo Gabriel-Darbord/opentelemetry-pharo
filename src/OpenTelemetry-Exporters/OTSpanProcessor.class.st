@@ -104,6 +104,13 @@ OTSpanProcessor class >> beginShutdown: aProcessor [
 ]
 
 { #category : 'private - logging' }
+OTSpanProcessor class >> configurationWarningOwner [
+
+	self isAbstract ifTrue: [ ^ self ].
+	^ self superclass configurationWarningOwner
+]
+
+{ #category : 'private - logging' }
 OTSpanProcessor class >> configurationWarningSink [
 
 	^ OTClassStateStore
@@ -287,6 +294,14 @@ OTSpanProcessor class >> noteInvalidEnvironmentValue: aValue forVariable: aStrin
 			, aValue printString
 ]
 
+{ #category : 'private - logging' }
+OTSpanProcessor class >> noteInvalidRuntimeConfigurationValue: aValue forOperation: anOperationName [
+
+	self configurationWarningSink value:
+		'OpenTelemetry span processor configuration was invalid and has been ignored for ' , anOperationName asString printString , ': '
+		, aValue printString
+]
+
 { #category : 'private' }
 OTSpanProcessor class >> positiveIntegerEnvironmentValueAt: aString default: aDefaultValue [
 
@@ -387,6 +402,12 @@ OTSpanProcessor >> componentProcessors [
 	^ { self }
 ]
 
+{ #category : 'private - logging' }
+OTSpanProcessor >> configurationWarningOwner [
+
+	^ self class configurationWarningOwner
+]
+
 { #category : 'processing' }
 OTSpanProcessor >> flush [
 	"Redefined by subclasses to terminate current span processing and forward to exporter."
@@ -449,4 +470,13 @@ OTSpanProcessor >> shutdown [
 	flushed := self forceFlush.
 	self markShutdown.
 	^ flushed
+]
+
+{ #category : 'private - configuration' }
+OTSpanProcessor >> validatedExporterConfiguration: aSpanExporter forOperation: anOperationName [
+
+	aSpanExporter ifNil: [ ^ nil ].
+	(aSpanExporter isKindOf: OTSpanExporter) ifTrue: [ ^ aSpanExporter ].
+	self configurationWarningOwner noteInvalidRuntimeConfigurationValue: aSpanExporter forOperation: anOperationName.
+	^ nil
 ]

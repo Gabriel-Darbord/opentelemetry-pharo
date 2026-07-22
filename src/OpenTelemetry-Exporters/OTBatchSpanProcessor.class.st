@@ -76,9 +76,10 @@ OTBatchSpanProcessor >> batchSize [
 { #category : 'accessing' }
 OTBatchSpanProcessor >> batchSize: anInteger [
 
-	anInteger >= 1 ifFalse: [
-		Error signal: 'Batch size must be superior or equal to 1' ].
-	batchSize := maxQueueSize ifNil: [ anInteger ] ifNotNil: [ anInteger min: maxQueueSize ]
+	| normalized |
+	normalized := self validatedRuntimeInteger: anInteger minimum: 1 forOperation: 'batchSize:'.
+	normalized ifNil: [ ^ batchSize ].
+	batchSize := maxQueueSize ifNil: [ normalized ] ifNotNil: [ normalized min: maxQueueSize ]
 ]
 
 { #category : 'private - processing' }
@@ -150,10 +151,11 @@ OTBatchSpanProcessor >> exportTimeoutMillis [
 { #category : 'accessing' }
 OTBatchSpanProcessor >> exportTimeoutMillis: anInteger [
 
-	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [
-		Error signal: 'Export timeout must be superior or equal to 0 millisecond' ].
-	self class exportTimeoutMillisByProcessor at: self put: anInteger.
-	^ anInteger
+	| normalized |
+	normalized := self validatedRuntimeInteger: anInteger minimum: 0 forOperation: 'exportTimeoutMillis:'.
+	normalized ifNil: [ ^ self exportTimeoutMillis ].
+	self class exportTimeoutMillisByProcessor at: self put: normalized.
+	^ normalized
 ]
 
 { #category : 'accessing' }
@@ -165,6 +167,10 @@ OTBatchSpanProcessor >> exporter [
 { #category : 'accessing' }
 OTBatchSpanProcessor >> exporter: aSpanExporter [
 
+	aSpanExporter ifNil: [
+			exporter := nil.
+			^ exporter ].
+	(self validatedExporterConfiguration: aSpanExporter forOperation: 'exporter:') ifNil: [ ^ exporter ].
 	exporter := aSpanExporter
 ]
 
@@ -236,9 +242,10 @@ OTBatchSpanProcessor >> maxQueueSize [
 { #category : 'accessing' }
 OTBatchSpanProcessor >> maxQueueSize: anInteger [
 
-	anInteger >= 1 ifFalse: [
-		Error signal: 'Max queue size must be superior or equal to 1' ].
-	maxQueueSize := anInteger.
+	| normalized |
+	normalized := self validatedRuntimeInteger: anInteger minimum: 1 forOperation: 'maxQueueSize:'.
+	normalized ifNil: [ ^ maxQueueSize ].
+	maxQueueSize := normalized.
 	batchSize ifNotNil: [ batchSize := batchSize min: maxQueueSize ]
 ]
 
@@ -339,10 +346,11 @@ OTBatchSpanProcessor >> scheduledDelayMillis [
 { #category : 'accessing' }
 OTBatchSpanProcessor >> scheduledDelayMillis: anInteger [
 
-	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [
-		Error signal: 'Scheduled delay must be superior or equal to 0 millisecond' ].
-	self class scheduledDelayMillisByProcessor at: self put: anInteger.
-	^ anInteger
+	| normalized |
+	normalized := self validatedRuntimeInteger: anInteger minimum: 0 forOperation: 'scheduledDelayMillis:'.
+	normalized ifNil: [ ^ self scheduledDelayMillis ].
+	self class scheduledDelayMillisByProcessor at: self put: normalized.
+	^ normalized
 ]
 
 { #category : 'processing' }
@@ -372,6 +380,14 @@ OTBatchSpanProcessor >> stopFlushProcess [
 OTBatchSpanProcessor >> synchronized: aBlock [
 
 	^ queueLock critical: aBlock
+]
+
+{ #category : 'private - configuration' }
+OTBatchSpanProcessor >> validatedRuntimeInteger: aValue minimum: aMinimum forOperation: anOperationName [
+
+	(aValue isInteger and: [ aValue >= aMinimum ]) ifTrue: [ ^ aValue ].
+	self configurationWarningOwner noteInvalidRuntimeConfigurationValue: aValue forOperation: anOperationName.
+	^ nil
 ]
 
 { #category : 'private - processing' }

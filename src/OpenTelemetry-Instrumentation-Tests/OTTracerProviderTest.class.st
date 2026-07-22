@@ -775,6 +775,36 @@ OTTracerProviderTest >> testInstrumenterUsesInjectedTracerProvider [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testInvalidSpanProcessorConfigurationIsIgnoredAndWarned [
+
+	| firstProcessor provider secondProcessor |
+	provider := OTTracerProvider new.
+	firstProcessor := OTRecordingSpanProcessor new.
+	secondProcessor := OTRecordingSpanProcessor new.
+	self withSpanProcessorWarningsDo: [ :warnings |
+			provider spanProcessor: firstProcessor.
+			provider addSpanProcessor: 42.
+			self assert: provider spanProcessors asArray equals: { firstProcessor }.
+			provider spanProcessor: nil.
+			self assert: provider spanProcessors asArray equals: { firstProcessor }.
+			provider spanProcessors: 42.
+			self assert: provider spanProcessors asArray equals: { firstProcessor }.
+			provider spanProcessors: {
+					secondProcessor.
+					42.
+					nil }.
+			self assert: provider spanProcessors asArray equals: { secondProcessor }.
+			self
+				assert: warnings asArray
+				equals:
+					{ 'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ''addSpanProcessor:'': 42'.
+					'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ''spanProcessor:'': nil'.
+					'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ''spanProcessors:'': 42'.
+					'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ''spanProcessors:'': 42'.
+					'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ''spanProcessors:'': nil' } ]
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testNonRecordingSpanSamplerCanExplicitlyClearParentTraceState [
 
 	| parentContext provider sampler span |
@@ -1538,6 +1568,33 @@ OTTracerProviderTest >> testTracerNamedEmptyStringReturnsWorkingTracerWithEmptyN
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testTracerNamedInvalidScopeAttributesReturnWorkingTracerWithWarning [
+
+	self withTracerConfigurationWarningsDo: [ :warnings |
+			| provider tracer |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			tracer := nil.
+			self
+				shouldnt: [
+						tracer := provider
+							          tracerNamed: 'demo.scope'
+							          version: 42
+							          schemaUrl: 7
+							          attributes: 42 ]
+				raise: Error.
+			self assert: tracer instrumentationName equals: 'demo.scope'.
+			self assert: tracer instrumentationVersion equals: '42'.
+			self assert: tracer schemaUrl equals: '7'.
+			self assert: tracer scopeAttributes isEmpty.
+			self assert: warnings size equals: 1.
+			self
+				assert: warnings first
+				equals:
+				'OpenTelemetry tracer scope attributes were invalid and have been ignored: 42 (OpenTelemetry attributes must be provided as a dictionary or a collection of associations)' ]
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testTracerNamedNilReturnsWorkingTracerWithEmptyNameAndWarning [
 
 	self
@@ -1563,31 +1620,6 @@ OTTracerProviderTest >> testTracerNamedWhitespaceOnlyStringNormalizesToEmptyName
 			tracer := provider tracerNamed: '   '.
 			self assert: tracer instrumentationName equals: ''.
 			self assert: warnings size equals: 1 ]
-]
-
-{ #category : 'tests' }
-OTTracerProviderTest >> testTracerNamedInvalidScopeAttributesReturnWorkingTracerWithWarning [
-
-	self withTracerConfigurationWarningsDo: [ :warnings |
-		| provider tracer |
-		provider := OTTracerProvider new.
-		provider spanProcessor: OTSimpleSpanProcessor new.
-		tracer := nil.
-		self
-			shouldnt: [
-				tracer := provider
-					          tracerNamed: 'demo.scope'
-					          version: 42
-					          schemaUrl: 7
-					          attributes: 42 ]
-			raise: Error.
-		self assert: tracer instrumentationName equals: 'demo.scope'.
-		self assert: tracer instrumentationVersion equals: '42'.
-		self assert: tracer schemaUrl equals: '7'.
-		self assert: tracer scopeAttributes isEmpty.
-		self assert: warnings size equals: 1.
-		self assert: warnings first equals:
-			'OpenTelemetry tracer scope attributes were invalid and have been ignored: 42 (OpenTelemetry attributes must be provided as a dictionary or a collection of associations)' ]
 ]
 
 { #category : 'tests' }

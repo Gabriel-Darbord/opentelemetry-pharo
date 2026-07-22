@@ -92,6 +92,31 @@ OTCompositeSpanProcessorTest >> testForceFlushReturnsFalseWhileShutdownIsInProgr
 ]
 
 { #category : 'tests' }
+OTCompositeSpanProcessorTest >> testInvalidProcessorConfigurationIsIgnoredAndWarned [
+
+	self withConfigurationWarningsDo: [ :warnings |
+			| composite invalidComposite processorOne processorTwo |
+			processorOne := OTRecordingSpanProcessor new.
+			processorTwo := OTRecordingSpanProcessor new.
+			invalidComposite := OTCompositeSpanProcessor withAll: 42.
+			self assert: invalidComposite componentProcessors isEmpty.
+			composite := OTCompositeSpanProcessor withAll: { processorOne }.
+			composite processors: 42.
+			self assert: composite componentProcessors asArray equals: { processorOne }.
+			composite processors: {
+					processorTwo.
+					42.
+					nil }.
+			self assert: composite componentProcessors asArray equals: { processorTwo }.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor configuration was invalid and has been ignored for ''processors:'': 42'.
+					'OpenTelemetry span processor configuration was invalid and has been ignored for ''processors:'': 42'.
+					'OpenTelemetry span processor configuration was invalid and has been ignored for ''processors:'': 42'.
+					'OpenTelemetry span processor configuration was invalid and has been ignored for ''processors:'': nil' } ]
+]
+
+{ #category : 'tests' }
 OTCompositeSpanProcessorTest >> testOnEndAfterShutdownIsIgnored [
 
 	| composite recordingProcessor |
@@ -247,6 +272,15 @@ OTCompositeSpanProcessorTest >> testShutdownContinuesAfterChildFailure [
 				assert: warnings asArray
 				equals: { 'OpenTelemetry span processor callback failed during forceFlush for OTFailingSpanProcessor: processor failure'.
 					'OpenTelemetry span processor callback failed during shutdown for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'private' }
+OTCompositeSpanProcessorTest >> withConfigurationWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTSpanProcessor configurationWarningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTSpanProcessor configurationWarningSink: nil ]
 ]
 
 { #category : 'private' }

@@ -44,6 +44,20 @@ OTCompositeSpanProcessor >> initialize [
 	processors := OrderedCollection new
 ]
 
+{ #category : 'private - configuration' }
+OTCompositeSpanProcessor >> normalizedProcessorsFrom: aCollection forOperation: anOperationName [
+
+	aCollection ifNil: [ ^ OrderedCollection new ].
+	(aCollection isCollection and: [ aCollection isString not ]) ifFalse: [
+			self configurationWarningOwner noteInvalidRuntimeConfigurationValue: aCollection forOperation: anOperationName.
+			^ nil ].
+	^ aCollection inject: OrderedCollection new into: [ :normalized :each |
+			  (each isKindOf: OTSpanProcessor)
+				  ifTrue: [ normalized add: each ]
+				  ifFalse: [ self configurationWarningOwner noteInvalidRuntimeConfigurationValue: each forOperation: anOperationName ].
+			  normalized ]
+]
+
 { #category : 'processing' }
 OTCompositeSpanProcessor >> onEnd: aSpan [
 
@@ -93,9 +107,10 @@ OTCompositeSpanProcessor >> processors [
 { #category : 'accessing' }
 OTCompositeSpanProcessor >> processors: aCollection [
 
-	processors := aCollection
-		ifNil: [ OrderedCollection new ]
-		ifNotNil: [ aCollection asOrderedCollection ]
+	| normalized |
+	normalized := self normalizedProcessorsFrom: aCollection forOperation: 'processors:'.
+	normalized ifNil: [ ^ processors ].
+	processors := normalized
 ]
 
 { #category : 'processing' }

@@ -21,6 +21,10 @@ OTSimpleSpanProcessor >> exporter [
 { #category : 'accessing' }
 OTSimpleSpanProcessor >> exporter: aSpanExporter [
 
+	aSpanExporter ifNil: [
+			exporter := nil.
+			^ exporter ].
+	(self validatedExporterConfiguration: aSpanExporter forOperation: 'exporter:') ifNil: [ ^ exporter ].
 	exporter := aSpanExporter
 ]
 
