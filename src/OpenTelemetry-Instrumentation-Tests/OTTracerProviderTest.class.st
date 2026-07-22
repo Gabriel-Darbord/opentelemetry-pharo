@@ -643,16 +643,14 @@ OTTracerProviderTest >> testExistingTracerUsesReplacementSpanProcessorWithoutRea
 { #category : 'tests' }
 OTTracerProviderTest >> testFailingTracerConfiguratorFallsBackToEnabledAndLogsWarning [
 
-	self
-		withTracerConfigurationWarningsDo: [ :warnings |
+	self withTracerConfigurationWarningsDo: [ :warnings |
 			| provider tracer |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
 			tracer := provider tracerNamed: 'demo.scope'.
 			provider tracerConfigurator: [ :scope | Error signal: 'boom' ].
 			self assert: tracer enabled.
-			self assert: warnings asArray equals:
-				{ 'OpenTelemetry tracer configuration callback failed during enabled: boom' } ]
+			self assert: warnings asArray equals: { 'OpenTelemetry tracer configuration callback failed during tracerConfig: boom' } ]
 ]
 
 { #category : 'tests' }
@@ -1567,19 +1565,45 @@ OTTracerProviderTest >> testTracerCachesByFullInstrumentationScope [
 ]
 
 { #category : 'tests' }
-OTTracerProviderTest >> testTracerConfiguratorCanUseSpanCreationArgumentsToDisableSpecificSpanNames [
+OTTracerProviderTest >> testTracerConfiguratorReturnsTracerConfigObjectsAndUpdatesOutstandingTracers [
 
-	| blockedSpan provider tracer unblockedSpan |
+	| disabledTracer enabledTracer provider |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
+	provider tracerConfigurator: [ :scope |
+			scope name = 'disabled.scope'
+				ifTrue: [ OTTracerConfig disabled ]
+				ifFalse: [ OTTracerConfig default ] ].
+	disabledTracer := provider tracerNamed: 'disabled.scope'.
+	enabledTracer := provider tracerNamed: 'enabled.scope'.
+	self deny: disabledTracer enabled.
+	self assert: enabledTracer enabled.
+	provider tracerConfigurator: [ :scope | OTTracerConfig disabled ].
+	self deny: disabledTracer enabled.
+	self deny: enabledTracer enabled
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testTracerConfiguratorRunsOnTracerCreationAndConfiguratorUpdate [
+
+	| calls provider tracer |
+	calls := OrderedCollection new.
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	provider tracerConfigurator: [ :scope |
+			calls add: scope name.
+			OTTracerConfig default ].
 	tracer := provider tracerNamed: 'demo.scope'.
-	provider tracerConfigurator: [ :scope :spanName :kind :context :attributes :links |
-		spanName = 'blocked' ifTrue: [ false ] ifFalse: [ nil ] ].
-	blockedSpan := (tracer spanBuilderNamed: 'blocked') startSpan.
-	unblockedSpan := (tracer spanBuilderNamed: 'allowed') startSpan.
-	self assert: blockedSpan class identicalTo: OTNonRecordingSpan.
-	self deny: blockedSpan spanContext isValid.
-	self assert: unblockedSpan isRecording
+	self assert: tracer enabled.
+	self assert: calls asArray equals: { 'demo.scope' }.
+	(tracer spanBuilderNamed: 'one') startSpan.
+	(tracer spanBuilderNamed: 'two') startSpan.
+	self assert: calls asArray equals: { 'demo.scope' }.
+	provider tracerConfigurator: [ :scope |
+			calls add: scope name , '/updated'.
+			OTTracerConfig disabled ].
+	self deny: tracer enabled.
+	self assert: calls asArray equals: { 'demo.scope'. 'demo.scope/updated' }
 ]
 
 { #category : 'tests' }

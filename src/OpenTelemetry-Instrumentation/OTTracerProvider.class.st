@@ -1198,6 +1198,15 @@ OTTracerProvider >> asTwoDigitLowercaseHex: anInteger [
 			nextPut: ('0123456789abcdef' at: (anInteger bitAnd: 16rF) + 1) ]
 ]
 
+{ #category : 'private - configuration' }
+OTTracerProvider >> configuredTracerForInstrumentationScope: anInstrumentationScope withConfigurator: aBlock [
+
+	| tracer |
+	tracer := self tracerForInstrumentationScope: anInstrumentationScope.
+	tracer tracerConfig: (self tracerConfigurationForInstrumentationScope: anInstrumentationScope withConfigurator: aBlock).
+	^ tracer
+]
+
 { #category : 'private - lifecycle' }
 OTTracerProvider >> ensureOpen [
 
@@ -1342,6 +1351,16 @@ OTTracerProvider >> normalizedSpanProcessorsFrom: aCollection forOperation: anOp
 			  normalized ]
 ]
 
+{ #category : 'private' }
+OTTracerProvider >> normalizedTracerScopeNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
+
+	^ OTInstrumentationScope
+		  named: (self class normalizedTracerNameFrom: aString)
+		  version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
+		  schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
+		  attributes: (self class normalizedTracerScopeAttributesFrom: aCollection)
+]
+
 { #category : 'processing' }
 OTTracerProvider >> processEndedSpan: aSpan [
 
@@ -1409,6 +1428,16 @@ OTTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope
 	aSpan ifNotNil: [ span restoreParent: aSpan ].
 	span restoreInstrumentationScope: anInstrumentationScope.
 	^ span
+]
+
+{ #category : 'private' }
+OTTracerProvider >> registeredTracerForScope: anInstrumentationScope [
+
+	| configurator |
+	configurator := self class tracerConfiguratorByProvider at: self ifAbsentPut: [ [ :tracerScope | nil ] ].
+	^ tracers
+		  at: anInstrumentationScope
+		  ifAbsentPut: [ self configuredTracerForInstrumentationScope: anInstrumentationScope withConfigurator: configurator ]
 ]
 
 { #category : 'accessing' }
@@ -1588,41 +1617,44 @@ OTTracerProvider >> traceFlagsForSamplingResult: aSamplingResult parentSpan: aSp
 { #category : 'private' }
 OTTracerProvider >> tracerConfigurationEnables: aTracer forSpanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
 
-	| configuredValue |
 	self isStopping ifTrue: [ ^ false ].
-	configuredValue := self
-		                   tracerConfigurationValueFor: aTracer
-		                   spanNamed: aString
-		                   kind: aSpanKind
-		                   inContext: aContext
-		                   attributes: someAttributes
-		                   links: someLinks.
-	^ configuredValue ifNil: [ true ] ifNotNil: [ configuredValue ]
+	^ (self
+		   tracerConfigurationValueFor: aTracer
+		   spanNamed: aString
+		   kind: aSpanKind
+		   inContext: aContext
+		   attributes: someAttributes
+		   links: someLinks) enabled
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> tracerConfigurationForInstrumentationScope: anInstrumentationScope [
+
+	^ self tracerConfigurationForInstrumentationScope: anInstrumentationScope withConfigurator: self tracerConfigurator
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> tracerConfigurationForInstrumentationScope: anInstrumentationScope withConfigurator: aBlock [
+
+	| arguments configuredValue |
+	arguments := aBlock numArgs = 0
+		             ifTrue: [ #(  ) ]
+		             ifFalse: [
+				             | blockArguments |
+				             blockArguments := Array new: aBlock numArgs withAll: nil.
+				             blockArguments at: 1 put: anInstrumentationScope.
+				             blockArguments ].
+	configuredValue := self withTracerConfigurationDefault: nil operationNamed: 'tracerConfig' do: [
+			                   aBlock numArgs = 0
+				                   ifTrue: [ aBlock value ]
+				                   ifFalse: [ aBlock valueWithArguments: arguments ] ].
+	^ self validatedTracerConfigurationResult: configuredValue instrumentationScope: anInstrumentationScope
 ]
 
 { #category : 'private - error handling' }
 OTTracerProvider >> tracerConfigurationValueFor: aTracer spanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
 
-	| arguments configuredValue |
-	arguments := {
-		aTracer instrumentationScope.
-		aString.
-		aSpanKind.
-		aContext.
-		someAttributes.
-		someLinks }.
-	configuredValue := self
-		withTracerConfigurationDefault: nil
-		operationNamed: 'enabled'
-		do: [
-			| configurator |
-			configurator := self tracerConfigurator.
-			configurator numArgs = 0
-				ifTrue: [ configurator value ]
-				ifFalse: [
-					configurator valueWithArguments:
-						(arguments copyFrom: 1 to: (configurator numArgs min: arguments size)) ] ].
-	^ configuredValue
+	^ aTracer tracerConfig
 ]
 
 { #category : 'accessing' }
@@ -1639,7 +1671,10 @@ OTTracerProvider >> tracerConfigurator: aBlock [
 	effectiveConfigurator ifNil: [ ^ self tracerConfigurator ].
 	stateLock critical: [
 			self ensureOpenLocked.
-			self class tracerConfiguratorByProvider at: self put: effectiveConfigurator ].
+			self class tracerConfiguratorByProvider at: self put: effectiveConfigurator.
+			tracers valuesDo: [ :each |
+					each tracerConfig:
+						(self tracerConfigurationForInstrumentationScope: each instrumentationScope withConfigurator: effectiveConfigurator) ] ].
 	^ self tracerConfigurator
 ]
 
@@ -1671,9 +1706,7 @@ OTTracerProvider >> tracerEnabled: aTracer forSpanNamed: aString kind: aSpanKind
 { #category : 'tracing' }
 OTTracerProvider >> tracerForInstrumentationScope: anInstrumentationScope [
 
-	^ OTTracer
-		forProvider: self
-		instrumentationScope: anInstrumentationScope
+	^ OTTracer forProvider: self instrumentationScope: anInstrumentationScope
 ]
 
 { #category : 'tracing' }
@@ -1686,15 +1719,15 @@ OTTracerProvider >> tracerNamed: aString [
 OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
 	| scope |
-	scope := OTInstrumentationScope
-		         named: (self class normalizedTracerNameFrom: aString)
-		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
-		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
-		         attributes: (self class normalizedTracerScopeAttributesFrom: aCollection).
+	scope := self
+		         normalizedTracerScopeNamed: aString
+		         version: aVersionString
+		         schemaUrl: aSchemaUrlString
+		         attributes: aCollection.
 	^ stateLock critical: [
 			  (shutdownRequested = true or: [ shutdownCompleted = true ])
 				  ifTrue: [ OTNoopTracer forProvider: self instrumentationScope: scope ]
-				  ifFalse: [ tracers at: scope ifAbsentPut: [ self tracerForInstrumentationScope: scope ] ] ]
+				  ifFalse: [ self registeredTracerForScope: scope ] ]
 ]
 
 { #category : 'private - configuration' }
@@ -1739,6 +1772,16 @@ OTTracerProvider >> validatedSpanProcessorConfiguration: aSpanProcessor forOpera
 	(aSpanProcessor isKindOf: OTSpanProcessor) ifTrue: [ ^ aSpanProcessor ].
 	self class noteInvalidSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName.
 	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedTracerConfigurationResult: aValue instrumentationScope: anInstrumentationScope [
+
+	aValue ifNil: [ ^ OTTracerConfig default ].
+	(aValue == true or: [ aValue == false ]) ifTrue: [ ^ OTTracerConfig enabled: aValue ].
+	(aValue isKindOf: OTTracerConfig) ifTrue: [ ^ aValue ].
+	self class noteInvalidTracerConfigurationValue: aValue forOperation: 'tracerConfigurator value'.
+	^ OTTracerConfig default
 ]
 
 { #category : 'private - configuration' }

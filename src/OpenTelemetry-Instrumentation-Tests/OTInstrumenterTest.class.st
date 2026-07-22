@@ -87,19 +87,21 @@ OTInstrumenterTest >> testShouldStartUnderFallsBackToTrueWhenSuppressionStrategy
 ]
 
 { #category : 'tests' }
-OTInstrumenterTest >> testShouldStartUnderUsesTracerEnablementForDerivedSpanName [
+OTInstrumenterTest >> testShouldStartUnderUsesTracerEnablementForInstrumentationScope [
 
 	| instrumenter provider |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
-	provider tracerConfigurator: [ :scope :spanName :kind :context :attributes :links |
-		spanName = 'blocked' ifTrue: [ false ] ifFalse: [ nil ] ].
+	provider tracerConfigurator: [ :scope |
+			scope name = 'demo.scope'
+				ifTrue: [ OTTracerConfig disabled ]
+				ifFalse: [ OTTracerConfig default ] ].
 	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
 	instrumenter
 		tracerProvider: provider;
 		spanNameExtractor: [ :request | request ].
 	self deny: (instrumenter shouldStartUnder: nil request: 'blocked').
-	self assert: (instrumenter shouldStartUnder: nil request: 'allowed')
+	self deny: (instrumenter shouldStartUnder: nil request: 'allowed')
 ]
 
 { #category : 'tests' }

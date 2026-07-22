@@ -7,7 +7,8 @@ Class {
 	#instVars : [
 		'provider',
 		'instrumentationName',
-		'instrumentationScope'
+		'instrumentationScope',
+		'tracerConfig'
 	],
 	#category : 'OpenTelemetry-Instrumentation',
 	#package : 'OpenTelemetry-Instrumentation'
@@ -35,25 +36,13 @@ OTTracer class >> forProvider: aTracerProvider instrumentationScope: anInstrumen
 { #category : 'tracing' }
 OTTracer >> enabled [
 
-	^ self
-		enabledForSpanNamed: nil
-		kind: nil
-		in: nil
-		attributes: #()
-		links: #()
+	^ provider ifNil: [ false ] ifNotNil: [ provider tracerEnabled: self ]
 ]
 
 { #category : 'tracing' }
 OTTracer >> enabledForSpanNamed: aString kind: aSpanKind in: aContext attributes: someAttributes links: someLinks [
 
-	^ provider ifNil: [ false ] ifNotNil: [
-			  provider
-				  tracerEnabled: self
-				  forSpanNamed: aString
-				  kind: aSpanKind
-				  inContext: aContext
-				  attributes: someAttributes
-				  links: someLinks ]
+	^ self enabled
 ]
 
 { #category : 'accessing' }
@@ -79,7 +68,12 @@ OTTracer >> instrumentationScope [
 OTTracer >> instrumentationScope: anInstrumentationScope [
 
 	| scope |
-	scope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ anInstrumentationScope ].
+	scope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [
+			         (anInstrumentationScope isKindOf: OTInstrumentationScope)
+				         ifTrue: [ anInstrumentationScope ]
+				         ifFalse: [
+						         OTSpan noteIgnoredInvalidArgument: anInstrumentationScope forOperation: 'OTTracer>>instrumentationScope:'.
+						         OTInstrumentationScope named: '' ] ].
 	instrumentationScope := scope.
 	instrumentationName := scope name.
 	^ scope
@@ -163,4 +157,18 @@ OTTracer >> startSpanNamed: aString kind: aSpanKind in: aContext [
 		kind: aSpanKind;
 		inContext: aContext.
 	^ builder startSpan
+]
+
+{ #category : 'accessing' }
+OTTracer >> tracerConfig [
+
+	tracerConfig ifNil: [ tracerConfig := OTTracerConfig default ].
+	^ tracerConfig
+]
+
+{ #category : 'accessing' }
+OTTracer >> tracerConfig: anOTTracerConfig [
+
+	tracerConfig := anOTTracerConfig ifNil: [ OTTracerConfig default ] ifNotNil: [ anOTTracerConfig ].
+	^ tracerConfig
 ]
