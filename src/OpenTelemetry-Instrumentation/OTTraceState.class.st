@@ -53,8 +53,18 @@ OTTraceState class >> fromOrderedEntries: anOrderedDictionary [
 OTTraceState class >> hasValidEntries: anOrderedDictionary [
 
 	anOrderedDictionary size <= 32 ifFalse: [ ^ false ].
-	^ anOrderedDictionary associations allSatisfy: [ :each |
-		(self isValidKey: each key) and: [ self isValidValue: each value ] ]
+	(self headerValueLengthOf: anOrderedDictionary) <= self maximumHeaderLength ifFalse: [ ^ false ].
+	^ anOrderedDictionary associations allSatisfy: [ :each | (self isValidKey: each key) and: [ self isValidValue: each value ] ]
+]
+
+{ #category : 'private' }
+OTTraceState class >> headerValueLengthOf: anOrderedDictionary [
+
+	| length |
+	length := 0.
+	anOrderedDictionary associationsDo: [ :each | length := length + each key size + 1 + each value size ].
+	anOrderedDictionary size > 1 ifTrue: [ length := length + anOrderedDictionary size - 1 ].
+	^ length
 ]
 
 { #category : 'private' }
@@ -147,6 +157,12 @@ OTTraceState class >> isValidValue: aString [
 	normalized size <= 256 ifFalse: [ ^ false ].
 	normalized last = Character space ifTrue: [ ^ false ].
 	^ normalized allSatisfy: [ :each | self isPrintableValueCharacter: each ]
+]
+
+{ #category : 'private' }
+OTTraceState class >> maximumHeaderLength [
+
+	^ 512
 ]
 
 { #category : 'instance creation' }
