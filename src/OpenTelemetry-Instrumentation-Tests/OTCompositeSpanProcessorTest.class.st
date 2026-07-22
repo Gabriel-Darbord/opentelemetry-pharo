@@ -21,7 +21,36 @@ OTCompositeSpanProcessorTest >> sampledSpanWithSuffix: anInteger [
 { #category : 'running' }
 OTCompositeSpanProcessorTest >> tearDown [
 
-	[ OTBlockingShutdownSpanProcessor allInstancesDo: [ :each | each allowShutdown ] ] ensure: [ super tearDown ]
+	[
+		OTBlockingForceFlushSpanExporter allInstancesDo: [ :each | each allowForceFlush ].
+		OTBlockingShutdownSpanProcessor allInstancesDo: [ :each | each allowShutdown ] ] ensure: [ super tearDown ]
+]
+
+{ #category : 'tests' }
+OTCompositeSpanProcessorTest >> testConcurrentForceFlushIsSafe [
+
+	| child exporter firstDone firstResult secondDone secondResult composite |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	child := OTSimpleSpanProcessor new exporter: exporter.
+	composite := OTCompositeSpanProcessor withAll: { child }.
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		firstResult := composite forceFlush.
+		firstDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200).
+	[
+		secondResult := composite forceFlush.
+		secondDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (secondDone waitTimeoutMilliseconds: 50).
+	exporter allowForceFlush.
+	self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200).
+	exporter allowForceFlush.
+	self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+	self assert: firstResult.
+	self assert: secondResult.
+	self assert: exporter forceFlushCount equals: 2
 ]
 
 { #category : 'tests' }

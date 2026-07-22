@@ -52,6 +52,32 @@ OTSpanExporterLifecycleTest >> testCompositeForceFlushContinuesAfterChildFailure
 ]
 
 { #category : 'tests' }
+OTSpanExporterLifecycleTest >> testCompositeForceFlushIsSafeUnderConcurrentCalls [
+
+	| child composite firstDone firstResult secondDone secondResult |
+	child := OTBlockingForceFlushSpanExporter new.
+	composite := OTCompositeSpanExporter withAll: { child }.
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		firstResult := composite forceFlush.
+		firstDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (child waitForForceFlushTimeoutMillis: 200).
+	[
+		secondResult := composite forceFlush.
+		secondDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (secondDone waitTimeoutMilliseconds: 50).
+	child allowForceFlush.
+	self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+	self assert: (child waitForForceFlushTimeoutMillis: 200).
+	child allowForceFlush.
+	self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+	self assert: firstResult.
+	self assert: secondResult.
+	self assert: child forceFlushCount equals: 2
+]
+
+{ #category : 'tests' }
 OTSpanExporterLifecycleTest >> testCompositeShutdownContinuesAfterChildFailure [
 
 	self withExporterWarningsDo: [ :warnings |
