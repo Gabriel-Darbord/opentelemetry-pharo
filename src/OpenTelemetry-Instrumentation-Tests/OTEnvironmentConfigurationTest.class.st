@@ -561,6 +561,21 @@ OTEnvironmentConfigurationTest >> testCurrentUsesMultipleConfiguredExportersWith
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentUsesNoLimitZipkinTimeoutFromEnvironment [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_TRACES_EXPORTER' put: 'zipkin';
+				 at: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT' put: '0';
+				 yourself)
+		during: [
+				| exporter |
+				exporter := OTSpanExporter current.
+				self assert: exporter class identicalTo: OTZipkinSpanExporter.
+				self assert: exporter httpClient timeout isNil ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentUsesNoopExporterWhenTraceExportIsDisabled [
 
 	self
@@ -740,6 +755,26 @@ OTEnvironmentConfigurationTest >> testCurrentWarnsWhenOtlpProtocolIsUnsupportedA
 			during: [
 				self assert: OTSpanExporter current class identicalTo: OTOtlpGrpcSpanExporter ].
 		self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTEnvironmentConfigurationTest >> testInvalidZipkinTimeoutFromEnvironmentFallsBackAndWarns [
+
+	self withExporterWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_TRACES_EXPORTER' put: 'zipkin';
+						 at: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT' put: '-1';
+						 yourself)
+				during: [
+						| exporter |
+						exporter := OTSpanExporter current.
+						self assert: exporter class identicalTo: OTZipkinSpanExporter.
+						self assert: exporter httpClient timeout equals: OTSpanExporter defaultZipkinTimeoutMillis ].
+			self
+				assert: warnings asArray
+				equals:
+				{ 'OpenTelemetry Zipkin exporter configuration was invalid and has been ignored for ''OTEL_EXPORTER_ZIPKIN_TIMEOUT'': ''-1''' } ]
 ]
 
 { #category : 'tests' }

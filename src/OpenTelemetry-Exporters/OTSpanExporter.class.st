@@ -63,14 +63,11 @@ OTSpanExporter class >> configuredOtlpExporter [
 { #category : 'instance creation' }
 OTSpanExporter class >> configuredZipkinExporter [
 
-	| endpoint exporter timeout |
+	| endpoint exporter |
 	exporter := self defaultZipkinExporter.
 	endpoint := self environmentValueAt: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT'.
 	endpoint ifNotNil: [ exporter httpClient url: endpoint ].
-	timeout := self
-		positiveIntegerEnvironmentValueAt: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT'
-		default: self defaultZipkinTimeoutMillis.
-	exporter httpClient timeout: timeout.
+	exporter httpClient timeout: self zipkinTimeoutFromEnvironmentOrNil.
 	^ exporter
 ]
 
@@ -234,6 +231,14 @@ OTSpanExporter class >> markShutdown: anExporter [
 ]
 
 { #category : 'private - logging' }
+OTSpanExporter class >> noteInvalidZipkinTimeoutEnvironmentValue: aString [
+
+	self warningSink value:
+		'OpenTelemetry Zipkin exporter configuration was invalid and has been ignored for ''OTEL_EXPORTER_ZIPKIN_TIMEOUT'': '
+		, aString printString
+]
+
+{ #category : 'private - logging' }
 OTSpanExporter class >> noteTraceExporterNoneConflictIn: aString [
 
 	self warningSink value:
@@ -306,6 +311,20 @@ OTSpanExporter class >> shutdown [
 ]
 
 { #category : 'private' }
+OTSpanExporter class >> strictNonNegativeIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value >= 0 ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private' }
 OTSpanExporter class >> strictPositiveIntegerFrom: aString [
 
 	| stream value |
@@ -341,6 +360,21 @@ OTSpanExporter class >> warningSink: aBlock [
 				forClass: self
 				put: aBlock ].
 	^ self warningSink
+]
+
+{ #category : 'private' }
+OTSpanExporter class >> zipkinTimeoutFromEnvironmentOrNil [
+
+	| parsed rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_ZIPKIN_TIMEOUT'.
+	rawValue ifNil: [ ^ self defaultZipkinTimeoutMillis ].
+	parsed := self strictNonNegativeIntegerFrom: rawValue.
+	parsed ifNil: [
+			self noteInvalidZipkinTimeoutEnvironmentValue: rawValue.
+			^ self defaultZipkinTimeoutMillis ].
+	^ parsed = 0
+		  ifTrue: [ nil ]
+		  ifFalse: [ parsed ]
 ]
 
 { #category : 'actions' }

@@ -2446,38 +2446,26 @@ OTConfigurationSource class >> stringValueAt: aKey in: aDictionary [
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> traceExporterFromNode: aDictionary [
 
-	| association endpoint exporter exporterOptions exporterType timeout |
-	aDictionary ifNil: [
-		Error signal: 'Declarative configuration processors require an exporter' ].
-	association := self
-		singleAssociationFrom: aDictionary
-		describedAs: 'exporter'.
+	| association endpoint exporter exporterOptions exporterType |
+	aDictionary ifNil: [ Error signal: 'Declarative configuration processors require an exporter' ].
+	association := self singleAssociationFrom: aDictionary describedAs: 'exporter'.
 	exporterType := association key.
 	exporterOptions := association value ifNil: [ OrderedDictionary new ].
 	exporterType = 'console' ifTrue: [ ^ OTConsoleSpanExporter new ].
 	exporterType = 'zipkin' ifTrue: [
-		exporter := OTSpanExporter defaultZipkinExporter.
-		endpoint := self stringValueAt: 'endpoint' in: exporterOptions.
-		endpoint ifNotNil: [ exporter httpClient url: endpoint ].
-		timeout := self
-			positiveIntegerValueAt: 'timeout'
-			in: exporterOptions
-			default: OTSpanExporter defaultZipkinTimeoutMillis.
-		exporter httpClient timeout: timeout.
-		^ exporter ].
+			exporter := OTSpanExporter defaultZipkinExporter.
+			endpoint := self stringValueAt: 'endpoint' in: exporterOptions.
+			endpoint ifNotNil: [ exporter httpClient url: endpoint ].
+			exporter httpClient timeout:
+				(self zipkinTimeoutMillisAt: 'timeout' in: exporterOptions default: OTSpanExporter defaultZipkinTimeoutMillis).
+			^ exporter ].
 	exporterType = 'otlp_grpc' ifTrue: [
-		^ OTOtlpGrpcSpanExporter
-			configuration: (self
-				otlpExporterConfigurationFrom: exporterOptions
-				signalNamed: 'TRACES'
-				protocol: 'grpc') ].
+			^ OTOtlpGrpcSpanExporter configuration:
+				  (self otlpExporterConfigurationFrom: exporterOptions signalNamed: 'TRACES' protocol: 'grpc') ].
 	exporterType = 'otlp_http' ifTrue: [
-		^ OTOtlpHttpProtobufSpanExporter
-			configuration: (self
-				otlpExporterConfigurationFrom: exporterOptions
-				signalNamed: 'TRACES'
-				protocol: 'http/protobuf') ].
-	Error signal: 'Unsupported declarative exporter type: ', exporterType printString
+			^ OTOtlpHttpProtobufSpanExporter configuration:
+				  (self otlpExporterConfigurationFrom: exporterOptions signalNamed: 'TRACES' protocol: 'http/protobuf') ].
+	Error signal: 'Unsupported declarative exporter type: ' , exporterType printString
 ]
 
 { #category : 'private - configuration file' }
@@ -2628,4 +2616,24 @@ OTConfigurationSource class >> wildcardPattern: aPattern matches: aString [
 OTConfigurationSource class >> wildcardPatterns: patterns match: aString [
 
 	^ patterns anySatisfy: [ :each | self wildcardPattern: each matches: aString ]
+]
+
+{ #category : 'private - configuration file' }
+OTConfigurationSource class >> zipkinTimeoutMillisAt: aKey in: aDictionary default: aDefaultValue [
+
+	| rawValue value |
+	aDictionary ifNil: [ ^ aDefaultValue ].
+	(aDictionary includesKey: aKey) ifFalse: [ ^ aDefaultValue ].
+	rawValue := aDictionary at: aKey.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	value := self integerValueAt: aKey in: aDictionary.
+	value ifNil: [
+			Error signal: 'Invalid Zipkin declarative configuration for ' , aKey printString , ': ' , rawValue printString
+				, '. Expected a non-negative integer timeout in milliseconds' ].
+	value >= 0 ifFalse: [
+			Error signal: 'Invalid Zipkin declarative configuration for ' , aKey printString , ': ' , rawValue printString
+				, '. Expected a non-negative integer timeout in milliseconds' ].
+	^ value = 0
+		  ifTrue: [ nil ]
+		  ifFalse: [ value ]
 ]

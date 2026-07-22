@@ -932,6 +932,25 @@ tracer_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsNegativeTimeoutForZipkinTraceExporter [
+
+	self
+		should: [
+				self
+					withConfigurationFileContents: 'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          zipkin:
+            timeout: -1
+'
+					environmentValues: Dictionary new
+					during: [ OTTracerProvider current spanProcessors ] ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsPeriodicPrometheusReader [
 
 	self
@@ -1467,6 +1486,26 @@ tracer_provider:
 				processor := OTTracerProvider current spanProcessors first.
 				self assert: processor exporter class identicalTo: OTOtlpGrpcSpanExporter.
 				self assert: processor exporter configuration timeoutMillis equals: OTOtlpExporterConfiguration noTimeoutMillis ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileSupportsNoLimitTimeoutForZipkinTraceExporter [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          zipkin:
+            timeout: 0
+'
+		environmentValues: Dictionary new
+		during: [
+				| processor |
+				processor := OTTracerProvider current spanProcessors first.
+				self assert: processor exporter class identicalTo: OTZipkinSpanExporter.
+				self assert: processor exporter httpClient timeout isNil ]
 ]
 
 { #category : 'tests' }
