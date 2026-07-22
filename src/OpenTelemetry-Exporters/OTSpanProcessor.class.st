@@ -397,6 +397,8 @@ OTSpanProcessor >> configurationWarningOwner [
 { #category : 'processing' }
 OTSpanProcessor >> flush [
 	"Redefined by subclasses to terminate current span processing and forward to exporter."
+
+	^ true
 ]
 
 { #category : 'processing' }
@@ -453,7 +455,7 @@ OTSpanProcessor >> shutdown [
 
 	| flushed |
 	self beginShutdown ifFalse: [ ^ false ].
-	flushed := self forceFlush.
+	flushed := self flush.
 	self markShutdown.
 	^ flushed
 ]
