@@ -95,6 +95,28 @@ OTSimpleSpanProcessorTest >> testForceFlushReturnsFalseWhileShutdownIsInProgress
 ]
 
 { #category : 'tests' }
+OTSimpleSpanProcessorTest >> testForceFlushWaitsForInFlightExportBeforeForwardingToExporter [
+
+	| flushDone flushResult |
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	flushDone := Semaphore new.
+	[ processor onEnd: (self sampledSpanWithSuffix: 1) ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	[
+		flushResult := processor forceFlush.
+		flushDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (flushDone waitTimeoutMilliseconds: 50).
+	exporter allowBlockedExport.
+	self assert: (flushDone waitTimeoutMilliseconds: 200) not.
+	self assert: flushResult.
+	self assert: exporter exportedBatches size equals: 1.
+	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
 OTSimpleSpanProcessorTest >> testInvalidExporterConfigurationIsIgnoredAndWarned [
 
 	exporter := OTRecordingSpanExporter new.
@@ -240,6 +262,30 @@ OTSimpleSpanProcessorTest >> testOnEndUsesExplicitExporterInsteadOfGlobalExporte
 	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: globalExporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
+OTSimpleSpanProcessorTest >> testShutdownWaitsForInFlightExportBeforeForceFlushAndShutdown [
+
+	| done shutdownResult |
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTSimpleSpanProcessor new.
+	done := Semaphore new.
+	[ processor onEnd: (self sampledSpanWithSuffix: 1) ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	[
+		shutdownResult := processor shutdown.
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (done waitTimeoutMilliseconds: 50).
+	exporter allowBlockedExport.
+	self assert: (done waitTimeoutMilliseconds: 200) not.
+	self assert: shutdownResult.
+	self assert: exporter exportedBatches size equals: 1.
+	self assert: exporter forceFlushCount equals: 1.
+	self assert: exporter shutdownCount equals: 1.
+	self assert: processor isShutdown
 ]
 
 { #category : 'private' }
