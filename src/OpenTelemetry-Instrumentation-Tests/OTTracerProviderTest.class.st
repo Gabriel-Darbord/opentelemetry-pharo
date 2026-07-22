@@ -41,6 +41,7 @@ OTTracerProviderTest >> tearDown [
 		OTDiagnosticLogger reset.
 		OTLifecycleObservingSpanProcessor resetRecordedLifecycle.
 		OTTracerProvider current: nil.
+		OTTracerProvider samplerConfigurationWarningSink: nil.
 		OTTracerProvider tracerConfigurationWarningSink: nil.
 		OTTracerProvider resourceConfigurationWarningSink: nil.
 		OTTracerProvider resourceDetectors: nil.
@@ -1405,6 +1406,23 @@ OTTracerProviderTest >> testReplacingSamplerShutsDownPreviousLifecycleManagedSam
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testReplacingSamplerSuppressesShutdownFailureAndUsesReplacement [
+
+	self withSamplerConfigurationWarningsDo: [ :warnings |
+			| failingSampler provider replacementSampler |
+			provider := OTTracerProvider new.
+			provider spanProcessor: OTSimpleSpanProcessor new.
+			failingSampler := OTFailingSampler failingOperations: { 'shutdown' }.
+			replacementSampler := OTAlwaysOffSampler new.
+			provider sampler: failingSampler.
+			provider sampler: replacementSampler.
+			self assert: provider sampler identicalTo: replacementSampler.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry sampler callback failed during shutdown for OTFailingSampler: sampler failure' } ]
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testReplacingSpanProcessorsShutsDownRemovedProcessors [
 
 	| firstProcessor provider retainedProcessor secondProcessor span tracer |
@@ -1566,6 +1584,25 @@ OTTracerProviderTest >> testShutdownSuppressesProcessorErrorsAndContinues [
 		self assert: succeedingProcessor shutdownCount equals: 1.
 		self assert: warnings asArray equals: {
 			'OpenTelemetry span processor callback failed during shutdown for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testShutdownSuppressesSamplerFailureAndContinuesToProcessorShutdown [
+
+	self withSamplerConfigurationWarningsDo: [ :warnings |
+			| failingSampler processor provider |
+			provider := OTTracerProvider new.
+			processor := OTFailingSpanProcessor new.
+			failingSampler := OTFailingSampler failingOperations: { 'shutdown' }.
+			provider
+				spanProcessor: processor;
+				sampler: failingSampler.
+			self deny: provider shutdown.
+			self assert: provider isShutdown.
+			self assert: processor shutdownCount equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry sampler callback failed during shutdown for OTFailingSampler: sampler failure' } ]
 ]
 
 { #category : 'tests' }
@@ -2008,6 +2045,15 @@ OTTracerProviderTest >> withResourceConfigurationWarningsDo: aBlock [
 	[
 		^ aBlock value: warnings ]
 		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
+]
+
+{ #category : 'private' }
+OTTracerProviderTest >> withSamplerConfigurationWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTTracerProvider samplerConfigurationWarningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTTracerProvider samplerConfigurationWarningSink: nil ]
 ]
 
 { #category : 'private' }
