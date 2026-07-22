@@ -454,6 +454,12 @@ OTSpanExporter >> markShutdown [
 	self
 ]
 
+{ #category : 'processing' }
+OTSpanExporter >> prefersSimpleSpanProcessor [
+
+	^ false
+]
+
 { #category : 'exporting' }
 OTSpanExporter >> shutdown [
 

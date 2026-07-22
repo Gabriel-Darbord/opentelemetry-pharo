@@ -14,6 +14,12 @@ OTOtlpStdoutSpanExporter >> outputStream [
 	^ Stdio stdout
 ]
 
+{ #category : 'processing' }
+OTOtlpStdoutSpanExporter >> prefersSimpleSpanProcessor [
+
+	^ true
+]
+
 { #category : 'private' }
 OTOtlpStdoutSpanExporter >> writeJsonLine: aString [
 

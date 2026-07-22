@@ -315,9 +315,10 @@ Or let the library read environment configuration:
 
 `OTEL_TRACES_EXPORTER` defaults to `otlp`. This implementation also accepts a
 comma-separated list of exporters and installs exporter-specific processors for
-each configured exporter. Console export uses `OTSimpleSpanProcessor`; the
-other built-in exporters use `OTBatchSpanProcessor`. `OTEL_TRACES_EXPORTER=logging`
-is accepted as the deprecated console-exporter alias.
+each configured exporter. Console export and `otlp/stdout` use
+`OTSimpleSpanProcessor`; the other built-in exporters use
+`OTBatchSpanProcessor`. `OTEL_TRACES_EXPORTER=logging` is accepted as the
+deprecated console-exporter alias.
 
 For OTLP/gRPC, `OTOtlpExporterConfiguration` accepts both full `http(s)` URLs
 and bare `host[:port]` authorities. Bare authorities default to a secure

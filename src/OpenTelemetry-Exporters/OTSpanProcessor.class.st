@@ -304,8 +304,7 @@ OTSpanProcessor class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 { #category : 'instance creation' }
 OTSpanProcessor class >> processorForExporter: anExporter [
 
-	anExporter class == OTConsoleSpanExporter ifTrue: [
-		^ OTSimpleSpanProcessor new exporter: anExporter ].
+	anExporter prefersSimpleSpanProcessor ifTrue: [ ^ OTSimpleSpanProcessor new exporter: anExporter ].
 	^ self batchSpanProcessorWithExporter: anExporter
 ]
 

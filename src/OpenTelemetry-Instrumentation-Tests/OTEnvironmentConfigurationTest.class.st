@@ -643,17 +643,17 @@ OTEnvironmentConfigurationTest >> testCurrentUsesOtlpHttpProtobufExporterWhenUsi
 ]
 
 { #category : 'tests' }
-OTEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterAndBatchProcessorForOtlpStdoutSelection [
+OTEnvironmentConfigurationTest >> testCurrentUsesOtlpStdoutExporterAndSimpleProcessorForOtlpStdoutSelection [
 
 	self
 		withEnvironmentValues: (Dictionary new
-			at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout';
-			yourself)
+				 at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout';
+				 yourself)
 		during: [
-			self assert: OTSpanExporter current class identicalTo: OTOtlpStdoutSpanExporter.
-			self assert: OTSpanProcessor current class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first class identicalTo: OTBatchSpanProcessor.
-			self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpStdoutSpanExporter ]
+				self assert: OTSpanExporter current class identicalTo: OTOtlpStdoutSpanExporter.
+				self assert: OTSpanProcessor current class identicalTo: OTSimpleSpanProcessor.
+				self assert: OTTracerProvider current spanProcessors first class identicalTo: OTSimpleSpanProcessor.
+				self assert: OTTracerProvider current spanProcessors first exporter class identicalTo: OTOtlpStdoutSpanExporter ]
 ]
 
 { #category : 'tests' }

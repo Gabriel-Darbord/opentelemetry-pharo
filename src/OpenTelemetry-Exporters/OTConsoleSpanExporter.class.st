@@ -28,3 +28,9 @@ OTConsoleSpanExporter >> outputStream [
 
 	^ Stdio stdout
 ]
+
+{ #category : 'processing' }
+OTConsoleSpanExporter >> prefersSimpleSpanProcessor [
+
+	^ true
+]
