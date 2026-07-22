@@ -383,7 +383,8 @@ OTSpanExporter >> exportLock [
 { #category : 'exporting' }
 OTSpanExporter >> forceFlush [
 
-	^ stateLock critical: [ (shutdownRequested = true or: [ shutdownCompleted = true ]) not ]
+	self isShutdown ifTrue: [ ^ false ].
+	^ self withExportLockDo: [ self isShutdown not ]
 ]
 
 { #category : 'initialization' }
@@ -414,8 +415,9 @@ OTSpanExporter >> markShutdown [
 OTSpanExporter >> shutdown [
 
 	self beginShutdown ifFalse: [ ^ false ].
-	self markShutdown.
-	^ true
+	^ self withExportLockDo: [
+			  self markShutdown.
+			  true ]
 ]
 
 { #category : 'private - synchronization' }

@@ -108,3 +108,51 @@ OTSpanExporterLifecycleTest >> testForceFlushReturnsFalseWhileShutdownIsInProgre
 	self assert: (done waitTimeoutMilliseconds: 200) not.
 	self assert: shutdownResult
 ]
+
+{ #category : 'tests' }
+OTSpanExporterLifecycleTest >> testForceFlushWaitsForInFlightExportBeforeCompleting [
+
+	| exportDone exportResult flushDone flushResult |
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	exportDone := Semaphore new.
+	flushDone := Semaphore new.
+	[
+		exportResult := exporter export: #( first ).
+		exportDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	[
+		flushResult := exporter forceFlush.
+		flushDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (flushDone waitTimeoutMilliseconds: 50).
+	exporter allowBlockedExport.
+	self assert: (exportDone waitTimeoutMilliseconds: 200) not.
+	self assert: (flushDone waitTimeoutMilliseconds: 200) not.
+	self assert: exportResult.
+	self assert: flushResult
+]
+
+{ #category : 'tests' }
+OTSpanExporterLifecycleTest >> testShutdownWaitsForInFlightExportBeforeCompleting [
+
+	| exportDone exportResult shutdownDone shutdownResult |
+	exporter := OTBlockingSpanExporter new.
+	exporter allowExportsAfterShutdown: true.
+	exporter blockNextExport.
+	exportDone := Semaphore new.
+	shutdownDone := Semaphore new.
+	[
+		exportResult := exporter export: #( first ).
+		exportDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	[
+		shutdownResult := exporter shutdown.
+		shutdownDone signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (shutdownDone waitTimeoutMilliseconds: 50).
+	exporter allowBlockedExport.
+	self assert: (exportDone waitTimeoutMilliseconds: 200) not.
+	self assert: (shutdownDone waitTimeoutMilliseconds: 200) not.
+	self assert: exportResult.
+	self assert: shutdownResult.
+	self assert: exporter isShutdown
+]

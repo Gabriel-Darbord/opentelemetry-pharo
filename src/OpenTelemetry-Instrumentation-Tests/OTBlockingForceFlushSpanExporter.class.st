@@ -20,9 +20,14 @@ OTBlockingForceFlushSpanExporter >> allowForceFlush [
 OTBlockingForceFlushSpanExporter >> forceFlush [
 
 	self isShutdown ifTrue: [ ^ false ].
-	forceFlushEntered signal.
-	forceFlushRelease wait.
-	^ super forceFlush
+	^ self withExportLockDo: [
+			  self isShutdown
+				  ifTrue: [ false ]
+				  ifFalse: [
+						  forceFlushEntered signal.
+						  forceFlushRelease wait.
+						  forceFlushCount := self forceFlushCount + 1.
+						  true ] ]
 ]
 
 { #category : 'initialization' }

@@ -59,8 +59,12 @@ OTRecordingSpanExporter >> exportedBatches [
 OTRecordingSpanExporter >> forceFlush [
 
 	self isShutdown ifTrue: [ ^ false ].
-	forceFlushCount := self forceFlushCount + 1.
-	^ true
+	^ self withExportLockDo: [
+			  self isShutdown
+				  ifTrue: [ false ]
+				  ifFalse: [
+						  forceFlushCount := self forceFlushCount + 1.
+						  true ] ]
 ]
 
 { #category : 'accessing' }
@@ -73,9 +77,10 @@ OTRecordingSpanExporter >> forceFlushCount [
 OTRecordingSpanExporter >> shutdown [
 
 	self beginShutdown ifFalse: [ ^ false ].
-	shutdownCount := self shutdownCount + 1.
-	self markShutdown.
-	^ true
+	^ self withExportLockDo: [
+			  shutdownCount := self shutdownCount + 1.
+			  self markShutdown.
+			  true ]
 ]
 
 { #category : 'accessing' }

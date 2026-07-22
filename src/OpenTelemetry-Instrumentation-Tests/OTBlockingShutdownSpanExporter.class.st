@@ -28,11 +28,12 @@ OTBlockingShutdownSpanExporter >> initialize [
 OTBlockingShutdownSpanExporter >> shutdown [
 
 	self beginShutdown ifFalse: [ ^ false ].
-	shutdownEntered signal.
-	shutdownRelease wait.
-	shutdownCount := self shutdownCount + 1.
-	self markShutdown.
-	^ true
+	^ self withExportLockDo: [
+			  shutdownEntered signal.
+			  shutdownRelease wait.
+			  shutdownCount := self shutdownCount + 1.
+			  self markShutdown.
+			  true ]
 ]
 
 { #category : 'control' }
