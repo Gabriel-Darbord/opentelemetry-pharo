@@ -775,6 +775,28 @@ OTTracerProviderTest >> testInstrumenterUsesInjectedTracerProvider [
 ]
 
 { #category : 'tests' }
+OTTracerProviderTest >> testInvalidResourceConfigurationValueIsIgnoredAndWarned [
+
+	| exportRecord provider resource span tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	resource := OTResource attributes: {
+			            ('service.name' -> 'demo-service').
+			            ('deployment.environment.name' -> 'staging') }.
+	provider resource: resource.
+	self withResourceConfigurationWarningsDo: [ :warnings |
+			provider resource: 42.
+			self assert: provider resource identicalTo: resource.
+			tracer := provider tracerNamed: 'demo.scope'.
+			span := (tracer spanBuilderNamed: 'operation') startSpan.
+			exportRecord := span asExportRecord.
+			self assert: (exportRecord at: #resource) equals: resource.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry tracer provider resource configuration was invalid and has been ignored for ''resource:'': 42' } ]
+]
+
+{ #category : 'tests' }
 OTTracerProviderTest >> testInvalidSpanProcessorConfigurationIsIgnoredAndWarned [
 
 	| firstProcessor provider secondProcessor |
@@ -802,6 +824,43 @@ OTTracerProviderTest >> testInvalidSpanProcessorConfigurationIsIgnoredAndWarned 
 					'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ''spanProcessors:'': 42'.
 					'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ''spanProcessors:'': 42'.
 					'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ''spanProcessors:'': nil' } ]
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testInvalidTracerConfigurationValuesAreIgnoredAndWarned [
+
+	| idGenerator provider sampler span spanLimits tracer |
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	idGenerator := OTFixedIdGenerator traceIdHex: '00112233445566778899aabbccddeeff' spanIdHex: '1122334455667788' random: false.
+	sampler := OTAlwaysOffSampler new.
+	spanLimits := OTSpanLimits new.
+	spanLimits attributeCountLimit: 0.
+	provider
+		idGenerator: idGenerator;
+		sampler: sampler;
+		spanLimits: spanLimits;
+		tracerConfigurator: [ :scope | true ].
+	self withTracerConfigurationWarningsDo: [ :warnings |
+			provider
+				idGenerator: 42;
+				sampler: 42;
+				spanLimits: 42;
+				tracerConfigurator: 42.
+			self assert: provider idGenerator identicalTo: idGenerator.
+			self assert: provider sampler identicalTo: sampler.
+			self assert: provider spanLimits equals: spanLimits.
+			tracer := provider tracerNamed: 'demo.scope'.
+			self assert: tracer enabled.
+			span := (tracer spanBuilderNamed: 'operation') startSpan.
+			self assert: span class identicalTo: OTNonRecordingSpan.
+			self assert: span spanContext traceId equals: idGenerator generateTraceIdHex.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry tracer provider configuration was invalid and has been ignored for ''idGenerator:'': 42'.
+					'OpenTelemetry tracer provider configuration was invalid and has been ignored for ''sampler:'': 42'.
+					'OpenTelemetry tracer provider configuration was invalid and has been ignored for ''spanLimits:'': 42'.
+					'OpenTelemetry tracer provider configuration was invalid and has been ignored for ''tracerConfigurator:'': 42' } ]
 ]
 
 { #category : 'tests' }

@@ -453,6 +453,14 @@ OTTracerProvider class >> noteInvalidResourceAttributes: aValue error: anError [
 ]
 
 { #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidResourceConfigurationValue: aValue forOperation: anOperationName [
+
+	self resourceConfigurationWarningSink value:
+		'OpenTelemetry tracer provider resource configuration was invalid and has been ignored for '
+		, anOperationName asString printString , ': ' , aValue printString
+]
+
+{ #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSamplerName [
 
 	self samplerConfigurationWarningSink value:
@@ -468,6 +476,14 @@ OTTracerProvider class >> noteInvalidSpanProcessorConfiguration: aValue forOpera
 	self spanProcessorWarningSink value:
 		'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for '
 		, anOperationName asString printString , ': ' , aValue printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidTracerConfigurationValue: aValue forOperation: anOperationName [
+
+	self tracerConfigurationWarningSink value:
+		'OpenTelemetry tracer provider configuration was invalid and has been ignored for ' , anOperationName asString printString
+		, ': ' , aValue printString
 ]
 
 { #category : 'private - logging' }
@@ -1224,11 +1240,12 @@ OTTracerProvider >> idGenerator [
 { #category : 'accessing' }
 OTTracerProvider >> idGenerator: anIdGenerator [
 
+	| effectiveIdGenerator |
+	effectiveIdGenerator := self validatedIdGeneratorConfiguration: anIdGenerator forOperation: 'idGenerator:'.
+	effectiveIdGenerator ifNil: [ ^ self idGenerator ].
 	stateLock critical: [
 			self ensureOpenLocked.
-			self class idGeneratorByProvider
-				at: self
-				put: (anIdGenerator ifNil: [ self class defaultIdGenerator ] ifNotNil: [ anIdGenerator ]) ].
+			self class idGeneratorByProvider at: self put: effectiveIdGenerator ].
 	^ self idGenerator
 ]
 
@@ -1403,9 +1420,12 @@ OTTracerProvider >> resource [
 { #category : 'accessing' }
 OTTracerProvider >> resource: anOTResource [
 
+	| effectiveResource |
+	effectiveResource := self validatedResourceConfiguration: anOTResource forOperation: 'resource:'.
+	effectiveResource ifNil: [ ^ self resource ].
 	stateLock critical: [
 			self ensureOpenLocked.
-			self class resourceByProvider at: self put: (anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ]) ].
+			self class resourceByProvider at: self put: effectiveResource ].
 	^ self resource
 ]
 
@@ -1419,7 +1439,8 @@ OTTracerProvider >> sampler [
 OTTracerProvider >> sampler: anOTSampler [
 
 	| effectiveSampler previousSampler |
-	effectiveSampler := anOTSampler ifNil: [ self class defaultSampler ] ifNotNil: [ anOTSampler ].
+	effectiveSampler := self validatedSamplerConfiguration: anOTSampler forOperation: 'sampler:'.
+	effectiveSampler ifNil: [ ^ self sampler ].
 	previousSampler := stateLock critical: [
 			                   | previous |
 			                   self ensureOpenLocked.
@@ -1489,9 +1510,12 @@ OTTracerProvider >> spanLimits [
 { #category : 'accessing' }
 OTTracerProvider >> spanLimits: anOTSpanLimits [
 
+	| effectiveSpanLimits |
+	effectiveSpanLimits := self validatedSpanLimitsConfiguration: anOTSpanLimits forOperation: 'spanLimits:'.
+	effectiveSpanLimits ifNil: [ ^ self spanLimits ].
 	stateLock critical: [
 			self ensureOpenLocked.
-			self class spanLimitsByProvider at: self put: (anOTSpanLimits ifNil: [ OTSpanLimits default ] ifNotNil: [ anOTSpanLimits ]) ].
+			self class spanLimitsByProvider at: self put: effectiveSpanLimits ].
 	^ self spanLimits
 ]
 
@@ -1610,9 +1634,12 @@ OTTracerProvider >> tracerConfigurator [
 { #category : 'accessing' }
 OTTracerProvider >> tracerConfigurator: aBlock [
 
+	| effectiveConfigurator |
+	effectiveConfigurator := self validatedTracerConfigurator: aBlock forOperation: 'tracerConfigurator:'.
+	effectiveConfigurator ifNil: [ ^ self tracerConfigurator ].
 	stateLock critical: [
 			self ensureOpenLocked.
-			self class tracerConfiguratorByProvider at: self put: (aBlock ifNil: [ [ :scope | nil ] ] ifNotNil: [ aBlock ]) ].
+			self class tracerConfiguratorByProvider at: self put: effectiveConfigurator ].
 	^ self tracerConfigurator
 ]
 
@@ -1671,10 +1698,55 @@ OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSch
 ]
 
 { #category : 'private - configuration' }
+OTTracerProvider >> validatedIdGeneratorConfiguration: anIdGenerator forOperation: anOperationName [
+
+	anIdGenerator ifNil: [ ^ self class defaultIdGenerator ].
+	(anIdGenerator isKindOf: OTIdGenerator) ifTrue: [ ^ anIdGenerator ].
+	self class noteInvalidTracerConfigurationValue: anIdGenerator forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedResourceConfiguration: anOTResource forOperation: anOperationName [
+
+	anOTResource ifNil: [ ^ OTResource empty ].
+	(anOTResource isKindOf: OTResource) ifTrue: [ ^ anOTResource ].
+	self class noteInvalidResourceConfigurationValue: anOTResource forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedSamplerConfiguration: anOTSampler forOperation: anOperationName [
+
+	anOTSampler ifNil: [ ^ self class defaultSampler ].
+	(anOTSampler isKindOf: OTSampler) ifTrue: [ ^ anOTSampler ].
+	self class noteInvalidTracerConfigurationValue: anOTSampler forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedSpanLimitsConfiguration: anOTSpanLimits forOperation: anOperationName [
+
+	anOTSpanLimits ifNil: [ ^ OTSpanLimits default ].
+	(anOTSpanLimits isKindOf: OTSpanLimits) ifTrue: [ ^ anOTSpanLimits ].
+	self class noteInvalidTracerConfigurationValue: anOTSpanLimits forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
 OTTracerProvider >> validatedSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName [
 
 	(aSpanProcessor isKindOf: OTSpanProcessor) ifTrue: [ ^ aSpanProcessor ].
 	self class noteInvalidSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedTracerConfigurator: aBlock forOperation: anOperationName [
+
+	aBlock ifNil: [ ^ [ :scope | nil ] ].
+	aBlock isBlock ifTrue: [ ^ aBlock ].
+	self class noteInvalidTracerConfigurationValue: aBlock forOperation: anOperationName.
 	^ nil
 ]
 
