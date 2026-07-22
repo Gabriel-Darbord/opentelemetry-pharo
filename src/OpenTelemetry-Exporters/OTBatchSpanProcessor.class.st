@@ -26,17 +26,7 @@ Class {
 { #category : 'private - configuration' }
 OTBatchSpanProcessor class >> exportTimeoutMillisByProcessor [
 
-	^ OTClassStateStore
-		valueAt: #otExportTimeoutMillisByProcessor
-		forClass: self
-		ifAbsent: [
-			| values |
-			values := WeakIdentityKeyDictionary new.
-			OTClassStateStore
-				valueAt: #otExportTimeoutMillisByProcessor
-				forClass: self
-				put: values.
-			values ]
+	^ OTClassStateStore valueAt: #otExportTimeoutMillisByProcessor forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
 ]
 
 { #category : 'class initialization' }
@@ -48,17 +38,7 @@ OTBatchSpanProcessor class >> initialize [
 { #category : 'private - configuration' }
 OTBatchSpanProcessor class >> scheduledDelayMillisByProcessor [
 
-	^ OTClassStateStore
-		valueAt: #otScheduledDelayMillisByProcessor
-		forClass: self
-		ifAbsent: [
-			| values |
-			values := WeakIdentityKeyDictionary new.
-			OTClassStateStore
-				valueAt: #otScheduledDelayMillisByProcessor
-				forClass: self
-				put: values.
-			values ]
+	^ OTClassStateStore valueAt: #otScheduledDelayMillisByProcessor forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
 ]
 
 { #category : 'system startup' }

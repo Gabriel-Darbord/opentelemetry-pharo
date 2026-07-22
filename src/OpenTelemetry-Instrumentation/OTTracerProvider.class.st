@@ -113,11 +113,7 @@ OTTracerProvider class >> currentImagePath [
 { #category : 'private' }
 OTTracerProvider class >> currentLock [
 
-	^ OTClassStateStore valueAt: #otCurrentLock forClass: self ifAbsent: [
-			  | lock |
-			  lock := Semaphore forMutualExclusion.
-			  OTClassStateStore valueAt: #otCurrentLock forClass: self put: lock.
-			  lock ]
+	^ OTClassStateStore valueAt: #otCurrentLock forClass: self ifAbsentPut: [ Semaphore forMutualExclusion ]
 ]
 
 { #category : 'instance creation' }

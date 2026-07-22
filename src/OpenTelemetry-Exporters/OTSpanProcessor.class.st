@@ -241,27 +241,13 @@ OTSpanProcessor class >> isStopping: aProcessor [
 { #category : 'private - lifecycle' }
 OTSpanProcessor class >> lifecycleStateByProcessor [
 
-	^ OTClassStateStore
-		valueAt: #otLifecycleStateByProcessor
-		forClass: self
-		ifAbsent: [
-			| states |
-			states := WeakIdentityKeyDictionary new.
-			OTClassStateStore
-				valueAt: #otLifecycleStateByProcessor
-				forClass: self
-				put: states.
-			states ]
+	^ OTClassStateStore valueAt: #otLifecycleStateByProcessor forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
 ]
 
 { #category : 'private - lifecycle' }
 OTSpanProcessor class >> lifecycleStateLock [
 
-	^ OTClassStateStore valueAt: #otLifecycleStateLock forClass: self ifAbsent: [
-			  | lock |
-			  lock := Semaphore forMutualExclusion.
-			  OTClassStateStore valueAt: #otLifecycleStateLock forClass: self put: lock.
-			  lock ]
+	^ OTClassStateStore valueAt: #otLifecycleStateLock forClass: self ifAbsentPut: [ Semaphore forMutualExclusion ]
 ]
 
 { #category : 'private - lifecycle' }

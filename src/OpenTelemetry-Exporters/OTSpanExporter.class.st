@@ -141,21 +141,13 @@ OTSpanExporter class >> exportLockFor: anExporter [
 { #category : 'private - synchronization' }
 OTSpanExporter class >> exportLockStateLock [
 
-	^ OTClassStateStore valueAt: #otExportLockStateLock forClass: self ifAbsent: [
-			  | lock |
-			  lock := Semaphore forMutualExclusion.
-			  OTClassStateStore valueAt: #otExportLockStateLock forClass: self put: lock.
-			  lock ]
+	^ OTClassStateStore valueAt: #otExportLockStateLock forClass: self ifAbsentPut: [ Semaphore forMutualExclusion ]
 ]
 
 { #category : 'private - synchronization' }
 OTSpanExporter class >> exportLocksByExporter [
 
-	^ OTClassStateStore valueAt: #otExportLocksByExporter forClass: self ifAbsent: [
-			  | locks |
-			  locks := WeakIdentityKeyDictionary new.
-			  OTClassStateStore valueAt: #otExportLocksByExporter forClass: self put: locks.
-			  locks ]
+	^ OTClassStateStore valueAt: #otExportLocksByExporter forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
 ]
 
 { #category : 'instance creation' }
@@ -231,17 +223,7 @@ OTSpanExporter class >> isShutdown: anExporter [
 { #category : 'private - lifecycle' }
 OTSpanExporter class >> lifecycleStateByExporter [
 
-	^ OTClassStateStore
-		valueAt: #otLifecycleStateByExporter
-		forClass: self
-		ifAbsent: [
-			| states |
-			states := WeakIdentityKeyDictionary new.
-			OTClassStateStore
-				valueAt: #otLifecycleStateByExporter
-				forClass: self
-				put: states.
-			states ]
+	^ OTClassStateStore valueAt: #otLifecycleStateByExporter forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
 ]
 
 { #category : 'private - lifecycle' }

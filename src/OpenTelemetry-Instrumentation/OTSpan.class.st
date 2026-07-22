@@ -133,17 +133,7 @@ OTSpan class >> currentContext: aContext [
 { #category : 'private' }
 OTSpan class >> currentContextsByProcess [
 
-	^ OTClassStateStore
-		valueAt: #otCurrentContextsByProcess
-		forClass: self
-		ifAbsent: [
-			| contexts |
-			contexts := WeakIdentityKeyDictionary new.
-			OTClassStateStore
-				valueAt: #otCurrentContextsByProcess
-				forClass: self
-				put: contexts.
-			contexts ]
+	^ OTClassStateStore valueAt: #otCurrentContextsByProcess forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
 ]
 
 { #category : 'private - logging' }
@@ -219,11 +209,7 @@ OTSpan class >> internal [
 { #category : 'private - logging' }
 OTSpan class >> limitWarningLock [
 
-	^ OTClassStateStore valueAt: #otLimitWarningLock forClass: self ifAbsent: [
-			  | lock |
-			  lock := Semaphore forMutualExclusion.
-			  OTClassStateStore valueAt: #otLimitWarningLock forClass: self put: lock.
-			  lock ]
+	^ OTClassStateStore valueAt: #otLimitWarningLock forClass: self ifAbsentPut: [ Semaphore forMutualExclusion ]
 ]
 
 { #category : 'private - logging' }
@@ -409,17 +395,7 @@ OTSpan class >> validateKind: aSpanKind [
 { #category : 'private - logging' }
 OTSpan class >> warnedSpans [
 
-	^ OTClassStateStore
-		valueAt: #otWarnedSpans
-		forClass: self
-		ifAbsent: [
-			| warned |
-			warned := WeakSet new.
-			OTClassStateStore
-				valueAt: #otWarnedSpans
-				forClass: self
-				put: warned.
-			warned ]
+	^ OTClassStateStore valueAt: #otWarnedSpans forClass: self ifAbsentPut: [ WeakSet new ]
 ]
 
 { #category : 'instance creation' }

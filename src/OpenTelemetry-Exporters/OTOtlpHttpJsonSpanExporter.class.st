@@ -64,11 +64,7 @@ OTOtlpHttpJsonSpanExporter class >> supportedProtocol [
 { #category : 'private - tls' }
 OTOtlpHttpJsonSpanExporter class >> tlsEnvironmentLock [
 
-	^ OTClassStateStore valueAt: #otTlsEnvironmentLock forClass: self ifAbsent: [
-			  | lock |
-			  lock := Semaphore forMutualExclusion.
-			  OTClassStateStore valueAt: #otTlsEnvironmentLock forClass: self put: lock.
-			  lock ]
+	^ OTClassStateStore valueAt: #otTlsEnvironmentLock forClass: self ifAbsentPut: [ Semaphore forMutualExclusion ]
 ]
 
 { #category : 'private - logging' }

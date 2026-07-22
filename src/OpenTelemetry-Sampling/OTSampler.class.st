@@ -38,11 +38,7 @@ OTSampler class >> compatibilityWarningSink: aBlock [
 { #category : 'private - logging' }
 OTSampler class >> compatibilityWarningStateLock [
 
-	^ OTClassStateStore valueAt: #otCompatibilityWarningStateLock forClass: self ifAbsent: [
-			  | lock |
-			  lock := Semaphore forMutualExclusion.
-			  OTClassStateStore valueAt: #otCompatibilityWarningStateLock forClass: self put: lock.
-			  lock ]
+	^ OTClassStateStore valueAt: #otCompatibilityWarningStateLock forClass: self ifAbsentPut: [ Semaphore forMutualExclusion ]
 ]
 
 { #category : 'instance creation' }
