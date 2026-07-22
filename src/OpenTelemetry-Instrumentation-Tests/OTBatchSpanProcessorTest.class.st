@@ -288,6 +288,28 @@ OTBatchSpanProcessorTest >> testScheduledDelayFlushesPendingBatch [
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testScheduledDelayRestartsAfterPreviousExportCompletes [
+
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 2;
+		scheduledDelayMillis: 80.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 2)).
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 3)).
+	exporter allowBlockedExport.
+	self waitUntil: [ exporter exportedBatches size = 1 ] timeoutMillis: 500.
+	(Delay forMilliseconds: 20) wait.
+	self assert: exporter exportedBatches size equals: 1.
+	self waitUntil: [ exporter exportedBatches size = 2 ] timeoutMillis: 500.
+	self assert: exporter exportedBatches second size equals: 1
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testShutdownFlushesPendingBatchAndShutsDownExporter [
 
 	exporter := OTRecordingSpanExporter new.
