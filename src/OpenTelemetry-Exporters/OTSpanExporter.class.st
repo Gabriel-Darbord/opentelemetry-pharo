@@ -133,6 +133,22 @@ OTSpanExporter class >> environmentValueAt: aString [
 ]
 
 { #category : 'private - synchronization' }
+OTSpanExporter class >> exportLockFor: anExporter [
+
+	^ self exportLockStateLock critical: [ self exportLocksByExporter at: anExporter ifAbsentPut: [ Semaphore forMutualExclusion ] ]
+]
+
+{ #category : 'private - synchronization' }
+OTSpanExporter class >> exportLockStateLock [
+
+	^ OTClassStateStore valueAt: #otExportLockStateLock forClass: self ifAbsent: [
+			  | lock |
+			  lock := Semaphore forMutualExclusion.
+			  OTClassStateStore valueAt: #otExportLockStateLock forClass: self put: lock.
+			  lock ]
+]
+
+{ #category : 'private - synchronization' }
 OTSpanExporter class >> exportLocksByExporter [
 
 	^ OTClassStateStore valueAt: #otExportLocksByExporter forClass: self ifAbsent: [
@@ -285,6 +301,8 @@ OTSpanExporter class >> reset [
 	<script>
 	self shutdown.
 	self resetLifecycleState.
+	OTClassStateStore removeValueAt: #otExportLocksByExporter forClass: self ifAbsent: [ ].
+	OTClassStateStore removeValueAt: #otExportLockStateLock forClass: self ifAbsent: [ ].
 	OTConfigurationSource reset.
 	Current := nil
 ]
@@ -377,7 +395,7 @@ OTSpanExporter >> export: spans [
 { #category : 'private - synchronization' }
 OTSpanExporter >> exportLock [
 
-	^ self class exportLocksByExporter at: self ifAbsentPut: [ Semaphore forMutualExclusion ]
+	^ self class exportLockFor: self
 ]
 
 { #category : 'exporting' }

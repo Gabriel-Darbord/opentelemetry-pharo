@@ -86,6 +86,38 @@ OTSpanExporterLifecycleTest >> testExportIsSerializedAcrossConcurrentCallsOnSame
 ]
 
 { #category : 'tests' }
+OTSpanExporterLifecycleTest >> testExportLockLookupIsSerializedOnFirstConcurrentAccess [
+
+	| firstDone firstLock secondDone secondLock store |
+	store := OTCoordinatedDictionary new.
+	exporter := OTRecordingSpanExporter new.
+	OTClassStateStore valueAt: #otExportLocksByExporter forClass: exporter class put: store.
+	OTClassStateStore removeValueAt: #otExportLockStateLock forClass: exporter class ifAbsent: [ ].
+	firstDone := Semaphore new.
+	secondDone := Semaphore new.
+	[
+		[
+			firstLock := exporter exportLock.
+			firstDone signal ] forkAt: Processor userBackgroundPriority.
+		self assert: (store waitForLookupTimeoutMillis: 200).
+		[
+			secondLock := exporter exportLock.
+			secondDone signal ] forkAt: Processor userBackgroundPriority.
+		self assert: (secondDone waitTimeoutMilliseconds: 50).
+		self deny: (store waitForLookupTimeoutMillis: 50).
+		store releaseLookup.
+		self assert: (firstDone waitTimeoutMilliseconds: 200) not.
+		self assert: (store waitForLookupTimeoutMillis: 200).
+		store releaseLookup.
+		self assert: (secondDone waitTimeoutMilliseconds: 200) not.
+		self assert: firstLock identicalTo: secondLock.
+		self assert: store lookupCount equals: 2 ] ensure: [
+			store releaseLookup.
+			store releaseLookup.
+			exporter class reset ]
+]
+
+{ #category : 'tests' }
 OTSpanExporterLifecycleTest >> testExportReturnsFalseAfterShutdown [
 
 	exporter := OTRecordingSpanExporter new.
