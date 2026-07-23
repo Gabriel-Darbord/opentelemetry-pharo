@@ -19,8 +19,6 @@ BaselineOfOpenTelemetry >> baseline: spec [
 { #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselineCommon: spec [
 
-	spec baseline: 'STONCustomizer' with: [ spec repository: 'github://jecisc/STONCustomizer:v1.x.x/src' ].
-
 	spec
 		package: 'OpenTelemetry-Instrumentation-MetaLink' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Instrumentation'
@@ -34,10 +32,7 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		package: 'OpenTelemetry-Metrics-Tests' with: [ spec requires: 'OpenTelemetry-Metrics' ];
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Matchers';
-		package: 'OpenTelemetry-Sampling' with: [ spec requires: 'OpenTelemetry-Exporters' ];
-		package: 'OpenTelemetry-Agents-SUnit' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Agents-Shout' with: [ spec requires: #( 'STONCustomizer' 'OpenTelemetry-Instrumentation' ) ];
-		package: 'OpenTelemetry-Agents-OpalCompiler' with: [ spec requires: 'OpenTelemetry-Instrumentation' ].
+		package: 'OpenTelemetry-Sampling' with: [ spec requires: 'OpenTelemetry-Exporters' ].
 
 	spec
 		group: 'traces' with: #( 'OpenTelemetry-Instrumentation' );
@@ -51,10 +46,7 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'core' with: #( 'instrumentation' 'logs' 'metrics' );
 		group: 'tests' with: #( 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
 		group: 'default' with: #( 'core' 'tests' );
-		group: 'all' with: #( 'default' 'SUnit' 'Shout' 'OpalCompiler' );
-		group: 'SUnit' with: #( 'OpenTelemetry-Agents-SUnit' );
-		group: 'Shout' with: #( 'OpenTelemetry-Agents-Shout' );
-		group: 'OpalCompiler' with: #( 'OpenTelemetry-Agents-OpalCompiler' )
+		group: 'all' with: #( 'default' )
 ]
 
 { #category : 'baselines' }

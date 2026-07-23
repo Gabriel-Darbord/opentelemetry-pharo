@@ -35,10 +35,6 @@ Start with:
   installing Pharo instrumentations, including MetaLink and MethodProxy
   backends
 
-### Examples
-
-See an [example instrumentation](https://github.com/Gabriel-Darbord/opentelemetry-pharo/tree/main/src/OpenTelemetry-Agents-Shout) that generates traces for [Shout](https://github.com/pharo-project/pharo/tree/1270cd5a5617ceb1d2bbc2c72c5d3ad1f44921d1/src/Shout).
-
 ## Contributing
 
 Contributions are welcome!

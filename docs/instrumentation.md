@@ -259,8 +259,5 @@ In practice, that means:
 
 See these packages for concrete examples:
 
-- `OpenTelemetry-Agents-Shout`
-- `OpenTelemetry-Agents-SUnit`
-- `OpenTelemetry-Agents-OpalCompiler`
 - `OpenTelemetry-Instrumentation-MetaLink-Tests`
 - `OpenTelemetry-Instrumentation-MethodProxy-Tests`
