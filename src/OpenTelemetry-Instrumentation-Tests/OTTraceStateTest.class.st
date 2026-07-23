@@ -69,6 +69,17 @@ OTTraceStateTest >> testOpenTelemetrySubkeyUpdatesPreserveExistingValues [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testOpenTelemetrySubkeyUpdatesSupportPublishedProbabilitySamplingExamples [
+
+	| traceState updated |
+	traceState := OTTraceState fromHeader: 'ot=rv:6e6d1a75832a2f'.
+	updated := traceState withOtelValueAt: 'th' put: 'c'.
+	self assert: (updated otelValueAt: 'rv') equals: '6e6d1a75832a2f'.
+	self assert: (updated otelValueAt: 'th') equals: 'c'.
+	self assert: updated asHeaderValue equals: 'ot=rv:6e6d1a75832a2f;th:c'
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testParsingAcceptsHeaderAtMaximumLength [
 
 	| header traceState |

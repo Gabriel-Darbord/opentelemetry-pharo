@@ -316,6 +316,33 @@ OTSamplerTest >> testProbabilitySamplerIgnoresParentSampledFlag [
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerMatchesPublishedQuarterSamplingExample [
+
+	| droppedResult sampledResult sampler |
+	sampler := OTSampler probability: 0.25.
+	sampledResult := sampler
+		                 shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:c0000000000000')
+		                 traceId: '00112233445566778899aabbccddeeff'
+		                 name: 'operation'
+		                 kind: OTSpan internal
+		                 attributes: #(  )
+		                 links: #(  ).
+	self assert: sampledResult isRecordAndSample.
+	self assert: (sampledResult traceState otelValueAt: 'rv') equals: 'c0000000000000'.
+	self assert: (sampledResult traceState otelValueAt: 'th') equals: 'c'.
+	droppedResult := sampler
+		                 shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:bfffffffffffff')
+		                 traceId: '00112233445566778899aabbccddeeff'
+		                 name: 'operation'
+		                 kind: OTSpan internal
+		                 attributes: #(  )
+		                 links: #(  ).
+	self assert: droppedResult isDrop.
+	self assert: (droppedResult traceState otelValueAt: 'rv') equals: 'bfffffffffffff'.
+	self assert: (droppedResult traceState otelValueAt: 'th') equals: nil
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
 
 	| result sampler |
