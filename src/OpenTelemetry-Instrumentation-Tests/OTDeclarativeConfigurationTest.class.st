@@ -1232,6 +1232,7 @@ tracer_provider:
 { #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileSupportsDevelopmentJaegerRemoteSamplerAlias [
 
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	self
 		withConfigurationFileContents:
 'file_format: "1.1"
@@ -1401,6 +1402,7 @@ meter_provider:
 { #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileSupportsJaegerRemoteSamplerWithStructuredInitialSampler [
 
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	self
 		withConfigurationFileContents:
 'file_format: "1.1"

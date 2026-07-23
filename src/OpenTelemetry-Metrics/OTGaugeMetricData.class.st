@@ -19,3 +19,25 @@ OTGaugeMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
 		writeEmbedded: [ :gauge |
 			anEncoder writeGauge: self on: gauge ]
 ]
+
+{ #category : 'prometheus' }
+OTGaugeMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
+
+	^ anEncoder prometheusGaugeLikeMetricTypeFor: self format: aFormatSymbol
+]
+
+{ #category : 'prometheus' }
+OTGaugeMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
+
+	^ anEncoder sampleSpecificationsForGauge: self type: aTypeSymbol format: aFormatSymbol
+]
+
+{ #category : 'prometheus' }
+OTGaugeMetricData >> writePrometheusWith: anEncoder type: aTypeSymbol format: aFormatSymbol on: aStream [
+
+	^ anEncoder
+		  writeGauge: self
+		  type: aTypeSymbol
+		  format: aFormatSymbol
+		  on: aStream
+]

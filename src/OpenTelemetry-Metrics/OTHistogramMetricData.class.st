@@ -43,3 +43,21 @@ OTHistogramMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
 		writeEmbedded: [ :histogram |
 			anEncoder writeHistogram: self on: histogram ]
 ]
+
+{ #category : 'prometheus' }
+OTHistogramMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
+
+	^ #histogram
+]
+
+{ #category : 'prometheus' }
+OTHistogramMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
+
+	^ anEncoder sampleSpecificationsForHistogram: self
+]
+
+{ #category : 'prometheus' }
+OTHistogramMetricData >> writePrometheusWith: anEncoder type: aTypeSymbol format: aFormatSymbol on: aStream [
+
+	^ anEncoder writeHistogram: self on: aStream
+]

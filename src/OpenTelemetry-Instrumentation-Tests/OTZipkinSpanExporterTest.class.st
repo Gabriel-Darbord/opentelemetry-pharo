@@ -12,7 +12,14 @@ Class {
 OTZipkinSpanExporterTest >> setUp [
 
 	super setUp.
+	OTSpanExporter current: OTNoopSpanExporter new.
 	exporter := OTZipkinSpanExporter new
+]
+
+{ #category : 'running' }
+OTZipkinSpanExporterTest >> tearDown [
+
+	[ OTSpanExporter current: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'private' }

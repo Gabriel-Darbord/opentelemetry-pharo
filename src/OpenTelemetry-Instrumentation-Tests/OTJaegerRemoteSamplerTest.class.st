@@ -115,6 +115,7 @@ OTJaegerRemoteSamplerTest >> samplingResultForOperationNamed: aString [
 OTJaegerRemoteSamplerTest >> setUp [
 
 	super setUp.
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	currentTime := 1000.
 	sampler := OTJaegerRemoteSampler serviceName: 'shopping-cart'.
 	sampler

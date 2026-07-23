@@ -21,13 +21,20 @@ OTOtlpGrpcSpanExporterTest >> assertReader: aReader readsField: aFieldNumber wir
 { #category : 'private' }
 OTOtlpGrpcSpanExporterTest >> clientFramesWrittenTo: aGRPCHTTP2MockStream [
 
-	| frames reader stream |
+	| frameReaderClass frames reader stream |
 	frames := OrderedCollection new.
-	reader := GRPCHTTP2FrameReader new.
+	frameReaderClass := self grpcClassNamed: #GRPCHTTP2FrameReader.
+	reader := frameReaderClass new.
 	stream := aGRPCHTTP2MockStream writtenBytes readStream.
 	reader readClientConnectionPrefaceFrom: stream.
 	[ stream atEnd ] whileFalse: [ frames add: (reader readNextFrameFrom: stream) ].
 	^ frames asArray
+]
+
+{ #category : 'private' }
+OTOtlpGrpcSpanExporterTest >> grpcClassNamed: aSymbol [
+
+	^ Smalltalk globals at: aSymbol
 ]
 
 { #category : 'private' }
@@ -56,10 +63,15 @@ OTOtlpGrpcSpanExporterTest >> sampleSpan [
 { #category : 'private' }
 OTOtlpGrpcSpanExporterTest >> serverBytesWithFrames: aBlock [
 
-	| writer |
-	writer := GRPCHTTP2FrameWriter new.
+	| settingsClass settingsFrameClass writer writerClass |
+	writerClass := self grpcClassNamed: #GRPCHTTP2FrameWriter.
+	settingsClass := self grpcClassNamed: #GRPCHTTP2Settings.
+	settingsFrameClass := self grpcClassNamed: #GRPCHTTP2SettingsFrame.
+	writer := writerClass new.
 	^ ByteArray streamContents: [ :stream |
-			  writer writeFrame: (GRPCHTTP2SettingsFrame settings: (GRPCHTTP2Settings withAssociation: 5 -> 32768)) on: stream.
+			  writer
+				  writeFrame: (settingsFrameClass settings: (settingsClass withAssociation: 5 -> 32768))
+				  on: stream.
 			  aBlock value: writer value: stream ]
 ]
 
@@ -67,6 +79,7 @@ OTOtlpGrpcSpanExporterTest >> serverBytesWithFrames: aBlock [
 OTOtlpGrpcSpanExporterTest >> setUp [
 
 	super setUp.
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	configuration := OTOtlpExporterConfiguration
 		forSignalNamed: 'TRACES'
 		relativePath: 'v1/traces'.
@@ -205,10 +218,15 @@ OTOtlpGrpcSpanExporterTest >> testExportReturnsFalseOnNonRetryableGrpcStatus [
 { #category : 'tests' }
 OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
 
-	| mockStream reader requestDataFrame requestHeadersFrame responseBytes resourceSpans serverBytes transport frames |
+	| dataFrameClass framerClass headersFrameClass mockStream mockStreamClass reader requestDataFrame requestHeadersFrame responseBytes resourceSpans serverBytes transport transportClass frames |
+	headersFrameClass := self grpcClassNamed: #GRPCHTTP2HeadersFrame.
+	dataFrameClass := self grpcClassNamed: #GRPCHTTP2DataFrame.
+	framerClass := self grpcClassNamed: #GRPCMessageFramer.
+	mockStreamClass := self grpcClassNamed: #GRPCHTTP2MockStream.
+	transportClass := self grpcClassNamed: #GRPCHTTP2Transport.
 	serverBytes := self serverBytesWithFrames: [ :writer :stream |
 			               writer
-				               writeFrame: (GRPCHTTP2HeadersFrame
+				               writeFrame: (headersFrameClass
 						                streamId: 1
 						                headers: {
 								                (':status' -> '200').
@@ -217,16 +235,16 @@ OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
 				               on: stream.
 			               writer
 				               writeFrame:
-				               (GRPCHTTP2DataFrame
+				               (dataFrameClass
 					                streamId: 1
-					                payload: (GRPCMessageFramer frameMessage: #[  ] compressed: false)
+					                payload: (framerClass frameMessage: #[  ] compressed: false)
 					                endStream: false)
 				               on: stream.
 			               writer
-				               writeFrame: (GRPCHTTP2HeadersFrame streamId: 1 headers: { ('grpc-status' -> '0') } endStream: true)
+				               writeFrame: (headersFrameClass streamId: 1 headers: { ('grpc-status' -> '0') } endStream: true)
 				               on: stream ].
-	mockStream := GRPCHTTP2MockStream readingBytes: serverBytes.
-	transport := GRPCHTTP2Transport new.
+	mockStream := mockStreamClass readingBytes: serverBytes.
+	transport := transportClass new.
 	transport streamFactory: [ :ignoredEndpoint | mockStream ].
 	exporter grpcTransport: transport.
 	self assert: (exporter export: { self sampleSpan }).
@@ -234,12 +252,12 @@ OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
 	self assert: frames size equals: 4.
 	requestHeadersFrame := frames third.
 	requestDataFrame := frames fourth.
-	self assert: requestHeadersFrame class equals: GRPCHTTP2HeadersFrame.
+	self assert: requestHeadersFrame class equals: headersFrameClass.
 	self assert: (requestHeadersFrame headers anySatisfy: [ :each |
 			 each = (':path' -> '/opentelemetry.proto.collector.trace.v1.TraceService/Export') ]).
 	self assert: (requestHeadersFrame headers anySatisfy: [ :each | each = ('content-type' -> 'application/grpc+proto') ]).
-	self assert: requestDataFrame class equals: GRPCHTTP2DataFrame.
-	responseBytes := (GRPCMessageFramer readSingleFrameFrom: requestDataFrame payload readStream) payload.
+	self assert: requestDataFrame class equals: dataFrameClass.
+	responseBytes := (framerClass readSingleFrameFrom: requestDataFrame payload readStream) payload.
 	reader := OTProtobufReader on: responseBytes.
 	self assertReader: reader readsField: 1 wireType: 2.
 	resourceSpans := reader readBytes.

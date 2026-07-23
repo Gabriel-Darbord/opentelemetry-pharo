@@ -50,6 +50,7 @@ OTOtlpGrpcLogRecordExporterTest >> sampleLogRecord [
 OTOtlpGrpcLogRecordExporterTest >> setUp [
 
 	super setUp.
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	configuration := OTOtlpExporterConfiguration
 		forSignalNamed: 'LOGS'
 		relativePath: 'v1/logs'.

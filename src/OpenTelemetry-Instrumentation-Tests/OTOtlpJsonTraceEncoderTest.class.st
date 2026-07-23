@@ -131,7 +131,14 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 OTOtlpJsonTraceEncoderTest >> setUp [
 
 	super setUp.
+	OTSpanExporter current: OTNoopSpanExporter new.
 	encoder := OTOtlpJsonTraceEncoder new
+]
+
+{ #category : 'running' }
+OTOtlpJsonTraceEncoderTest >> tearDown [
+
+	[ OTSpanExporter current: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }

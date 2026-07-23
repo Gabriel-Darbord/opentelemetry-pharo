@@ -3,7 +3,8 @@ Class {
 	#superclass : 'OTMethodProxyInstrumentation',
 	#classInstVars : [
 		'capturedSpan',
-		'suppressed'
+		'suppressed',
+		'currentContextToken'
 	],
 	#category : 'OpenTelemetry-Instrumentation-MethodProxy-Tests',
 	#package : 'OpenTelemetry-Instrumentation-MethodProxy-Tests'
@@ -13,6 +14,8 @@ Class {
 OTMethodProxySpanTestInstrumentation class >> afterAbortedExecutionWithReceiver: receiver arguments: arguments [
 
 	suppressed ifTrue: [ ^ suppressed := false ].
+	OpenTelemetry detachContext: currentContextToken.
+	currentContextToken := nil.
 	self finishCapturedSpanMarkingSuccess: false.
 	^ nil
 ]
@@ -21,6 +24,8 @@ OTMethodProxySpanTestInstrumentation class >> afterAbortedExecutionWithReceiver:
 OTMethodProxySpanTestInstrumentation class >> afterExecutionWithReceiver: receiver arguments: arguments returnValue: returnValue [
 
 	suppressed ifTrue: [ ^ suppressed := false ].
+	OpenTelemetry detachContext: currentContextToken.
+	currentContextToken := nil.
 	self finishCapturedSpanMarkingSuccess: true.
 	^ returnValue
 ]
@@ -32,9 +37,12 @@ OTMethodProxySpanTestInstrumentation class >> beforeExecutionWithReceiver: recei
 	request := thisContext sender method.
 	(suppressed := (instrumenter
 		                shouldStartUnder: OTSpan current
-		                request: request) not) ifTrue: [
+		                request: request) not) ifTrue: [ capturedSpan := OTSpan current.
 		^ capturedSpan attributeAt: 'suppressed' put: true ].
 	capturedSpan := instrumenter startRequest: request.
+	currentContextToken := OpenTelemetry
+		                       attachContext: (OpenTelemetry currentContext
+				                        withSpan: capturedSpan).
 	capturedSpan attributeAt: 'enter' put: #OK
 ]
 
@@ -61,7 +69,7 @@ OTMethodProxySpanTestInstrumentation class >> defineInstrumenter [
 
 	instrumenter := OTInstrumenter forInstrumentationNamed: 'test'.
 	instrumenter spanSuppressionStrategy: [ :span :kind |
-		span isNotNil and: [ span name includesSubstring: 'suppressed' ] ]
+		span isNotNil and: [ span isRecording ] ]
 ]
 
 { #category : 'private' }
@@ -69,7 +77,7 @@ OTMethodProxySpanTestInstrumentation class >> finishCapturedSpanMarkingSuccess: 
 
 	capturedSpan attributeAt: 'exit' put: #OK.
 	(aBoolean and: [ capturedSpan status = OTSpan unset ]) ifTrue: [
-		capturedSpan setOkStatus ].
+		capturedSpan setStatus: OTSpan ok ].
 	instrumenter end: capturedSpan
 ]
 
@@ -90,5 +98,6 @@ OTMethodProxySpanTestInstrumentation class >> reset [
 
 	super reset.
 	capturedSpan := nil.
-	suppressed := false
+	suppressed := false.
+	currentContextToken := nil
 ]

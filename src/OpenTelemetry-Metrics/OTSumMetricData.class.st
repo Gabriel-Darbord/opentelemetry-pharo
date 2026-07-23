@@ -57,3 +57,27 @@ OTSumMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
 		writeEmbedded: [ :sum |
 			anEncoder writeSum: self on: sum ]
 ]
+
+{ #category : 'prometheus' }
+OTSumMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
+
+	^ self monotonic
+		  ifTrue: [ #counter ]
+		  ifFalse: [ anEncoder prometheusGaugeLikeMetricTypeFor: self format: aFormatSymbol ]
+]
+
+{ #category : 'prometheus' }
+OTSumMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
+
+	^ anEncoder sampleSpecificationsForSum: self type: aTypeSymbol format: aFormatSymbol
+]
+
+{ #category : 'prometheus' }
+OTSumMetricData >> writePrometheusWith: anEncoder type: aTypeSymbol format: aFormatSymbol on: aStream [
+
+	^ anEncoder
+		  writeSum: self
+		  type: aTypeSymbol
+		  format: aFormatSymbol
+		  on: aStream
+]

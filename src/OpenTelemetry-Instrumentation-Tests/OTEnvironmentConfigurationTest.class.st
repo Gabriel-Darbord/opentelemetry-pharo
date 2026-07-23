@@ -171,6 +171,7 @@ OTEnvironmentConfigurationTest >> testCurrentLogsIgnoredSamplerArgumentForSample
 { #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentLogsInvalidJaegerRemoteSamplerArgumentAndUsesDefaults [
 
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	self
 		withSamplerWarningsDo: [ :warnings |
 			self
@@ -355,6 +356,7 @@ OTEnvironmentConfigurationTest >> testCurrentReadsConfiguredPropagatorsCaseInsen
 { #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsJaegerRemoteSamplerFromEnvironment [
 
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	self
 		withEnvironmentValues: (Dictionary new
 			at: 'OTEL_SERVICE_NAME' put: 'checkout-service';
@@ -377,6 +379,7 @@ OTEnvironmentConfigurationTest >> testCurrentReadsJaegerRemoteSamplerFromEnviron
 { #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentReadsParentBasedJaegerRemoteSamplerFromEnvironment [
 
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	self
 		withEnvironmentValues: (Dictionary new
 			at: 'OTEL_TRACES_SAMPLER' put: 'parentbased_jaeger_remote';

@@ -111,7 +111,14 @@ OTOtlpProtobufTraceEncoderTest >> scalarAnyValueFromBytes: aByteArray [
 OTOtlpProtobufTraceEncoderTest >> setUp [
 
 	super setUp.
+	OTSpanExporter current: OTNoopSpanExporter new.
 	encoder := OTOtlpProtobufTraceEncoder new
+]
+
+{ #category : 'running' }
+OTOtlpProtobufTraceEncoderTest >> tearDown [
+
+	[ OTSpanExporter current: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }

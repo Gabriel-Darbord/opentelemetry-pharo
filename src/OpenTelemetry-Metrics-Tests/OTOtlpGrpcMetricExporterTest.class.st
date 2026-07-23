@@ -55,6 +55,7 @@ OTOtlpGrpcMetricExporterTest >> sampleSnapshot [
 OTOtlpGrpcMetricExporterTest >> setUp [
 
 	super setUp.
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	configuration := OTOtlpExporterConfiguration
 		forSignalNamed: 'METRICS'
 		relativePath: 'v1/metrics'.

@@ -118,3 +118,21 @@ OTMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
 
 	self subclassResponsibility
 ]
+
+{ #category : 'prometheus' }
+OTMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
+
+	^ #drop
+]
+
+{ #category : 'prometheus' }
+OTMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
+
+	^ #(  )
+]
+
+{ #category : 'prometheus' }
+OTMetricData >> writePrometheusWith: anEncoder type: aTypeSymbol format: aFormatSymbol on: aStream [
+
+	self
+]

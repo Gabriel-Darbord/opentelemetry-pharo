@@ -14,6 +14,7 @@ Class {
 OTTinyLoggerBridgeTest >> setUp [
 
 	super setUp.
+	(Smalltalk globals includesKey: #TinyLogger) ifFalse: [ self skip ].
 	provider := OTLoggerProvider new.
 	exporter := OTRecordingLogRecordExporter new.
 	processor := OTSimpleLogRecordProcessor new exporter: exporter; yourself.
@@ -32,9 +33,10 @@ OTTinyLoggerBridgeTest >> tearDown [
 { #category : 'tests' }
 OTTinyLoggerBridgeTest >> testAsTinyLoggerBridgeIntegratesWithTinyLogger [
 
-	| logger tinyLogger |
+	| logger tinyLogger tinyLoggerClass |
 	logger := provider loggerNamed: 'spec.logs'.
-	tinyLogger := TinyLogger new.
+	tinyLoggerClass := Smalltalk globals at: #TinyLogger.
+	tinyLogger := tinyLoggerClass new.
 	tinyLogger addLogger: logger asTinyLoggerBridge.
 	tinyLogger record: 'hello from tiny logger'.
 	self assert: exporter exportedRecords size equals: 1.
