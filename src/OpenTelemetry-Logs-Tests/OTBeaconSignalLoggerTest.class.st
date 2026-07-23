@@ -57,10 +57,10 @@ OTBeaconSignalLoggerTest >> testBridgeCanCustomizeSeverityBodyAttributesAndEvent
 	bridge := logger asBeaconSignalLogger.
 	bridge
 		severityNumber: OTSeverity warn;
-		bodyBlock: [ :aSignal | aSignal target asUppercase ];
+		bodyBlock: [ :aSignal | aSignal message asUppercase ];
 		attributesBlock: [ :aSignal |
 				{
-					('beacon.signal.message' -> aSignal target).
+					('beacon.signal.message' -> aSignal message).
 					('beacon.signal.source' -> 'beacon') } ];
 		eventNameBlock: [ :aSignal | 'beacon.record' ].
 	bridge runFor: StringSignal during: [ StringSignal emit: 'warn me' ].

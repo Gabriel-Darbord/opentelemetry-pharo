@@ -31,13 +31,17 @@ OTDeclarativeConfigurationTest >> resetTelemetryConfiguration [
 OTDeclarativeConfigurationTest >> setUp [
 
 	super setUp.
+	OTGrpcTestSupport installFakeGrpcResolvers.
 	self resetTelemetryConfiguration
 ]
 
 { #category : 'running' }
 OTDeclarativeConfigurationTest >> tearDown [
 
-	[ self resetTelemetryConfiguration ] ensure: [ super tearDown ]
+	[
+		OTGrpcTestSupport removeFakeGrpcResolvers.
+		self resetTelemetryConfiguration.
+		OTJaegerRemoteSampler grpcDependencyResolver: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }

@@ -113,6 +113,7 @@ OTJaegerRemoteSamplerTest >> samplingResultForOperationNamed: aString [
 OTJaegerRemoteSamplerTest >> setUp [
 
 	super setUp.
+	OTGrpcTestSupport installFakeGrpcResolvers.
 	currentTime := 1000.
 	sampler := OTJaegerRemoteSampler serviceName: 'shopping-cart'.
 	sampler
@@ -125,7 +126,9 @@ OTJaegerRemoteSamplerTest >> setUp [
 { #category : 'running' }
 OTJaegerRemoteSamplerTest >> tearDown [
 
-	[ sampler ifNotNil: [ sampler shutdown ] ] ensure: [ super tearDown ]
+	[
+		OTGrpcTestSupport removeFakeGrpcResolvers.
+		sampler ifNotNil: [ sampler shutdown ] ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }

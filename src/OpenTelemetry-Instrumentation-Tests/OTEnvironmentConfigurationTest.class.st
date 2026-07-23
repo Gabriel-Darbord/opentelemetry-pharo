@@ -18,6 +18,7 @@ OTEnvironmentConfigurationTest >> setEnvironmentValue: aValue forKey: aKey [
 OTEnvironmentConfigurationTest >> setUp [
 
 	super setUp.
+	OTGrpcTestSupport installFakeGrpcResolvers.
 	OTTracerProvider current: nil.
 	OTSpanProcessor current: nil.
 	OTSpanExporter current: nil.
@@ -29,6 +30,7 @@ OTEnvironmentConfigurationTest >> setUp [
 OTEnvironmentConfigurationTest >> tearDown [
 
 	[
+		OTGrpcTestSupport removeFakeGrpcResolvers.
 		OpenTelemetry propagatorConfigurationWarningSink: nil.
 		OTTracerProvider current: nil.
 		OTTracerProvider resourceConfigurationWarningSink: nil.
@@ -39,7 +41,8 @@ OTEnvironmentConfigurationTest >> tearDown [
 		OTSpanExporter warningSink: nil.
 		OTSpanExporter current: nil.
 		OTTextMapPropagator reset.
-		OTSpan reset ] ensure: [ super tearDown ]
+		OTSpan reset.
+		OTJaegerRemoteSampler grpcDependencyResolver: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }

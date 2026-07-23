@@ -64,7 +64,28 @@ OTJaegerRemoteSampler class >> defaultTimeoutMillis [
 { #category : 'testing' }
 OTJaegerRemoteSampler class >> grpcDependenciesAvailable [
 
-	^ #( GRPCChannel GRPCEndpoint GRPCRequest GRPCHTTP2Transport ) allSatisfy: [ :each | Smalltalk globals includesKey: each ]
+	| resolver |
+	resolver := self grpcDependencyResolver.
+	^ #( GRPCChannel GRPCEndpoint GRPCRequest GRPCHTTP2Transport ) allSatisfy: [ :each |
+		  (resolver value: each) notNil ]
+]
+
+{ #category : 'private - grpc' }
+OTJaegerRemoteSampler class >> grpcDependencyResolver [
+
+	^ OTClassStateStore
+		  valueAt: #otGrpcDependencyResolver
+		  forClass: self
+		  ifAbsent: [ [ :symbol | Smalltalk globals at: symbol ifAbsent: [ nil ] ] ]
+]
+
+{ #category : 'private - grpc' }
+OTJaegerRemoteSampler class >> grpcDependencyResolver: aBlockOrNil [
+
+	aBlockOrNil
+		ifNil: [ OTClassStateStore removeValueAt: #otGrpcDependencyResolver forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otGrpcDependencyResolver forClass: self put: aBlockOrNil ].
+	^ self grpcDependencyResolver
 ]
 
 { #category : 'private' }
@@ -188,9 +209,11 @@ OTJaegerRemoteSampler >> grpcChannelClass [
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> grpcDependencyNamed: aSymbol [
 
-	^ Smalltalk globals
-		  at: aSymbol
-		  ifAbsent: [ Error signal: 'OTJaegerRemoteSampler requires grpc-pharo to be loaded (missing ' , aSymbol asString , ')' ]
+	| dependency |
+	dependency := self class grpcDependencyResolver value: aSymbol.
+	^ dependency
+		  ifNil: [ Error signal: 'OTJaegerRemoteSampler requires grpc-pharo to be loaded (missing ' , aSymbol asString , ')' ]
+		  ifNotNil: [ dependency ]
 ]
 
 { #category : 'private - grpc' }

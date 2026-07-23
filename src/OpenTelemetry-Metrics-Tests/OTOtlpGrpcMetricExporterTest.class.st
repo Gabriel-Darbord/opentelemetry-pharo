@@ -57,6 +57,7 @@ OTOtlpGrpcMetricExporterTest >> sampleSnapshot [
 OTOtlpGrpcMetricExporterTest >> setUp [
 
 	super setUp.
+	OTGrpcTestSupport installFakeGrpcResolvers.
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'METRICS' relativePath: 'v1/metrics'.
 	configuration
 		endpoint: 'http://collector:4317';
@@ -68,6 +69,12 @@ OTOtlpGrpcMetricExporterTest >> setUp [
 		compression: 'none';
 		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
 	exporter := OTOtlpGrpcMetricExporter configuration: configuration
+]
+
+{ #category : 'running' }
+OTOtlpGrpcMetricExporterTest >> tearDown [
+
+	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
 ]
 
 { #category : 'private' }

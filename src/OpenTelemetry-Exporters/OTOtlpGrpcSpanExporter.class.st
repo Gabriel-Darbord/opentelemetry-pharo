@@ -26,6 +26,24 @@ OTOtlpGrpcSpanExporter class >> supportedProtocol [
 ]
 
 { #category : 'private - grpc' }
+OTOtlpGrpcSpanExporter class >> grpcDependencyResolver [
+
+	^ OTClassStateStore
+		  valueAt: #otGrpcDependencyResolver
+		  forClass: OTOtlpGrpcSpanExporter
+		  ifAbsent: [ [ :symbol | Smalltalk globals at: symbol ifAbsent: [ nil ] ] ]
+]
+
+{ #category : 'private - grpc' }
+OTOtlpGrpcSpanExporter class >> grpcDependencyResolver: aBlockOrNil [
+
+	aBlockOrNil
+		ifNil: [ OTClassStateStore removeValueAt: #otGrpcDependencyResolver forClass: OTOtlpGrpcSpanExporter ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otGrpcDependencyResolver forClass: OTOtlpGrpcSpanExporter put: aBlockOrNil ].
+	^ self grpcDependencyResolver
+]
+
+{ #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter >> executeGrpcRequest: aRequest [
 
 	^ requestExecutor ifNil: [ self grpcChannel executeUnaryRequest: aRequest ] ifNotNil: [ requestExecutor value: aRequest ]
@@ -80,9 +98,11 @@ OTOtlpGrpcSpanExporter >> grpcChannelClass [
 { #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter >> grpcDependencyNamed: aSymbol [
 
-	^ Smalltalk globals
-		  at: aSymbol
-		  ifAbsent: [ Error signal: 'OTOtlpGrpcSpanExporter requires grpc-pharo to be loaded (missing ' , aSymbol asString , ')' ]
+	| dependency |
+	dependency := self class grpcDependencyResolver value: aSymbol.
+	^ dependency
+		  ifNil: [ Error signal: 'OTOtlpGrpcSpanExporter requires grpc-pharo to be loaded (missing ' , aSymbol asString , ')' ]
+		  ifNotNil: [ dependency ]
 ]
 
 { #category : 'private - grpc' }

@@ -51,6 +51,7 @@ OTOtlpGrpcLogRecordExporterTest >> sampleLogRecord [
 OTOtlpGrpcLogRecordExporterTest >> setUp [
 
 	super setUp.
+	OTGrpcTestSupport installFakeGrpcResolvers.
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'LOGS' relativePath: 'v1/logs'.
 	configuration
 		endpoint: 'http://collector:4317';
@@ -62,6 +63,12 @@ OTOtlpGrpcLogRecordExporterTest >> setUp [
 		compression: 'none';
 		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
 	exporter := OTOtlpGrpcLogRecordExporter configuration: configuration
+]
+
+{ #category : 'running' }
+OTOtlpGrpcLogRecordExporterTest >> tearDown [
+
+	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
 ]
 
 { #category : 'private' }

@@ -36,7 +36,7 @@ OTTinyLoggerBridgeTest >> testAsTinyLoggerBridgeIntegratesWithTinyLogger [
 
 	| logger tinyLogger |
 	logger := provider loggerNamed: 'spec.logs'.
-	tinyLogger := TinyLogger new.
+	tinyLogger := OTFakeTinyLoggerParent new.
 	tinyLogger addLogger: logger asTinyLoggerBridge.
 	tinyLogger record: 'hello from tiny logger'.
 	self assert: exporter exportedRecords size equals: 1.

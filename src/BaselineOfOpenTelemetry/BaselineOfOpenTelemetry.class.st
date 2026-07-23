@@ -25,9 +25,11 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Instrumentation-MetaLink' ) ];
 		package: 'OpenTelemetry-Instrumentation-Tests' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Logs' with: [ spec requires: #( 'OpenTelemetry-Exporters' 'OpenTelemetry-Instrumentation' ) ];
-		package: 'OpenTelemetry-Logs-Tests' with: [ spec requires: 'OpenTelemetry-Logs' ];
+		package: 'OpenTelemetry-Logs-Tests'
+		with: [ spec requires: #( 'OpenTelemetry-Logs' 'OpenTelemetry-Instrumentation-Tests' ) ];
 		package: 'OpenTelemetry-Metrics' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Metrics-Tests' with: [ spec requires: 'OpenTelemetry-Metrics' ];
+		package: 'OpenTelemetry-Metrics-Tests'
+		with: [ spec requires: #( 'OpenTelemetry-Metrics' 'OpenTelemetry-Instrumentation-Tests' ) ];
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Matchers';
 		package: 'OpenTelemetry-Sampling' with: [ spec requires: 'OpenTelemetry-Exporters' ].
