@@ -179,6 +179,35 @@ OTTraceState class >> newInternal [
 ]
 
 { #category : 'private' }
+OTTraceState class >> normalizedOtelSubvalueForKey: aKey value: aValue [
+
+	| normalized threshold |
+	normalized := self validationStringFrom: aValue.
+	normalized ifNil: [ ^ nil ].
+	aKey = 'th' ifTrue: [
+			threshold := OTConsistentProbability thresholdFromString: normalized.
+			threshold ifNil: [ ^ nil ].
+			^ OTConsistentProbability thresholdStringFor: threshold ].
+	aKey = 'rv' ifTrue: [
+			^ (OTConsistentProbability usesExplicitRandomness: normalized)
+				  ifTrue: [ normalized ]
+				  ifFalse: [ nil ] ].
+	^ (self isValidOtelSubvalue: normalized)
+		  ifTrue: [ normalized ]
+		  ifFalse: [ nil ]
+]
+
+{ #category : 'private' }
+OTTraceState class >> normalizedOtelValue: aString [
+
+	| entries |
+	entries := self otelEntriesFromValue: aString.
+	entries ifNil: [ ^ nil ].
+	entries isEmpty ifTrue: [ ^ '' ].
+	^ self otelValueFromEntries: entries
+]
+
+{ #category : 'private' }
 OTTraceState class >> otelEntriesFromValue: aString [
 
 	| entries |
@@ -207,14 +236,21 @@ OTTraceState class >> otelValueFromEntries: anOrderedDictionary [
 { #category : 'private' }
 OTTraceState class >> parseListMember: aString into: anOrderedDictionary [
 
-	| separator key value |
+	| separator key normalizedValue value |
 	separator := aString indexOf: $= ifAbsent: [ ^ false ].
 	separator = 1 ifTrue: [ ^ false ].
 	separator = aString size ifTrue: [ ^ false ].
 	(aString indexOf: $= startingAt: separator + 1 ifAbsent: [ 0 ]) > 0 ifTrue: [ ^ false ].
 	key := aString copyFrom: 1 to: separator - 1.
 	value := aString copyFrom: separator + 1 to: aString size.
-	((self isValidKey: key) and: [ self isValidValue: value ]) ifFalse: [ ^ false ].
+	(self isValidKey: key) ifFalse: [ ^ false ].
+	key = 'ot'
+		ifTrue: [
+				normalizedValue := self normalizedOtelValue: value.
+				normalizedValue ifNil: [ ^ true ].
+				normalizedValue ifEmpty: [ ^ true ].
+				value := normalizedValue ]
+		ifFalse: [ (self isValidValue: value) ifFalse: [ ^ false ] ].
 	(anOrderedDictionary includesKey: key) ifTrue: [ ^ false ].
 	anOrderedDictionary at: key put: value.
 	^ true
@@ -223,16 +259,18 @@ OTTraceState class >> parseListMember: aString into: anOrderedDictionary [
 { #category : 'private' }
 OTTraceState class >> parseOtelListMember: aString into: anOrderedDictionary [
 
-	| key separator value |
+	| key normalizedValue separator value |
 	separator := aString indexOf: $: ifAbsent: [ ^ false ].
 	separator = 1 ifTrue: [ ^ false ].
 	separator = aString size ifTrue: [ ^ false ].
 	(aString indexOf: $: startingAt: separator + 1 ifAbsent: [ 0 ]) > 0 ifTrue: [ ^ false ].
 	key := aString copyFrom: 1 to: separator - 1.
 	value := aString copyFrom: separator + 1 to: aString size.
-	((self isValidOtelSubkey: key) and: [ self isValidOtelSubvalue: value ]) ifFalse: [ ^ false ].
+	(self isValidOtelSubkey: key) ifFalse: [ ^ false ].
+	normalizedValue := self normalizedOtelSubvalueForKey: key value: value.
+	normalizedValue ifNil: [ ^ false ].
 	(anOrderedDictionary includesKey: key) ifTrue: [ ^ false ].
-	anOrderedDictionary at: key put: value.
+	anOrderedDictionary at: key put: normalizedValue.
 	^ true
 ]
 
@@ -371,13 +409,14 @@ OTTraceState >> withKey: aKey value: aValue [
 { #category : 'updating' }
 OTTraceState >> withOtelValueAt: aKey put: aValue [
 
-	| entries otValue |
+	| entries normalizedValue otValue |
 	entries := self otelEntries.
 	entries ifNil: [ ^ self ].
-	((self class isValidOtelSubkey: aKey) and: [ self class isValidOtelSubvalue: aValue ]) ifFalse: [
-		^ self ].
+	(self class isValidOtelSubkey: aKey) ifFalse: [ ^ self ].
+	normalizedValue := self class normalizedOtelSubvalueForKey: aKey value: aValue.
+	normalizedValue ifNil: [ ^ self ].
 	entries := entries copy.
-	entries at: aKey put: aValue.
+	entries at: aKey put: normalizedValue.
 	otValue := self class otelValueFromEntries: entries.
 	otValue size > 256 ifTrue: [ ^ self ].
 	^ self withKey: 'ot' value: otValue

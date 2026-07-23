@@ -91,6 +91,34 @@ OTTraceStateTest >> testParsingAcceptsHeaderAtMaximumLength [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testParsingCanonicalizesOpenTelemetryThresholdSubvalues [
+
+	| examples |
+	examples := {
+		            ('ot=th:10000000000000' -> 'ot=th:1').
+		            ('ot=th:1234500000000' -> 'ot=th:12345').
+		            ('ot=th:0' -> 'ot=th:0').
+		            ('ot=th:10000000000010' -> 'ot=th:1000000000001') }.
+	examples do: [ :each |
+			| traceState |
+			traceState := OTTraceState fromHeader: each key.
+			self assert: traceState notNil.
+			self assert: traceState asHeaderValue equals: each value ]
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testParsingDropsInvalidOpenTelemetryConcernButPreservesOtherEntries [
+
+	| onlyInvalid mixedInvalid |
+	onlyInvalid := OTTraceState fromHeader: 'ot=rv:1000000000000'.
+	mixedInvalid := OTTraceState fromHeader: 'vendor=one,ot=th:x,congo=two'.
+	self assert: onlyInvalid notNil.
+	self assert: onlyInvalid isEmpty.
+	self assert: mixedInvalid notNil.
+	self assert: mixedInvalid asHeaderValue equals: 'vendor=one,congo=two'
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testParsingRejectsDuplicateOrMalformedEntries [
 
 	self assert: (OTTraceState fromHeader: 'rojo=one,rojo=two') equals: nil.
@@ -171,6 +199,17 @@ OTTraceStateTest >> testUpdateMovesExistingEntryToFront [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testWithOtelValueCanonicalizesThresholdSubvalues [
+
+	| traceState updated |
+	traceState := OTTraceState fromHeader: 'ot=rv:6e6d1a75832a2f'.
+	updated := traceState withOtelValueAt: 'th' put: '10000000000010'.
+	self assert: (updated otelValueAt: 'rv') equals: '6e6d1a75832a2f'.
+	self assert: (updated otelValueAt: 'th') equals: '1000000000001'.
+	self assert: updated asHeaderValue equals: 'ot=rv:6e6d1a75832a2f;th:1000000000001'
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testWithOtelValueRejectsEmptyOrMalformedSubkeysAndSubvalues [
 
 	| traceState |
@@ -179,6 +218,15 @@ OTTraceStateTest >> testWithOtelValueRejectsEmptyOrMalformedSubkeysAndSubvalues 
 	self assert: (traceState withOtelValueAt: 'th-' put: '8') identicalTo: traceState.
 	self assert: (traceState withOtelValueAt: 'th' put: '') identicalTo: traceState.
 	self assert: (traceState withOtelValueAt: 'th' put: 'bad:value') identicalTo: traceState
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testWithOtelValueRejectsMalformedExplicitRandomnessLengths [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'vendor=one,ot=rv:7fffffffffffff'.
+	self assert: (traceState withOtelValueAt: 'rv' put: '1000000000000') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 'rv' put: '100000000000000') identicalTo: traceState
 ]
 
 { #category : 'private' }
