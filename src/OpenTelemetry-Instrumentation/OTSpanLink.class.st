@@ -19,9 +19,9 @@ OTSpanLink class >> fromSton: stonReader [
 	| representation |
 	representation := stonReader parseMap.
 	^ self
-		spanContext: (representation at: #spanContext)
-		attributes: (representation at: #attributes ifAbsent: [ #() ])
-		droppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ 0 ])
+		  spanContext: (representation at: #spanContext)
+		  attributes: (representation at: #attributes ifAbsent: [ #(  ) ])
+		  droppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ 0 ])
 ]
 
 { #category : 'instance creation' }
@@ -95,9 +95,8 @@ OTSpanLink >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	self class = anObject class ifFalse: [ ^ false ].
-	^ spanContext = anObject spanContext
-		and: [ self attributes = anObject attributes
-		and: [ self droppedAttributesCount = anObject droppedAttributesCount ] ]
+	^ spanContext = anObject spanContext and: [
+		  self attributes = anObject attributes and: [ self droppedAttributesCount = anObject droppedAttributesCount ] ]
 ]
 
 { #category : 'accessing' }
@@ -115,7 +114,10 @@ OTSpanLink >> droppedAttributesCount [
 { #category : 'comparing' }
 OTSpanLink >> hash [
 
-	^ { spanContext. self attributes. self droppedAttributesCount } hash
+	^ {
+		  spanContext.
+		  self attributes.
+		  self droppedAttributesCount } hash
 ]
 
 { #category : 'private' }
@@ -146,10 +148,9 @@ OTSpanLink >> spanContext [
 OTSpanLink >> stonOn: stonWriter [
 
 	stonWriter writeObject: self streamMap: [ :map |
-		map at: #spanContext put: self spanContext.
-		self attributes ifNotEmpty: [ map at: #attributes put: self attributes ].
-		self droppedAttributesCount > 0 ifTrue: [
-			map at: #droppedAttributesCount put: self droppedAttributesCount ] ]
+			map at: #spanContext put: self spanContext.
+			self attributes ifNotEmpty: [ map at: #attributes put: self attributes ].
+			self droppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self droppedAttributesCount ] ]
 ]
 
 { #category : 'copying' }
@@ -158,7 +159,7 @@ OTSpanLink >> withAttributeCountLimit: aCountLimit valueLengthLimit: aLengthLimi
 	| result |
 	result := OTAttributeNormalizer normalizeAttributes: self attributes countLimit: aCountLimit valueLengthLimit: aLengthLimit.
 	^ self class
-		spanContext: self spanContext
-		attributes: result first
-		droppedAttributesCount: self droppedAttributesCount + result second
+		  spanContext: self spanContext
+		  attributes: result first
+		  droppedAttributesCount: self droppedAttributesCount + result second
 ]

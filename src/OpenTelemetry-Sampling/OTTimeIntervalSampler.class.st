@@ -22,7 +22,7 @@ Class {
 { #category : 'accessing' }
 OTTimeIntervalSampler >> description [
 
-	^ 'TimeIntervalSampler{', self interval asString, 'ms}'
+	^ 'TimeIntervalSampler{' , self interval asString , 'ms}'
 ]
 
 { #category : 'initialization' }

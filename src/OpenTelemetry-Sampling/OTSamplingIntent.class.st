@@ -17,30 +17,28 @@ Class {
 { #category : 'instance creation' }
 OTSamplingIntent class >> drop [
 
-	^ self
-		threshold: nil
-		adjustedCountReliable: false
+	^ self threshold: nil adjustedCountReliable: false
 ]
 
 { #category : 'instance creation' }
 OTSamplingIntent class >> threshold: anInteger adjustedCountReliable: aBoolean [
 
 	^ self
-		threshold: anInteger
-		adjustedCountReliable: aBoolean
-		attributesProvider: nil
-		traceStateProvider: nil
+		  threshold: anInteger
+		  adjustedCountReliable: aBoolean
+		  attributesProvider: nil
+		  traceStateProvider: nil
 ]
 
 { #category : 'instance creation' }
 OTSamplingIntent class >> threshold: anInteger adjustedCountReliable: aBoolean attributesProvider: anAttributesBlock traceStateProvider: aTraceStateBlock [
 
 	^ self new
-		threshold: anInteger;
-		adjustedCountReliable: aBoolean;
-		attributesProvider: anAttributesBlock;
-		traceStateProvider: aTraceStateBlock;
-		yourself
+		  threshold: anInteger;
+		  adjustedCountReliable: aBoolean;
+		  attributesProvider: anAttributesBlock;
+		  traceStateProvider: aTraceStateBlock;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -58,9 +56,7 @@ OTSamplingIntent >> adjustedCountReliable: aBoolean [
 { #category : 'resolving' }
 OTSamplingIntent >> attributes [
 
-	^ self normalizedAttributesFrom: (attributesProvider
-		ifNil: [ #() ]
-		ifNotNil: [ attributesProvider value ])
+	^ self normalizedAttributesFrom: (attributesProvider ifNil: [ #(  ) ] ifNotNil: [ attributesProvider value ])
 ]
 
 { #category : 'accessing' }
@@ -72,22 +68,8 @@ OTSamplingIntent >> attributesProvider: aBlockOrNil [
 { #category : 'private' }
 OTSamplingIntent >> normalizedAttributesFrom: aCollection [
 
-	aCollection ifNil: [ ^ #() ].
+	aCollection ifNil: [ ^ #(  ) ].
 	^ aCollection asArray
-]
-
-{ #category : 'resolving' }
-OTSamplingIntent >> traceStateForParent: aTraceState decision: aDecisionSymbol [
-
-	^ OTTraceState from: (traceStateProvider
-		ifNil: [ aTraceState ]
-		ifNotNil: [ traceStateProvider value: aTraceState value: aDecisionSymbol ])
-]
-
-{ #category : 'accessing' }
-OTSamplingIntent >> traceStateProvider: aBlockOrNil [
-
-	traceStateProvider := aBlockOrNil
 ]
 
 { #category : 'accessing' }
@@ -100,4 +82,17 @@ OTSamplingIntent >> threshold [
 OTSamplingIntent >> threshold: anIntegerOrNil [
 
 	threshold := anIntegerOrNil
+]
+
+{ #category : 'resolving' }
+OTSamplingIntent >> traceStateForParent: aTraceState decision: aDecisionSymbol [
+
+	^ OTTraceState from:
+		  (traceStateProvider ifNil: [ aTraceState ] ifNotNil: [ traceStateProvider value: aTraceState value: aDecisionSymbol ])
+]
+
+{ #category : 'accessing' }
+OTSamplingIntent >> traceStateProvider: aBlockOrNil [
+
+	traceStateProvider := aBlockOrNil
 ]

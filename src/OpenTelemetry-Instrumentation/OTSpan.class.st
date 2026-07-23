@@ -108,9 +108,7 @@ OTSpan class >> current [
 { #category : 'accessing' }
 OTSpan class >> currentContext [
 
-	^ self currentContextsByProcess
-		at: Processor activeProcess
-		ifAbsent: [ OTContext new ]
+	^ self currentContextsByProcess at: Processor activeProcess ifAbsent: [ OTContext new ]
 ]
 
 { #category : 'accessing' }
@@ -215,26 +213,15 @@ OTSpan class >> limitWarningLock [
 { #category : 'private - logging' }
 OTSpan class >> limitWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otLimitWarningSink
-		forClass: self
-		ifAbsent: [ self defaultLimitWarningSink ]
+	^ OTClassStateStore valueAt: #otLimitWarningSink forClass: self ifAbsent: [ self defaultLimitWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTSpan class >> limitWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otLimitWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otLimitWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otLimitWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otLimitWarningSink forClass: self put: aBlock ].
 	^ self limitWarningSink
 ]
 
@@ -338,10 +325,7 @@ OTSpan class >> recordException: anException timestamp: aDateAndTime [
 OTSpan class >> reset [
 
 	Current := nil.
-	OTClassStateStore
-		removeValueAt: #otCurrentContextsByProcess
-		forClass: self
-		ifAbsent: [  ]
+	OTClassStateStore removeValueAt: #otCurrentContextsByProcess forClass: self ifAbsent: [ ]
 ]
 
 { #category : 'private - logging' }
@@ -380,7 +364,10 @@ OTSpan class >> validKinds [
 { #category : 'enumeration' }
 OTSpan class >> validStatusCodes [
 
-	^ { self unset. self ok. self error }
+	^ {
+		  self unset.
+		  self ok.
+		  self error }
 ]
 
 { #category : 'enumeration' }
@@ -432,7 +419,7 @@ OTSpan >> addEvent: anOTSpanEvent [
 { #category : 'recording' }
 OTSpan >> addEventNamed: aString [
 
-	^ self addEventNamed: aString attributes: #() timestamp: DateAndTime now
+	^ self addEventNamed: aString attributes: #(  ) timestamp: DateAndTime now
 ]
 
 { #category : 'recording' }
@@ -462,7 +449,7 @@ OTSpan >> addEventNamed: aString attributes: aCollection timestamp: aDateAndTime
 { #category : 'recording' }
 OTSpan >> addEventNamed: aString timestamp: aDateAndTime [
 
-	^ self addEventNamed: aString attributes: #() timestamp: aDateAndTime
+	^ self addEventNamed: aString attributes: #(  ) timestamp: aDateAndTime
 ]
 
 { #category : 'recording' }
@@ -936,15 +923,19 @@ OTSpan >> name [
 { #category : 'private' }
 OTSpan >> normalizeEventCollection: aCollection [
 
-	aCollection ifNil: [ ^ #() ].
+	aCollection ifNil: [ ^ #(  ) ].
 	^ (aCollection isDictionary
-		ifTrue: [ aCollection associations collect: [ :each | OTSpanEvent named: each key asString attributes: { 'value' -> each value } timestamp: DateAndTime now ] ]
-		ifFalse: [ aCollection collect: [ :each |
-			each class = OTSpanEvent
-				ifTrue: [ each ]
-				ifFalse: [ each isAssociation
-					ifTrue: [ OTSpanEvent named: each key asString attributes: { 'value' -> each value } timestamp: DateAndTime now ]
-					ifFalse: [ OTSpanEvent named: each asString ] ] ] ]) asArray
+		   ifTrue: [
+				   aCollection associations collect: [ :each |
+					   OTSpanEvent named: each key asString attributes: { ('value' -> each value) } timestamp: DateAndTime now ] ]
+		   ifFalse: [
+				   aCollection collect: [ :each |
+						   each class = OTSpanEvent
+							   ifTrue: [ each ]
+							   ifFalse: [
+									   each isAssociation
+										   ifTrue: [ OTSpanEvent named: each key asString attributes: { ('value' -> each value) } timestamp: DateAndTime now ]
+										   ifFalse: [ OTSpanEvent named: each asString ] ] ] ]) asArray
 ]
 
 { #category : 'private' }

@@ -18,57 +18,46 @@ OTOtlpHttpJsonLogRecordExporter >> encoder [
 OTOtlpHttpJsonLogRecordExporter >> export: logRecords [
 
 	self isShutdown ifTrue: [ ^ false ].
-	^ self
-		exportAttemptNumber: 1
-		payloadString: (self payloadStringFrom: logRecords)
+	^ self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: logRecords)
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonLogRecordExporter >> noteInvalidSuccessResponse: anError [
 
-	self warningSink value:
-		'OpenTelemetry OTLP log export returned an invalid success response: '
-			, anError messageText
+	self warningSink value: 'OpenTelemetry OTLP log export returned an invalid success response: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonLogRecordExporter >> notePartialSuccess: aDictionary [
 
-	self warningSink value:
-		'OpenTelemetry OTLP log export reported partial success: '
-			, aDictionary printString
+	self warningSink value: 'OpenTelemetry OTLP log export reported partial success: ' , aDictionary printString
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonLogRecordExporter >> noteRetryExhaustedForError: anError [
 
 	self warningSink value:
-		'OpenTelemetry OTLP log export exhausted retries after a retryable transport failure: '
-			, anError messageText
+		'OpenTelemetry OTLP log export exhausted retries after a retryable transport failure: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonLogRecordExporter >> noteRetryExhaustedForResponse: aResponse [
 
 	self warningSink value:
-		'OpenTelemetry OTLP log export exhausted retries after HTTP status '
-			, (self responseCodeFrom: aResponse) asString
+		'OpenTelemetry OTLP log export exhausted retries after HTTP status ' , (self responseCodeFrom: aResponse) asString
 ]
 
 { #category : 'private - encoding' }
 OTOtlpHttpJsonLogRecordExporter >> payloadStringFrom: logRecords [
 
-	^ ZnUtils defaultJSONWriter
-		toString: (self encoder encodeLogRecords: logRecords asArray)
+	^ ZnUtils defaultJSONWriter toString: (self encoder encodeLogRecords: logRecords asArray)
 ]
 
 { #category : 'private - success handling' }
 OTOtlpHttpJsonLogRecordExporter >> rejectedSpanCountFromPartialSuccess: aDictionary [
 
 	^ self
-		nonNegativeIntegerFrom:
-			(aDictionary
-				at: 'rejectedLogRecords'
-				ifAbsent: [ aDictionary at: 'rejected_log_records' ifAbsent: [ 0 ] ])
-		default: 0
+		  nonNegativeIntegerFrom:
+		  (aDictionary at: 'rejectedLogRecords' ifAbsent: [ aDictionary at: 'rejected_log_records' ifAbsent: [ 0 ] ])
+		  default: 0
 ]

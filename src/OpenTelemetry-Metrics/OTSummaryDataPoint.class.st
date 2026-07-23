@@ -55,14 +55,14 @@ OTSummaryDataPoint >> count: anInteger [
 { #category : 'accessing' }
 OTSummaryDataPoint >> quantileValues [
 
-	^ quantileValues ifNil: [ #() ]
+	^ quantileValues ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTSummaryDataPoint >> quantileValues: aCollection [
 
-	quantileValues := ((aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ])
-		asSortedCollection: [ :left :right | left quantile <= right quantile ]) asArray
+	quantileValues := ((aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]) asSortedCollection: [ :left :right |
+		                   left quantile <= right quantile ]) asArray
 ]
 
 { #category : 'accessing' }

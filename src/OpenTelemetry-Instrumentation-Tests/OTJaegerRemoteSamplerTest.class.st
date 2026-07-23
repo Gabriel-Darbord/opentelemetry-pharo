@@ -21,9 +21,7 @@ OTJaegerRemoteSamplerTest >> assertReader: aReader readsField: aFieldNumber wire
 { #category : 'private' }
 OTJaegerRemoteSamplerTest >> grpcOkResponseWithPayload: aByteArray [
 
-	^ OTFakeGRPCResponse
-		status: OTFakeGRPCStatus ok
-		payload: aByteArray
+	^ OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: aByteArray
 ]
 
 { #category : 'private' }
@@ -34,22 +32,22 @@ OTJaegerRemoteSamplerTest >> perOperationResponseBytesDefaultSamplingProbability
 	writer
 		writeTag: 4 wireType: 2;
 		writeEmbedded: [ :perOperation |
-			perOperation
-				writeTag: 1 wireType: 1;
-				writeDouble: aNumber.
-			associations do: [ :each |
 				perOperation
-					writeTag: 3 wireType: 2;
-					writeEmbedded: [ :operation |
-						operation
-							writeTag: 1 wireType: 2;
-							writeString: each key.
-						operation
-							writeTag: 2 wireType: 2;
-							writeEmbedded: [ :probabilistic |
-								probabilistic
-									writeTag: 1 wireType: 1;
-									writeDouble: each value ] ] ] ].
+					writeTag: 1 wireType: 1;
+					writeDouble: aNumber.
+				associations do: [ :each |
+						perOperation
+							writeTag: 3 wireType: 2;
+							writeEmbedded: [ :operation |
+									operation
+										writeTag: 1 wireType: 2;
+										writeString: each key.
+									operation
+										writeTag: 2 wireType: 2;
+										writeEmbedded: [ :probabilistic |
+												probabilistic
+													writeTag: 1 wireType: 1;
+													writeDouble: each value ] ] ] ].
 	^ writer contents
 ]
 
@@ -63,9 +61,9 @@ OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithRate: aNumber [
 		writeVarint: 0;
 		writeTag: 2 wireType: 2;
 		writeEmbedded: [ :probabilistic |
-			probabilistic
-				writeTag: 1 wireType: 1;
-				writeDouble: aNumber ].
+				probabilistic
+					writeTag: 1 wireType: 1;
+					writeDouble: aNumber ].
 	^ writer contents
 ]
 
@@ -77,9 +75,9 @@ OTJaegerRemoteSamplerTest >> probabilisticResponseBytesWithoutExplicitStrategyTy
 	writer
 		writeTag: 2 wireType: 2;
 		writeEmbedded: [ :probabilistic |
-			probabilistic
-				writeTag: 1 wireType: 1;
-				writeDouble: aNumber ].
+				probabilistic
+					writeTag: 1 wireType: 1;
+					writeDouble: aNumber ].
 	^ writer contents
 ]
 
@@ -93,9 +91,9 @@ OTJaegerRemoteSamplerTest >> rateLimitingResponseBytesWithMaxTracesPerSecond: an
 		writeVarint: 1;
 		writeTag: 3 wireType: 2;
 		writeEmbedded: [ :rateLimiting |
-			rateLimiting
-				writeTag: 1 wireType: 0;
-				writeVarint: anInteger ].
+				rateLimiting
+					writeTag: 1 wireType: 0;
+					writeVarint: anInteger ].
 	^ writer contents
 ]
 
@@ -103,19 +101,18 @@ OTJaegerRemoteSamplerTest >> rateLimitingResponseBytesWithMaxTracesPerSecond: an
 OTJaegerRemoteSamplerTest >> samplingResultForOperationNamed: aString [
 
 	^ sampler
-		shouldSampleIn: OTContext new
-		traceId: '1234567890abcdef1234567890abcdef'
-		name: aString
-		kind: OTSpan internal
-		attributes: #()
-		links: #()
+		  shouldSampleIn: OTContext new
+		  traceId: '1234567890abcdef1234567890abcdef'
+		  name: aString
+		  kind: OTSpan internal
+		  attributes: #(  )
+		  links: #(  )
 ]
 
 { #category : 'running' }
 OTJaegerRemoteSamplerTest >> setUp [
 
 	super setUp.
-	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
 	currentTime := 1000.
 	sampler := OTJaegerRemoteSampler serviceName: 'shopping-cart'.
 	sampler
@@ -297,10 +294,7 @@ OTJaegerRemoteSamplerTest >> testNonOkGrpcStatusKeepsCurrentSamplerAndWarns [
 	warnings := OrderedCollection new.
 	sampler
 		warningSink: [ :message | warnings add: message ];
-		requestExecutor: [ :request |
-			OTFakeGRPCResponse
-				status: (OTFakeGRPCStatus code: 14 message: 'busy')
-				payload: nil ].
+		requestExecutor: [ :request | OTFakeGRPCResponse status: (OTFakeGRPCStatus code: 14 message: 'busy') payload: nil ].
 	result := self samplingResultForOperationNamed: 'checkout'.
 	self assert: result isDrop.
 	self assert: sampler currentSampler class identicalTo: OTAlwaysOffSampler.
@@ -315,16 +309,14 @@ OTJaegerRemoteSamplerTest >> testProviderManagedSamplerRefreshesInBackground [
 	| provider |
 	sampler
 		pollingIntervalMillis: 20;
-		requestExecutor: [ :request |
-			self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 1) ].
+		requestExecutor: [ :request | self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 1) ].
 	provider := OTTracerProvider new.
 	[
-	provider sampler: sampler.
-	self
-		waitUntil: [ sampler currentSampler class == OTProbabilisticSampler ]
-		timeoutMillis: 1000
-		description: 'Jaeger remote sampler background refresh' ]
-		ensure: [ provider shutdown ]
+		provider sampler: sampler.
+		self
+			waitUntil: [ sampler currentSampler class == OTProbabilisticSampler ]
+			timeoutMillis: 1000
+			description: 'Jaeger remote sampler background refresh' ] ensure: [ provider shutdown ]
 ]
 
 { #category : 'tests' }
@@ -350,8 +342,8 @@ OTJaegerRemoteSamplerTest >> testRefreshHonorsPollingInterval [
 	| executionCount |
 	executionCount := 0.
 	sampler requestExecutor: [ :request |
-		executionCount := executionCount + 1.
-		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+			executionCount := executionCount + 1.
+			self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
 	self samplingResultForOperationNamed: 'checkout'.
 	self samplingResultForOperationNamed: 'checkout'.
 	currentTime := currentTime + 4999.
@@ -367,11 +359,7 @@ OTJaegerRemoteSamplerTest >> testRefreshUpdatesToPerOperationSampler [
 
 	| defaultResult importantResult |
 	sampler requestExecutor: [ :request |
-		self
-			grpcOkResponseWithPayload:
-				(self
-					perOperationResponseBytesDefaultSamplingProbability: 0
-					strategies: { 'important' -> 1 }) ].
+		self grpcOkResponseWithPayload: (self perOperationResponseBytesDefaultSamplingProbability: 0 strategies: { ('important' -> 1) }) ].
 	importantResult := self samplingResultForOperationNamed: 'important'.
 	defaultResult := self samplingResultForOperationNamed: 'ordinary'.
 	self assert: sampler currentSampler class identicalTo: OTPerOperationSampler.
@@ -383,8 +371,7 @@ OTJaegerRemoteSamplerTest >> testRefreshUpdatesToPerOperationSampler [
 OTJaegerRemoteSamplerTest >> testRefreshUpdatesToProbabilisticSampler [
 
 	| result |
-	sampler requestExecutor: [ :request |
-		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 1) ].
+	sampler requestExecutor: [ :request | self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 1) ].
 	result := self samplingResultForOperationNamed: 'checkout'.
 	self assert: sampler currentSampler class identicalTo: OTProbabilisticSampler.
 	self assert: result isRecordAndSample
@@ -395,9 +382,7 @@ OTJaegerRemoteSamplerTest >> testRefreshUpdatesToProbabilisticSamplerWhenStrateg
 
 	| result |
 	sampler requestExecutor: [ :request |
-		self
-			grpcOkResponseWithPayload:
-				(self probabilisticResponseBytesWithoutExplicitStrategyTypeWithRate: 1) ].
+		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithoutExplicitStrategyTypeWithRate: 1) ].
 	result := self samplingResultForOperationNamed: 'checkout'.
 	self assert: sampler currentSampler class identicalTo: OTProbabilisticSampler.
 	self assert: result isRecordAndSample
@@ -407,8 +392,7 @@ OTJaegerRemoteSamplerTest >> testRefreshUpdatesToProbabilisticSamplerWhenStrateg
 OTJaegerRemoteSamplerTest >> testRefreshUpdatesToRateLimitingSampler [
 
 	| first second |
-	sampler requestExecutor: [ :request |
-		self grpcOkResponseWithPayload: (self rateLimitingResponseBytesWithMaxTracesPerSecond: 1) ].
+	sampler requestExecutor: [ :request | self grpcOkResponseWithPayload: (self rateLimitingResponseBytesWithMaxTracesPerSecond: 1) ].
 	first := self samplingResultForOperationNamed: 'checkout'.
 	second := self samplingResultForOperationNamed: 'checkout'.
 	self assert: sampler currentSampler class identicalTo: OTRateLimitingSampler.
@@ -421,8 +405,8 @@ OTJaegerRemoteSamplerTest >> testSamplingRequestEncodesServiceNameAndTimeout [
 
 	| capturedRequest reader |
 	sampler requestExecutor: [ :request |
-		capturedRequest := request.
-		self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+			capturedRequest := request.
+			self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
 	self samplingResultForOperationNamed: 'checkout'.
 	self assert: capturedRequest serviceName equals: 'jaeger.api_v2.SamplingManager'.
 	self assert: capturedRequest methodName equals: 'GetSamplingStrategy'.
@@ -441,13 +425,10 @@ OTJaegerRemoteSamplerTest >> testShutdownStopsBackgroundPolling [
 	sampler
 		pollingIntervalMillis: 20;
 		requestExecutor: [ :request |
-			executionCount := executionCount + 1.
-			self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
+				executionCount := executionCount + 1.
+				self grpcOkResponseWithPayload: (self probabilisticResponseBytesWithRate: 0) ].
 	sampler start.
-	self
-		waitUntil: [ executionCount >= 2 ]
-		timeoutMillis: 1000
-		description: 'multiple Jaeger remote sampler background polls'.
+	self waitUntil: [ executionCount >= 2 ] timeoutMillis: 1000 description: 'multiple Jaeger remote sampler background polls'.
 	self assert: sampler shutdown.
 	shutdownExecutionCount := executionCount.
 	(Delay forMilliseconds: 80) wait.
@@ -461,7 +442,6 @@ OTJaegerRemoteSamplerTest >> waitUntil: aBlock timeoutMillis: timeoutMillis desc
 	deadline := Time millisecondClockValue + timeoutMillis.
 	[
 		aBlock value ifTrue: [ ^ self ].
-		Time millisecondClockValue >= deadline ifTrue: [
-			self fail: 'Timed out waiting for ', aString ].
+		Time millisecondClockValue >= deadline ifTrue: [ self fail: 'Timed out waiting for ' , aString ].
 		(Delay forMilliseconds: 10) wait ] repeat
 ]

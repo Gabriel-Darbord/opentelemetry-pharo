@@ -27,8 +27,7 @@ OTInstrumenterTest >> tearDown [
 		OTSpanExporter current: nil.
 		OTInstrumenter configurationWarningSink: nil.
 		OTTracerProvider tracerConfigurationWarningSink: nil.
-		OTSpan reset ]
-		ensure: [ super tearDown ]
+		OTSpan reset ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -72,8 +71,7 @@ OTInstrumenterTest >> testCurrentContextFallsBackToEmptyContextWhenContextProduc
 { #category : 'tests' }
 OTInstrumenterTest >> testShouldStartUnderFallsBackToTrueWhenSuppressionStrategyFails [
 
-	self
-		withInstrumenterWarningsDo: [ :warnings |
+	self withInstrumenterWarningsDo: [ :warnings |
 			| instrumenter provider |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
@@ -82,8 +80,7 @@ OTInstrumenterTest >> testShouldStartUnderFallsBackToTrueWhenSuppressionStrategy
 				tracerProvider: provider;
 				spanSuppressionStrategy: [ :span :kind | Error signal: 'boom' ].
 			self assert: (instrumenter shouldStartUnder: nil request: 'request').
-			self assert: warnings asArray equals:
-				{ 'OpenTelemetry instrumenter callback failed during spanSuppressionStrategy: boom' } ]
+			self assert: warnings asArray equals: { 'OpenTelemetry instrumenter callback failed during spanSuppressionStrategy: boom' } ]
 ]
 
 { #category : 'tests' }
@@ -144,7 +141,5 @@ OTInstrumenterTest >> withInstrumenterWarningsDo: aBlock [
 	| warnings |
 	warnings := OrderedCollection new.
 	OTInstrumenter configurationWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTInstrumenter configurationWarningSink: nil ]
+	[ ^ aBlock value: warnings ] ensure: [ OTInstrumenter configurationWarningSink: nil ]
 ]

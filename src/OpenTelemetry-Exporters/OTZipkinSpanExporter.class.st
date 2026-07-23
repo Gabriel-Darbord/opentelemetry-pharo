@@ -30,10 +30,8 @@ OTZipkinSpanExporter >> addDroppedCountTagsFrom: aSpan to: tags [
 
 	aSpan droppedAttributesCount > 0 ifTrue: [
 		tags at: 'otel.dropped_attributes_count' put: (self tagStringFor: aSpan droppedAttributesCount) ].
-	aSpan droppedEventsCount > 0 ifTrue: [
-		tags at: 'otel.dropped_events_count' put: (self tagStringFor: aSpan droppedEventsCount) ].
-	aSpan droppedLinksCount > 0 ifTrue: [
-		tags at: 'otel.dropped_links_count' put: (self tagStringFor: aSpan droppedLinksCount) ].
+	aSpan droppedEventsCount > 0 ifTrue: [ tags at: 'otel.dropped_events_count' put: (self tagStringFor: aSpan droppedEventsCount) ].
+	aSpan droppedLinksCount > 0 ifTrue: [ tags at: 'otel.dropped_links_count' put: (self tagStringFor: aSpan droppedLinksCount) ].
 	^ tags
 ]
 
@@ -44,15 +42,14 @@ OTZipkinSpanExporter >> addInstrumentationScopeTagsFrom: aSpan to: tags [
 	scope := aSpan instrumentationScope.
 	scope isEmpty ifTrue: [ ^ tags ].
 	scope name ifNotEmpty: [
-		tags
-			at: 'otel.scope.name' put: scope name;
-			at: 'otel.library.name' put: scope name ].
+			tags
+				at: 'otel.scope.name' put: scope name;
+				at: 'otel.library.name' put: scope name ].
 	scope version ifNotEmpty: [
-		tags
-			at: 'otel.scope.version' put: scope version;
-			at: 'otel.library.version' put: scope version ].
-	scope allAttributes associationsDo: [ :each |
-		tags at: each key put: (self tagStringFor: each value) ].
+			tags
+				at: 'otel.scope.version' put: scope version;
+				at: 'otel.library.version' put: scope version ].
+	scope allAttributes associationsDo: [ :each | tags at: each key put: (self tagStringFor: each value) ].
 	^ tags
 ]
 
@@ -62,18 +59,18 @@ OTZipkinSpanExporter >> annotationValueFor: anEvent [
 	| eventAttributes |
 	eventAttributes := self exportableEventAttributesFor: anEvent.
 	^ eventAttributes isEmpty
-		ifTrue: [ anEvent name ]
-		ifFalse: [ anEvent name , (String with: $: with: Character space) , (self formattedAttributes: eventAttributes) ]
+		  ifTrue: [ anEvent name ]
+		  ifFalse: [ anEvent name , (String with: $: with: Character space) , (self formattedAttributes: eventAttributes) ]
 ]
 
 { #category : 'private - utilities' }
 OTZipkinSpanExporter >> annotationsFor: someEvents [
 
 	^ someEvents collect: [ :each |
-		Dictionary new
-			at: 'timestamp' put: each timestamp asUnixMicroseconds;
-			at: 'value' put: (self annotationValueFor: each);
-			yourself ]
+			  Dictionary new
+				  at: 'timestamp' put: each timestamp asUnixMicroseconds;
+				  at: 'value' put: (self annotationValueFor: each);
+				  yourself ]
 ]
 
 { #category : 'private - utilities' }
@@ -83,9 +80,7 @@ OTZipkinSpanExporter >> endpointValueFromAddressAttribute: addressAttributeName 
 	address := self stringAttributeNamed: addressAttributeName in: attributes.
 	address ifNil: [ ^ nil ].
 	port := self stringAttributeNamed: portAttributeName in: attributes.
-	^ port
-		ifNil: [ address ]
-		ifNotNil: [ address , ':' , port ]
+	^ port ifNil: [ address ] ifNotNil: [ address , ':' , port ]
 ]
 
 { #category : 'exporting' }
@@ -105,8 +100,7 @@ OTZipkinSpanExporter >> exportableEventAttributesFor: anEvent [
 
 	| exported |
 	exported := anEvent allAttributes copy.
-	anEvent droppedAttributesCount > 0 ifTrue: [
-		exported at: 'otel.dropped_attributes_count' put: anEvent droppedAttributesCount ].
+	anEvent droppedAttributesCount > 0 ifTrue: [ exported at: 'otel.dropped_attributes_count' put: anEvent droppedAttributesCount ].
 	^ exported
 ]
 
@@ -116,14 +110,12 @@ OTZipkinSpanExporter >> exportableTagsFor: aSpan [
 	| tags |
 	tags := Dictionary new.
 	aSpan attributes ifNotNil: [ :attributes |
-		attributes associationsDo: [ :each |
-			tags at: each key put: (self tagStringFor: each value) ] ].
+		attributes associationsDo: [ :each | tags at: each key put: (self tagStringFor: each value) ] ].
 	self addInstrumentationScopeTagsFrom: aSpan to: tags.
 	self addDroppedCountTagsFrom: aSpan to: tags.
 	aSpan status = OTSpan unset ifFalse: [
-		tags at: 'otel.status_code' put: aSpan status asString.
-		aSpan status = OTSpan error ifTrue: [
-			tags at: 'error' put: (aSpan statusDescription ifNil: [ '' ]) ] ].
+			tags at: 'otel.status_code' put: aSpan status asString.
+			aSpan status = OTSpan error ifTrue: [ tags at: 'error' put: (aSpan statusDescription ifNil: [ '' ]) ] ].
 	^ tags
 ]
 
@@ -131,37 +123,38 @@ OTZipkinSpanExporter >> exportableTagsFor: aSpan [
 OTZipkinSpanExporter >> firstRemoteEndpointValueFrom: attributes [
 
 	^ {
-		self stringAttributeNamed: 'peer.service' in: attributes.
-		self stringAttributeNamed: 'server.address' in: attributes.
-		self stringAttributeNamed: 'net.peer.name' in: attributes.
-		self endpointValueFromAddressAttribute: 'network.peer.address' portAttribute: 'network.peer.port' in: attributes.
-		self stringAttributeNamed: 'server.socket.domain' in: attributes.
-		self endpointValueFromAddressAttribute: 'server.socket.address' portAttribute: 'server.socket.port' in: attributes.
-		self stringAttributeNamed: 'net.sock.peer.name' in: attributes.
-		self endpointValueFromAddressAttribute: 'net.sock.peer.addr' portAttribute: 'net.sock.peer.port' in: attributes.
-		self stringAttributeNamed: 'peer.hostname' in: attributes.
-		self stringAttributeNamed: 'peer.address' in: attributes.
-		self stringAttributeNamed: 'db.name' in: attributes }
-		detect: [ :each | each notNil ]
-		ifNone: [ nil ]
+		  (self stringAttributeNamed: 'peer.service' in: attributes).
+		  (self stringAttributeNamed: 'server.address' in: attributes).
+		  (self stringAttributeNamed: 'net.peer.name' in: attributes).
+		  (self endpointValueFromAddressAttribute: 'network.peer.address' portAttribute: 'network.peer.port' in: attributes).
+		  (self stringAttributeNamed: 'server.socket.domain' in: attributes).
+		  (self endpointValueFromAddressAttribute: 'server.socket.address' portAttribute: 'server.socket.port' in: attributes).
+		  (self stringAttributeNamed: 'net.sock.peer.name' in: attributes).
+		  (self endpointValueFromAddressAttribute: 'net.sock.peer.addr' portAttribute: 'net.sock.peer.port' in: attributes).
+		  (self stringAttributeNamed: 'peer.hostname' in: attributes).
+		  (self stringAttributeNamed: 'peer.address' in: attributes).
+		  (self stringAttributeNamed: 'db.name' in: attributes) } detect: [ :each | each notNil ] ifNone: [ nil ]
 ]
 
 { #category : 'private - utilities' }
 OTZipkinSpanExporter >> formattedAttributes: someAttributes [
 
 	^ String streamContents: [ :stream |
-		stream nextPut: ${.
-		someAttributes associations doWithIndex: [ :each :index |
-			index > 1 ifTrue: [ stream nextPut: $,; space ].
-			stream
-				nextPut: $';
-				nextPutAll: each key asString;
-				nextPut: $';
-				nextPut: $:;
-				nextPut: $';
-				nextPutAll: each value asString;
-				nextPut: $' ].
-		stream nextPut: $} ]
+			  stream nextPut: ${.
+			  someAttributes associations doWithIndex: [ :each :index |
+					  index > 1 ifTrue: [
+							  stream
+								  nextPut: $,;
+								  space ].
+					  stream
+						  nextPut: $';
+						  nextPutAll: each key asString;
+						  nextPut: $';
+						  nextPut: $:;
+						  nextPut: $';
+						  nextPutAll: each value asString;
+						  nextPut: $' ].
+			  stream nextPut: $} ]
 ]
 
 { #category : 'private - utilities' }
@@ -175,17 +168,16 @@ OTZipkinSpanExporter >> httpClient [
 	"Configured to localhost:9411 by default."
 
 	^ httpClient ifNil: [
-		  (httpClient := ZnClient new)
-			  http;
-			  host: 'localhost';
-			  port: 9411;
-			  addPathSegment: 'api';
-			  addPathSegment: 'v2';
-			  addPathSegment: 'spans';
-			  method: #POST;
-			  accept: ZnMimeType applicationJson;
-			  contentWriter: [ :data |
-				  ZnEntity json: (ZnUtils defaultJSONWriter toString: data) ] ]
+			  (httpClient := ZnClient new)
+				  http;
+				  host: 'localhost';
+				  port: 9411;
+				  addPathSegment: 'api';
+				  addPathSegment: 'v2';
+				  addPathSegment: 'spans';
+				  method: #POST;
+				  accept: ZnMimeType applicationJson;
+				  contentWriter: [ :data | ZnEntity json: (ZnUtils defaultJSONWriter toString: data) ] ]
 ]
 
 { #category : 'accessing' }
@@ -204,8 +196,8 @@ OTZipkinSpanExporter >> integerAttributeNamed: aString in: attributes [
 	value := value asString trimBoth.
 	value isEmpty ifTrue: [ ^ nil ].
 	^ [ Integer readFrom: value readStream ]
-		on: Error
-		do: [ nil ]
+		  on: Error
+		  do: [ nil ]
 ]
 
 { #category : 'private - utilities' }
@@ -213,8 +205,7 @@ OTZipkinSpanExporter >> isProbablyIpv4Address: aString [
 
 	aString ifNil: [ ^ false ].
 	(aString includes: $:) ifTrue: [ ^ false ].
-	^ aString isEmpty not and: [
-		aString allSatisfy: [ :each | each isDigit or: [ each = $. ] ] ]
+	^ aString isEmpty not and: [ aString allSatisfy: [ :each | each isDigit or: [ each = $. ] ] ]
 ]
 
 { #category : 'private - utilities' }
@@ -223,10 +214,7 @@ OTZipkinSpanExporter >> isProbablyIpv6Address: aString [
 	aString ifNil: [ ^ false ].
 	(aString includes: $:) ifFalse: [ ^ false ].
 	^ aString isEmpty not and: [
-		aString allSatisfy: [ :each |
-			each isDigit
-				or: [ 'abcdefABCDEF' includes: each
-				or: [ each = $: ] ] ] ]
+		  aString allSatisfy: [ :each | each isDigit or: [ ('abcdefABCDEF' includes: each) or: [ each = $: ] ] ] ]
 ]
 
 { #category : 'private - utilities' }
@@ -235,16 +223,22 @@ OTZipkinSpanExporter >> remoteEndpointAddressAndPortFrom: attributes [
 	| address port |
 	address := self stringAttributeNamed: 'network.peer.address' in: attributes.
 	address ifNotNil: [
-		port := self integerAttributeNamed: 'network.peer.port' in: attributes.
-		^ { address. port } ].
+			port := self integerAttributeNamed: 'network.peer.port' in: attributes.
+			^ {
+				  address.
+				  port } ].
 	address := self stringAttributeNamed: 'server.socket.address' in: attributes.
 	address ifNotNil: [
-		port := self integerAttributeNamed: 'server.socket.port' in: attributes.
-		^ { address. port } ].
+			port := self integerAttributeNamed: 'server.socket.port' in: attributes.
+			^ {
+				  address.
+				  port } ].
 	address := self stringAttributeNamed: 'net.sock.peer.addr' in: attributes.
 	address ifNotNil: [
-		port := self integerAttributeNamed: 'net.sock.peer.port' in: attributes.
-		^ { address. port } ].
+			port := self integerAttributeNamed: 'net.sock.peer.port' in: attributes.
+			^ {
+				  address.
+				  port } ].
 	^ nil
 ]
 
@@ -252,20 +246,19 @@ OTZipkinSpanExporter >> remoteEndpointAddressAndPortFrom: attributes [
 OTZipkinSpanExporter >> remoteEndpointFor: aSpan [
 
 	| endpoint endpointValue |
-	((aSpan kind = OTSpan client) or: [ aSpan kind = OTSpan producer ]) ifFalse: [ ^ nil ].
+	(aSpan kind = OTSpan client or: [ aSpan kind = OTSpan producer ]) ifFalse: [ ^ nil ].
 	endpointValue := self firstRemoteEndpointValueFrom: aSpan attributes.
 	endpointValue ifNil: [ ^ nil ].
 	endpoint := Dictionary new
-		at: 'serviceName' put: endpointValue;
-		yourself.
+		            at: 'serviceName' put: endpointValue;
+		            yourself.
 	^ self addAddressDetailsFrom: aSpan attributes toEndpoint: endpoint
 ]
 
 { #category : 'private - utilities' }
 OTZipkinSpanExporter >> serviceNameFor: aSpan [
 
-	^ aSpan resource serviceName
-		ifNil: [ OTTracerProvider defaultResource serviceName ]
+	^ aSpan resource serviceName ifNil: [ OTTracerProvider defaultResource serviceName ]
 ]
 
 { #category : 'private - utilities' }
@@ -275,7 +268,9 @@ OTZipkinSpanExporter >> stringAttributeNamed: aString in: attributes [
 	attributes ifNil: [ ^ nil ].
 	value := attributes at: aString ifAbsent: [ ^ nil ].
 	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+	^ value isEmpty
+		  ifTrue: [ nil ]
+		  ifFalse: [ value ]
 ]
 
 { #category : 'private - utilities' }
@@ -283,11 +278,10 @@ OTZipkinSpanExporter >> tagStringFor: anObject [
 
 	anObject isNil ifTrue: [ ^ '' ].
 	(anObject isString or: [ anObject isSymbol ]) ifTrue: [ ^ anObject asString ].
-	(anObject == true) ifTrue: [ ^ 'true' ].
-	(anObject == false) ifTrue: [ ^ 'false' ].
+	anObject == true ifTrue: [ ^ 'true' ].
+	anObject == false ifTrue: [ ^ 'false' ].
 	anObject isNumber ifTrue: [ ^ anObject asString ].
-	anObject isCollection ifTrue: [
-		^ ZnUtils defaultJSONWriter toString: anObject ].
+	anObject isCollection ifTrue: [ ^ ZnUtils defaultJSONWriter toString: anObject ].
 	^ anObject asString
 ]
 

@@ -23,13 +23,13 @@ OTExponentialBucketRange class >> offset: anInteger bucketCounts: aCollection [
 { #category : 'accessing' }
 OTExponentialBucketRange >> bucketCounts [
 
-	^ bucketCounts ifNil: [ #() ]
+	^ bucketCounts ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTExponentialBucketRange >> bucketCounts: aCollection [
 
-	bucketCounts := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
+	bucketCounts := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }

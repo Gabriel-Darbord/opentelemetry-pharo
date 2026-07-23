@@ -18,10 +18,10 @@ Class {
 OTInstrumentationScope class >> attributes: aCollection [
 
 	^ self
-		named: ''
-		version: ''
-		schemaUrl: ''
-		attributes: aCollection
+		  named: ''
+		  version: ''
+		  schemaUrl: ''
+		  attributes: aCollection
 ]
 
 { #category : 'ston persistence' }
@@ -30,30 +30,30 @@ OTInstrumentationScope class >> fromSton: stonReader [
 	| representation |
 	representation := stonReader parseMap.
 	^ self
-		named: (representation at: #name ifAbsent: [ '' ])
-		version: (representation at: #version ifAbsent: [ '' ])
-		schemaUrl: (representation at: #schemaUrl ifAbsent: [ '' ])
-		attributes: (representation at: #attributes ifAbsent: [ #() ])
+		  named: (representation at: #name ifAbsent: [ '' ])
+		  version: (representation at: #version ifAbsent: [ '' ])
+		  schemaUrl: (representation at: #schemaUrl ifAbsent: [ '' ])
+		  attributes: (representation at: #attributes ifAbsent: [ #(  ) ])
 ]
 
 { #category : 'instance creation' }
 OTInstrumentationScope class >> named: aString [
 
 	^ self
-		named: aString
-		version: ''
-		schemaUrl: ''
-		attributes: #()
+		  named: aString
+		  version: ''
+		  schemaUrl: ''
+		  attributes: #(  )
 ]
 
 { #category : 'instance creation' }
 OTInstrumentationScope class >> named: aString version: aVersionString [
 
 	^ self
-		named: aString
-		version: aVersionString
-		schemaUrl: ''
-		attributes: #()
+		  named: aString
+		  version: aVersionString
+		  schemaUrl: ''
+		  attributes: #(  )
 ]
 
 { #category : 'instance creation' }
@@ -74,7 +74,8 @@ OTInstrumentationScope >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class = self class ifFalse: [ ^ false ].
-	^ self name = anObject name and: [ self version = anObject version and: [ self schemaUrl = anObject schemaUrl and: [ self attributes = anObject attributes ] ] ]
+	^ self name = anObject name and: [
+		  self version = anObject version and: [ self schemaUrl = anObject schemaUrl and: [ self attributes = anObject attributes ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -113,7 +114,11 @@ OTInstrumentationScope >> attributes: aCollection [
 { #category : 'comparing' }
 OTInstrumentationScope >> hash [
 
-	^ { self name. self version. self schemaUrl. self attributes } hash
+	^ {
+		  self name.
+		  self version.
+		  self schemaUrl.
+		  self attributes } hash
 ]
 
 { #category : 'testing' }
@@ -140,7 +145,10 @@ OTInstrumentationScope >> printOn: aStream [
 
 	aStream nextPutAll: 'InstrumentationScope['.
 	aStream nextPutAll: self name.
-	self version ifNotEmpty: [ aStream nextPutAll: '@'; nextPutAll: self version ].
+	self version ifNotEmpty: [
+			aStream
+				nextPutAll: '@';
+				nextPutAll: self version ].
 	aStream nextPut: $]
 ]
 
@@ -161,10 +169,10 @@ OTInstrumentationScope >> schemaUrl: aString [
 OTInstrumentationScope >> stonOn: stonWriter [
 
 	stonWriter writeObject: self streamMap: [ :map |
-		map at: #name put: self name.
-		self version ifNotEmpty: [ map at: #version put: self version ].
-		self schemaUrl ifNotEmpty: [ map at: #schemaUrl put: self schemaUrl ].
-		self attributes ifNotEmpty: [ map at: #attributes put: self attributes ] ]
+			map at: #name put: self name.
+			self version ifNotEmpty: [ map at: #version put: self version ].
+			self schemaUrl ifNotEmpty: [ map at: #schemaUrl put: self schemaUrl ].
+			self attributes ifNotEmpty: [ map at: #attributes put: self attributes ] ]
 ]
 
 { #category : 'accessing' }

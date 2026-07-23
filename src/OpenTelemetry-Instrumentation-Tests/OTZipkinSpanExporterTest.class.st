@@ -12,14 +12,7 @@ Class {
 OTZipkinSpanExporterTest >> setUp [
 
 	super setUp.
-	OTSpanExporter current: OTNoopSpanExporter new.
 	exporter := OTZipkinSpanExporter new
-]
-
-{ #category : 'running' }
-OTZipkinSpanExporterTest >> tearDown [
-
-	[ OTSpanExporter current: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'private' }
@@ -49,12 +42,10 @@ OTZipkinSpanExporterTest >> spanWithKind: aSpanKind attributes: someAttributes [
 OTZipkinSpanExporterTest >> testClientSpanFallsBackToNetworkPeerAddressAndPortForRemoteEndpoint [
 
 	| remoteEndpoint transformed |
-	transformed := self
-		transformedSpanForKind: OTSpan client
-		attributes: (OrderedDictionary new
-			at: 'network.peer.address' put: '1.2.3.4';
-			at: 'network.peer.port' put: 5678;
-			yourself).
+	transformed := self transformedSpanForKind: OTSpan client attributes: (OrderedDictionary new
+			                at: 'network.peer.address' put: '1.2.3.4';
+			                at: 'network.peer.port' put: 5678;
+			                yourself).
 	remoteEndpoint := transformed at: 'remoteEndpoint'.
 	self assert: (remoteEndpoint at: 'serviceName') equals: '1.2.3.4:5678'.
 	self assert: (remoteEndpoint at: 'ipv4') equals: '1.2.3.4'.
@@ -65,15 +56,13 @@ OTZipkinSpanExporterTest >> testClientSpanFallsBackToNetworkPeerAddressAndPortFo
 OTZipkinSpanExporterTest >> testClientSpanUsesHighestRankedRemoteEndpointAttribute [
 
 	| remoteEndpoint transformed |
-	transformed := self
-		transformedSpanForKind: OTSpan client
-		attributes: (OrderedDictionary new
-			at: 'server.socket.address' put: '8.8.8.8';
-			at: 'server.socket.port' put: 42;
-			at: 'peer.address' put: 'peer-address';
-			at: 'server.address' put: 'server-address';
-			at: 'peer.service' put: 'peer-service';
-			yourself).
+	transformed := self transformedSpanForKind: OTSpan client attributes: (OrderedDictionary new
+			                at: 'server.socket.address' put: '8.8.8.8';
+			                at: 'server.socket.port' put: 42;
+			                at: 'peer.address' put: 'peer-address';
+			                at: 'server.address' put: 'server-address';
+			                at: 'peer.service' put: 'peer-service';
+			                yourself).
 	remoteEndpoint := transformed at: 'remoteEndpoint'.
 	self assert: (remoteEndpoint at: 'serviceName') equals: 'peer-service'.
 	self assert: (remoteEndpoint at: 'ipv4') equals: '8.8.8.8'.
@@ -113,12 +102,10 @@ OTZipkinSpanExporterTest >> testExportReturnsFalseOnNonAcceptedResponseCode [
 OTZipkinSpanExporterTest >> testServerSpanOmitsRemoteEndpointEvenWhenPeerAttributesExist [
 
 	| transformed |
-	transformed := self
-		transformedSpanForKind: OTSpan server
-		attributes: (OrderedDictionary new
-			at: 'peer.service' put: 'peer-service';
-			at: 'server.address' put: 'server-address';
-			yourself).
+	transformed := self transformedSpanForKind: OTSpan server attributes: (OrderedDictionary new
+			                at: 'peer.service' put: 'peer-service';
+			                at: 'server.address' put: 'server-address';
+			                yourself).
 	self deny: (transformed includesKey: 'remoteEndpoint')
 ]
 

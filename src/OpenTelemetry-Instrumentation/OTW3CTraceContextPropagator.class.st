@@ -79,31 +79,30 @@ OTW3CTraceContextPropagator >> extractSpanContextFromTraceParent: aString [
 	traceId := traceParent copyFrom: 4 to: 35.
 	spanId := traceParent copyFrom: 37 to: 52.
 	traceFlags := traceParent copyFrom: 54 to: 55.
-	((self isValidIdentifier: traceId size: 32)
-		and: [ (self isValidIdentifier: spanId size: 16)
-		and: [ self isLowercaseHexString: traceFlags size: 2 ] ]) ifFalse: [ ^ nil ].
+	((self isValidIdentifier: traceId size: 32) and: [
+		 (self isValidIdentifier: spanId size: 16) and: [ self isLowercaseHexString: traceFlags size: 2 ] ]) ifFalse: [ ^ nil ].
 	^ OTSpanContext
-		traceId: traceId
-		spanId: spanId
-		traceFlags: traceFlags
-		traceState: nil
-		remote: true
+		  traceId: traceId
+		  spanId: spanId
+		  traceFlags: traceFlags
+		  traceState: nil
+		  remote: true
 ]
 
 { #category : 'accessing' }
 OTW3CTraceContextPropagator >> fields [
 
-	^ { self class traceParentHeaderName. self class traceStateHeaderName }
+	^ {
+		  self class traceParentHeaderName.
+		  self class traceStateHeaderName }
 ]
 
 { #category : 'private' }
 OTW3CTraceContextPropagator >> hasValidTraceParentLayout: aString [
 
 	aString size < 55 ifTrue: [ ^ false ].
-	^ (aString at: 3) = $-
-		and: [ (aString at: 36) = $-
-		and: [ (aString at: 53) = $-
-		and: [ aString size = 55 or: [ (aString at: 56) = $- ] ] ] ]
+	^ (aString at: 3) = $- and: [
+		  (aString at: 36) = $- and: [ (aString at: 53) = $- and: [ aString size = 55 or: [ (aString at: 56) = $- ] ] ] ]
 ]
 
 { #category : 'private' }
@@ -112,15 +111,17 @@ OTW3CTraceContextPropagator >> headerStringFrom: anObject [
 	| firstValue normalized |
 	anObject ifNil: [ ^ nil ].
 	(anObject isString or: [ anObject isSymbol ]) ifTrue: [
-		normalized := anObject asString trimBoth.
-		^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ] ].
+			normalized := anObject asString trimBoth.
+			^ normalized isEmpty
+				  ifTrue: [ nil ]
+				  ifFalse: [ normalized ] ].
 	anObject isCollection ifTrue: [
-		firstValue := anObject
-			detect: [ :each | each isNotNil ]
-			ifNone: [ nil ].
-		^ self headerStringFrom: firstValue ].
+			firstValue := anObject detect: [ :each | each isNotNil ] ifNone: [ nil ].
+			^ self headerStringFrom: firstValue ].
 	normalized := anObject asString trimBoth.
-	^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ]
+	^ normalized isEmpty
+		  ifTrue: [ nil ]
+		  ifFalse: [ normalized ]
 ]
 
 { #category : 'private' }
@@ -144,16 +145,9 @@ OTW3CTraceContextPropagator >> inject: aContext into: aCarrier setter: aSetter [
 	span ifNil: [ ^ self ].
 	spanContext := span spanContext.
 	spanContext isValid ifFalse: [ ^ self ].
-	aSetter
-		setIn: aCarrier
-		key: self class traceParentHeaderName
-		value: (self traceParentFor: spanContext).
+	aSetter setIn: aCarrier key: self class traceParentHeaderName value: (self traceParentFor: spanContext).
 	traceState := self normalizedTraceStateFrom: spanContext.
-	traceState ifNotNil: [
-		aSetter
-			setIn: aCarrier
-			key: self class traceStateHeaderName
-			value: traceState ].
+	traceState ifNotNil: [ aSetter setIn: aCarrier key: self class traceStateHeaderName value: traceState ].
 	^ self
 ]
 
@@ -162,8 +156,7 @@ OTW3CTraceContextPropagator >> isLowercaseHexString: aString size: anInteger [
 
 	aString ifNil: [ ^ false ].
 	aString size = anInteger ifFalse: [ ^ false ].
-	^ aString allSatisfy: [ :each |
-		each isDigit or: [ 'abcdef' includes: each ] ]
+	^ aString allSatisfy: [ :each | each isDigit or: [ 'abcdef' includes: each ] ]
 ]
 
 { #category : 'private' }
@@ -218,20 +211,18 @@ OTW3CTraceContextPropagator >> spanContext: aSpanContext withTraceStateHeader: a
 	| traceState |
 	traceState := OTTraceState fromHeader: aString.
 	(traceState isNil or: [ traceState isEmpty ]) ifTrue: [ ^ aSpanContext ].
-	^ (aSpanContext
-		withTraceState: traceState)
-		asRemote
+	^ (aSpanContext withTraceState: traceState) asRemote
 ]
 
 { #category : 'private' }
 OTW3CTraceContextPropagator >> traceParentFor: aSpanContext [
 
 	^ String streamContents: [ :stream |
-		stream
-			nextPutAll: '00-';
-			nextPutAll: aSpanContext traceId;
-			nextPut: $-;
-			nextPutAll: aSpanContext spanId;
-			nextPut: $-;
-			nextPutAll: (self normalizedTraceFlagsFrom: aSpanContext) ]
+			  stream
+				  nextPutAll: '00-';
+				  nextPutAll: aSpanContext traceId;
+				  nextPut: $-;
+				  nextPutAll: aSpanContext spanId;
+				  nextPut: $-;
+				  nextPutAll: (self normalizedTraceFlagsFrom: aSpanContext) ]
 ]

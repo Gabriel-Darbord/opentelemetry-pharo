@@ -42,33 +42,31 @@ OTSamplerTest >> concurrentlyRun: aBlock workerCount: workerCount [
 { #category : 'private' }
 OTSamplerTest >> contextWithTraceFlags: aTraceFlags traceState: aTraceState [
 
-	^ OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: aTraceFlags
-			traceState: aTraceState
-			remote: false) asNonRecordingSpan)
+	^ OTContext new withSpan: (OTSpanContext
+			   traceId: '00112233445566778899aabbccddeeff'
+			   spanId: '1122334455667788'
+			   traceFlags: aTraceFlags
+			   traceState: aTraceState
+			   remote: false) asNonRecordingSpan
 ]
 
 { #category : 'private' }
 OTSamplerTest >> samplingResultFrom: aSampler parentTraceFlags: aTraceFlags traceState: aTraceState remote: aBoolean [
 
 	| context |
-	context := OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: aTraceFlags
-			traceState: aTraceState
-			remote: aBoolean) asNonRecordingSpan).
+	context := OTContext new withSpan: (OTSpanContext
+			            traceId: '00112233445566778899aabbccddeeff'
+			            spanId: '1122334455667788'
+			            traceFlags: aTraceFlags
+			            traceState: aTraceState
+			            remote: aBoolean) asNonRecordingSpan.
 	^ aSampler
-		shouldSampleIn: context
-		traceId: '1234567890abcdef1234567890abcdef'
-		name: 'child'
-		kind: OTSpan internal
-		attributes: #()
-		links: #()
+		  shouldSampleIn: context
+		  traceId: '1234567890abcdef1234567890abcdef'
+		  name: 'child'
+		  kind: OTSpan internal
+		  attributes: #(  )
+		  links: #(  )
 ]
 
 { #category : 'running' }
@@ -180,67 +178,56 @@ OTSamplerTest >> testParentBasedFactoryUsesConfiguredRootSampler [
 OTSamplerTest >> testParentBasedSamplerDelegatesByParentSamplingStateAndOrigin [
 
 	| localNotSampled localSampled remoteNotSampled remoteSampled root sampler sampledResult |
-	root := OTSamplingResultSampler result: (OTSamplingResult
-		decision: #recordAndSample
-		attributes: #()
-		traceState: 'root=value').
-	remoteSampled := OTSamplingResultSampler result: (OTSamplingResult
-		decision: #recordAndSample
-		attributes: #()
-		traceState: 'remoteSampled=value').
-	remoteNotSampled := OTSamplingResultSampler result: (OTSamplingResult
-		decision: #drop
-		attributes: #()
-		traceState: 'remoteNotSampled=value').
-	localSampled := OTSamplingResultSampler result: (OTSamplingResult
-		decision: #recordOnly
-		attributes: #()
-		traceState: 'localSampled=value').
-	localNotSampled := OTSamplingResultSampler result: (OTSamplingResult
-		decision: #drop
-		attributes: #()
-		traceState: 'localNotSampled=value').
+	root := OTSamplingResultSampler result: (OTSamplingResult decision: #recordAndSample attributes: #(  ) traceState: 'root=value').
+	remoteSampled := OTSamplingResultSampler result:
+		                 (OTSamplingResult decision: #recordAndSample attributes: #(  ) traceState: 'remoteSampled=value').
+	remoteNotSampled := OTSamplingResultSampler result:
+		                    (OTSamplingResult decision: #drop attributes: #(  ) traceState: 'remoteNotSampled=value').
+	localSampled := OTSamplingResultSampler result:
+		                (OTSamplingResult decision: #recordOnly attributes: #(  ) traceState: 'localSampled=value').
+	localNotSampled := OTSamplingResultSampler result:
+		                   (OTSamplingResult decision: #drop attributes: #(  ) traceState: 'localNotSampled=value').
 	sampler := OTParentBasedSampler
-		root: root
-		remoteParentSampled: remoteSampled
-		remoteParentNotSampled: remoteNotSampled
-		localParentSampled: localSampled
-		localParentNotSampled: localNotSampled.
+		           root: root
+		           remoteParentSampled: remoteSampled
+		           remoteParentNotSampled: remoteNotSampled
+		           localParentSampled: localSampled
+		           localParentNotSampled: localNotSampled.
 	sampledResult := sampler
-		shouldSampleIn: OTContext new
-		traceId: '1234567890abcdef1234567890abcdef'
-		name: 'root'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		                 shouldSampleIn: OTContext new
+		                 traceId: '1234567890abcdef1234567890abcdef'
+		                 name: 'root'
+		                 kind: OTSpan internal
+		                 attributes: #(  )
+		                 links: #(  ).
 	self assert: sampledResult traceState equals: 'root=value'.
 	self
-		assert: ((self
-			samplingResultFrom: sampler
-			parentTraceFlags: '03'
-			traceState: 'parent=value'
-			remote: true) traceState)
+		assert: (self
+				 samplingResultFrom: sampler
+				 parentTraceFlags: '03'
+				 traceState: 'parent=value'
+				 remote: true) traceState
 		equals: 'remoteSampled=value'.
 	self
-		assert: ((self
-			samplingResultFrom: sampler
-			parentTraceFlags: '02'
-			traceState: 'parent=value'
-			remote: true) traceState)
+		assert: (self
+				 samplingResultFrom: sampler
+				 parentTraceFlags: '02'
+				 traceState: 'parent=value'
+				 remote: true) traceState
 		equals: 'remoteNotSampled=value'.
 	self
-		assert: ((self
-			samplingResultFrom: sampler
-			parentTraceFlags: '03'
-			traceState: 'parent=value'
-			remote: false) traceState)
+		assert: (self
+				 samplingResultFrom: sampler
+				 parentTraceFlags: '03'
+				 traceState: 'parent=value'
+				 remote: false) traceState
 		equals: 'localSampled=value'.
 	self
-		assert: ((self
-			samplingResultFrom: sampler
-			parentTraceFlags: '02'
-			traceState: 'parent=value'
-			remote: false) traceState)
+		assert: (self
+				 samplingResultFrom: sampler
+				 parentTraceFlags: '02'
+				 traceState: 'parent=value'
+				 remote: false) traceState
 		equals: 'localNotSampled=value'
 ]
 
@@ -259,14 +246,12 @@ OTSamplerTest >> testProbabilitySamplerAddsThresholdToOpenTelemetryTraceStateWhe
 	| result sampler |
 	sampler := OTSampler probability: 0.5.
 	result := sampler
-		shouldSampleIn: (self
-				contextWithTraceFlags: '00'
-				traceState: 'ot=rv:80000000000000')
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:80000000000000')
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'operation'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: result isRecordAndSample.
 	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (result traceState otelValueAt: 'th') equals: '8'
@@ -277,18 +262,15 @@ OTSamplerTest >> testProbabilitySamplerDoesNotWarnWhenExplicitRandomnessIsPresen
 
 	| sampler warnings |
 	warnings := OrderedCollection new.
-	OTProbabilisticSampler compatibilityWarningSink: [ :message |
-		warnings add: message ].
+	OTProbabilisticSampler compatibilityWarningSink: [ :message | warnings add: message ].
 	sampler := OTSampler probability: 0.5.
 	sampler
-		shouldSampleIn: (self
-				contextWithTraceFlags: '00'
-				traceState: 'ot=rv:80000000000000')
+		shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:80000000000000')
 		traceId: '00112233445566778899aabbccddeeff'
 		name: 'operation'
 		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		attributes: #(  )
+		links: #(  ).
 	self assert: warnings isEmpty
 ]
 
@@ -386,14 +368,12 @@ OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
 	| result sampler |
 	sampler := OTSampler probability: 0.5.
 	result := sampler
-		shouldSampleIn: (self
-				contextWithTraceFlags: '00'
-				traceState: 'ot=rv:7fffffffffffff')
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:7fffffffffffff')
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'operation'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: result isDrop.
 	self assert: (result traceState otelValueAt: 'rv') equals: '7fffffffffffff'.
 	self assert: (result traceState otelValueAt: 'th') equals: nil
@@ -402,12 +382,8 @@ OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
 { #category : 'tests' }
 OTSamplerTest >> testProbabilitySamplerRejectsRatiosBelowSpecificationMinimum [
 
-	self
-		should: [ OTSampler probability: OTProbabilisticSampler minimumProbability / 2 ]
-		raise: Error.
-	self
-		should: [ OTSampler probability: 0 ]
-		raise: Error
+	self should: [ OTSampler probability: OTProbabilisticSampler minimumProbability / 2 ] raise: Error.
+	self should: [ OTSampler probability: 0 ] raise: Error
 ]
 
 { #category : 'tests' }
@@ -461,23 +437,20 @@ OTSamplerTest >> testProbabilitySamplerWarnsOnceWhenParentTraceIsNotMarkedRandom
 
 	| sampler warnings |
 	warnings := OrderedCollection new.
-	OTProbabilisticSampler compatibilityWarningSink: [ :message |
-		warnings add: message ].
+	OTProbabilisticSampler compatibilityWarningSink: [ :message | warnings add: message ].
 	sampler := OTSampler probability: 0.5.
 	2 timesRepeat: [
-		sampler
-			shouldSampleIn: (self
-					contextWithTraceFlags: '01'
-					traceState: nil)
-			traceId: '00112233445566778899aabbccddeeff'
-			name: 'operation'
-			kind: OTSpan internal
-			attributes: #()
-			links: #() ].
+			sampler
+				shouldSampleIn: (self contextWithTraceFlags: '01' traceState: nil)
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'operation'
+				kind: OTSpan internal
+				attributes: #(  )
+				links: #(  ) ].
 	self
 		assert: warnings asArray
-		equals: {
-				'WARNING: The ProbabilitySampler sampler is presuming TraceIDs are random and expects the Trace random flag to be set in confirmation.  Please upgrade your caller(s) to use W3C Trace Context Level 2.' }
+		equals:
+		{ 'WARNING: The ProbabilitySampler sampler is presuming TraceIDs are random and expects the Trace random flag to be set in confirmation.  Please upgrade your caller(s) to use W3C Trace Context Level 2.' }
 ]
 
 { #category : 'tests' }
@@ -583,19 +556,19 @@ OTSamplerTest >> testTraceIdRatioBasedSamplerIsDeterministicForSameTraceId [
 	sampler := OTSampler traceIdRatioBased: 0.5.
 	traceId := '1234567890abcdef1234567890abcdef'.
 	first := sampler
-		shouldSampleIn: OTContext new
-		traceId: traceId
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		         shouldSampleIn: OTContext new
+		         traceId: traceId
+		         name: 'operation'
+		         kind: OTSpan internal
+		         attributes: #(  )
+		         links: #(  ).
 	second := sampler
-		shouldSampleIn: OTContext new
-		traceId: traceId
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: OTContext new
+		          traceId: traceId
+		          name: 'operation'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: first decision equals: second decision
 ]
 
@@ -605,19 +578,19 @@ OTSamplerTest >> testTraceIdRatioBasedSamplerRespectsProbabilityBounds [
 	| sampled dropped traceId |
 	traceId := '1234567890abcdef1234567890abcdef'.
 	sampled := (OTSampler traceIdRatioBased: 1)
-		shouldSampleIn: OTContext new
-		traceId: traceId
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		           shouldSampleIn: OTContext new
+		           traceId: traceId
+		           name: 'operation'
+		           kind: OTSpan internal
+		           attributes: #(  )
+		           links: #(  ).
 	dropped := (OTSampler traceIdRatioBased: 0)
-		shouldSampleIn: OTContext new
-		traceId: traceId
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		           shouldSampleIn: OTContext new
+		           traceId: traceId
+		           name: 'operation'
+		           kind: OTSpan internal
+		           attributes: #(  )
+		           links: #(  ).
 	self assert: sampled isRecordAndSample.
 	self assert: dropped isDrop
 ]
@@ -652,23 +625,20 @@ OTSamplerTest >> testTraceIdRatioBasedSamplerWarnsOnceWhenParentUsesProbabilityS
 
 	| sampler warnings |
 	warnings := OrderedCollection new.
-	OTTraceIdRatioBasedSampler compatibilityWarningSink: [ :message |
-		warnings add: message ].
+	OTTraceIdRatioBasedSampler compatibilityWarningSink: [ :message | warnings add: message ].
 	sampler := OTSampler traceIdRatioBased: 0.5.
 	2 timesRepeat: [
-		sampler
-			shouldSampleIn: (self
-					contextWithTraceFlags: '01'
-					traceState: 'ot=th:8')
-			traceId: '00112233445566778899aabbccddeeff'
-			name: 'operation'
-			kind: OTSpan internal
-			attributes: #()
-			links: #() ].
+			sampler
+				shouldSampleIn: (self contextWithTraceFlags: '01' traceState: 'ot=th:8')
+				traceId: '00112233445566778899aabbccddeeff'
+				name: 'operation'
+				kind: OTSpan internal
+				attributes: #(  )
+				links: #(  ) ].
 	self
 		assert: warnings asArray
-		equals: {
-				'WARNING: The TraceIdRatioBased sampler is operating as a child sampler and a parent is using ProbabilitySampler. Please upgrade this SDK configuration to use ProbabilitySampler.' }
+		equals:
+		{ 'WARNING: The TraceIdRatioBased sampler is operating as a child sampler and a parent is using ProbabilitySampler. Please upgrade this SDK configuration to use ProbabilitySampler.' }
 ]
 
 { #category : 'tests' }
@@ -676,20 +646,17 @@ OTSamplerTest >> testTraceIdRatioBasedSamplerWarnsWhenUsedAsChildSampler [
 
 	| sampler warnings |
 	warnings := OrderedCollection new.
-	OTTraceIdRatioBasedSampler compatibilityWarningSink: [ :message |
-		warnings add: message ].
+	OTTraceIdRatioBasedSampler compatibilityWarningSink: [ :message | warnings add: message ].
 	sampler := OTSampler traceIdRatioBased: 0.5.
 	sampler
-		shouldSampleIn: (self
-				contextWithTraceFlags: '01'
-				traceState: nil)
+		shouldSampleIn: (self contextWithTraceFlags: '01' traceState: nil)
 		traceId: '00112233445566778899aabbccddeeff'
 		name: 'operation'
 		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		attributes: #(  )
+		links: #(  ).
 	self
 		assert: warnings asArray
-		equals: {
-				'WARNING: The TraceIdRatioBased sampler is operating as a child sampler; the behavior is subject to change. Please upgrade this SDK configuration to use ProbabilitySampler.' }
+		equals:
+		{ 'WARNING: The TraceIdRatioBased sampler is operating as a child sampler; the behavior is subject to change. Please upgrade this SDK configuration to use ProbabilitySampler.' }
 ]

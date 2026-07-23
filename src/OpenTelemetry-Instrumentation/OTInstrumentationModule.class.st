@@ -15,8 +15,7 @@ Class {
 { #category : 'enumerating' }
 OTInstrumentationModule class >> allSubmodulesDo: aBlock [
 
-	self allSubclassesDo: [ :module |
-		module isAbstract ifFalse: [ aBlock value: module ] ]
+	self allSubclassesDo: [ :module | module isAbstract ifFalse: [ aBlock value: module ] ]
 ]
 
 { #category : 'accessing' }

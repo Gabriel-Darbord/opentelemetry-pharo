@@ -13,16 +13,14 @@ Class {
 OTMetaLinkInstaller class >> uninstallInstrumentation: anInstrumentation [
 
 	anInstrumentation reset.
-	MetaLink allInstancesDo: [ :metalink |
-		metalink metaObject == anInstrumentation ifTrue: [
-			metalink uninstall ] ]
+	MetaLink allInstancesDo: [ :metalink | metalink metaObject == anInstrumentation ifTrue: [ metalink uninstall ] ]
 ]
 
 { #category : 'API - configuration' }
 OTMetaLinkInstaller >> beOneShot [
 	"Only execute the instrumentation once."
 
-	metalink options: #( + optionOneShot )
+	metalink options: #( #+ optionOneShot )
 ]
 
 { #category : 'private' }
@@ -42,7 +40,7 @@ OTMetaLinkInstaller >> initialize [
 
 	metalink := MetaLink new.
 	"number of args depends on the configuration, so dump all in array as single arg"
-	metalink options: #( + argsAsArray optionCompileOnLinkInstallation ).
+	metalink options: #( #+ argsAsArray optionCompileOnLinkInstallation ).
 	"the configurable arguments that will be given to the instrumentation"
 	arguments := OrderedDictionary new.
 	"always with RFMethodOperation containing method, arguments and receiver."
@@ -60,8 +58,7 @@ OTMetaLinkInstaller >> instrument: aMethod [
 { #category : 'private' }
 OTMetaLinkInstaller >> shouldInstrument: aMethod with: anInstrumentation [
 
-	^ aMethod ast links noneSatisfy: [ :link |
-		  link metaObject == anInstrumentation ]
+	^ aMethod ast links noneSatisfy: [ :link | link metaObject == anInstrumentation ]
 ]
 
 { #category : 'API - configuration' }

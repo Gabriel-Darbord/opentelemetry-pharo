@@ -15,8 +15,8 @@ Class {
 OTCompositeSpanProcessor class >> withAll: aCollection [
 
 	^ self new
-		processors: aCollection;
-		yourself
+		  processors: aCollection;
+		  yourself
 ]
 
 { #category : 'accessing' }

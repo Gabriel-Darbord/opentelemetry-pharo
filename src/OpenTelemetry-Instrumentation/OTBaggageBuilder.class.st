@@ -15,8 +15,8 @@ Class {
 OTBaggageBuilder class >> newFrom: aBaggage [
 
 	^ self new
-		initializeFrom: aBaggage;
-		yourself
+		  initializeFrom: aBaggage;
+		  yourself
 ]
 
 { #category : 'building' }
@@ -25,10 +25,7 @@ OTBaggageBuilder >> build [
 	| baggage |
 	baggage := OTBaggage empty.
 	entriesByName associationsDo: [ :each |
-		baggage := baggage
-			withEntryNamed: each key
-			value: each value value
-			metadata: each value metadata ].
+		baggage := baggage withEntryNamed: each key value: each value value metadata: each value metadata ].
 	^ baggage
 ]
 
@@ -95,9 +92,7 @@ OTBaggageBuilder >> putEntryNamed: aName value: aValue metadata: aMetadataObject
 	name := OTBaggage normalizedEntryNameFrom: aName.
 	value := OTBaggage normalizedEntryValueFrom: aValue.
 	(name isNil or: [ value isNil ]) ifTrue: [ ^ self ].
-	entriesByName
-		at: name
-		put: (OTBaggageEntry value: value metadata: aMetadataObject).
+	entriesByName at: name put: (OTBaggageEntry value: value metadata: aMetadataObject).
 	^ self
 ]
 
@@ -118,7 +113,7 @@ OTBaggageBuilder >> removeEntryNamed: aName [
 	| name |
 	name := OTBaggage normalizedEntryNameFrom: aName.
 	name ifNil: [ ^ self ].
-	entriesByName removeKey: name ifAbsent: [  ].
+	entriesByName removeKey: name ifAbsent: [ ].
 	^ self
 ]
 

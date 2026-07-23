@@ -24,26 +24,15 @@ Class {
 { #category : 'private - logging' }
 OTMeterProvider class >> configurationWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otMetricConfigurationWarningSink
-		forClass: self
-		ifAbsent: [ self defaultConfigurationWarningSink ]
+	^ OTClassStateStore valueAt: #otMetricConfigurationWarningSink forClass: self ifAbsent: [ self defaultConfigurationWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTMeterProvider class >> configurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otMetricConfigurationWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otMetricConfigurationWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otMetricConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otMetricConfigurationWarningSink forClass: self put: aBlock ].
 	^ self configurationWarningSink
 ]
 
@@ -66,9 +55,7 @@ OTMeterProvider class >> configuredExporterNames [
 	| rawValue |
 	rawValue := self environmentValueAt: 'OTEL_METRICS_EXPORTER'.
 	rawValue ifNil: [ ^ #( 'otlp' ) ].
-	^ (self exporterNamesFromConfigurationValue: rawValue)
-		ifNil: [ #( 'otlp' ) ]
-		ifNotNil: [ :names | names ]
+	^ (self exporterNamesFromConfigurationValue: rawValue) ifNil: [ #( 'otlp' ) ] ifNotNil: [ :names | names ]
 ]
 
 { #category : 'private - configuration' }
@@ -76,12 +63,12 @@ OTMeterProvider class >> configuredOtlpExporter [
 
 	| configuration |
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'METRICS'.
-	configuration protocol = OTOtlpGrpcMetricExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpGrpcMetricExporter configuration: configuration ].
-	configuration protocol = OTOtlpHttpJsonMetricExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpHttpJsonMetricExporter configuration: configuration ].
-	configuration protocol = OTOtlpHttpProtobufMetricExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpHttpProtobufMetricExporter configuration: configuration ].
+	configuration protocol = OTOtlpGrpcMetricExporter supportedProtocol ifTrue: [
+		^ OTOtlpGrpcMetricExporter configuration: configuration ].
+	configuration protocol = OTOtlpHttpJsonMetricExporter supportedProtocol ifTrue: [
+		^ OTOtlpHttpJsonMetricExporter configuration: configuration ].
+	configuration protocol = OTOtlpHttpProtobufMetricExporter supportedProtocol ifTrue: [
+		^ OTOtlpHttpProtobufMetricExporter configuration: configuration ].
 	self noteUnsupportedOtlpProtocol: configuration protocol.
 	^ OTOtlpHttpProtobufMetricExporter configuration: configuration
 ]
@@ -90,9 +77,9 @@ OTMeterProvider class >> configuredOtlpExporter [
 OTMeterProvider class >> configuredPrometheusReader [
 
 	^ OTPrometheusMetricReader new
-		host: self prometheusHost;
-		port: self prometheusPort;
-		yourself
+		  host: self prometheusHost;
+		  port: self prometheusPort;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -144,48 +131,35 @@ OTMeterProvider class >> exporterNamesFromConfigurationValue: aString [
 	names := OrderedCollection new.
 	seen := Set new.
 	(aString substrings: ',') do: [ :each |
-		| exporterName normalizedName |
-		exporterName := each trimBoth.
-		exporterName isEmpty ifFalse: [
-			normalizedName := exporterName asLowercase.
-			(seen includes: normalizedName) ifFalse: [
-				(#( 'otlp' 'prometheus' 'otlp/stdout' 'console' 'logging' 'none' )
-					includes: normalizedName)
-					ifFalse: [
-						self noteUnknownExporterName: exporterName.
-						^ nil ].
-				seen add: normalizedName.
-				names add: normalizedName ] ] ].
+			| exporterName normalizedName |
+			exporterName := each trimBoth.
+			exporterName isEmpty ifFalse: [
+					normalizedName := exporterName asLowercase.
+					(seen includes: normalizedName) ifFalse: [
+							(#( 'otlp' 'prometheus' 'otlp/stdout' 'console' 'logging' 'none' ) includes: normalizedName) ifFalse: [
+									self noteUnknownExporterName: exporterName.
+									^ nil ].
+							seen add: normalizedName.
+							names add: normalizedName ] ] ].
 	names isEmpty ifTrue: [ ^ nil ].
 	((names includes: 'none') and: [ names size > 1 ]) ifTrue: [
-		self noteExporterNoneConflictIn: aString.
-		^ nil ].
+			self noteExporterNoneConflictIn: aString.
+			^ nil ].
 	^ names asArray
 ]
 
 { #category : 'private' }
 OTMeterProvider class >> meterNameWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otMeterNameWarningSink
-		forClass: self
-		ifAbsent: [ self defaultMeterNameWarningSink ]
+	^ OTClassStateStore valueAt: #otMeterNameWarningSink forClass: self ifAbsent: [ self defaultMeterNameWarningSink ]
 ]
 
 { #category : 'private' }
 OTMeterProvider class >> meterNameWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otMeterNameWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otMeterNameWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otMeterNameWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otMeterNameWarningSink forClass: self put: aBlock ].
 	^ self meterNameWarningSink
 ]
 
@@ -200,16 +174,16 @@ OTMeterProvider class >> metricExportIntervalDefaultForExporter: anExporter [
 OTMeterProvider class >> metricExportIntervalMillisForExporter: anExporter [
 
 	^ self
-		positiveIntegerEnvironmentValueAt: 'OTEL_METRIC_EXPORT_INTERVAL'
-		default: (self metricExportIntervalDefaultForExporter: anExporter)
+		  positiveIntegerEnvironmentValueAt: 'OTEL_METRIC_EXPORT_INTERVAL'
+		  default: (self metricExportIntervalDefaultForExporter: anExporter)
 ]
 
 { #category : 'private - configuration' }
 OTMeterProvider class >> metricExportTimeoutMillis [
 
 	^ self
-		positiveIntegerEnvironmentValueAt: 'OTEL_METRIC_EXPORT_TIMEOUT'
-		default: OTPeriodicExportingMetricReader new exportTimeoutMillis
+		  positiveIntegerEnvironmentValueAt: 'OTEL_METRIC_EXPORT_TIMEOUT'
+		  default: OTPeriodicExportingMetricReader new exportTimeoutMillis
 ]
 
 { #category : 'private' }
@@ -220,9 +194,11 @@ OTMeterProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default: 
 	rawValue ifNil: [ ^ aDefaultValue ].
 	stream := rawValue trimBoth readStream.
 	stream atEnd ifTrue: [
-		self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: aString.
-		^ aDefaultValue ].
-	parsed := [ Integer readFrom: stream ] on: Error do: [ nil ].
+			self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: aString.
+			^ aDefaultValue ].
+	parsed := [ Integer readFrom: stream ]
+		          on: Error
+		          do: [ nil ].
 	((parsed isInteger and: [ parsed >= 0 ]) and: [ stream atEnd ]) ifTrue: [ ^ parsed ].
 	self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: aString.
 	^ aDefaultValue
@@ -233,12 +209,12 @@ OTMeterProvider class >> normalizedMeterNameFrom: aValue [
 
 	| meterName |
 	aValue ifNil: [
-		self noteInvalidMeterName: aValue.
-		^ '' ].
+			self noteInvalidMeterName: aValue.
+			^ '' ].
 	meterName := aValue asString.
 	meterName trimBoth isEmpty ifTrue: [
-		self noteInvalidMeterName: aValue.
-		^ '' ].
+			self noteInvalidMeterName: aValue.
+			^ '' ].
 	^ meterName
 ]
 
@@ -246,52 +222,44 @@ OTMeterProvider class >> normalizedMeterNameFrom: aValue [
 OTMeterProvider class >> noteExporterNoneConflictIn: aString [
 
 	self configurationWarningSink value:
-		'OpenTelemetry metrics exporter configuration mixes ''none'' with other exporters and has been ignored: '
-			, aString printString
+		'OpenTelemetry metrics exporter configuration mixes ''none'' with other exporters and has been ignored: ' , aString printString
 ]
 
 { #category : 'private - logging' }
 OTMeterProvider class >> noteInvalidExemplarFilterName: aString [
 
 	self configurationWarningSink value:
-		'OpenTelemetry metrics exemplar filter was invalid and defaulted to trace_based: '
-			, aString printString
+		'OpenTelemetry metrics exemplar filter was invalid and defaulted to trace_based: ' , aString printString
 ]
 
 { #category : 'private - logging' }
 OTMeterProvider class >> noteInvalidMeterName: aValue [
 
-	self meterNameWarningSink value:
-		'OpenTelemetry meter name was invalid and has been normalized to an empty string: '
-			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self meterNameWarningSink value: 'OpenTelemetry meter name was invalid and has been normalized to an empty string: '
+		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
 ]
 
 { #category : 'private - logging' }
 OTMeterProvider class >> noteInvalidPeriodicMetricReaderEnvironmentValue: aValue forVariable: aString [
 
 	self configurationWarningSink value:
-		'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for '
-			, aString printString
-			, ': '
-			, aValue printString
+		'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for ' , aString printString , ': '
+		, aValue printString
 ]
 
 { #category : 'private - logging' }
 OTMeterProvider class >> noteInvalidPrometheusEnvironmentValue: aValue forVariable: aString [
 
 	self configurationWarningSink value:
-		'OpenTelemetry Prometheus exporter configuration was invalid and has been ignored for '
-			, aString printString
-			, ': '
-			, aValue printString
+		'OpenTelemetry Prometheus exporter configuration was invalid and has been ignored for ' , aString printString , ': '
+		, aValue printString
 ]
 
 { #category : 'private - logging' }
 OTMeterProvider class >> noteUnknownExporterName: aString [
 
 	self configurationWarningSink value:
-		'OpenTelemetry metrics exporter name was unrecognized and has been ignored: '
-			, aString printString
+		'OpenTelemetry metrics exporter name was unrecognized and has been ignored: ' , aString printString
 ]
 
 { #category : 'private - logging' }
@@ -299,15 +267,14 @@ OTMeterProvider class >> noteUnsupportedExporterName: aString [
 
 	self configurationWarningSink value:
 		'OpenTelemetry metrics exporter name is recognized but not supported by this SDK yet and has been ignored: '
-			, aString printString
+		, aString printString
 ]
 
 { #category : 'private - logging' }
 OTMeterProvider class >> noteUnsupportedOtlpProtocol: aString [
 
 	self configurationWarningSink value:
-		'OpenTelemetry OTLP metrics exporter protocol was unsupported and defaulted to http/protobuf: '
-			, aString printString
+		'OpenTelemetry OTLP metrics exporter protocol was unsupported and defaulted to http/protobuf: ' , aString printString
 ]
 
 { #category : 'private' }
@@ -318,8 +285,8 @@ OTMeterProvider class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 	rawValue ifNil: [ ^ aDefaultValue ].
 	parsed := OTSpanExporter strictPositiveIntegerFrom: rawValue.
 	parsed ifNil: [
-		self noteInvalidPeriodicMetricReaderEnvironmentValue: rawValue forVariable: aString.
-		^ aDefaultValue ].
+			self noteInvalidPeriodicMetricReaderEnvironmentValue: rawValue forVariable: aString.
+			^ aDefaultValue ].
 	^ parsed
 ]
 
@@ -334,9 +301,7 @@ OTMeterProvider class >> prometheusHost [
 { #category : 'private - configuration' }
 OTMeterProvider class >> prometheusPort [
 
-	^ self
-		nonNegativeIntegerEnvironmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_PORT'
-		default: 9464
+	^ self nonNegativeIntegerEnvironmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_PORT' default: 9464
 ]
 
 { #category : 'instance creation' }
@@ -353,18 +318,17 @@ OTMeterProvider class >> readConfiguration [
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	readers := OTConfigurationSource configuredMetricReaders.
 	readers ifNotNil: [
-		readers do: [ :each | provider addMetricReader: each ].
-		^ provider ].
+			readers do: [ :each | provider addMetricReader: each ].
+			^ provider ].
 	exporterNames := self configuredExporterNames.
 	exporterNames do: [ :each |
-		each = 'prometheus'
-			ifTrue: [ provider addMetricReader: self configuredPrometheusReader ]
-			ifFalse: [
-				| exporter |
-				exporter := self exporterNamed: each.
-				exporter ifNotNil: [
-					exporter class = OTNoopMetricExporter ifFalse: [
-						provider addMetricReader: (self readerForExporter: exporter) ] ] ] ].
+			each = 'prometheus'
+				ifTrue: [ provider addMetricReader: self configuredPrometheusReader ]
+				ifFalse: [
+						| exporter |
+						exporter := self exporterNamed: each.
+						exporter ifNotNil: [
+							exporter class = OTNoopMetricExporter ifFalse: [ provider addMetricReader: (self readerForExporter: exporter) ] ] ] ].
 	^ provider
 ]
 
@@ -379,7 +343,7 @@ OTMeterProvider class >> readerForExporter: anExporter [
 	^ reader
 ]
 
-{ #category : 'accessing' }
+{ #category : 'class initialization' }
 OTMeterProvider class >> reset [
 
 	Current ifNotNil: [ Current shutdown ].
@@ -410,8 +374,7 @@ OTMeterProvider >> collectMeasurementsFor: anOTMetricReader [
 
 	| collected |
 	collected := self measurements copy.
-	self meters valuesDo: [ :each |
-		each collectMeasurementsFor: anOTMetricReader into: collected ].
+	self meters valuesDo: [ :each | each collectMeasurementsFor: anOTMetricReader into: collected ].
 	^ collected
 ]
 
@@ -424,9 +387,7 @@ OTMeterProvider >> exemplarFilter [
 { #category : 'accessing' }
 OTMeterProvider >> exemplarFilter: anOTMetricExemplarFilter [
 
-	exemplarFilter := anOTMetricExemplarFilter
-		ifNil: [ OTMetricExemplarFilter traceBased ]
-		ifNotNil: [ anOTMetricExemplarFilter ].
+	exemplarFilter := anOTMetricExemplarFilter ifNil: [ OTMetricExemplarFilter traceBased ] ifNotNil: [ anOTMetricExemplarFilter ].
 	^ self exemplarFilter
 ]
 
@@ -459,8 +420,7 @@ OTMeterProvider >> isShutdown [
 { #category : 'configuration' }
 OTMeterProvider >> matchingViewsFor: anOTMetricInstrument [
 
-	^ self views
-		select: [ :each | each matchesInstrument: anOTMetricInstrument ]
+	^ self views select: [ :each | each matchesInstrument: anOTMetricInstrument ]
 ]
 
 { #category : 'recording' }
@@ -494,8 +454,7 @@ OTMeterProvider >> meterConfigFor: anOTInstrumentationScope [
 	configured := meterConfigurator value: anOTInstrumentationScope.
 	configured ifNil: [ ^ OTMeterConfig default ].
 	configured class = OTMeterConfig ifTrue: [ ^ configured copy ].
-	((configured == true) or: [ configured == false ]) ifTrue: [
-		^ OTMeterConfig enabled: configured ].
+	(configured == true or: [ configured == false ]) ifTrue: [ ^ OTMeterConfig enabled: configured ].
 	^ OTMeterConfig default
 ]
 
@@ -515,10 +474,10 @@ OTMeterProvider >> meterConfigurator: aBlockOrNil [
 OTMeterProvider >> meterNamed: aString [
 
 	^ self
-		meterNamed: aString
-		version: ''
-		schemaUrl: ''
-		attributes: #()
+		  meterNamed: aString
+		  version: ''
+		  schemaUrl: ''
+		  attributes: #(  )
 ]
 
 { #category : 'accessing' }
@@ -526,14 +485,12 @@ OTMeterProvider >> meterNamed: aString version: aVersionString schemaUrl: aSchem
 
 	| scope |
 	scope := OTInstrumentationScope
-		named: (self class normalizedMeterNameFrom: aString)
-		version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
-		schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
-		attributes: aCollection.
+		         named: (self class normalizedMeterNameFrom: aString)
+		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
+		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
+		         attributes: aCollection.
 	self isShutdown ifTrue: [ ^ OTMeter forProvider: nil instrumentationScope: scope ].
-	^ self meters
-		at: scope
-		ifAbsentPut: [ OTMeter forProvider: self instrumentationScope: scope ]
+	^ self meters at: scope ifAbsentPut: [ OTMeter forProvider: self instrumentationScope: scope ]
 ]
 
 { #category : 'accessing' }
@@ -552,11 +509,7 @@ OTMeterProvider >> metricReaders [
 OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber attributes: aCollection [
 
 	anOTMetricInstrument enabled ifFalse: [ ^ false ].
-	self measurements add:
-		(self
-			measurementFor: anOTMetricInstrument
-			value: aNumber
-			attributes: aCollection).
+	self measurements add: (self measurementFor: anOTMetricInstrument value: aNumber attributes: aCollection).
 	^ true
 ]
 
@@ -565,8 +518,7 @@ OTMeterProvider >> registeredMetricInstruments [
 
 	| instruments |
 	instruments := OrderedCollection new.
-	self meters valuesDo: [ :each |
-		instruments addAll: each registeredMetricInstruments ].
+	self meters valuesDo: [ :each | instruments addAll: each registeredMetricInstruments ].
 	^ instruments asArray
 ]
 

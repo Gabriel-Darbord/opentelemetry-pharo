@@ -9,11 +9,11 @@ Class {
 OTSpanBuilderTest >> sampledParentSpan [
 
 	^ (OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '03'
-		traceState: 'rojo=1'
-		remote: false) asNonRecordingSpan
+		   traceId: '00112233445566778899aabbccddeeff'
+		   spanId: '1122334455667788'
+		   traceFlags: '03'
+		   traceState: 'rojo=1'
+		   remote: false) asNonRecordingSpan
 ]
 
 { #category : 'running' }
@@ -22,7 +22,7 @@ OTSpanBuilderTest >> setUp [
 	super setUp.
 	OTTracerProvider current: nil.
 	OTSpanProcessor current: nil.
-	OTSpanExporter current: OTNoopSpanExporter new.
+	OTSpanExporter current: nil.
 	OTSpanBuilder parentContextWarningSink: nil.
 	OTSpan reset
 ]
@@ -36,8 +36,7 @@ OTSpanBuilderTest >> tearDown [
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
 		OTSpanBuilder parentContextWarningSink: nil.
-		OTSpan reset ]
-		ensure: [ super tearDown ]
+		OTSpan reset ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -1283,7 +1282,5 @@ OTSpanBuilderTest >> withParentContextWarningsDo: aBlock [
 	| warnings |
 	warnings := OrderedCollection new.
 	OTSpanBuilder parentContextWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTSpanBuilder parentContextWarningSink: nil ]
+	[ ^ aBlock value: warnings ] ensure: [ OTSpanBuilder parentContextWarningSink: nil ]
 ]

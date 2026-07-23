@@ -28,9 +28,7 @@ OTOtlpGrpcSpanExporter class >> supportedProtocol [
 { #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter >> executeGrpcRequest: aRequest [
 
-	^ requestExecutor
-		ifNil: [ self grpcChannel executeUnaryRequest: aRequest ]
-		ifNotNil: [ requestExecutor value: aRequest ]
+	^ requestExecutor ifNil: [ self grpcChannel executeUnaryRequest: aRequest ] ifNotNil: [ requestExecutor value: aRequest ]
 ]
 
 { #category : 'exporting' }
@@ -46,29 +44,22 @@ OTOtlpGrpcSpanExporter >> exportAttemptNumber: attemptNumber payloadBytes: paylo
 
 	| request response status |
 	request := self grpcRequestForPayloadBytes: payloadBytes.
-	[
-	response := self executeGrpcRequest: request ]
+	[ response := self executeGrpcRequest: request ]
 		on: Error
 		do: [ :error |
-			attemptNumber >= self maxExportAttempts ifTrue: [
-				self noteRetryExhaustedForError: error.
-				^ false ].
-			self sleepForMilliseconds:
-				(self retryDelayMillisForAttempt: attemptNumber response: nil).
-			^ self
-				exportAttemptNumber: attemptNumber + 1
-				payloadBytes: payloadBytes ].
+				attemptNumber >= self maxExportAttempts ifTrue: [
+						self noteRetryExhaustedForError: error.
+						^ false ].
+				self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
+				^ self exportAttemptNumber: attemptNumber + 1 payloadBytes: payloadBytes ].
 	status := response status.
 	status isOk ifTrue: [ ^ self handleSuccessGrpcResponse: response ].
 	(self isRetryableStatus: status) ifFalse: [ ^ false ].
 	attemptNumber >= self maxExportAttempts ifTrue: [
-		self noteRetryExhaustedForStatus: status.
-		^ false ].
-	self sleepForMilliseconds:
-		(self retryDelayMillisForAttempt: attemptNumber response: nil).
-	^ self
-		exportAttemptNumber: attemptNumber + 1
-		payloadBytes: payloadBytes
+			self noteRetryExhaustedForStatus: status.
+			^ false ].
+	self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
+	^ self exportAttemptNumber: attemptNumber + 1 payloadBytes: payloadBytes
 ]
 
 { #category : 'private - grpc' }
@@ -90,12 +81,8 @@ OTOtlpGrpcSpanExporter >> grpcChannelClass [
 OTOtlpGrpcSpanExporter >> grpcDependencyNamed: aSymbol [
 
 	^ Smalltalk globals
-		at: aSymbol
-		ifAbsent: [
-			Error signal:
-				'OTOtlpGrpcSpanExporter requires grpc-pharo to be loaded (missing ',
-				aSymbol asString,
-				')' ]
+		  at: aSymbol
+		  ifAbsent: [ Error signal: 'OTOtlpGrpcSpanExporter requires grpc-pharo to be loaded (missing ' , aSymbol asString , ')' ]
 ]
 
 { #category : 'private - grpc' }
@@ -115,8 +102,7 @@ OTOtlpGrpcSpanExporter >> grpcMetadataFromConfigurationHeaders [
 
 	| metadata |
 	metadata := self grpcMetadataClass new.
-	self configuration headers associationsDo: [ :each |
-		metadata addKey: each key asLowercase value: each value ].
+	self configuration headers associationsDo: [ :each | metadata addKey: each key asLowercase value: each value ].
 	^ metadata
 ]
 
@@ -191,10 +177,10 @@ OTOtlpGrpcSpanExporter >> handleSuccessGrpcResponse: aResponse [
 
 	| partialSuccess responseRepresentation |
 	responseRepresentation := [ self successfulResponseRepresentationFromGrpcResponse: aResponse ]
-		on: Error
-		do: [ :error |
-			self noteInvalidGrpcSuccessResponse: error.
-			^ false ].
+		                          on: Error
+		                          do: [ :error |
+				                          self noteInvalidGrpcSuccessResponse: error.
+				                          ^ false ].
 	partialSuccess := self partialSuccessFrom: responseRepresentation.
 	partialSuccess ifNil: [ ^ true ].
 	self notePartialSuccess: partialSuccess.
@@ -210,17 +196,14 @@ OTOtlpGrpcSpanExporter >> isRetryableStatus: aStatus [
 { #category : 'private - logging' }
 OTOtlpGrpcSpanExporter >> noteInvalidGrpcSuccessResponse: anError [
 
-	self warningSink value:
-		'OpenTelemetry OTLP trace export returned an invalid gRPC success response: '
-			, anError messageText
+	self warningSink value: 'OpenTelemetry OTLP trace export returned an invalid gRPC success response: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcSpanExporter >> noteRetryExhaustedForStatus: aStatus [
 
 	self warningSink value:
-		'OpenTelemetry OTLP trace export exhausted retries after gRPC status '
-			, aStatus codeName, ' (', aStatus code asString, ')'
+		'OpenTelemetry OTLP trace export exhausted retries after gRPC status ' , aStatus codeName , ' (' , aStatus code asString , ')'
 ]
 
 { #category : 'private - grpc' }

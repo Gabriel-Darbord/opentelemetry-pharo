@@ -28,9 +28,9 @@ OTBlockingLogRecordExporter >> blockNextExport [
 OTBlockingLogRecordExporter >> export: someLogRecords [
 
 	blockNextExport = true ifTrue: [
-		blockNextExport := false.
-		exportEntered signal.
-		exportRelease wait ].
+			blockNextExport := false.
+			exportEntered signal.
+			exportRelease wait ].
 	^ super export: someLogRecords
 ]
 

@@ -15,8 +15,8 @@ Class {
 OTCompositeLogRecordProcessor class >> withAll: aCollection [
 
 	^ self new
-		processors: aCollection;
-		yourself
+		  processors: aCollection;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -30,8 +30,7 @@ OTCompositeLogRecordProcessor >> addProcessor: anOTLogRecordProcessor [
 OTCompositeLogRecordProcessor >> componentProcessors [
 
 	^ OrderedCollection streamContents: [ :stream |
-		self processors do: [ :each |
-			each componentProcessors do: [ :processor | stream nextPut: processor ] ] ]
+		  self processors do: [ :each | each componentProcessors do: [ :processor | stream nextPut: processor ] ] ]
 ]
 
 { #category : 'testing' }
@@ -39,19 +38,17 @@ OTCompositeLogRecordProcessor >> enabledIn: anOTContext instrumentationScope: an
 
 	self processors isEmpty ifTrue: [ ^ false ].
 	^ self processors anySatisfy: [ :each |
-		each
-			enabledIn: anOTContext
-			instrumentationScope: anInstrumentationScope
-			severityNumber: anObject
-			eventName: aString ]
+			  each
+				  enabledIn: anOTContext
+				  instrumentationScope: anInstrumentationScope
+				  severityNumber: anObject
+				  eventName: aString ]
 ]
 
 { #category : 'processing' }
 OTCompositeLogRecordProcessor >> forceFlush [
 
-	^ self processors
-		inject: true
-		into: [ :allFlushed :each | (each forceFlush) & allFlushed ]
+	^ self processors inject: true into: [ :allFlushed :each | each forceFlush & allFlushed ]
 ]
 
 { #category : 'initialization' }
@@ -86,7 +83,5 @@ OTCompositeLogRecordProcessor >> shutdown [
 
 	| flushed |
 	flushed := self forceFlush.
-	^ (self processors
-		inject: true
-		into: [ :allShutdown :each | (each shutdown) & allShutdown ]) & flushed
+	^ (self processors inject: true into: [ :allShutdown :each | each shutdown & allShutdown ]) & flushed
 ]

@@ -25,6 +25,27 @@ Class {
 	#package : 'OpenTelemetry-Logs'
 }
 
+{ #category : 'testing' }
+OTBatchLogRecordProcessor >> enabledIn: anOTContext instrumentationScope: anInstrumentationScope severityNumber: anObject eventName: aString [
+
+	^ self isStopping not and: [
+			  self isShutdown not and: [
+					  self exporter
+						  enabledIn: anOTContext
+						  instrumentationScope: anInstrumentationScope
+						  severityNumber: anObject
+						  eventName: aString ] ]
+]
+
+{ #category : 'private - processing' }
+OTBatchLogRecordProcessor >> ensureFlushProcess [
+
+	self isStopping ifTrue: [ ^ nil ].
+	(flushProcess notNil and: [ flushProcess isTerminated not ]) ifTrue: [ ^ flushProcess ].
+	flushProcess := [ self runFlushLoop ] forkAt: Processor userBackgroundPriority.
+	^ flushProcess
+]
+
 { #category : 'processing' }
 OTBatchLogRecordProcessor >> exportAvailableBatchesAllowPartial: allowPartial [
 
@@ -32,9 +53,8 @@ OTBatchLogRecordProcessor >> exportAvailableBatchesAllowPartial: allowPartial [
 	allExported := true.
 	allowPartialNow := allowPartial.
 	[
-	records := self nextBatchForExportAllowPartial: allowPartialNow.
-	records notNil ]
-		whileTrue: [
+		records := self nextBatchForExportAllowPartial: allowPartialNow.
+		records notNil ] whileTrue: [
 			allExported := (self exportLogRecords: records) & allExported.
 			allowPartialNow := false ].
 	^ allExported
@@ -57,9 +77,8 @@ OTBatchLogRecordProcessor >> exportInProgress: aBoolean [
 OTBatchLogRecordProcessor >> exportLogRecords: someLogRecords [
 
 	^ exportLock critical: [
-		self exportInProgress: true.
-		[ self runExporterOperation: [ self exporter export: someLogRecords ] ]
-			ensure: [ self exportInProgress: false ] ]
+			  self exportInProgress: true.
+			  [ self runExporterOperation: [ self exporter export: someLogRecords ] ] ensure: [ self exportInProgress: false ] ]
 ]
 
 { #category : 'accessing' }
@@ -75,28 +94,6 @@ OTBatchLogRecordProcessor >> exportTimeoutMillis: anInteger [
 		Error signal: 'Export timeout must be superior or equal to 0 millisecond' ].
 	exportTimeoutMillis := anInteger.
 	^ exportTimeoutMillis
-]
-
-{ #category : 'testing' }
-OTBatchLogRecordProcessor >> enabledIn: anOTContext instrumentationScope: anInstrumentationScope severityNumber: anObject eventName: aString [
-
-	^ self isStopping not
-		and: [ self isShutdown not
-		and: [
-			self exporter
-				enabledIn: anOTContext
-				instrumentationScope: anInstrumentationScope
-				severityNumber: anObject
-				eventName: aString ] ]
-]
-
-{ #category : 'private - processing' }
-OTBatchLogRecordProcessor >> ensureFlushProcess [
-
-	self isStopping ifTrue: [ ^ nil ].
-	(flushProcess notNil and: [ flushProcess isTerminated not ]) ifTrue: [ ^ flushProcess ].
-	flushProcess := [ self runFlushLoop ] forkAt: Processor userBackgroundPriority.
-	^ flushProcess
 ]
 
 { #category : 'accessing' }
@@ -171,37 +168,6 @@ OTBatchLogRecordProcessor >> isStopping [
 	^ stateLock critical: [ shutdownRequested = true ]
 ]
 
-{ #category : 'accessing' }
-OTBatchLogRecordProcessor >> maxExportBatchSize [
-
-	^ maxExportBatchSize
-]
-
-{ #category : 'accessing' }
-OTBatchLogRecordProcessor >> maxExportBatchSize: anInteger [
-
-	anInteger >= 1 ifFalse: [
-		Error signal: 'Max export batch size must be superior or equal to 1' ].
-	maxExportBatchSize := maxQueueSize ifNil: [ anInteger ] ifNotNil: [ anInteger min: maxQueueSize ].
-	^ maxExportBatchSize
-]
-
-{ #category : 'accessing' }
-OTBatchLogRecordProcessor >> maxQueueSize [
-
-	^ maxQueueSize
-]
-
-{ #category : 'accessing' }
-OTBatchLogRecordProcessor >> maxQueueSize: anInteger [
-
-	anInteger >= 1 ifFalse: [
-		Error signal: 'Max queue size must be superior or equal to 1' ].
-	maxQueueSize := anInteger.
-	maxExportBatchSize ifNotNil: [ maxExportBatchSize := maxExportBatchSize min: maxQueueSize ].
-	^ maxQueueSize
-]
-
 { #category : 'private - processing' }
 OTBatchLogRecordProcessor >> markShutdown [
 
@@ -216,37 +182,62 @@ OTBatchLogRecordProcessor >> markShutdownRequested [
 	self
 ]
 
+{ #category : 'accessing' }
+OTBatchLogRecordProcessor >> maxExportBatchSize [
+
+	^ maxExportBatchSize
+]
+
+{ #category : 'accessing' }
+OTBatchLogRecordProcessor >> maxExportBatchSize: anInteger [
+
+	anInteger >= 1 ifFalse: [ Error signal: 'Max export batch size must be superior or equal to 1' ].
+	maxExportBatchSize := maxQueueSize ifNil: [ anInteger ] ifNotNil: [ anInteger min: maxQueueSize ].
+	^ maxExportBatchSize
+]
+
+{ #category : 'accessing' }
+OTBatchLogRecordProcessor >> maxQueueSize [
+
+	^ maxQueueSize
+]
+
+{ #category : 'accessing' }
+OTBatchLogRecordProcessor >> maxQueueSize: anInteger [
+
+	anInteger >= 1 ifFalse: [ Error signal: 'Max queue size must be superior or equal to 1' ].
+	maxQueueSize := anInteger.
+	maxExportBatchSize ifNotNil: [ maxExportBatchSize := maxExportBatchSize min: maxQueueSize ].
+	^ maxQueueSize
+]
+
 { #category : 'private - processing' }
 OTBatchLogRecordProcessor >> nextBatchForExportAllowPartial: allowPartial [
 
 	| exportCount records |
 	^ queueLock critical: [
-		queue ifEmpty: [ ^ nil ].
-		(allowPartial not and: [ queue size < maxExportBatchSize ]) ifTrue: [ ^ nil ].
-		exportCount := maxExportBatchSize min: queue size.
-		records := queue copyFrom: 1 to: exportCount.
-		exportCount timesRepeat: [ queue removeFirst ].
-		queue isEmpty
-			ifTrue: [ queueBecameNonEmptyAt := nil ]
-			ifFalse: [
-				queue size < maxExportBatchSize ifTrue: [
-					queueBecameNonEmptyAt := Time millisecondClockValue ] ].
-		records ]
+			  queue ifEmpty: [ ^ nil ].
+			  (allowPartial not and: [ queue size < maxExportBatchSize ]) ifTrue: [ ^ nil ].
+			  exportCount := maxExportBatchSize min: queue size.
+			  records := queue copyFrom: 1 to: exportCount.
+			  exportCount timesRepeat: [ queue removeFirst ].
+			  queue isEmpty
+				  ifTrue: [ queueBecameNonEmptyAt := nil ]
+				  ifFalse: [ queue size < maxExportBatchSize ifTrue: [ queueBecameNonEmptyAt := Time millisecondClockValue ] ].
+			  records ]
 ]
 
 { #category : 'private - processing' }
 OTBatchLogRecordProcessor >> nextWorkDecision [
 
 	^ queueLock critical: [
-		| remainingDelay |
-		queue isEmpty ifTrue: [ ^ #idle ].
-		queue size >= maxExportBatchSize ifTrue: [ ^ #fullBatch ].
-		queueBecameNonEmptyAt ifNil: [
-			queueBecameNonEmptyAt := Time millisecondClockValue ].
-		remainingDelay := self scheduledDelayMillis
-			- (Time millisecondClockValue - queueBecameNonEmptyAt).
-		remainingDelay <= 0 ifTrue: [ ^ #partialBatch ].
-		remainingDelay ]
+			  | remainingDelay |
+			  queue isEmpty ifTrue: [ ^ #idle ].
+			  queue size >= maxExportBatchSize ifTrue: [ ^ #fullBatch ].
+			  queueBecameNonEmptyAt ifNil: [ queueBecameNonEmptyAt := Time millisecondClockValue ].
+			  remainingDelay := self scheduledDelayMillis - (Time millisecondClockValue - queueBecameNonEmptyAt).
+			  remainingDelay <= 0 ifTrue: [ ^ #partialBatch ].
+			  remainingDelay ]
 ]
 
 { #category : 'processing' }
@@ -260,15 +251,14 @@ OTBatchLogRecordProcessor >> onEmit: anOTLogRecord context: anOTContext [
 	self isShutdown ifTrue: [ ^ self ].
 	self ensureFlushProcess.
 	queueLock critical: [
-		| wasEmpty |
-		queue size >= maxQueueSize ifTrue: [ ^ self ].
-		wasEmpty := queue isEmpty.
-		queue add: anOTLogRecord copy.
-		wasEmpty ifTrue: [ queueBecameNonEmptyAt := Time millisecondClockValue ].
-		accepted := true.
-		shouldWakeWorker := wasEmpty or: [ queue size >= maxExportBatchSize ] ].
-	accepted ifTrue: [
-		shouldWakeWorker ifTrue: [ workAvailable signal ] ].
+			| wasEmpty |
+			queue size >= maxQueueSize ifTrue: [ ^ self ].
+			wasEmpty := queue isEmpty.
+			queue add: anOTLogRecord copy.
+			wasEmpty ifTrue: [ queueBecameNonEmptyAt := Time millisecondClockValue ].
+			accepted := true.
+			shouldWakeWorker := wasEmpty or: [ queue size >= maxExportBatchSize ] ].
+	accepted ifTrue: [ shouldWakeWorker ifTrue: [ workAvailable signal ] ].
 	self
 ]
 
@@ -276,9 +266,7 @@ OTBatchLogRecordProcessor >> onEmit: anOTLogRecord context: anOTContext [
 OTBatchLogRecordProcessor >> runExporterOperation: aBlock [
 
 	self exportTimeoutMillis = 0 ifTrue: [ ^ aBlock value ].
-	^ aBlock
-		valueWithinMilliseconds: self exportTimeoutMillis
-		onTimeout: [ false ]
+	^ aBlock valueWithinMilliseconds: self exportTimeoutMillis onTimeout: [ false ]
 ]
 
 { #category : 'private - processing' }
@@ -286,19 +274,18 @@ OTBatchLogRecordProcessor >> runFlushLoop [
 
 	| decision timedOut |
 	[ self isStopping ] whileFalse: [
-		decision := self nextWorkDecision.
-		decision = #idle ifTrue: [
-			workAvailable wait ]
-		ifFalse: [
-			decision = #fullBatch ifTrue: [
-				self exportAvailableBatchesAllowPartial: false ]
-			ifFalse: [
-				decision = #partialBatch ifTrue: [
-					self exportAvailableBatchesAllowPartial: true ]
+			decision := self nextWorkDecision.
+			decision = #idle
+				ifTrue: [ workAvailable wait ]
 				ifFalse: [
-					timedOut := workAvailable waitTimeoutMilliseconds: decision.
-					timedOut ifTrue: [
-						self exportAvailableBatchesAllowPartial: true ] ] ] ] ]
+						decision = #fullBatch
+							ifTrue: [ self exportAvailableBatchesAllowPartial: false ]
+							ifFalse: [
+									decision = #partialBatch
+										ifTrue: [ self exportAvailableBatchesAllowPartial: true ]
+										ifFalse: [
+												timedOut := workAvailable waitTimeoutMilliseconds: decision.
+												timedOut ifTrue: [ self exportAvailableBatchesAllowPartial: true ] ] ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -334,9 +321,9 @@ OTBatchLogRecordProcessor >> shutdown [
 OTBatchLogRecordProcessor >> stopFlushProcess [
 
 	flushProcess ifNotNil: [
-		workAvailable signal.
-		flushProcess terminate.
-		flushProcess := nil ]
+			workAvailable signal.
+			flushProcess terminate.
+			flushProcess := nil ]
 ]
 
 { #category : 'private - processing' }
@@ -344,14 +331,12 @@ OTBatchLogRecordProcessor >> waitUntilIdleTimeoutMillis: anInteger [
 
 	| deadline |
 	anInteger = 0 ifTrue: [
-		[
-			self isIdle ifTrue: [ ^ true ].
-			(Delay forMilliseconds: 5) wait ]
-			repeat ].
+			[
+				self isIdle ifTrue: [ ^ true ].
+				(Delay forMilliseconds: 5) wait ] repeat ].
 	deadline := Time millisecondClockValue + anInteger.
 	[
 		self isIdle ifTrue: [ ^ true ].
 		Time millisecondClockValue >= deadline ifTrue: [ ^ false ].
-		(Delay forMilliseconds: 5) wait ]
-		repeat
+		(Delay forMilliseconds: 5) wait ] repeat
 ]

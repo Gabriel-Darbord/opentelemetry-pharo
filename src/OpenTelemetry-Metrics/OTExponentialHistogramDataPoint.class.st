@@ -33,18 +33,6 @@ OTExponentialHistogramDataPoint >> attributes: aCollection [
 ]
 
 { #category : 'accessing' }
-OTExponentialHistogramDataPoint >> exemplars [
-
-	^ exemplars ifNil: [ #() ]
-]
-
-{ #category : 'accessing' }
-OTExponentialHistogramDataPoint >> exemplars: aCollection [
-
-	exemplars := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
-]
-
-{ #category : 'accessing' }
 OTExponentialHistogramDataPoint >> count [
 
 	^ count ifNil: [ 0 ]
@@ -54,6 +42,18 @@ OTExponentialHistogramDataPoint >> count [
 OTExponentialHistogramDataPoint >> count: anInteger [
 
 	count := anInteger
+]
+
+{ #category : 'accessing' }
+OTExponentialHistogramDataPoint >> exemplars [
+
+	^ exemplars ifNil: [ #(  ) ]
+]
+
+{ #category : 'accessing' }
+OTExponentialHistogramDataPoint >> exemplars: aCollection [
+
+	exemplars := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }
@@ -83,29 +83,29 @@ OTExponentialHistogramDataPoint >> min: aNumber [
 { #category : 'accessing' }
 OTExponentialHistogramDataPoint >> negativeBuckets [
 
-	^ negativeBuckets ifNil: [ OTExponentialBucketRange offset: 0 bucketCounts: #() ]
+	^ negativeBuckets ifNil: [ OTExponentialBucketRange offset: 0 bucketCounts: #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTExponentialHistogramDataPoint >> negativeBuckets: anOTExponentialBucketRange [
 
 	negativeBuckets := anOTExponentialBucketRange
-		ifNil: [ OTExponentialBucketRange offset: 0 bucketCounts: #() ]
-		ifNotNil: [ anOTExponentialBucketRange ]
+		                   ifNil: [ OTExponentialBucketRange offset: 0 bucketCounts: #(  ) ]
+		                   ifNotNil: [ anOTExponentialBucketRange ]
 ]
 
 { #category : 'accessing' }
 OTExponentialHistogramDataPoint >> positiveBuckets [
 
-	^ positiveBuckets ifNil: [ OTExponentialBucketRange offset: 0 bucketCounts: #() ]
+	^ positiveBuckets ifNil: [ OTExponentialBucketRange offset: 0 bucketCounts: #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTExponentialHistogramDataPoint >> positiveBuckets: anOTExponentialBucketRange [
 
 	positiveBuckets := anOTExponentialBucketRange
-		ifNil: [ OTExponentialBucketRange offset: 0 bucketCounts: #() ]
-		ifNotNil: [ anOTExponentialBucketRange ]
+		                   ifNil: [ OTExponentialBucketRange offset: 0 bucketCounts: #(  ) ]
+		                   ifNotNil: [ anOTExponentialBucketRange ]
 ]
 
 { #category : 'accessing' }

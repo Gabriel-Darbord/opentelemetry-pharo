@@ -24,18 +24,20 @@ OTOtlpHttpProtobufMetricExporterTest >> sampleSnapshot [
 
 	| point resource scope sumMetric |
 	resource := OTResource
-		attributes: { 'service.name' -> 'demo'. 'service.instance.id' -> 'pharo-1' }
-		schemaUrl: 'https://resource.example/schema'.
+		            attributes: {
+				            ('service.name' -> 'demo').
+				            ('service.instance.id' -> 'pharo-1') }
+		            schemaUrl: 'https://resource.example/schema'.
 	scope := OTInstrumentationScope
-		named: 'instrumentation'
-		version: '1.0.0'
-		schemaUrl: 'https://scope.example/schema'
-		attributes: { 'scope-key' -> 'scope-value' }.
+		         named: 'instrumentation'
+		         version: '1.0.0'
+		         schemaUrl: 'https://scope.example/schema'
+		         attributes: { ('scope-key' -> 'scope-value') }.
 	point := OTNumberDataPoint
-		attributes: { 'method' -> 'GET' }
-		value: 4
-		startTimestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 1))
-		timestamp: (DateAndTime unixEpoch + (Duration nanoSeconds: 2)).
+		         attributes: { ('method' -> 'GET') }
+		         value: 4
+		         startTimestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 1)
+		         timestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 2).
 	sumMetric := OTSumMetricData new.
 	sumMetric
 		instrumentationScope: scope;
@@ -46,10 +48,30 @@ OTOtlpHttpProtobufMetricExporterTest >> sampleSnapshot [
 		monotonic: true;
 		temporality: #cumulative.
 	^ OTMetricSnapshot
-		resource: resource
-		measurements: #()
-		metrics: { sumMetric }
-		collectedAt: (DateAndTime unixEpoch + (Duration nanoSeconds: 2))
+		  resource: resource
+		  measurements: #(  )
+		  metrics: { sumMetric }
+		  collectedAt: DateAndTime unixEpoch + (Duration nanoSeconds: 2)
+]
+
+{ #category : 'running' }
+OTOtlpHttpProtobufMetricExporterTest >> setUp [
+
+	super setUp.
+	client := OTRecordingHttpClient new.
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'METRICS' relativePath: 'v1/metrics'.
+	configuration
+		endpoint: 'http://collector:4318/v1/metrics';
+		protocol: 'http/protobuf';
+		timeoutMillis: 1234;
+		headers: (OrderedDictionary new
+				 at: 'authorization' put: 'Bearer 123';
+				 yourself);
+		compression: 'none';
+		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
+	exporter := OTOtlpHttpProtobufMetricExporter configuration: configuration.
+	exporter httpClient: client.
+	client responseContents: #[  ]
 ]
 
 { #category : 'private' }
@@ -60,47 +82,14 @@ OTOtlpHttpProtobufMetricExporterTest >> successResponseWithRejectedDataPoints: a
 	writer
 		writeTag: 1 wireType: 2;
 		writeEmbedded: [ :partialSuccess |
-			partialSuccess
-				writeTag: 1 wireType: 0;
-				writeVarint: aCount.
-			aString ifNotEmpty: [
 				partialSuccess
-					writeTag: 2 wireType: 2;
-					writeString: aString ] ].
+					writeTag: 1 wireType: 0;
+					writeVarint: aCount.
+				aString ifNotEmpty: [
+						partialSuccess
+							writeTag: 2 wireType: 2;
+							writeString: aString ] ].
 	^ writer contents
-]
-
-{ #category : 'private' }
-OTOtlpHttpProtobufMetricExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
-
-	| retrySleeps warnings |
-	retrySleeps := OrderedCollection new.
-	warnings := OrderedCollection new.
-	exporter
-		sleepStrategy: [ :delayMillis | retrySleeps add: delayMillis ];
-		retryJitterBlock: [ :delayMillis | delayMillis ];
-		warningSink: [ :message | warnings add: message ].
-	^ aBlock value: retrySleeps value: warnings
-]
-
-{ #category : 'running' }
-OTOtlpHttpProtobufMetricExporterTest >> setUp [
-
-	super setUp.
-	client := OTRecordingHttpClient new.
-	configuration := OTOtlpExporterConfiguration
-		forSignalNamed: 'METRICS'
-		relativePath: 'v1/metrics'.
-	configuration
-		endpoint: 'http://collector:4318/v1/metrics';
-		protocol: 'http/protobuf';
-		timeoutMillis: 1234;
-		headers: (OrderedDictionary new at: 'authorization' put: 'Bearer 123'; yourself);
-		compression: 'none';
-		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
-	exporter := OTOtlpHttpProtobufMetricExporter configuration: configuration.
-	exporter httpClient: client.
-	client responseContents: #[]
 ]
 
 { #category : 'running' }
@@ -133,14 +122,23 @@ OTOtlpHttpProtobufMetricExporterTest >> testExportAppliesHttpProtobufConfigurati
 { #category : 'tests' }
 OTOtlpHttpProtobufMetricExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
-	client responseContents:
-		(self
-			successResponseWithRejectedDataPoints: 2
-			message: 'collector dropped data points').
-	self
-		withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+	client responseContents: (self successResponseWithRejectedDataPoints: 2 message: 'collector dropped data points').
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
 			self assert: (exporter export: self sampleSnapshot).
 			self assert: retrySleeps isEmpty.
 			self assert: warnings size equals: 1.
 			self assert: (warnings first includesSubstring: 'partial success') ]
+]
+
+{ #category : 'private' }
+OTOtlpHttpProtobufMetricExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
+
+	| retrySleeps warnings |
+	retrySleeps := OrderedCollection new.
+	warnings := OrderedCollection new.
+	exporter
+		sleepStrategy: [ :delayMillis | retrySleeps add: delayMillis ];
+		retryJitterBlock: [ :delayMillis | delayMillis ];
+		warningSink: [ :message | warnings add: message ].
+	^ aBlock value: retrySleeps value: warnings
 ]

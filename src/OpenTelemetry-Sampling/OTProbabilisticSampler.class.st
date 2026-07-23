@@ -29,7 +29,7 @@ OTProbabilisticSampler >> compatibilityWarningMessage [
 { #category : 'accessing' }
 OTProbabilisticSampler >> description [
 
-	^ 'ProbabilitySampler{', self probability printString, '}'
+	^ 'ProbabilitySampler{' , self probability printString , '}'
 ]
 
 { #category : 'initialization' }
@@ -58,17 +58,13 @@ OTProbabilisticSampler >> probability: aNumber [
 { #category : 'private' }
 OTProbabilisticSampler >> randomnessValueFromTraceId: aTraceId traceState: aTraceState [
 
-	^ OTConsistentProbability
-		randomnessValueFromTraceId: aTraceId
-		traceState: aTraceState
+	^ OTConsistentProbability randomnessValueFromTraceId: aTraceId traceState: aTraceState
 ]
 
 { #category : 'sampling' }
 OTProbabilisticSampler >> shouldSample [
 
-	^ self
-		shouldSampleTraceId: OTSpanContext newTraceId
-		traceState: nil
+	^ self shouldSampleTraceId: OTSpanContext newTraceId traceState: nil
 ]
 
 { #category : 'sampling' }
@@ -98,12 +94,8 @@ OTProbabilisticSampler >> shouldSampleTraceId: aTraceId traceState: aTraceState 
 	| randomness |
 	threshold = 0 ifTrue: [ ^ true ].
 	threshold = (1 bitShift: 56) ifTrue: [ ^ false ].
-	randomness := self
-		randomnessValueFromTraceId: aTraceId
-		traceState: aTraceState.
-	^ OTConsistentProbability
-		sampledWithRandomness: randomness
-		threshold: threshold
+	randomness := self randomnessValueFromTraceId: aTraceId traceState: aTraceState.
+	^ OTConsistentProbability sampledWithRandomness: randomness threshold: threshold
 ]
 
 { #category : 'private - logging' }
@@ -140,9 +132,7 @@ OTProbabilisticSampler >> traceStateWithThresholdFrom: aTraceState [
 
 	| baseState |
 	baseState := aTraceState ifNil: [ OTTraceState empty ] ifNotNil: [ aTraceState ].
-	^ baseState
-		withOtelValueAt: 'th'
-		put: self thresholdString
+	^ baseState withOtelValueAt: 'th' put: self thresholdString
 ]
 
 { #category : 'private' }
@@ -157,7 +147,7 @@ OTProbabilisticSampler >> writeThreshold: anInteger on: aStream [
 	| digits |
 	digits := '0123456789abcdef'.
 	14 to: 1 by: -1 do: [ :index |
-		| nibble |
-		nibble := (anInteger bitShift: ((index - 1) * 4) negated) bitAnd: 16rF.
-		aStream nextPut: (digits at: nibble + 1) ]
+			| nibble |
+			nibble := (anInteger bitShift: (index - 1 * 4) negated) bitAnd: 16rF.
+			aStream nextPut: (digits at: nibble + 1) ]
 ]

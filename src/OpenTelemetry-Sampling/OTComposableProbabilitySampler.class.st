@@ -12,7 +12,7 @@ Class {
 { #category : 'accessing' }
 OTComposableProbabilitySampler >> description [
 
-	^ 'ComposableProbability{', self probability printString, '}'
+	^ 'ComposableProbability{' , self probability printString , '}'
 ]
 
 { #category : 'initialization' }

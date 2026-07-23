@@ -19,9 +19,7 @@ Class {
 { #category : 'private' }
 OTSpanProcessor class >> batchSpanProcessorExportTimeoutMillis [
 
-	^ self
-		nonNegativeIntegerEnvironmentValueAt: 'OTEL_BSP_EXPORT_TIMEOUT'
-		default: self defaultBatchSpanProcessorExportTimeoutMillis
+	^ self nonNegativeIntegerEnvironmentValueAt: 'OTEL_BSP_EXPORT_TIMEOUT' default: self defaultBatchSpanProcessorExportTimeoutMillis
 ]
 
 { #category : 'private' }
@@ -29,33 +27,27 @@ OTSpanProcessor class >> batchSpanProcessorMaxExportBatchSizeForQueueSize: maxQu
 
 	| rawValue parsed |
 	rawValue := self environmentValueAt: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE'.
-	parsed := rawValue
-		ifNil: [ self defaultBatchSpanProcessorMaxExportBatchSize ]
-		ifNotNil: [
-			(self strictPositiveIntegerFrom: rawValue)
-				ifNil: [
-					self
-						noteInvalidEnvironmentValue: rawValue
-						forVariable: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE'.
-					self defaultBatchSpanProcessorMaxExportBatchSize ]
-				ifNotNil: [ :value | value ] ].
+	parsed := rawValue ifNil: [ self defaultBatchSpanProcessorMaxExportBatchSize ] ifNotNil: [
+			          (self strictPositiveIntegerFrom: rawValue)
+				          ifNil: [
+						          self noteInvalidEnvironmentValue: rawValue forVariable: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE'.
+						          self defaultBatchSpanProcessorMaxExportBatchSize ]
+				          ifNotNil: [ :value | value ] ].
 	^ parsed min: maxQueueSize
 ]
 
 { #category : 'private' }
 OTSpanProcessor class >> batchSpanProcessorMaxQueueSize [
 
-	^ self
-		positiveIntegerEnvironmentValueAt: 'OTEL_BSP_MAX_QUEUE_SIZE'
-		default: self defaultBatchSpanProcessorMaxQueueSize
+	^ self positiveIntegerEnvironmentValueAt: 'OTEL_BSP_MAX_QUEUE_SIZE' default: self defaultBatchSpanProcessorMaxQueueSize
 ]
 
 { #category : 'private' }
 OTSpanProcessor class >> batchSpanProcessorScheduledDelayMillis [
 
 	^ self
-		nonNegativeIntegerEnvironmentValueAt: 'OTEL_BSP_SCHEDULE_DELAY'
-		default: self defaultBatchSpanProcessorScheduledDelayMillis
+		  nonNegativeIntegerEnvironmentValueAt: 'OTEL_BSP_SCHEDULE_DELAY'
+		  default: self defaultBatchSpanProcessorScheduledDelayMillis
 ]
 
 { #category : 'instance creation' }
@@ -81,13 +73,13 @@ OTSpanProcessor class >> beCurrent [
 	self isAbstract
 		ifTrue: [ Error signal: self name , ' is abstract' ]
 		ifFalse: [
-			^ self == Current class
-				  ifTrue: [ Current ]
-				  ifFalse: [
-					  Current ifNotNil: [ Current flush ].
-					  Current := self new.
-					  OTTracerProvider invalidateCurrent.
-					  Current ] ]
+				^ self == Current class
+					  ifTrue: [ Current ]
+					  ifFalse: [
+							  Current ifNotNil: [ Current flush ].
+							  Current := self new.
+							  OTTracerProvider invalidateCurrent.
+							  Current ] ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -113,36 +105,23 @@ OTSpanProcessor class >> configurationWarningOwner [
 { #category : 'private - logging' }
 OTSpanProcessor class >> configurationWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otConfigurationWarningSink
-		forClass: self
-		ifAbsent: [ self defaultConfigurationWarningSink ]
+	^ OTClassStateStore valueAt: #otConfigurationWarningSink forClass: self ifAbsent: [ self defaultConfigurationWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTSpanProcessor class >> configurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otConfigurationWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otConfigurationWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otConfigurationWarningSink forClass: self put: aBlock ].
 	^ self configurationWarningSink
 ]
 
 { #category : 'instance creation' }
 OTSpanProcessor class >> configuredProcessors [
 
-	OTConfigurationSource configuredTraceProcessors ifNotNil: [ :processors |
-		^ processors ].
-	^ OTSpanExporter current componentExporters
-		collect: [ :each | self processorForExporter: each ]
+	OTConfigurationSource configuredTraceProcessors ifNotNil: [ :processors | ^ processors ].
+	^ OTSpanExporter current componentExporters collect: [ :each | self processorForExporter: each ]
 ]
 
 { #category : 'accessing' }
@@ -272,8 +251,8 @@ OTSpanProcessor class >> nonNegativeIntegerEnvironmentValueAt: aString default: 
 	rawValue ifNil: [ ^ aDefaultValue ].
 	parsed := self strictNonNegativeIntegerFrom: rawValue.
 	parsed ifNil: [
-		self noteInvalidEnvironmentValue: rawValue forVariable: aString.
-		^ aDefaultValue ].
+			self noteInvalidEnvironmentValue: rawValue forVariable: aString.
+			^ aDefaultValue ].
 	^ parsed
 ]
 
@@ -281,10 +260,8 @@ OTSpanProcessor class >> nonNegativeIntegerEnvironmentValueAt: aString default: 
 OTSpanProcessor class >> noteInvalidEnvironmentValue: aValue forVariable: aString [
 
 	self configurationWarningSink value:
-		'OpenTelemetry batch span processor configuration was invalid and has been ignored for '
-			, aString printString
-			, ': '
-			, aValue printString
+		'OpenTelemetry batch span processor configuration was invalid and has been ignored for ' , aString printString , ': '
+		, aValue printString
 ]
 
 { #category : 'private - logging' }
@@ -303,8 +280,8 @@ OTSpanProcessor class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 	rawValue ifNil: [ ^ aDefaultValue ].
 	parsed := self strictPositiveIntegerFrom: rawValue.
 	parsed ifNil: [
-		self noteInvalidEnvironmentValue: rawValue forVariable: aString.
-		^ aDefaultValue ].
+			self noteInvalidEnvironmentValue: rawValue forVariable: aString.
+			^ aDefaultValue ].
 	^ parsed
 ]
 
@@ -321,8 +298,8 @@ OTSpanProcessor class >> readConfiguration [
 	| processors |
 	processors := self configuredProcessors.
 	^ processors size = 1
-		ifTrue: [ processors first ]
-		ifFalse: [ OTCompositeSpanProcessor withAll: processors ]
+		  ifTrue: [ processors first ]
+		  ifFalse: [ OTCompositeSpanProcessor withAll: processors ]
 ]
 
 { #category : 'class initialization' }
@@ -337,10 +314,7 @@ OTSpanProcessor class >> reset [
 { #category : 'private - lifecycle' }
 OTSpanProcessor class >> resetLifecycleState [
 
-	OTClassStateStore
-		removeValueAt: #otLifecycleStateByProcessor
-		forClass: self
-		ifAbsent: [  ]
+	OTClassStateStore removeValueAt: #otLifecycleStateByProcessor forClass: self ifAbsent: [ ]
 ]
 
 { #category : 'processing' }
@@ -363,7 +337,9 @@ OTSpanProcessor class >> strictNonNegativeIntegerFrom: aString [
 	| stream value |
 	stream := aString trimBoth readStream.
 	stream atEnd ifTrue: [ ^ nil ].
-	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
 	stream atEnd ifFalse: [ ^ nil ].
 	value >= 0 ifFalse: [ ^ nil ].
 	^ value
@@ -375,7 +351,9 @@ OTSpanProcessor class >> strictPositiveIntegerFrom: aString [
 	| stream value |
 	stream := aString trimBoth readStream.
 	stream atEnd ifTrue: [ ^ nil ].
-	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
 	stream atEnd ifFalse: [ ^ nil ].
 	value > 0 ifFalse: [ ^ nil ].
 	^ value
@@ -462,11 +440,15 @@ OTSpanProcessor >> onEnd: aSpan [
 { #category : 'processing' }
 OTSpanProcessor >> onEnding: aSpan [
 	"Default no-op lifecycle callback for spans that are about to end."
+
+	
 ]
 
 { #category : 'processing' }
 OTSpanProcessor >> onStart: aSpan parentContext: aContext [
 	"Default no-op lifecycle callback for started spans."
+
+	
 ]
 
 { #category : 'testing' }

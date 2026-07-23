@@ -18,7 +18,6 @@ OTFileSpanExporterTest >> sampleSpan [
 OTFileSpanExporterTest >> setUp [
 
 	super setUp.
-	OTSpanExporter current: OTNoopSpanExporter new.
 	outputDirectory := FileLocator temp / ('ot-file-exporter-' , UUID new asString36).
 	outputDirectory ensureCreateDirectory
 ]
@@ -26,10 +25,7 @@ OTFileSpanExporterTest >> setUp [
 { #category : 'running' }
 OTFileSpanExporterTest >> tearDown [
 
-	[
-		OTSpanExporter current: nil.
-		outputDirectory ifNotNil: [ outputDirectory ensureDeleteAll ] ]
-		ensure: [ super tearDown ]
+	[ outputDirectory ifNotNil: [ outputDirectory ensureDeleteAll ] ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }

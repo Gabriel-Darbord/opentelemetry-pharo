@@ -70,9 +70,9 @@ OTOtlpExporterConfiguration class >> compressionFromEnvironmentForSignalNamed: a
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> decodedHeaderComponentFrom: aString [
 
-	^[ aString urlDecoded ]
-		on: Error
-		do: [ nil ]
+	^ [ aString urlDecoded ]
+		  on: Error
+		  do: [ nil ]
 ]
 
 { #category : 'accessing' }
@@ -119,7 +119,7 @@ OTOtlpExporterConfiguration class >> defaultTimeoutMillis [
 { #category : 'accessing' }
 OTOtlpExporterConfiguration class >> defaultUserAgent [
 
-	^ 'OTel-OTLP-Exporter-Pharo/', OTTracerProvider sdkVersion
+	^ 'OTel-OTLP-Exporter-Pharo/' , OTTracerProvider sdkVersion
 ]
 
 { #category : 'accessing' }
@@ -163,17 +163,14 @@ OTOtlpExporterConfiguration class >> environmentValueAt: aString [
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> firstEnvironmentValueAt: someEnvironmentNames [
 
-	someEnvironmentNames do: [ :each |
-		(self environmentValueAt: each) ifNotNil: [ :value | ^ value ] ].
+	someEnvironmentNames do: [ :each | (self environmentValueAt: each) ifNotNil: [ :value | ^ value ] ].
 	^ nil
 ]
 
 { #category : 'instance creation' }
 OTOtlpExporterConfiguration class >> forSignalNamed: aString [
 
-	^ self
-		forSignalNamed: aString
-		relativePath: (self defaultRelativePathForSignalNamed: aString)
+	^ self forSignalNamed: aString relativePath: (self defaultRelativePathForSignalNamed: aString)
 ]
 
 { #category : 'instance creation' }
@@ -207,15 +204,9 @@ OTOtlpExporterConfiguration class >> forSignalNamed: aString relativePath: aRela
 OTOtlpExporterConfiguration class >> headersFromEnvironmentForSignalNamed: aSignalName [
 
 	| headers |
-	headers := self
-		parsedHeadersFrom:
-			(self environmentValueAt: 'OTEL_EXPORTER_OTLP_HEADERS').
-	(self
-		parsedHeadersFrom:
-			(self
-				environmentValueAt:
-					(self signalEnvironmentNameFor: aSignalName suffix: 'HEADERS'))) associationsDo: [ :each |
-		headers at: each key put: each value ].
+	headers := self parsedHeadersFrom: (self environmentValueAt: 'OTEL_EXPORTER_OTLP_HEADERS').
+	(self parsedHeadersFrom: (self environmentValueAt: (self signalEnvironmentNameFor: aSignalName suffix: 'HEADERS')))
+		associationsDo: [ :each | headers at: each key put: each value ].
 	^ headers
 ]
 
@@ -249,8 +240,7 @@ OTOtlpExporterConfiguration class >> normalizedBaseEndpoint: aString appendingRe
 
 	| normalizedEndpoint |
 	normalizedEndpoint := self normalizedSignalEndpoint: aString.
-	(normalizedEndpoint endsWith: '/') ifFalse: [
-		normalizedEndpoint := normalizedEndpoint , '/' ].
+	(normalizedEndpoint endsWith: '/') ifFalse: [ normalizedEndpoint := normalizedEndpoint , '/' ].
 	^ normalizedEndpoint , aRelativePath
 ]
 
@@ -276,9 +266,9 @@ OTOtlpExporterConfiguration class >> normalizedGrpcEndpoint: aString insecure: a
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> normalizedSignalEndpoint: aString [
 
-	^[ (ZnUrl fromString: aString) printString ]
-		on: Error
-		do: [ aString ]
+	^ [ (ZnUrl fromString: aString) printString ]
+		  on: Error
+		  do: [ aString ]
 ]
 
 { #category : 'private - logging' }
@@ -296,20 +286,18 @@ OTOtlpExporterConfiguration class >> parsedHeadersFrom: aString [
 	parsedHeaders := OrderedDictionary new.
 	aString ifNil: [ ^ parsedHeaders ].
 	(aString substrings: ',') do: [ :each |
-		| member keyValueSeparatorIndex keyValueMember rawKey rawValue key value |
-		member := each trimBoth.
-		member ifNotEmpty: [
-			keyValueMember := member
-				copyUpTo: $;.
-			keyValueSeparatorIndex := keyValueMember indexOf: $= ifAbsent: [ 0 ].
-			keyValueSeparatorIndex > 1 ifTrue: [
-				rawKey := (keyValueMember copyFrom: 1 to: keyValueSeparatorIndex - 1) trimBoth.
-				rawValue := (keyValueMember copyFrom: keyValueSeparatorIndex + 1 to: keyValueMember size) trimBoth.
-				(rawKey isNotEmpty and: [ rawValue isNotEmpty ]) ifTrue: [
-					key := self decodedHeaderComponentFrom: rawKey.
-					value := self decodedHeaderComponentFrom: rawValue.
-					(key isNotNil and: [ value isNotNil ]) ifTrue: [
-						parsedHeaders at: key put: value ] ] ] ] ].
+			| member keyValueSeparatorIndex keyValueMember rawKey rawValue key value |
+			member := each trimBoth.
+			member ifNotEmpty: [
+					keyValueMember := member copyUpTo: $;.
+					keyValueSeparatorIndex := keyValueMember indexOf: $= ifAbsent: [ 0 ].
+					keyValueSeparatorIndex > 1 ifTrue: [
+							rawKey := (keyValueMember copyFrom: 1 to: keyValueSeparatorIndex - 1) trimBoth.
+							rawValue := (keyValueMember copyFrom: keyValueSeparatorIndex + 1 to: keyValueMember size) trimBoth.
+							(rawKey isNotEmpty and: [ rawValue isNotEmpty ]) ifTrue: [
+									key := self decodedHeaderComponentFrom: rawKey.
+									value := self decodedHeaderComponentFrom: rawValue.
+									(key isNotNil and: [ value isNotNil ]) ifTrue: [ parsedHeaders at: key put: value ] ] ] ] ].
 	^ parsedHeaders
 ]
 
@@ -347,7 +335,7 @@ OTOtlpExporterConfiguration class >> protocolFromEnvironmentForSignalNamed: aSig
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> signalEnvironmentNameFor: aSignalName suffix: aSuffix [
 
-	^ 'OTEL_EXPORTER_OTLP_', aSignalName asUppercase, '_', aSuffix
+	^ 'OTEL_EXPORTER_OTLP_' , aSignalName asUppercase , '_' , aSuffix
 ]
 
 { #category : 'private' }
@@ -382,7 +370,9 @@ OTOtlpExporterConfiguration class >> strictPositiveIntegerFrom: aString [
 	| stream value |
 	stream := aString trimBoth readStream.
 	stream atEnd ifTrue: [ ^ nil ].
-	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
 	stream atEnd ifFalse: [ ^ nil ].
 	value > 0 ifFalse: [ ^ nil ].
 	^ value
@@ -598,8 +588,7 @@ OTOtlpExporterConfiguration >> protocol: aString [
 { #category : 'accessing' }
 OTOtlpExporterConfiguration >> relativePath [
 
-	^ relativePath ifNil: [
-		  self class defaultRelativePathForSignalNamed: self signalName ]
+	^ relativePath ifNil: [ self class defaultRelativePathForSignalNamed: self signalName ]
 ]
 
 { #category : 'accessing' }

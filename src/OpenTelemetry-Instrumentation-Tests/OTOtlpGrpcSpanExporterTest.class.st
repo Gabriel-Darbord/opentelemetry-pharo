@@ -21,20 +21,13 @@ OTOtlpGrpcSpanExporterTest >> assertReader: aReader readsField: aFieldNumber wir
 { #category : 'private' }
 OTOtlpGrpcSpanExporterTest >> clientFramesWrittenTo: aGRPCHTTP2MockStream [
 
-	| frameReaderClass frames reader stream |
+	| frames reader stream |
 	frames := OrderedCollection new.
-	frameReaderClass := self grpcClassNamed: #GRPCHTTP2FrameReader.
-	reader := frameReaderClass new.
+	reader := GRPCHTTP2FrameReader new.
 	stream := aGRPCHTTP2MockStream writtenBytes readStream.
 	reader readClientConnectionPrefaceFrom: stream.
 	[ stream atEnd ] whileFalse: [ frames add: (reader readNextFrameFrom: stream) ].
 	^ frames asArray
-]
-
-{ #category : 'private' }
-OTOtlpGrpcSpanExporterTest >> grpcClassNamed: aSymbol [
-
-	^ Smalltalk globals at: aSymbol
 ]
 
 { #category : 'private' }
@@ -63,15 +56,10 @@ OTOtlpGrpcSpanExporterTest >> sampleSpan [
 { #category : 'private' }
 OTOtlpGrpcSpanExporterTest >> serverBytesWithFrames: aBlock [
 
-	| settingsClass settingsFrameClass writer writerClass |
-	writerClass := self grpcClassNamed: #GRPCHTTP2FrameWriter.
-	settingsClass := self grpcClassNamed: #GRPCHTTP2Settings.
-	settingsFrameClass := self grpcClassNamed: #GRPCHTTP2SettingsFrame.
-	writer := writerClass new.
+	| writer |
+	writer := GRPCHTTP2FrameWriter new.
 	^ ByteArray streamContents: [ :stream |
-			  writer
-				  writeFrame: (settingsFrameClass settings: (settingsClass withAssociation: 5 -> 32768))
-				  on: stream.
+			  writer writeFrame: (GRPCHTTP2SettingsFrame settings: (GRPCHTTP2Settings withAssociation: 5 -> 32768)) on: stream.
 			  aBlock value: writer value: stream ]
 ]
 
@@ -79,15 +67,14 @@ OTOtlpGrpcSpanExporterTest >> serverBytesWithFrames: aBlock [
 OTOtlpGrpcSpanExporterTest >> setUp [
 
 	super setUp.
-	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [ self skip ].
-	configuration := OTOtlpExporterConfiguration
-		forSignalNamed: 'TRACES'
-		relativePath: 'v1/traces'.
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES' relativePath: 'v1/traces'.
 	configuration
 		endpoint: 'http://collector:4317';
 		protocol: 'grpc';
 		timeoutMillis: 1234;
-		headers: (OrderedDictionary new at: 'authorization' put: 'Bearer 123'; yourself);
+		headers: (OrderedDictionary new
+				 at: 'authorization' put: 'Bearer 123';
+				 yourself);
 		compression: 'none';
 		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
 	exporter := OTOtlpGrpcSpanExporter configuration: configuration
@@ -101,13 +88,13 @@ OTOtlpGrpcSpanExporterTest >> successResponseWithRejectedSpans: aCount message: 
 	writer
 		writeTag: 1 wireType: 2;
 		writeEmbedded: [ :partialSuccess |
-			partialSuccess
-				writeTag: 1 wireType: 0;
-				writeVarint: aCount.
-			aString ifNotEmpty: [
 				partialSuccess
-					writeTag: 2 wireType: 2;
-					writeString: aString ] ].
+					writeTag: 1 wireType: 0;
+					writeVarint: aCount.
+				aString ifNotEmpty: [
+						partialSuccess
+							writeTag: 2 wireType: 2;
+							writeString: aString ] ].
 	^ writer contents
 ]
 
@@ -116,8 +103,8 @@ OTOtlpGrpcSpanExporterTest >> testExportBuildsGrpcRequestFromConfiguration [
 
 	| capturedRequest reader resourceSpans |
 	exporter requestExecutor: [ :request |
-		capturedRequest := request.
-		OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[ ] ].
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
 	self assert: (exporter export: { self sampleSpan }).
 	self assert: capturedRequest serviceName equals: 'opentelemetry.proto.collector.trace.v1.TraceService'.
 	self assert: capturedRequest methodName equals: 'Export'.
@@ -137,12 +124,11 @@ OTOtlpGrpcSpanExporterTest >> testExportCompressesPayloadWhenConfigured [
 	| capturedRequest reader |
 	configuration compression: 'gzip'.
 	exporter requestExecutor: [ :request |
-		capturedRequest := request.
-		OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[ ] ].
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
 	self assert: (exporter export: { self sampleSpan }).
 	self assert: capturedRequest messageEncoding equals: 'gzip'.
-	reader := OTProtobufReader
-		on: ((GZipReadStream on: capturedRequest payload readStream) upToEnd).
+	reader := OTProtobufReader on: (GZipReadStream on: capturedRequest payload readStream) upToEnd.
 	self assertReader: reader readsField: 1 wireType: 2
 ]
 
@@ -151,11 +137,11 @@ OTOtlpGrpcSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHeader [
 
 	| capturedRequest |
 	configuration headers: (OrderedDictionary new
-			at: 'User-Agent' put: 'CustomAgent/1.0';
-			yourself).
+			 at: 'User-Agent' put: 'CustomAgent/1.0';
+			 yourself).
 	exporter requestExecutor: [ :request |
-		capturedRequest := request.
-		OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[ ] ].
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
 	self assert: (exporter export: { self sampleSpan }).
 	self assert: capturedRequest userAgent isNil.
 	self assert: (capturedRequest metadata valueAt: 'user-agent' ifAbsent: [ nil ]) equals: 'CustomAgent/1.0'
@@ -184,14 +170,10 @@ OTOtlpGrpcSpanExporterTest >> testExportRetriesRetryableGrpcStatusesUntilSuccess
 		retryJitterBlock: [ :delayMillis | delayMillis ];
 		warningSink: [ :message | self fail: message ];
 		requestExecutor: [ :request |
-			executionCount := executionCount + 1.
-			executionCount = 1
-				ifTrue: [
-					OTFakeGRPCResponse
-						status: (OTFakeGRPCStatus code: 14 message: 'busy')
-						payload: nil ]
-				ifFalse: [
-					OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[ ] ] ].
+				executionCount := executionCount + 1.
+				executionCount = 1
+					ifTrue: [ OTFakeGRPCResponse status: (OTFakeGRPCStatus code: 14 message: 'busy') payload: nil ]
+					ifFalse: [ OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ] ].
 	self assert: (exporter export: { self sampleSpan }).
 	self assert: executionCount equals: 2
 ]
@@ -207,10 +189,8 @@ OTOtlpGrpcSpanExporterTest >> testExportReturnsFalseOnNonRetryableGrpcStatus [
 		retryJitterBlock: [ :delayMillis | delayMillis ];
 		warningSink: [ :message | self fail: message ];
 		requestExecutor: [ :request |
-			executionCount := executionCount + 1.
-			OTFakeGRPCResponse
-				status: (OTFakeGRPCStatus code: 3 message: 'bad request')
-				payload: nil ].
+				executionCount := executionCount + 1.
+				OTFakeGRPCResponse status: (OTFakeGRPCStatus code: 3 message: 'bad request') payload: nil ].
 	self deny: (exporter export: { self sampleSpan }).
 	self assert: executionCount equals: 1
 ]
@@ -218,15 +198,10 @@ OTOtlpGrpcSpanExporterTest >> testExportReturnsFalseOnNonRetryableGrpcStatus [
 { #category : 'tests' }
 OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
 
-	| dataFrameClass framerClass headersFrameClass mockStream mockStreamClass reader requestDataFrame requestHeadersFrame responseBytes resourceSpans serverBytes transport transportClass frames |
-	headersFrameClass := self grpcClassNamed: #GRPCHTTP2HeadersFrame.
-	dataFrameClass := self grpcClassNamed: #GRPCHTTP2DataFrame.
-	framerClass := self grpcClassNamed: #GRPCMessageFramer.
-	mockStreamClass := self grpcClassNamed: #GRPCHTTP2MockStream.
-	transportClass := self grpcClassNamed: #GRPCHTTP2Transport.
+	| mockStream reader requestDataFrame requestHeadersFrame responseBytes resourceSpans serverBytes transport frames |
 	serverBytes := self serverBytesWithFrames: [ :writer :stream |
 			               writer
-				               writeFrame: (headersFrameClass
+				               writeFrame: (GRPCHTTP2HeadersFrame
 						                streamId: 1
 						                headers: {
 								                (':status' -> '200').
@@ -235,16 +210,16 @@ OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
 				               on: stream.
 			               writer
 				               writeFrame:
-				               (dataFrameClass
+				               (GRPCHTTP2DataFrame
 					                streamId: 1
-					                payload: (framerClass frameMessage: #[  ] compressed: false)
+					                payload: (GRPCMessageFramer frameMessage: #[  ] compressed: false)
 					                endStream: false)
 				               on: stream.
 			               writer
-				               writeFrame: (headersFrameClass streamId: 1 headers: { ('grpc-status' -> '0') } endStream: true)
+				               writeFrame: (GRPCHTTP2HeadersFrame streamId: 1 headers: { ('grpc-status' -> '0') } endStream: true)
 				               on: stream ].
-	mockStream := mockStreamClass readingBytes: serverBytes.
-	transport := transportClass new.
+	mockStream := GRPCHTTP2MockStream readingBytes: serverBytes.
+	transport := GRPCHTTP2Transport new.
 	transport streamFactory: [ :ignoredEndpoint | mockStream ].
 	exporter grpcTransport: transport.
 	self assert: (exporter export: { self sampleSpan }).
@@ -252,12 +227,12 @@ OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
 	self assert: frames size equals: 4.
 	requestHeadersFrame := frames third.
 	requestDataFrame := frames fourth.
-	self assert: requestHeadersFrame class equals: headersFrameClass.
+	self assert: requestHeadersFrame class equals: GRPCHTTP2HeadersFrame.
 	self assert: (requestHeadersFrame headers anySatisfy: [ :each |
 			 each = (':path' -> '/opentelemetry.proto.collector.trace.v1.TraceService/Export') ]).
 	self assert: (requestHeadersFrame headers anySatisfy: [ :each | each = ('content-type' -> 'application/grpc+proto') ]).
-	self assert: requestDataFrame class equals: dataFrameClass.
-	responseBytes := (framerClass readSingleFrameFrom: requestDataFrame payload readStream) payload.
+	self assert: requestDataFrame class equals: GRPCHTTP2DataFrame.
+	responseBytes := (GRPCMessageFramer readSingleFrameFrom: requestDataFrame payload readStream) payload.
 	reader := OTProtobufReader on: responseBytes.
 	self assertReader: reader readsField: 1 wireType: 2.
 	resourceSpans := reader readBytes.
@@ -274,9 +249,9 @@ OTOtlpGrpcSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 	exporter
 		warningSink: [ :message | warnings add: message ];
 		requestExecutor: [ :request |
-			OTFakeGRPCResponse
-				status: OTFakeGRPCStatus ok
-				payload: (self successResponseWithRejectedSpans: 2 message: 'collector dropped spans') ].
+				OTFakeGRPCResponse
+					status: OTFakeGRPCStatus ok
+					payload: (self successResponseWithRejectedSpans: 2 message: 'collector dropped spans') ].
 	self assert: (exporter export: { self sampleSpan }).
 	self assert: warnings size equals: 1.
 	self assert: (warnings first includesSubstring: 'partial success')

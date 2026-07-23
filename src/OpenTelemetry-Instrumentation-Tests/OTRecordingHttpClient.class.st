@@ -110,8 +110,8 @@ OTRecordingHttpClient >> nextPlannedExecution [
 	| executions |
 	executions := self plannedExecutions.
 	^ executions isEmpty
-		ifTrue: [ nil ]
-		ifFalse: [ executions removeFirst ]
+		  ifTrue: [ nil ]
+		  ifFalse: [ executions removeFirst ]
 ]
 
 { #category : 'private' }
@@ -140,11 +140,11 @@ OTRecordingHttpClient >> queueExecutionFailure [
 OTRecordingHttpClient >> queueResponseCode: anInteger headers: aDictionary contents: anObject [
 
 	self plannedExecutions add: [ :client |
-		client
-			shouldRaiseOnExecute: false;
-			responseCode: anInteger;
-			responseHeaders: aDictionary;
-			responseContents: anObject ].
+			client
+				shouldRaiseOnExecute: false;
+				responseCode: anInteger;
+				responseHeaders: aDictionary;
+				responseContents: anObject ].
 	^ self
 ]
 
@@ -182,9 +182,9 @@ OTRecordingHttpClient >> responseHeaderAt: aKey ifAbsent: aBlock [
 OTRecordingHttpClient >> responseHeaders [
 
 	^ responseHeaders ifNil: [
-		  OrderedDictionary new
-			  at: 'Content-Type' put: 'application/json';
-			  yourself ]
+			  OrderedDictionary new
+				  at: 'Content-Type' put: 'application/json';
+				  yourself ]
 ]
 
 { #category : 'accessing' }

@@ -22,15 +22,15 @@ OTResource class >> attributes: aCollection [
 OTResource class >> attributes: aCollection schemaUrl: aString [
 
 	^ self new
-		attributes: (OTAttributeNormalizer normalizeAttributes: aCollection);
-		schemaUrl: (aString ifNil: [ '' ] ifNotNil: [ aString ]);
-		yourself
+		  attributes: (OTAttributeNormalizer normalizeAttributes: aCollection);
+		  schemaUrl: (aString ifNil: [ '' ] ifNotNil: [ aString ]);
+		  yourself
 ]
 
 { #category : 'instance creation' }
 OTResource class >> empty [
 
-	^ self attributes: #() schemaUrl: ''
+	^ self attributes: #(  ) schemaUrl: ''
 ]
 
 { #category : 'recording' }
@@ -39,8 +39,8 @@ OTResource class >> fromSton: stonReader [
 	| representation |
 	representation := stonReader parseMap.
 	^ self
-		attributes: (representation at: #attributes ifAbsent: [ #() ])
-		schemaUrl: (representation at: #schemaUrl ifAbsent: [ '' ])
+		  attributes: (representation at: #attributes ifAbsent: [ #(  ) ])
+		  schemaUrl: (representation at: #schemaUrl ifAbsent: [ '' ])
 ]
 
 { #category : 'comparing' }
@@ -48,8 +48,7 @@ OTResource >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class == self class ifFalse: [ ^ false ].
-	^ self schemaUrl = anObject schemaUrl
-		and: [ self attributes = anObject attributes ]
+	^ self schemaUrl = anObject schemaUrl and: [ self attributes = anObject attributes ]
 ]
 
 { #category : 'accessing' }
@@ -85,7 +84,9 @@ OTResource >> attributes: aDictionary [
 { #category : 'comparing' }
 OTResource >> hash [
 
-	^ { self schemaUrl. self attributes } hash
+	^ {
+		  self schemaUrl.
+		  self attributes } hash
 ]
 
 { #category : 'testing' }
@@ -100,17 +101,18 @@ OTResource >> merge: anotherResource [
 	| oldSchemaUrl newSchemaUrl mergedAttributes mergedSchemaUrl |
 	anotherResource ifNil: [ ^ self ].
 	mergedAttributes := self allAttributes.
-	anotherResource allAttributes associationsDo: [ :each |
-		mergedAttributes at: each key put: each value ].
+	anotherResource allAttributes associationsDo: [ :each | mergedAttributes at: each key put: each value ].
 	oldSchemaUrl := self schemaUrl.
 	newSchemaUrl := anotherResource schemaUrl.
 	mergedSchemaUrl := oldSchemaUrl isEmpty
-		ifTrue: [ newSchemaUrl ]
-		ifFalse: [ newSchemaUrl isEmpty
-			ifTrue: [ oldSchemaUrl ]
-			ifFalse: [ oldSchemaUrl = newSchemaUrl
-				ifTrue: [ oldSchemaUrl ]
-				ifFalse: [ Error signal: 'Cannot merge resources with different schema URLs' ] ] ].
+		                   ifTrue: [ newSchemaUrl ]
+		                   ifFalse: [
+				                   newSchemaUrl isEmpty
+					                   ifTrue: [ oldSchemaUrl ]
+					                   ifFalse: [
+							                   oldSchemaUrl = newSchemaUrl
+								                   ifTrue: [ oldSchemaUrl ]
+								                   ifFalse: [ Error signal: 'Cannot merge resources with different schema URLs' ] ] ].
 	^ self class attributes: mergedAttributes schemaUrl: mergedSchemaUrl
 ]
 
@@ -136,6 +138,6 @@ OTResource >> serviceName [
 OTResource >> stonOn: stonWriter [
 
 	stonWriter writeObject: self streamMap: [ :map |
-		map at: #attributes put: self attributes.
-		self schemaUrl ifNotEmpty: [ map at: #schemaUrl put: self schemaUrl ] ]
+			map at: #attributes put: self attributes.
+			self schemaUrl ifNotEmpty: [ map at: #schemaUrl put: self schemaUrl ] ]
 ]

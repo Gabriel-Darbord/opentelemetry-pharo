@@ -15,11 +15,11 @@ OTBatchSpanProcessorTest >> sampledSpanWithSuffix: anInteger [
 	| suffix |
 	suffix := (anInteger printStringBase: 16 length: 2 padded: true) asLowercase.
 	^ (OTSpanContext
-		traceId: '00112233445566778899aabbccddee' , suffix
-		spanId: '11223344556677' , suffix
-		traceFlags: '01'
-		traceState: nil
-		remote: false) asNonRecordingSpan
+		   traceId: '00112233445566778899aabbccddee' , suffix
+		   spanId: '11223344556677' , suffix
+		   traceFlags: '01'
+		   traceState: nil
+		   remote: false) asNonRecordingSpan
 ]
 
 { #category : 'running' }
@@ -532,8 +532,7 @@ OTBatchSpanProcessorTest >> waitUntil: aBlock timeoutMillis: anInteger [
 	deadline := Time millisecondClockValue + anInteger.
 	[
 		aBlock value ifTrue: [ ^ self ].
-		Time millisecondClockValue >= deadline ]
-		whileFalse: [ (Delay forMilliseconds: 10) wait ].
+		Time millisecondClockValue >= deadline ] whileFalse: [ (Delay forMilliseconds: 10) wait ].
 	self fail: 'Timed out waiting for background batch export'
 ]
 

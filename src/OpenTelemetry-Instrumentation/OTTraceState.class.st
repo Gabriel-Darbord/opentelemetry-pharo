@@ -33,10 +33,9 @@ OTTraceState class >> fromHeader: aString [
 	aString ifNil: [ ^ nil ].
 	entries := OrderedDictionary new.
 	(aString substrings: ',') do: [ :each |
-		| listMember |
-		listMember := each trimBoth.
-		listMember ifNotEmpty: [
-			(self parseListMember: listMember into: entries) ifFalse: [ ^ nil ] ] ].
+			| listMember |
+			listMember := each trimBoth.
+			listMember ifNotEmpty: [ (self parseListMember: listMember into: entries) ifFalse: [ ^ nil ] ] ].
 	^ self fromOrderedEntries: entries
 ]
 
@@ -70,10 +69,7 @@ OTTraceState class >> headerValueLengthOf: anOrderedDictionary [
 { #category : 'private' }
 OTTraceState class >> isAllowedKeyCharacter: aCharacter [
 
-	^ aCharacter isDigit
-		or: [
-			(aCharacter between: $a and: $z)
-				or: [ '_-*/' includes: aCharacter ] ]
+	^ aCharacter isDigit or: [ (aCharacter between: $a and: $z) or: [ '_-*/' includes: aCharacter ] ]
 ]
 
 { #category : 'private' }
@@ -81,8 +77,7 @@ OTTraceState class >> isPrintableValueCharacter: aCharacter [
 
 	| asciiValue |
 	asciiValue := aCharacter asciiValue.
-	^ (asciiValue between: 32 and: 126)
-		and: [ aCharacter ~= $, and: [ aCharacter ~= $= ] ]
+	^ (asciiValue between: 32 and: 126) and: [ aCharacter ~= $, and: [ aCharacter ~= $= ] ]
 ]
 
 { #category : 'private' }
@@ -143,8 +138,7 @@ OTTraceState class >> isValidTenantId: aString [
 
 	aString ifNil: [ ^ false ].
 	(aString size between: 1 and: 241) ifFalse: [ ^ false ].
-	((aString first between: $a and: $z)
-		or: [ aString first isDigit ]) ifFalse: [ ^ false ].
+	((aString first between: $a and: $z) or: [ aString first isDigit ]) ifFalse: [ ^ false ].
 	^ aString allSatisfy: [ :each | self isAllowedKeyCharacter: each ]
 ]
 
@@ -215,8 +209,8 @@ OTTraceState class >> otelEntriesFromValue: aString [
 	aString size <= 256 ifFalse: [ ^ nil ].
 	entries := OrderedDictionary new.
 	(aString substrings: ';') do: [ :each |
-		each ifEmpty: [ ^ nil ].
-		(self parseOtelListMember: each into: entries) ifFalse: [ ^ nil ] ].
+			each ifEmpty: [ ^ nil ].
+			(self parseOtelListMember: each into: entries) ifFalse: [ ^ nil ] ].
 	^ entries
 ]
 
@@ -224,13 +218,13 @@ OTTraceState class >> otelEntriesFromValue: aString [
 OTTraceState class >> otelValueFromEntries: anOrderedDictionary [
 
 	^ String streamContents: [ :stream |
-		anOrderedDictionary associations
-			do: [ :each |
-				stream
-					nextPutAll: each key;
-					nextPut: $:;
-					nextPutAll: each value ]
-			separatedBy: [ stream nextPut: $; ] ]
+			  anOrderedDictionary associations
+				  do: [ :each |
+						  stream
+							  nextPutAll: each key;
+							  nextPut: $:;
+							  nextPutAll: each value ]
+				  separatedBy: [ stream nextPut: $; ] ]
 ]
 
 { #category : 'private' }
@@ -300,13 +294,13 @@ OTTraceState >> allEntries [
 OTTraceState >> asHeaderValue [
 
 	^ String streamContents: [ :stream |
-		entriesByKey associations
-			do: [ :each |
-				stream
-					nextPutAll: each key;
-					nextPut: $=;
-					nextPutAll: each value ]
-			separatedBy: [ stream nextPut: $, ] ]
+			  entriesByKey associations
+				  do: [ :each |
+						  stream
+							  nextPutAll: each key;
+							  nextPut: $=;
+							  nextPutAll: each value ]
+				  separatedBy: [ stream nextPut: $, ] ]
 ]
 
 { #category : 'accessing' }
@@ -349,8 +343,7 @@ OTTraceState >> isEmpty [
 { #category : 'accessing' }
 OTTraceState >> otelEntries [
 
-	^ self class
-		otelEntriesFromValue: (entriesByKey at: 'ot' ifAbsent: [ nil ])
+	^ self class otelEntriesFromValue: (entriesByKey at: 'ot' ifAbsent: [ nil ])
 ]
 
 { #category : 'accessing' }
@@ -395,13 +388,10 @@ OTTraceState >> withKey: aKey value: aValue [
 
 	| updatedEntries updatedTraceState |
 	((self class isValidKey: aKey) and: [ self class isValidValue: aValue ]) ifFalse: [ ^ self ].
-	(entriesByKey includesKey: aKey) not ifTrue: [
-		entriesByKey size >= 32 ifTrue: [ ^ self ] ].
+	(entriesByKey includesKey: aKey) not ifTrue: [ entriesByKey size >= 32 ifTrue: [ ^ self ] ].
 	updatedEntries := OrderedDictionary new.
 	updatedEntries at: aKey put: aValue.
-	entriesByKey associationsDo: [ :each |
-		each key = aKey ifFalse: [
-			updatedEntries at: each key put: each value ] ].
+	entriesByKey associationsDo: [ :each | each key = aKey ifFalse: [ updatedEntries at: each key put: each value ] ].
 	updatedTraceState := self class fromOrderedEntries: updatedEntries.
 	^ updatedTraceState ifNil: [ self ]
 ]

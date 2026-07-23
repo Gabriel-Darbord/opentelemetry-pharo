@@ -56,14 +56,9 @@ OTXRayTextMapPropagator >> extract: aContext from: aCarrier getter: aGetter [
 	| baseContext spanContext |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
 	aGetter ifNil: [ ^ baseContext ].
-	spanContext := self
-		extractSpanContextFromHeader: (self
-			headerValueIn: self class propagationHeaderName
-			from: aCarrier
-			getter: aGetter).
-	^ spanContext
-		ifNil: [ baseContext ]
-		ifNotNil: [ baseContext withSpan: spanContext asNonRecordingSpan ]
+	spanContext := self extractSpanContextFromHeader:
+		               (self headerValueIn: self class propagationHeaderName from: aCarrier getter: aGetter).
+	^ spanContext ifNil: [ baseContext ] ifNotNil: [ baseContext withSpan: spanContext asNonRecordingSpan ]
 ]
 
 { #category : 'private' }
@@ -79,11 +74,11 @@ OTXRayTextMapPropagator >> extractSpanContextFromHeader: aString [
 	traceFlags := self traceFlagsFromSampledValue: (members at: self class sampledMemberName asLowercase ifAbsent: [ nil ]).
 	traceFlags ifNil: [ ^ nil ].
 	^ OTSpanContext
-		traceId: traceId
-		spanId: spanId
-		traceFlags: traceFlags
-		traceState: nil
-		remote: true
+		  traceId: traceId
+		  spanId: spanId
+		  traceFlags: traceFlags
+		  traceState: nil
+		  remote: true
 ]
 
 { #category : 'accessing' }
@@ -98,15 +93,17 @@ OTXRayTextMapPropagator >> headerStringFrom: anObject [
 	| firstValue normalized |
 	anObject ifNil: [ ^ nil ].
 	(anObject isString or: [ anObject isSymbol ]) ifTrue: [
-		normalized := anObject asString trimBoth.
-		^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ] ].
+			normalized := anObject asString trimBoth.
+			^ normalized isEmpty
+				  ifTrue: [ nil ]
+				  ifFalse: [ normalized ] ].
 	anObject isCollection ifTrue: [
-		firstValue := anObject
-			detect: [ :each | each isNotNil ]
-			ifNone: [ nil ].
-		^ self headerStringFrom: firstValue ].
+			firstValue := anObject detect: [ :each | each isNotNil ] ifNone: [ nil ].
+			^ self headerStringFrom: firstValue ].
 	normalized := anObject asString trimBoth.
-	^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ]
+	^ normalized isEmpty
+		  ifTrue: [ nil ]
+		  ifFalse: [ normalized ]
 ]
 
 { #category : 'private' }
@@ -130,11 +127,13 @@ OTXRayTextMapPropagator >> inject: aContext into: aCarrier setter: aSetter [
 	(spanContext isNil or: [ spanContext isValid not ]) ifTrue: [ ^ self ].
 	root := self xrayRootFromTraceId: spanContext traceId.
 	root ifNil: [ ^ self ].
-	sampleValue := spanContext isSampled ifTrue: [ '1' ] ifFalse: [ '0' ].
+	sampleValue := spanContext isSampled
+		               ifTrue: [ '1' ]
+		               ifFalse: [ '0' ].
 	aSetter
 		setIn: aCarrier
 		key: self class propagationHeaderName
-		value: 'Root=', root, ';Parent=', spanContext spanId, ';Sampled=', sampleValue.
+		value: 'Root=' , root , ';Parent=' , spanContext spanId , ';Sampled=' , sampleValue.
 	^ self
 ]
 
@@ -143,8 +142,7 @@ OTXRayTextMapPropagator >> isLowercaseHexString: aString size: anInteger [
 
 	aString ifNil: [ ^ false ].
 	aString size = anInteger ifFalse: [ ^ false ].
-	^ aString allSatisfy: [ :each |
-		each isDigit or: [ 'abcdef' includes: each ] ]
+	^ aString allSatisfy: [ :each | each isDigit or: [ 'abcdef' includes: each ] ]
 ]
 
 { #category : 'private' }
@@ -156,14 +154,14 @@ OTXRayTextMapPropagator >> memberDictionaryFromHeader: aString [
 	header ifEmpty: [ ^ nil ].
 	members := Dictionary new.
 	(header substrings: ';') do: [ :each |
-		| member separator key value |
-		member := each trimBoth.
-		member isEmpty ifFalse: [
-			separator := member indexOf: $= ifAbsent: [ 0 ].
-			(separator > 1 and: [ separator < member size ]) ifTrue: [
-				key := (member copyFrom: 1 to: separator - 1) trimBoth asLowercase.
-				value := (member copyFrom: separator + 1 to: member size) trimBoth.
-				value isEmpty ifFalse: [ members at: key put: value ] ] ] ].
+			| member separator key value |
+			member := each trimBoth.
+			member isEmpty ifFalse: [
+					separator := member indexOf: $= ifAbsent: [ 0 ].
+					(separator > 1 and: [ separator < member size ]) ifTrue: [
+							key := (member copyFrom: 1 to: separator - 1) trimBoth asLowercase.
+							value := (member copyFrom: separator + 1 to: member size) trimBoth.
+							value isEmpty ifFalse: [ members at: key put: value ] ] ] ].
 	^ members
 ]
 

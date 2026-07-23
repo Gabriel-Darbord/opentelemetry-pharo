@@ -16,8 +16,8 @@ Class {
 OTPeriodicExportingMetricReader class >> exporter: anOTMetricExporter [
 
 	^ self new
-		exporter: anOTMetricExporter;
-		yourself
+		  exporter: anOTMetricExporter;
+		  yourself
 ]
 
 { #category : 'collecting' }
@@ -25,22 +25,10 @@ OTPeriodicExportingMetricReader >> collect [
 
 	self isShutdown ifTrue: [ ^ OTMetricSnapshot empty ].
 	^ exportLock critical: [
-		| snapshot |
-		snapshot := self collectSnapshot.
-		self exporter export: snapshot.
-		snapshot ]
-]
-
-{ #category : 'callbacks' }
-OTPeriodicExportingMetricReader >> didRegisterWithProvider [
-
-	self restartExportProcess
-]
-
-{ #category : 'accessing' }
-OTPeriodicExportingMetricReader >> defaultTemporalitySelector [
-
-	^ self exporter temporalitySelector
+			  | snapshot |
+			  snapshot := self collectSnapshot.
+			  self exporter export: snapshot.
+			  snapshot ]
 ]
 
 { #category : 'accessing' }
@@ -50,16 +38,15 @@ OTPeriodicExportingMetricReader >> defaultAggregationSelector [
 ]
 
 { #category : 'accessing' }
-OTPeriodicExportingMetricReader >> exporter [
+OTPeriodicExportingMetricReader >> defaultTemporalitySelector [
 
-	^ exporter ifNil: [ exporter := OTNoopMetricExporter new ]
+	^ self exporter temporalitySelector
 ]
 
-{ #category : 'accessing' }
-OTPeriodicExportingMetricReader >> exporter: anOTMetricExporter [
+{ #category : 'callbacks' }
+OTPeriodicExportingMetricReader >> didRegisterWithProvider [
 
-	exporter := anOTMetricExporter ifNil: [ OTNoopMetricExporter new ] ifNotNil: [ anOTMetricExporter ].
-	^ self exporter
+	self restartExportProcess
 ]
 
 { #category : 'accessing' }
@@ -95,16 +82,29 @@ OTPeriodicExportingMetricReader >> exportTimeoutMillis: anInteger [
 	^ self exportTimeoutMillis
 ]
 
+{ #category : 'accessing' }
+OTPeriodicExportingMetricReader >> exporter [
+
+	^ exporter ifNil: [ exporter := OTNoopMetricExporter new ]
+]
+
+{ #category : 'accessing' }
+OTPeriodicExportingMetricReader >> exporter: anOTMetricExporter [
+
+	exporter := anOTMetricExporter ifNil: [ OTNoopMetricExporter new ] ifNotNil: [ anOTMetricExporter ].
+	^ self exporter
+]
+
 { #category : 'lifecycle' }
 OTPeriodicExportingMetricReader >> forceFlush [
 
 	self isShutdown ifTrue: [ ^ false ].
 	^ exportLock critical: [
-		| exportResult flushResult snapshot |
-		snapshot := self collectSnapshot.
-		exportResult := self exporter export: snapshot.
-		flushResult := self exporter forceFlush.
-		exportResult & flushResult ]
+			  | exportResult flushResult snapshot |
+			  snapshot := self collectSnapshot.
+			  exportResult := self exporter export: snapshot.
+			  flushResult := self exporter forceFlush.
+			  exportResult & flushResult ]
 ]
 
 { #category : 'initialization' }
@@ -140,10 +140,9 @@ OTPeriodicExportingMetricReader >> startExportProcess [
 	self isShutdown ifTrue: [ ^ nil ].
 	exportProcess ifNotNil: [ ^ exportProcess ].
 	exportProcess := [
-		[ self isShutdown ] whileFalse: [
-			(Delay forMilliseconds: self exportIntervalMillis) wait.
-			self isShutdown ifFalse: [ self collect ] ] ]
-		forkAt: Processor userBackgroundPriority.
+		                 [ self isShutdown ] whileFalse: [
+				                 (Delay forMilliseconds: self exportIntervalMillis) wait.
+				                 self isShutdown ifFalse: [ self collect ] ] ] forkAt: Processor userBackgroundPriority.
 	^ exportProcess
 ]
 

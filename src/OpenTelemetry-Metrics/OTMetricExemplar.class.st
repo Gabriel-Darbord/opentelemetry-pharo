@@ -12,35 +12,30 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
-{ #category : 'instance creation' }
-OTMetricExemplar class >> measurement: anOTMetricMeasurement pointAttributes: aCollection [
-
-	| exemplar measurementAttributes pointAttributes |
-	exemplar := self new.
-	measurementAttributes := OTAttributeNormalizer
-		normalizeAttributes: anOTMetricMeasurement exemplarAttributes.
-	pointAttributes := OTAttributeNormalizer normalizeAttributes: aCollection.
-	exemplar
-		value: anOTMetricMeasurement value;
-		timestamp: anOTMetricMeasurement timestamp;
-		filteredAttributes:
-			(self
-				filteredAttributesFrom: measurementAttributes
-				pointAttributes: pointAttributes);
-		traceId: anOTMetricMeasurement exemplarTraceId;
-		spanId: anOTMetricMeasurement exemplarSpanId.
-	^ exemplar
-]
-
 { #category : 'private' }
 OTMetricExemplar class >> filteredAttributesFrom: someMeasurementAttributes pointAttributes: somePointAttributes [
 
 	| filtered |
 	filtered := OrderedDictionary new.
 	someMeasurementAttributes associationsDo: [ :each |
-		(somePointAttributes includesKey: each key) ifFalse: [
-			filtered at: each key put: each value ] ].
+		(somePointAttributes includesKey: each key) ifFalse: [ filtered at: each key put: each value ] ].
 	^ filtered
+]
+
+{ #category : 'instance creation' }
+OTMetricExemplar class >> measurement: anOTMetricMeasurement pointAttributes: aCollection [
+
+	| exemplar measurementAttributes pointAttributes |
+	exemplar := self new.
+	measurementAttributes := OTAttributeNormalizer normalizeAttributes: anOTMetricMeasurement exemplarAttributes.
+	pointAttributes := OTAttributeNormalizer normalizeAttributes: aCollection.
+	exemplar
+		value: anOTMetricMeasurement value;
+		timestamp: anOTMetricMeasurement timestamp;
+		filteredAttributes: (self filteredAttributesFrom: measurementAttributes pointAttributes: pointAttributes);
+		traceId: anOTMetricMeasurement exemplarTraceId;
+		spanId: anOTMetricMeasurement exemplarSpanId.
+	^ exemplar
 ]
 
 { #category : 'accessing' }

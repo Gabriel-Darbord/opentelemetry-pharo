@@ -33,15 +33,14 @@ OTCurrentContextTest >> testAttachAndDetachContextRestoresPreviousContext [
 OTCurrentContextTest >> testCurrentContextIsProcessLocal [
 
 	| childContext currentContext semaphore |
-	currentContext := (OTContext new)
-		withBaggage: ((OTBaggage builder)
-			putEntryNamed: 'request.id' value: 'parent';
-			build).
+	currentContext := OTContext new withBaggage: (OTBaggage builder
+			                   putEntryNamed: 'request.id' value: 'parent';
+			                   build).
 	OpenTelemetry currentContext: currentContext.
 	semaphore := Semaphore new.
 	[
-	childContext := OpenTelemetry currentContext.
-	semaphore signal ] fork.
+		childContext := OpenTelemetry currentContext.
+		semaphore signal ] fork.
 	semaphore wait.
 	self assert: OpenTelemetry currentContext identicalTo: currentContext.
 	self assert: childContext isEmpty
@@ -142,18 +141,13 @@ OTCurrentContextTest >> testUseContextIgnoresInvalidContextObjectAndRestoresPrev
 OTCurrentContextTest >> testUseContextRestoresPreviousContextWithinProcess [
 
 	| innerContext outerContext |
-	outerContext := (OTContext new)
-		withBaggage: ((OTBaggage builder)
-			putEntryNamed: 'scope' value: 'outer';
-			build).
-	innerContext := (OTContext new)
-		withBaggage: ((OTBaggage builder)
-			putEntryNamed: 'scope' value: 'inner';
-			build).
+	outerContext := OTContext new withBaggage: (OTBaggage builder
+			                 putEntryNamed: 'scope' value: 'outer';
+			                 build).
+	innerContext := OTContext new withBaggage: (OTBaggage builder
+			                 putEntryNamed: 'scope' value: 'inner';
+			                 build).
 	OpenTelemetry currentContext: outerContext.
-	OpenTelemetry
-		useContext: innerContext
-		during: [
-			self assert: OpenTelemetry currentContext identicalTo: innerContext ].
+	OpenTelemetry useContext: innerContext during: [ self assert: OpenTelemetry currentContext identicalTo: innerContext ].
 	self assert: OpenTelemetry currentContext identicalTo: outerContext
 ]

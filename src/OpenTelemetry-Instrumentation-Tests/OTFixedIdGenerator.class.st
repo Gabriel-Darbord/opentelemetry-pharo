@@ -14,10 +14,10 @@ Class {
 OTFixedIdGenerator class >> traceIdHex: aTraceIdHex spanIdHex: aSpanIdHex random: aBoolean [
 
 	^ self new
-		traceIdHex: aTraceIdHex;
-		spanIdHex: aSpanIdHex;
-		random: aBoolean;
-		yourself
+		  traceIdHex: aTraceIdHex;
+		  spanIdHex: aSpanIdHex;
+		  random: aBoolean;
+		  yourself
 ]
 
 { #category : 'generating' }

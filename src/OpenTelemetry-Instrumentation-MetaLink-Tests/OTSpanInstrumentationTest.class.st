@@ -35,34 +35,30 @@ OTSpanInstrumentationTest >> tearDown [
 OTSpanInstrumentationTest >> testDefaultSpanKind [
 
 	target answer.
-	self
-		assert: self instrumentation capturedSpan kind
-		equals: OTSpan internal
+	self assert: self instrumentation capturedSpan kind equals: OTSpan internal
 ]
 
 { #category : 'tests' }
 OTSpanInstrumentationTest >> testDefaultSpanName [
 
 	target answer.
-	self
-		assert: self instrumentation capturedSpan name
-		equals: (OTTestTarget >> #answer) name
+	self assert: self instrumentation capturedSpan name equals: (OTTestTarget >> #answer) name
 ]
 
 { #category : 'tests' }
-OTSpanInstrumentationTest >> testRecordException [ [
+OTSpanInstrumentationTest >> testRecordException [
 
-	| error span exceptionEvent |
-	[ target fail ]
-		on: Error
-		do: [ :e | error := e ].
-	span := self instrumentation capturedSpan.
-	exceptionEvent := span events detect: [ :each | each name = 'exception' ].
-	self assert: span status equals: OTSpan error.
-	self assert: span statusDescription equals: error description.
-	self assert: (exceptionEvent attributeAt: 'exception.message') equals: error messageText.
-	self assert: (exceptionEvent attributeAt: 'exception.type') equals: error class name asString
-]
+	[
+		| error span exceptionEvent |
+		[ target fail ]
+			on: Error
+			do: [ :e | error := e ].
+		span := self instrumentation capturedSpan.
+		exceptionEvent := span events detect: [ :each | each name = 'exception' ].
+		self assert: span status equals: OTSpan error.
+		self assert: span statusDescription equals: error description.
+		self assert: (exceptionEvent attributeAt: 'exception.message') equals: error messageText.
+		self assert: (exceptionEvent attributeAt: 'exception.type') equals: error class name asString ]
 ]
 
 { #category : 'tests' }
@@ -84,9 +80,7 @@ OTSpanInstrumentationTest >> testSpanExists [
 
 	self assert: self instrumentation capturedSpan isNil.
 	target answer.
-	self
-		assert: self instrumentation capturedSpan class
-		identicalTo: OTSpan
+	self assert: self instrumentation capturedSpan class identicalTo: OTSpan
 ]
 
 { #category : 'tests' }

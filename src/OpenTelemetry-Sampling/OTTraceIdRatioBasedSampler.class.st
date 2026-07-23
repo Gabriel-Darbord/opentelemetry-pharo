@@ -20,15 +20,15 @@ OTTraceIdRatioBasedSampler >> decisionValueFromTraceId: aTraceId [
 
 	| offset highBits lowBits |
 	offset := aTraceId size - 15.
-	highBits := Integer readFrom: ((aTraceId copyFrom: 1 to: 16) readStream) base: 16.
-	lowBits := Integer readFrom: ((aTraceId copyFrom: offset to: aTraceId size) readStream) base: 16.
+	highBits := Integer readFrom: (aTraceId copyFrom: 1 to: 16) readStream base: 16.
+	lowBits := Integer readFrom: (aTraceId copyFrom: offset to: aTraceId size) readStream base: 16.
 	^ highBits bitXor: lowBits
 ]
 
 { #category : 'accessing' }
 OTTraceIdRatioBasedSampler >> description [
 
-	^ 'TraceIdRatioBased{', self probability printString, '}'
+	^ 'TraceIdRatioBased{' , self probability printString , '}'
 ]
 
 { #category : 'initialization' }
@@ -78,13 +78,10 @@ OTTraceIdRatioBasedSampler >> shouldSampleIn: aContext traceId: aTraceId name: a
 	| parentSpan |
 	parentSpan := aContext ifNotNil: [ aContext span ].
 	(self shouldEmitCompatibilityWarningForParentSpan: parentSpan) ifTrue: [
-		self class
-			noteCompatibilityWarning: (self warningMessageForParentSpan: parentSpan)
-			kind: #childSampler
-			for: self ].
+		self class noteCompatibilityWarning: (self warningMessageForParentSpan: parentSpan) kind: #childSampler for: self ].
 	^ (self shouldSampleTraceId: aTraceId)
-		ifTrue: [ OTSamplingResult recordAndSample ]
-		ifFalse: [ OTSamplingResult drop ]
+		  ifTrue: [ OTSamplingResult recordAndSample ]
+		  ifFalse: [ OTSamplingResult drop ]
 ]
 
 { #category : 'private' }
@@ -100,15 +97,14 @@ OTTraceIdRatioBasedSampler >> thresholdForProbability: aNumber [
 
 	aNumber = 0 ifTrue: [ ^ 0 ].
 	aNumber = 1 ifTrue: [ ^ 1 bitShift: 64 ].
-	^ ((aNumber asFraction * (1 bitShift: 64)) ceiling) asInteger
+	^ (aNumber asFraction * (1 bitShift: 64)) ceiling asInteger
 ]
 
 { #category : 'private - logging' }
 OTTraceIdRatioBasedSampler >> usesProbabilitySamplerTraceState: aTraceState [
 
 	aTraceState ifNil: [ ^ false ].
-	^ (aTraceState otelValueAt: 'rv') notNil
-		or: [ (aTraceState otelValueAt: 'th') notNil ]
+	^ (aTraceState otelValueAt: 'rv') notNil or: [ (aTraceState otelValueAt: 'th') notNil ]
 ]
 
 { #category : 'private - logging' }

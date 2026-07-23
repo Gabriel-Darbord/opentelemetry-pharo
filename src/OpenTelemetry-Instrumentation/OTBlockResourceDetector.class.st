@@ -16,9 +16,9 @@ Class {
 OTBlockResourceDetector class >> named: aString detecting: aBlock [
 
 	^ self new
-		detectorName: aString;
-		detectBlock: aBlock;
-		yourself
+		  detectorName: aString;
+		  detectBlock: aBlock;
+		  yourself
 ]
 
 { #category : 'private' }

@@ -16,9 +16,9 @@ Class {
 OTStaticResourceDetector class >> named: aString resource: anOTResource [
 
 	^ self new
-		detectorName: aString;
-		resource: anOTResource;
-		yourself
+		  detectorName: aString;
+		  resource: anOTResource;
+		  yourself
 ]
 
 { #category : 'detecting' }

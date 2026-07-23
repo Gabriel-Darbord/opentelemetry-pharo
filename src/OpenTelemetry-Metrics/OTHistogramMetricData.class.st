@@ -17,6 +17,24 @@ OTHistogramMetricData class >> instrument: anOTMetricInstrument points: aCollect
 	^ metric
 ]
 
+{ #category : 'otlp - encoding' }
+OTHistogramMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
+
+	aDictionary at: 'histogram' put: (anEncoder histogramDataFor: self)
+]
+
+{ #category : 'prometheus - encoding' }
+OTHistogramMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
+
+	^ #histogram
+]
+
+{ #category : 'prometheus - encoding' }
+OTHistogramMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
+
+	^ anEncoder sampleSpecificationsForHistogram: self
+]
+
 { #category : 'accessing' }
 OTHistogramMetricData >> temporality [
 
@@ -30,33 +48,14 @@ OTHistogramMetricData >> temporality: aSymbol [
 ]
 
 { #category : 'otlp - encoding' }
-OTHistogramMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
-
-	aDictionary at: 'histogram' put: (anEncoder histogramDataFor: self)
-]
-
-{ #category : 'otlp - encoding' }
 OTHistogramMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
 
 	aWriter
 		writeTag: 9 wireType: 2;
-		writeEmbedded: [ :histogram |
-			anEncoder writeHistogram: self on: histogram ]
+		writeEmbedded: [ :histogram | anEncoder writeHistogram: self on: histogram ]
 ]
 
-{ #category : 'prometheus' }
-OTHistogramMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
-
-	^ #histogram
-]
-
-{ #category : 'prometheus' }
-OTHistogramMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
-
-	^ anEncoder sampleSpecificationsForHistogram: self
-]
-
-{ #category : 'prometheus' }
+{ #category : 'prometheus - encoding' }
 OTHistogramMetricData >> writePrometheusWith: anEncoder type: aTypeSymbol format: aFormatSymbol on: aStream [
 
 	^ anEncoder writeHistogram: self on: aStream

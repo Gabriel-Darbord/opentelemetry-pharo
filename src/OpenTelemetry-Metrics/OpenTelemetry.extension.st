@@ -10,10 +10,10 @@ OpenTelemetry class >> meterNamed: aString [
 OpenTelemetry class >> meterNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
 	^ self meterProvider
-		meterNamed: aString
-		version: aVersionString
-		schemaUrl: aSchemaUrlString
-		attributes: aCollection
+		  meterNamed: aString
+		  version: aVersionString
+		  schemaUrl: aSchemaUrlString
+		  attributes: aCollection
 ]
 
 { #category : '*OpenTelemetry-Metrics' }

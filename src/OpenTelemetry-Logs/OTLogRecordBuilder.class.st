@@ -24,8 +24,8 @@ Class {
 OTLogRecordBuilder class >> forLogger: anOTLogger [
 
 	^ self new
-		logger: anOTLogger;
-		yourself
+		  logger: anOTLogger;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -40,10 +40,9 @@ OTLogRecordBuilder >> attributes: aCollection [
 
 	attributes := OrderedDictionary new.
 	aCollection ifNotNil: [
-		(aCollection isDictionary
-			ifTrue: [ aCollection associations ]
-			ifFalse: [ aCollection ]) do: [ :each |
-				attributes at: each key put: each value ] ].
+			(aCollection isDictionary
+				 ifTrue: [ aCollection associations ]
+				 ifFalse: [ aCollection ]) do: [ :each | attributes at: each key put: each value ] ].
 	self
 ]
 
@@ -58,15 +57,15 @@ OTLogRecordBuilder >> body: anObject [
 OTLogRecordBuilder >> emit [
 
 	^ logger
-		emitTimestamp: timestamp
-		observedTimestamp: observedTimestamp
-		in: context
-		severityNumber: severityNumber
-		severityText: severityText
-		body: body
-		attributes: attributes
-		eventName: eventName
-		exception: exception
+		  emitTimestamp: timestamp
+		  observedTimestamp: observedTimestamp
+		  in: context
+		  severityNumber: severityNumber
+		  severityText: severityText
+		  body: body
+		  attributes: attributes
+		  eventName: eventName
+		  exception: exception
 ]
 
 { #category : 'accessing' }

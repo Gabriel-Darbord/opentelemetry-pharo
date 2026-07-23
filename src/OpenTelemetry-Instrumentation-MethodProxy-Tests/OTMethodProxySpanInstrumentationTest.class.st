@@ -33,18 +33,14 @@ OTMethodProxySpanInstrumentationTest >> tearDown [
 OTMethodProxySpanInstrumentationTest >> testDefaultSpanKind [
 
 	target answer.
-	self
-		assert: self instrumentation capturedSpan kind
-		equals: OTSpan internal
+	self assert: self instrumentation capturedSpan kind equals: OTSpan internal
 ]
 
 { #category : 'tests' }
 OTMethodProxySpanInstrumentationTest >> testDefaultSpanName [
 
 	target answer.
-	self
-		assert: self instrumentation capturedSpan name
-		equals: (OTTestTarget >> #answer) name
+	self assert: self instrumentation capturedSpan name equals: (OTTestTarget >> #answer) name
 ]
 
 { #category : 'tests' }
@@ -76,9 +72,7 @@ OTMethodProxySpanInstrumentationTest >> testSpanExists [
 
 	self assert: self instrumentation capturedSpan isNil.
 	target answer.
-	self
-		assert: self instrumentation capturedSpan class
-		identicalTo: OTSpan
+	self assert: self instrumentation capturedSpan class identicalTo: OTSpan
 ]
 
 { #category : 'tests' }

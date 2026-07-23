@@ -21,8 +21,8 @@ OTEnvironmentResourceDetector >> detectResource [
 	rawValue := OTTracerProvider environmentValueAt: 'OTEL_RESOURCE_ATTRIBUTES'.
 	rawValue ifNil: [ ^ OTResource empty ].
 	^ [ OTResource attributes: (OTTracerProvider resourceAttributesFromEnvironment: rawValue) ]
-		on: Error
-		do: [ :error |
-			OTTracerProvider noteInvalidResourceAttributes: rawValue error: error.
-			OTResource empty ]
+		  on: Error
+		  do: [ :error |
+				  OTTracerProvider noteInvalidResourceAttributes: rawValue error: error.
+				  OTResource empty ]
 ]

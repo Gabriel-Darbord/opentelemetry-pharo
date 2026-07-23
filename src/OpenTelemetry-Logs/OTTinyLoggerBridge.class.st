@@ -18,20 +18,20 @@ Class {
 OTTinyLoggerBridge class >> forLogger: anOTLogger [
 
 	^ self new
-		logger: anOTLogger;
-		yourself
+		  logger: anOTLogger;
+		  yourself
 ]
 
 { #category : 'accessing' }
 OTTinyLoggerBridge >> attributesBlock [
 
-	^ attributesBlock ifNil: [ [ :message | #() ] ]
+	^ attributesBlock ifNil: [ [ :message | #(  ) ] ]
 ]
 
 { #category : 'accessing' }
 OTTinyLoggerBridge >> attributesBlock: aBlock [
 
-	attributesBlock := aBlock ifNil: [ [ :message | #() ] ] ifNotNil: [ aBlock ].
+	attributesBlock := aBlock ifNil: [ [ :message | #(  ) ] ] ifNotNil: [ aBlock ].
 	^ attributesBlock
 ]
 
@@ -58,8 +58,8 @@ OTTinyLoggerBridge >> clearLog [
 OTTinyLoggerBridge >> defaultSeverityTextFor: aSeverityNumber [
 
 	^ (OTSeverity isSpecified: aSeverityNumber)
-		ifTrue: [ OTSeverity shortNameFor: aSeverityNumber ]
-		ifFalse: [ '' ]
+		  ifTrue: [ OTSeverity shortNameFor: aSeverityNumber ]
+		  ifFalse: [ '' ]
 ]
 
 { #category : 'accessing' }
@@ -82,7 +82,7 @@ OTTinyLoggerBridge >> initialize [
 	severityNumber := OTSeverity info.
 	severityText := 'INFO'.
 	bodyBlock := [ :message | message ].
-	attributesBlock := [ :message | #() ].
+	attributesBlock := [ :message | #(  ) ].
 	eventNameBlock := [ :message | nil ]
 ]
 

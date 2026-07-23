@@ -64,8 +64,7 @@ OTJaegerRemoteSampler class >> defaultTimeoutMillis [
 { #category : 'testing' }
 OTJaegerRemoteSampler class >> grpcDependenciesAvailable [
 
-	^ #( GRPCChannel GRPCEndpoint GRPCRequest GRPCHTTP2Transport ) allSatisfy: [
-		:each | Smalltalk globals includesKey: each ]
+	^ #( GRPCChannel GRPCEndpoint GRPCRequest GRPCHTTP2Transport ) allSatisfy: [ :each | Smalltalk globals includesKey: each ]
 ]
 
 { #category : 'private' }
@@ -73,31 +72,28 @@ OTJaegerRemoteSampler class >> normalizedEndpoint: aString [
 
 	| normalizedValue url endpointString |
 	normalizedValue := aString asString trimBoth.
-	normalizedValue isEmpty ifTrue: [
-		Error signal: 'Jaeger remote sampler endpoint must not be empty' ].
+	normalizedValue isEmpty ifTrue: [ Error signal: 'Jaeger remote sampler endpoint must not be empty' ].
 	url := [ ZnUrl fromString: normalizedValue ]
-		on: Error
-		do: [ Error signal: 'Jaeger remote sampler endpoint must be an absolute http(s) URL' ].
-	((#( 'http' 'https' ) includes: url scheme)
-		and: [ url host notNil and: [ url host isNotEmpty ] ]) ifFalse: [
-			Error signal: 'Jaeger remote sampler endpoint must be an absolute http(s) URL' ].
-	url port ifNil: [
-		Error signal: 'Jaeger remote sampler endpoint must include an explicit port' ].
+		       on: Error
+		       do: [ Error signal: 'Jaeger remote sampler endpoint must be an absolute http(s) URL' ].
+	((#( 'http' 'https' ) includes: url scheme) and: [ url host notNil and: [ url host isNotEmpty ] ]) ifFalse: [
+		Error signal: 'Jaeger remote sampler endpoint must be an absolute http(s) URL' ].
+	url port ifNil: [ Error signal: 'Jaeger remote sampler endpoint must include an explicit port' ].
 	endpointString := url printString.
 	^ endpointString
-		ifNotEmpty: [
-			(endpointString last = $/)
-				ifTrue: [ endpointString allButLast ]
-				ifFalse: [ endpointString ] ]
-		ifEmpty: [ endpointString ]
+		  ifNotEmpty: [
+				  endpointString last = $/
+					  ifTrue: [ endpointString allButLast ]
+					  ifFalse: [ endpointString ] ]
+		  ifEmpty: [ endpointString ]
 ]
 
 { #category : 'instance creation' }
 OTJaegerRemoteSampler class >> serviceName: aString [
 
 	^ self new
-		serviceName: aString;
-		yourself
+		  serviceName: aString;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -131,7 +127,7 @@ OTJaegerRemoteSampler >> currentTimeMillis [
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> description [
 
-	^ 'JaegerRemoteSampler{', self currentSampler description, '}'
+	^ 'JaegerRemoteSampler{' , self currentSampler description , '}'
 ]
 
 { #category : 'private - grpc' }
@@ -193,12 +189,8 @@ OTJaegerRemoteSampler >> grpcChannelClass [
 OTJaegerRemoteSampler >> grpcDependencyNamed: aSymbol [
 
 	^ Smalltalk globals
-		at: aSymbol
-		ifAbsent: [
-			Error signal:
-				'OTJaegerRemoteSampler requires grpc-pharo to be loaded (missing '
-					, aSymbol asString
-					, ')' ]
+		  at: aSymbol
+		  ifAbsent: [ Error signal: 'OTJaegerRemoteSampler requires grpc-pharo to be loaded (missing ' , aSymbol asString , ')' ]
 ]
 
 { #category : 'private - grpc' }
@@ -287,44 +279,31 @@ OTJaegerRemoteSampler >> isStarted [
 OTJaegerRemoteSampler >> noteInvalidResponse: anError [
 
 	| message |
-	message := 'OpenTelemetry Jaeger remote sampler received an invalid response: '
-		, anError messageText.
-	OTDiagnosticLogger current
-		handleSuppressedError: anError
-		message: message
-		fallback: [ self warningSink value: message ]
+	message := 'OpenTelemetry Jaeger remote sampler received an invalid response: ' , anError messageText.
+	OTDiagnosticLogger current handleSuppressedError: anError message: message fallback: [ self warningSink value: message ]
 ]
 
 { #category : 'private - logging' }
 OTJaegerRemoteSampler >> noteMissingPayload [
 
-	self warningSink value:
-		'OpenTelemetry Jaeger remote sampler received an empty gRPC success response'
+	self warningSink value: 'OpenTelemetry Jaeger remote sampler received an empty gRPC success response'
 ]
 
 { #category : 'private - logging' }
 OTJaegerRemoteSampler >> noteRefreshError: anError [
 
 	| message |
-	message := 'OpenTelemetry Jaeger remote sampler failed to refresh sampling strategy: '
-		, anError messageText.
-	OTDiagnosticLogger current
-		handleSuppressedError: anError
-		message: message
-		fallback: [ self warningSink value: message ]
+	message := 'OpenTelemetry Jaeger remote sampler failed to refresh sampling strategy: ' , anError messageText.
+	OTDiagnosticLogger current handleSuppressedError: anError message: message fallback: [ self warningSink value: message ]
 ]
 
 { #category : 'private - logging' }
 OTJaegerRemoteSampler >> noteStatus: aStatus [
 
 	| message |
-	message := 'OpenTelemetry Jaeger remote sampler refresh failed with gRPC status '
-		, aStatus codeName
-		, ' ('
-		, aStatus code asString
-		, ')'.
-	aStatus message ifNotNil: [
-		message := message , ': ' , aStatus message ].
+	message := 'OpenTelemetry Jaeger remote sampler refresh failed with gRPC status ' , aStatus codeName , ' ('
+	           , aStatus code asString , ')'.
+	aStatus message ifNotNil: [ message := message , ': ' , aStatus message ].
 	self warningSink value: message
 ]
 
@@ -332,8 +311,8 @@ OTJaegerRemoteSampler >> noteStatus: aStatus [
 OTJaegerRemoteSampler >> pollOnce [
 
 	refreshLock critical: [
-		lastPollTimeMillis := self currentTimeMillis.
-		self refreshSampler ]
+			lastPollTimeMillis := self currentTimeMillis.
+			self refreshSampler ]
 ]
 
 { #category : 'accessing' }
@@ -360,14 +339,12 @@ OTJaegerRemoteSampler >> refreshIfNeeded [
 	self isStarted ifTrue: [ ^ self ].
 	now := self currentTimeMillis.
 	previous := lastPollTimeMillis.
-	(previous notNil and: [ now >= previous and: [ now - previous < self pollingIntervalMillis ] ])
-		ifTrue: [ ^ self ].
+	(previous notNil and: [ now >= previous and: [ now - previous < self pollingIntervalMillis ] ]) ifTrue: [ ^ self ].
 	refreshLock critical: [
-		previous := lastPollTimeMillis.
-		(previous notNil and: [ now >= previous and: [ now - previous < self pollingIntervalMillis ] ])
-			ifFalse: [
-				lastPollTimeMillis := now.
-				self refreshSampler ] ]
+			previous := lastPollTimeMillis.
+			(previous notNil and: [ now >= previous and: [ now - previous < self pollingIntervalMillis ] ]) ifFalse: [
+					lastPollTimeMillis := now.
+					self refreshSampler ] ]
 ]
 
 { #category : 'private - refreshing' }
@@ -377,22 +354,21 @@ OTJaegerRemoteSampler >> refreshSampler [
 	[ response := self executeRequest: self samplingRequest ]
 		on: Error
 		do: [ :error |
-			self noteRefreshError: error.
-			^ self ].
+				self noteRefreshError: error.
+				^ self ].
 	status := response status.
 	status isOk ifFalse: [
-		self noteStatus: status.
-		^ self ].
+			self noteStatus: status.
+			^ self ].
 	payload := response payload.
 	payload ifNil: [
-		self noteMissingPayload.
-		^ self ].
-	updatedSampler := [
-		OTJaegerSamplingStrategyDecoder samplerFromResponseBytes: payload ]
-		on: Error
-		do: [ :error |
-			self noteInvalidResponse: error.
+			self noteMissingPayload.
 			^ self ].
+	updatedSampler := [ OTJaegerSamplingStrategyDecoder samplerFromResponseBytes: payload ]
+		                  on: Error
+		                  do: [ :error |
+				                  self noteInvalidResponse: error.
+				                  ^ self ].
 	self currentSampler: updatedSampler
 ]
 
@@ -406,21 +382,17 @@ OTJaegerRemoteSampler >> requestExecutor: aBlockClosure [
 OTJaegerRemoteSampler >> runPollingLoop [
 
 	[ self isShutdown ] whileFalse: [
-		[ self pollOnce ]
-			on: Error
-			do: [ :error | self noteRefreshError: error ].
-		self isShutdown ifFalse: [
-			pollingSemaphore waitTimeoutMilliseconds: self pollingIntervalMillis ] ]
+			[ self pollOnce ]
+				on: Error
+				do: [ :error | self noteRefreshError: error ].
+			self isShutdown ifFalse: [ pollingSemaphore waitTimeoutMilliseconds: self pollingIntervalMillis ] ]
 ]
 
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> samplingRequest [
 
 	| request |
-	request := self grpcRequestClass
-		service: self grpcServiceName
-		method: self grpcMethodName
-		payload: self samplingRequestPayload.
+	request := self grpcRequestClass service: self grpcServiceName method: self grpcMethodName payload: self samplingRequestPayload.
 	request timeoutNanos: self timeoutMillis * 1000000.
 	^ request
 ]
@@ -456,12 +428,12 @@ OTJaegerRemoteSampler >> shouldSampleIn: aContext traceId: aTraceId name: aStrin
 
 	self refreshIfNeeded.
 	^ self currentSampler
-		shouldSampleIn: aContext
-		traceId: aTraceId
-		name: aString
-		kind: aSpanKind
-		attributes: someAttributes
-		links: someLinks
+		  shouldSampleIn: aContext
+		  traceId: aTraceId
+		  name: aString
+		  kind: aSpanKind
+		  attributes: someAttributes
+		  links: someLinks
 ]
 
 { #category : 'lifecycle' }

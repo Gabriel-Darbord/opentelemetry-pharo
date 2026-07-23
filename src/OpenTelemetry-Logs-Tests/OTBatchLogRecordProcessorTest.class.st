@@ -13,12 +13,12 @@ Class {
 OTBatchLogRecordProcessorTest >> sampleLogRecordWithSuffix: anInteger [
 
 	^ OTLogRecord new
-		body: 'log-', anInteger asString;
-		severityNumber: OTSeverity info;
-		severityText: 'INFO';
-		eventName: 'event.', anInteger asString;
-		observedTimestamp: DateAndTime now;
-		yourself
+		  body: 'log-' , anInteger asString;
+		  severityNumber: OTSeverity info;
+		  severityText: 'INFO';
+		  eventName: 'event.' , anInteger asString;
+		  observedTimestamp: DateAndTime now;
+		  yourself
 ]
 
 { #category : 'running' }
@@ -31,18 +31,18 @@ OTBatchLogRecordProcessorTest >> setUp [
 OTBatchLogRecordProcessorTest >> tearDown [
 
 	[
-		(exporter isKindOf: OTBlockingLogRecordExporter) ifTrue: [
-			exporter allowBlockedExport ].
+		(exporter isKindOf: OTBlockingLogRecordExporter) ifTrue: [ exporter allowBlockedExport ].
 		processor ifNotNil: [ processor shutdown ].
-		exporter ifNotNil: [ exporter shutdown ] ]
-		ensure: [ super tearDown ]
+		exporter ifNotNil: [ exporter shutdown ] ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
 OTBatchLogRecordProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExporter [
 
 	exporter := OTRecordingLogRecordExporter new.
-	processor := OTBatchLogRecordProcessor new exporter: exporter; yourself.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
 	processor
 		maxExportBatchSize: 10;
 		scheduledDelayMillis: 1000.
@@ -58,7 +58,9 @@ OTBatchLogRecordProcessorTest >> testOnEmitDropsLogsWhenQueueFillsDuringBlockedE
 
 	exporter := OTBlockingLogRecordExporter new.
 	exporter blockNextExport.
-	processor := OTBatchLogRecordProcessor new exporter: exporter; yourself.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
 	processor
 		maxExportBatchSize: 1;
 		maxQueueSize: 2;
@@ -77,7 +79,9 @@ OTBatchLogRecordProcessorTest >> testOnEmitDropsLogsWhenQueueFillsDuringBlockedE
 OTBatchLogRecordProcessorTest >> testScheduledDelayFlushesPendingBatch [
 
 	exporter := OTRecordingLogRecordExporter new.
-	processor := OTBatchLogRecordProcessor new exporter: exporter; yourself.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
 	processor
 		maxExportBatchSize: 10;
 		scheduledDelayMillis: 20.
@@ -90,7 +94,9 @@ OTBatchLogRecordProcessorTest >> testScheduledDelayFlushesPendingBatch [
 OTBatchLogRecordProcessorTest >> testShutdownFlushesPendingBatchAndShutsDownExporter [
 
 	exporter := OTRecordingLogRecordExporter new.
-	processor := OTBatchLogRecordProcessor new exporter: exporter; yourself.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
 	processor
 		maxExportBatchSize: 10;
 		scheduledDelayMillis: 1000.
@@ -107,7 +113,6 @@ OTBatchLogRecordProcessorTest >> waitUntil: aBlock timeoutMillis: anInteger [
 	deadline := Time millisecondClockValue + anInteger.
 	[
 		aBlock value ifTrue: [ ^ self ].
-		Time millisecondClockValue >= deadline ]
-		whileFalse: [ (Delay forMilliseconds: 10) wait ].
+		Time millisecondClockValue >= deadline ] whileFalse: [ (Delay forMilliseconds: 10) wait ].
 	self fail: 'Timed out waiting for background batch export'
 ]

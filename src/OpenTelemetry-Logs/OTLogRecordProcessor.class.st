@@ -28,6 +28,8 @@ OTLogRecordProcessor >> forceFlush [
 
 { #category : 'processing' }
 OTLogRecordProcessor >> onEmit: anOTLogRecord context: anOTContext [
+
+	
 ]
 
 { #category : 'processing' }

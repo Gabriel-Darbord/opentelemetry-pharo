@@ -18,41 +18,33 @@ OTOtlpGrpcMetricExporter >> encoder [
 OTOtlpGrpcMetricExporter >> export: anOTMetricSnapshot [
 
 	self isShutdown ifTrue: [ ^ false ].
-	^ self
-		exportAttemptNumber: 1
-		payloadBytes: (self payloadBytesFrom: anOTMetricSnapshot)
+	^ self exportAttemptNumber: 1 payloadBytes: (self payloadBytesFrom: anOTMetricSnapshot)
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcMetricExporter >> noteInvalidGrpcSuccessResponse: anError [
 
-	self warningSink value:
-		'OpenTelemetry OTLP metric export returned an invalid gRPC success response: '
-			, anError messageText
+	self warningSink value: 'OpenTelemetry OTLP metric export returned an invalid gRPC success response: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcMetricExporter >> notePartialSuccess: aDictionary [
 
-	self warningSink value:
-		'OpenTelemetry OTLP metric export reported partial success: '
-			, aDictionary printString
+	self warningSink value: 'OpenTelemetry OTLP metric export reported partial success: ' , aDictionary printString
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcMetricExporter >> noteRetryExhaustedForError: anError [
 
 	self warningSink value:
-		'OpenTelemetry OTLP metric export exhausted retries after a retryable transport failure: '
-			, anError messageText
+		'OpenTelemetry OTLP metric export exhausted retries after a retryable transport failure: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcMetricExporter >> noteRetryExhaustedForStatus: aStatus [
 
 	self warningSink value:
-		'OpenTelemetry OTLP metric export exhausted retries after gRPC status '
-			, aStatus codeName, ' (', aStatus code asString, ')'
+		'OpenTelemetry OTLP metric export exhausted retries after gRPC status ' , aStatus codeName , ' (' , aStatus code asString , ')'
 ]
 
 { #category : 'private - encoding' }
@@ -64,8 +56,7 @@ OTOtlpGrpcMetricExporter >> payloadBytesFrom: anOTMetricSnapshot [
 { #category : 'accessing' }
 OTOtlpGrpcMetricExporter >> responseDecoder [
 
-	^ responseDecoder ifNil: [
-		  responseDecoder := OTOtlpProtobufMetricResponseDecoder new ]
+	^ responseDecoder ifNil: [ responseDecoder := OTOtlpProtobufMetricResponseDecoder new ]
 ]
 
 { #category : 'private - grpc' }

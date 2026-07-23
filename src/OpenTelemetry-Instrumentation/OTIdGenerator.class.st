@@ -18,8 +18,7 @@ OTIdGenerator class >> default [
 OTIdGenerator >> asLowercaseHexFromBytes: aByteArray [
 
 	^ String streamContents: [ :stream |
-		aByteArray do: [ :each |
-			stream nextPutAll: ((each printStringBase: 16 length: 2 padded: true) asLowercase) ] ]
+		  aByteArray do: [ :each | stream nextPutAll: (each printStringBase: 16 length: 2 padded: true) asLowercase ] ]
 ]
 
 { #category : 'generating' }

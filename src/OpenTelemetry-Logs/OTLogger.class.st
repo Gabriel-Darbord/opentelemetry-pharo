@@ -39,34 +39,32 @@ OTLogger >> asTinyLoggerBridge [
 OTLogger >> emitBody: anObject [
 
 	^ self
-		emitTimestamp: nil
-		observedTimestamp: nil
-		in: nil
-		severityNumber: OTSeverity undefined
-		severityText: nil
-		body: anObject
-		attributes: #()
-		eventName: nil
-		exception: nil
+		  emitTimestamp: nil
+		  observedTimestamp: nil
+		  in: nil
+		  severityNumber: OTSeverity undefined
+		  severityText: nil
+		  body: anObject
+		  attributes: #(  )
+		  eventName: nil
+		  exception: nil
 ]
 
 { #category : 'logging' }
 OTLogger >> emitTimestamp: aTimestamp observedTimestamp: anObservedTimestamp in: anOTContext severityNumber: aSeverityNumber severityText: aSeverityText body: aBody attributes: someAttributes eventName: anEventName exception: anException [
 
-	^ provider
-		ifNil: [ false ]
-		ifNotNil: [
-			provider
-				emitForLogger: self
-				timestamp: aTimestamp
-				observedTimestamp: anObservedTimestamp
-				context: anOTContext
-				severityNumber: aSeverityNumber
-				severityText: aSeverityText
-				body: aBody
-				attributes: someAttributes
-				eventName: anEventName
-				exception: anException ]
+	^ provider ifNil: [ false ] ifNotNil: [
+			  provider
+				  emitForLogger: self
+				  timestamp: aTimestamp
+				  observedTimestamp: anObservedTimestamp
+				  context: anOTContext
+				  severityNumber: aSeverityNumber
+				  severityText: aSeverityText
+				  body: aBody
+				  attributes: someAttributes
+				  eventName: anEventName
+				  exception: anException ]
 ]
 
 { #category : 'testing' }
@@ -78,14 +76,12 @@ OTLogger >> enabled [
 { #category : 'testing' }
 OTLogger >> enabledIn: anOTContext severityNumber: aSeverityNumber eventName: aString [
 
-	^ provider
-		ifNil: [ false ]
-		ifNotNil: [
-			provider
-				loggerEnabled: self
-				inContext: anOTContext
-				severityNumber: aSeverityNumber
-				eventName: aString ]
+	^ provider ifNil: [ false ] ifNotNil: [
+			  provider
+				  loggerEnabled: self
+				  inContext: anOTContext
+				  severityNumber: aSeverityNumber
+				  eventName: aString ]
 ]
 
 { #category : 'accessing' }
@@ -103,9 +99,7 @@ OTLogger >> instrumentationScope [
 { #category : 'accessing' }
 OTLogger >> instrumentationScope: anInstrumentationScope [
 
-	instrumentationScope := anInstrumentationScope
-		ifNil: [ OTInstrumentationScope named: '' ]
-		ifNotNil: [ anInstrumentationScope ].
+	instrumentationScope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ anInstrumentationScope ].
 	^ instrumentationScope
 ]
 

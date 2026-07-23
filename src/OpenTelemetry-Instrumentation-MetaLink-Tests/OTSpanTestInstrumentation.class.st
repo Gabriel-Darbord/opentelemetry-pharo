@@ -20,8 +20,7 @@ OTSpanTestInstrumentation class >> capturedSpan [
 OTSpanTestInstrumentation class >> defineInstrumenter [
 
 	instrumenter := OTInstrumenter forInstrumentationNamed: 'test'.
-	instrumenter spanSuppressionStrategy: [ :span :kind |
-		span isNotNil and: [ span isRecording ] ]
+	instrumenter spanSuppressionStrategy: [ :span :kind | span isNotNil and: [ span isRecording ] ]
 ]
 
 { #category : 'evaluating' }
@@ -29,14 +28,11 @@ OTSpanTestInstrumentation class >> onMethodEnter: event [
 
 	| request |
 	request := event first method.
-	(suppressed := (instrumenter
-		                shouldStartUnder: OTSpan current
-		                request: request) not) ifTrue: [ capturedSpan := OTSpan current.
-		^ capturedSpan attributeAt: 'suppressed' put: true ].
+	(suppressed := (instrumenter shouldStartUnder: OTSpan current request: request) not) ifTrue: [
+			capturedSpan := OTSpan current.
+			^ capturedSpan attributeAt: 'suppressed' put: true ].
 	capturedSpan := instrumenter startRequest: request.
-	currentContextToken := OpenTelemetry
-		                       attachContext: (OpenTelemetry currentContext
-				                        withSpan: capturedSpan).
+	currentContextToken := OpenTelemetry attachContext: (OpenTelemetry currentContext withSpan: capturedSpan).
 	capturedSpan attributeAt: 'enter' put: #OK
 ]
 

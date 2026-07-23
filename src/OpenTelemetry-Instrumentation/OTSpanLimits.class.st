@@ -27,12 +27,12 @@ OTSpanLimits >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class = self class ifFalse: [ ^ false ].
-	^ attributeCountLimit = anObject attributeCountLimit
-		and: [ attributeValueLengthLimit = anObject attributeValueLengthLimit
-		and: [ eventCountLimit = anObject eventCountLimit
-		and: [ linkCountLimit = anObject linkCountLimit
-		and: [ attributePerEventCountLimit = anObject attributePerEventCountLimit
-		and: [ attributePerLinkCountLimit = anObject attributePerLinkCountLimit ] ] ] ] ]
+	^ attributeCountLimit = anObject attributeCountLimit and: [
+			  attributeValueLengthLimit = anObject attributeValueLengthLimit and: [
+					  eventCountLimit = anObject eventCountLimit and: [
+							  linkCountLimit = anObject linkCountLimit and: [
+									  attributePerEventCountLimit = anObject attributePerEventCountLimit and: [
+										  attributePerLinkCountLimit = anObject attributePerLinkCountLimit ] ] ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -103,7 +103,13 @@ OTSpanLimits >> eventCountLimit: anInteger [
 { #category : 'comparing' }
 OTSpanLimits >> hash [
 
-	^ { attributeCountLimit. attributeValueLengthLimit. eventCountLimit. linkCountLimit. attributePerEventCountLimit. attributePerLinkCountLimit } hash
+	^ {
+		  attributeCountLimit.
+		  attributeValueLengthLimit.
+		  eventCountLimit.
+		  linkCountLimit.
+		  attributePerEventCountLimit.
+		  attributePerLinkCountLimit } hash
 ]
 
 { #category : 'initialization' }
@@ -135,10 +141,9 @@ OTSpanLimits >> linkCountLimit: anInteger [
 OTSpanLimits >> normalizedLimit: aNumber allowNil: aBoolean [
 
 	aNumber ifNil: [
-		aBoolean ifTrue: [ ^ nil ].
-		Error signal: 'OpenTelemetry limits must be non-negative integers' ].
-	(aNumber isInteger and: [ aNumber >= 0 ]) ifFalse: [
-		Error signal: 'OpenTelemetry limits must be non-negative integers' ].
+			aBoolean ifTrue: [ ^ nil ].
+			Error signal: 'OpenTelemetry limits must be non-negative integers' ].
+	(aNumber isInteger and: [ aNumber >= 0 ]) ifFalse: [ Error signal: 'OpenTelemetry limits must be non-negative integers' ].
 	^ aNumber
 ]
 

@@ -13,16 +13,13 @@ OTW3CBaggagePropagatorTest >> testExtractCountsDuplicateMembersTowardEntryLimit 
 	64 timesRepeat: [ duplicateMembers add: 'user.id=42' ].
 	duplicateMembers add: 'tenant.id=acme'.
 	header := String streamContents: [ :stream |
-		duplicateMembers
-			doWithIndex: [ :each :index |
-				index > 1 ifTrue: [ stream nextPut: $, ].
-				stream nextPutAll: each ] ].
+			          duplicateMembers doWithIndex: [ :each :index |
+					          index > 1 ifTrue: [ stream nextPut: $, ].
+					          stream nextPutAll: each ] ].
 	carrier := Dictionary new
-		at: 'baggage' put: header;
-		yourself.
-	context := OTW3CBaggagePropagator current
-		extract: OTContext new
-		from: carrier.
+		           at: 'baggage' put: header;
+		           yourself.
+	context := OTW3CBaggagePropagator current extract: OTContext new from: carrier.
 	baggage := context baggage.
 	self assert: baggage size equals: 1.
 	self assert: (baggage valueAt: 'user.id') equals: '42'.
@@ -34,14 +31,12 @@ OTW3CBaggagePropagatorTest >> testExtractDecodesPercentEncodedMetadata [
 
 	| baggage carrier context |
 	carrier := Dictionary new
-		at: 'baggage' put: 'user.id=42;source%3Dcrm%3Btier%3Dgold';
-		yourself.
-	context := OTW3CBaggagePropagator current
-		extract: OTContext new
-		from: carrier.
+		           at: 'baggage' put: 'user.id=42;source%3Dcrm%3Btier%3Dgold';
+		           yourself.
+	context := OTW3CBaggagePropagator current extract: OTContext new from: carrier.
 	baggage := context baggage.
 	self assert: (baggage valueAt: 'user.id') equals: '42'.
-	self assert: ((baggage entryAt: 'user.id') metadata asString) equals: 'source=crm;tier=gold'
+	self assert: (baggage entryAt: 'user.id') metadata asString equals: 'source=crm;tier=gold'
 ]
 
 { #category : 'tests' }
@@ -49,11 +44,9 @@ OTW3CBaggagePropagatorTest >> testExtractDropsMembersWithInvalidMetadataPercentE
 
 	| baggage carrier context |
 	carrier := Dictionary new
-		at: 'baggage' put: 'good=value,bad=value;meta=%GG,encoded=value%202';
-		yourself.
-	context := OTW3CBaggagePropagator current
-		extract: OTContext new
-		from: carrier.
+		           at: 'baggage' put: 'good=value,bad=value;meta=%GG,encoded=value%202';
+		           yourself.
+	context := OTW3CBaggagePropagator current extract: OTContext new from: carrier.
 	baggage := context baggage.
 	self assert: baggage size equals: 2.
 	self assert: (baggage valueAt: 'good') equals: 'value'.
@@ -95,11 +88,9 @@ OTW3CBaggagePropagatorTest >> testExtractUsesLastValueForDuplicateKeysAcrossHead
 
 	| baggage carrier context |
 	carrier := Dictionary new
-		at: 'baggage' put: #('user.id=41' 'user.id=42');
-		yourself.
-	context := OTW3CBaggagePropagator current
-		extract: OTContext new
-		from: carrier.
+		           at: 'baggage' put: #( 'user.id=41' 'user.id=42' );
+		           yourself.
+	context := OTW3CBaggagePropagator current extract: OTContext new from: carrier.
 	baggage := context baggage.
 	self assert: baggage size equals: 1.
 	self assert: (baggage valueAt: 'user.id') equals: '42'
@@ -128,14 +119,9 @@ OTW3CBaggagePropagatorTest >> testInjectDropsOversizedMembersWithoutProducingPar
 OTW3CBaggagePropagatorTest >> testInjectPercentEncodesMetadata [
 
 	| baggage carrier context |
-	baggage := OTBaggage empty
-		withEntryNamed: 'user.id'
-		value: '42'
-		metadata: 'source=crm;tier=gold'.
+	baggage := OTBaggage empty withEntryNamed: 'user.id' value: '42' metadata: 'source=crm;tier=gold'.
 	context := OTContext new withBaggage: baggage.
 	carrier := Dictionary new.
-	OTW3CBaggagePropagator current
-		inject: context
-		into: carrier.
+	OTW3CBaggagePropagator current inject: context into: carrier.
 	self assert: (carrier at: 'baggage') equals: 'user.id=42;source%3Dcrm%3Btier%3Dgold'
 ]

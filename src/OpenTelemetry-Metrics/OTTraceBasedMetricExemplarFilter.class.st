@@ -8,6 +8,5 @@ Class {
 { #category : 'testing' }
 OTTraceBasedMetricExemplarFilter >> isMeasurementEligibleWithSpanContext: anOTSpanContextOrNil [
 
-	^ anOTSpanContextOrNil notNil
-		and: [ anOTSpanContextOrNil isValid and: [ anOTSpanContextOrNil isSampled ] ]
+	^ anOTSpanContextOrNil notNil and: [ anOTSpanContextOrNil isValid and: [ anOTSpanContextOrNil isSampled ] ]
 ]

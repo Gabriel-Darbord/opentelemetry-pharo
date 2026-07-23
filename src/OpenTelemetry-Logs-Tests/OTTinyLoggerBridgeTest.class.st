@@ -14,10 +14,11 @@ Class {
 OTTinyLoggerBridgeTest >> setUp [
 
 	super setUp.
-	(Smalltalk globals includesKey: #TinyLogger) ifFalse: [ self skip ].
 	provider := OTLoggerProvider new.
 	exporter := OTRecordingLogRecordExporter new.
-	processor := OTSimpleLogRecordProcessor new exporter: exporter; yourself.
+	processor := OTSimpleLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
 	provider addLogRecordProcessor: processor.
 	OpenTelemetry loggerProvider: provider
 ]
@@ -25,18 +26,17 @@ OTTinyLoggerBridgeTest >> setUp [
 { #category : 'running' }
 OTTinyLoggerBridgeTest >> tearDown [
 
-	[ OpenTelemetry loggerProvider: nil.
-		provider ifNotNil: [ provider shutdown ] ]
-		ensure: [ super tearDown ]
+	[
+		OpenTelemetry loggerProvider: nil.
+		provider ifNotNil: [ provider shutdown ] ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
 OTTinyLoggerBridgeTest >> testAsTinyLoggerBridgeIntegratesWithTinyLogger [
 
-	| logger tinyLogger tinyLoggerClass |
+	| logger tinyLogger |
 	logger := provider loggerNamed: 'spec.logs'.
-	tinyLoggerClass := Smalltalk globals at: #TinyLogger.
-	tinyLogger := tinyLoggerClass new.
+	tinyLogger := TinyLogger new.
 	tinyLogger addLogger: logger asTinyLoggerBridge.
 	tinyLogger record: 'hello from tiny logger'.
 	self assert: exporter exportedRecords size equals: 1.
@@ -54,7 +54,10 @@ OTTinyLoggerBridgeTest >> testBridgeCanCustomizeSeverityBodyAttributesAndEventNa
 	bridge
 		severityNumber: OTSeverity warn;
 		bodyBlock: [ :message | 'tiny:' , message ];
-		attributesBlock: [ :message | { 'tiny.logger' -> true. 'tiny.message' -> message } ];
+		attributesBlock: [ :message |
+				{
+					('tiny.logger' -> true).
+					('tiny.message' -> message) } ];
 		eventNameBlock: [ :message | 'tiny.record' ].
 	self assert: (bridge record: 'warn me').
 	self assert: exporter exportedRecords size equals: 1.

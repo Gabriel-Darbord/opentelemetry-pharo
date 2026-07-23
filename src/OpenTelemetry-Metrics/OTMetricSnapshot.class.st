@@ -15,30 +15,30 @@ Class {
 OTMetricSnapshot class >> empty [
 
 	^ self
-		resource: OTResource empty
-		measurements: #()
-		metrics: #()
-		collectedAt: DateAndTime now asUTC
+		  resource: OTResource empty
+		  measurements: #(  )
+		  metrics: #(  )
+		  collectedAt: DateAndTime now asUTC
 ]
 
 { #category : 'instance creation' }
 OTMetricSnapshot class >> resource: anOTResource measurements: aCollection [
 
 	^ self
-		resource: anOTResource
-		measurements: aCollection
-		metrics: #()
-		collectedAt: DateAndTime now asUTC
+		  resource: anOTResource
+		  measurements: aCollection
+		  metrics: #(  )
+		  collectedAt: DateAndTime now asUTC
 ]
 
 { #category : 'instance creation' }
 OTMetricSnapshot class >> resource: anOTResource measurements: aCollection collectedAt: aDateAndTime [
 
 	^ self
-		resource: anOTResource
-		measurements: aCollection
-		metrics: #()
-		collectedAt: aDateAndTime
+		  resource: anOTResource
+		  measurements: aCollection
+		  metrics: #(  )
+		  collectedAt: aDateAndTime
 ]
 
 { #category : 'instance creation' }
@@ -55,12 +55,6 @@ OTMetricSnapshot class >> resource: anOTResource measurements: aCollection metri
 ]
 
 { #category : 'accessing' }
-OTMetricSnapshot >> measurements [
-
-	^ measurements ifNil: [ #() ]
-]
-
-{ #category : 'accessing' }
 OTMetricSnapshot >> collectedAt [
 
 	^ collectedAt ifNil: [ DateAndTime now asUTC ]
@@ -73,21 +67,27 @@ OTMetricSnapshot >> collectedAt: aDateAndTime [
 ]
 
 { #category : 'accessing' }
-OTMetricSnapshot >> metrics [
+OTMetricSnapshot >> measurements [
 
-	^ metrics ifNil: [ #() ]
-]
-
-{ #category : 'accessing' }
-OTMetricSnapshot >> metrics: aCollection [
-
-	metrics := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
+	^ measurements ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTMetricSnapshot >> measurements: aCollection [
 
-	measurements := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
+	measurements := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
+]
+
+{ #category : 'accessing' }
+OTMetricSnapshot >> metrics [
+
+	^ metrics ifNil: [ #(  ) ]
+]
+
+{ #category : 'accessing' }
+OTMetricSnapshot >> metrics: aCollection [
+
+	metrics := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }

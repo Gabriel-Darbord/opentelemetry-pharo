@@ -17,7 +17,5 @@ OTOtlpJsonLineLogRecordExporter >> encoder [
 { #category : 'private' }
 OTOtlpJsonLineLogRecordExporter >> jsonLineFrom: logRecords [
 
-	^ (ZnUtils defaultJSONWriter
-		   toString: (self encoder encodeLogRecords: logRecords asArray))
-		, String lf
+	^ (ZnUtils defaultJSONWriter toString: (self encoder encodeLogRecords: logRecords asArray)) , String lf
 ]

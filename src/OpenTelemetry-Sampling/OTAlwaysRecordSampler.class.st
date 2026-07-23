@@ -11,7 +11,7 @@ Class {
 { #category : 'accessing' }
 OTAlwaysRecordSampler >> description [
 
-	^ 'AlwaysRecordSampler{', rootSampler description, '}'
+	^ 'AlwaysRecordSampler{' , rootSampler description , '}'
 ]
 
 { #category : 'accessing' }
@@ -28,28 +28,25 @@ OTAlwaysRecordSampler >> rootSampler: aSampler [
 	^ self
 ]
 
-{ #category : 'lifecycle' }
-OTAlwaysRecordSampler >> shutdown [
-
-	^ rootSampler shutdown
-]
-
 { #category : 'sampling' }
 OTAlwaysRecordSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| result |
 	result := rootSampler
-		shouldSampleIn: aContext
-		traceId: aTraceId
-		name: aString
-		kind: aSpanKind
-		attributes: someAttributes
-		links: someLinks.
+		          shouldSampleIn: aContext
+		          traceId: aTraceId
+		          name: aString
+		          kind: aSpanKind
+		          attributes: someAttributes
+		          links: someLinks.
 	result isDrop ifFalse: [ ^ result ].
-	^ OTSamplingResult
-		decision: #recordOnly
-		attributes: result attributes
-		traceState: result traceState
+	^ OTSamplingResult decision: #recordOnly attributes: result attributes traceState: result traceState
+]
+
+{ #category : 'lifecycle' }
+OTAlwaysRecordSampler >> shutdown [
+
+	^ rootSampler shutdown
 ]
 
 { #category : 'lifecycle' }

@@ -32,9 +32,7 @@ OTRateLimitingSampler >> currentTimeMillis [
 { #category : 'accessing' }
 OTRateLimitingSampler >> description [
 
-	^ 'RateLimitingSampler{'
-		, (self maxTracesPerSecond printShowingDecimalPlaces: 2)
-		, '}'
+	^ 'RateLimitingSampler{' , (self maxTracesPerSecond printShowingDecimalPlaces: 2) , '}'
 ]
 
 { #category : 'initialization' }

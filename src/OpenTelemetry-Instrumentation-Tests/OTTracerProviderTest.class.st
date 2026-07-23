@@ -9,8 +9,8 @@ Class {
 OTTracerProviderTest >> sampleAttributes [
 
 	^ OrderedDictionary new
-		at: 'scope.answer' put: 42;
-		yourself
+		  at: 'scope.answer' put: 42;
+		  yourself
 ]
 
 { #category : 'private' }
@@ -19,9 +19,7 @@ OTTracerProviderTest >> setEnvironmentValue: aValue forKey: aKey [
 	| currentValue environment |
 	environment := Smalltalk os environment.
 	currentValue := environment at: aKey ifAbsent: [ nil ].
-	aValue
-		ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ]
-		ifNotNil: [ environment at: aKey put: aValue ]
+	aValue ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ] ifNotNil: [ environment at: aKey put: aValue ]
 ]
 
 { #category : 'running' }
@@ -229,16 +227,12 @@ OTTracerProviderTest >> testConfiguredResourceMergesConfiguredDetectorsInOrder [
 
 	| resource |
 	OTTracerProvider resourceDetectors: {
-		(OTStaticResourceDetector
-			named: 'first'
-			resource: (OTResource attributes: {
-				'service.name' -> 'first'.
-				'deployment.environment.name' -> 'dev' })).
-		(OTStaticResourceDetector
-			named: 'second'
-			resource: (OTResource attributes: {
-				'service.name' -> 'second'.
-				'host.name' -> 'pharo-host' })) }.
+			(OTStaticResourceDetector named: 'first' resource: (OTResource attributes: {
+						  ('service.name' -> 'first').
+						  ('deployment.environment.name' -> 'dev') })).
+			(OTStaticResourceDetector named: 'second' resource: (OTResource attributes: {
+						  ('service.name' -> 'second').
+						  ('host.name' -> 'pharo-host') })) }.
 	resource := OTTracerProvider configuredResource.
 	self assert: resource serviceName equals: 'second'.
 	self assert: (resource attributeAt: 'deployment.environment.name') equals: 'dev'.
@@ -249,42 +243,34 @@ OTTracerProviderTest >> testConfiguredResourceMergesConfiguredDetectorsInOrder [
 OTTracerProviderTest >> testConfiguredResourceSkipsFailingDetectorAndLogsWarning [
 
 	self withResourceConfigurationWarningsDo: [ :warnings |
-		| resource |
-		OTTracerProvider resourceDetectors: {
-			(OTStaticResourceDetector
-				named: 'base'
-				resource: (OTResource attributes: { 'service.name' -> 'base' })).
-			(OTBlockResourceDetector
-				named: 'broken'
-				detecting: [ Error signal: 'boom' ]).
-			(OTStaticResourceDetector
-				named: 'after'
-				resource: (OTResource attributes: { 'host.name' -> 'pharo-host' })) }.
-		resource := OTTracerProvider configuredResource.
-		self assert: resource serviceName equals: 'base'.
-		self assert: (resource attributeAt: 'host.name') equals: 'pharo-host'.
-		self assert: warnings asArray equals:
-			{ 'OpenTelemetry resource detector failed during resource detection for OTBlockResourceDetector (''broken''): boom' } ]
+			| resource |
+			OTTracerProvider resourceDetectors: {
+					(OTStaticResourceDetector named: 'base' resource: (OTResource attributes: { ('service.name' -> 'base') })).
+					(OTBlockResourceDetector named: 'broken' detecting: [ Error signal: 'boom' ]).
+					(OTStaticResourceDetector named: 'after' resource: (OTResource attributes: { ('host.name' -> 'pharo-host') })) }.
+			resource := OTTracerProvider configuredResource.
+			self assert: resource serviceName equals: 'base'.
+			self assert: (resource attributeAt: 'host.name') equals: 'pharo-host'.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry resource detector failed during resource detection for OTBlockResourceDetector (''broken''): boom' } ]
 ]
 
 { #category : 'tests' }
 OTTracerProviderTest >> testConfiguredResourceWarnsAboutDuplicateDetectorNames [
 
 	self withResourceConfigurationWarningsDo: [ :warnings |
-		OTTracerProvider resourceDetectors: {
-			(OTStaticResourceDetector named: 'duplicate' resource: OTResource empty).
-			(OTStaticResourceDetector named: 'duplicate' resource: OTResource empty) }.
-		OTTracerProvider configuredResource.
-		self assert: warnings asArray equals:
-			{ 'OpenTelemetry resource detector name was registered more than once: ''duplicate''' } ]
+			OTTracerProvider resourceDetectors: {
+					(OTStaticResourceDetector named: 'duplicate' resource: OTResource empty).
+					(OTStaticResourceDetector named: 'duplicate' resource: OTResource empty) }.
+			OTTracerProvider configuredResource.
+			self assert: warnings asArray equals: { 'OpenTelemetry resource detector name was registered more than once: ''duplicate''' } ]
 ]
 
 { #category : 'tests' }
 OTTracerProviderTest >> testCurrentRebuildsAfterGlobalSpanExporterChange [
 
-	self
-		withEnvironmentValues: Dictionary new
-		during: [
+	self withEnvironmentValues: Dictionary new during: [
 			| exporter firstProvider secondProvider |
 			OTSpanExporter current: OTNoopSpanExporter new.
 			firstProvider := OTTracerProvider current.
@@ -300,16 +286,14 @@ OTTracerProviderTest >> testCurrentRebuildsAfterGlobalSpanExporterChange [
 { #category : 'tests' }
 OTTracerProviderTest >> testCurrentUsesExplicitGlobalSpanProcessorEvenAfterNoopExporterProviderWasBuilt [
 
-	self
-		withEnvironmentValues: Dictionary new
-		during: [
+	self withEnvironmentValues: Dictionary new during: [
 			| firstProvider processor secondProvider |
 			OTSpanExporter current: OTNoopSpanExporter new.
 			firstProvider := OTTracerProvider current.
 			self assert: firstProvider spanProcessors isEmpty.
 			processor := OTSimpleSpanProcessor new
-				exporter: OTConsoleSpanExporter new;
-				yourself.
+				             exporter: OTConsoleSpanExporter new;
+				             yourself.
 			processor beCurrent.
 			secondProvider := OTTracerProvider current.
 			self deny: secondProvider identicalTo: firstProvider.
@@ -755,17 +739,18 @@ OTTracerProviderTest >> testForceFlushSucceedsWhenNoProcessorsAreRegistered [
 OTTracerProviderTest >> testForceFlushSuppressesProcessorErrorsAndContinues [
 
 	self withSpanProcessorWarningsDo: [ :warnings |
-		| failingProcessor provider succeedingProcessor |
-		provider := OTTracerProvider new.
-		failingProcessor := OTFailingSpanProcessor failingOperations: { 'forceFlush' }.
-		succeedingProcessor := OTFailingSpanProcessor new.
-		provider
-			spanProcessor: failingProcessor;
-			addSpanProcessor: succeedingProcessor.
-		self deny: provider forceFlush.
-		self assert: succeedingProcessor forceFlushCount equals: 1.
-		self assert: warnings asArray equals: {
-			'OpenTelemetry span processor callback failed during forceFlush for OTFailingSpanProcessor: processor failure' } ]
+			| failingProcessor provider succeedingProcessor |
+			provider := OTTracerProvider new.
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'forceFlush' }.
+			succeedingProcessor := OTFailingSpanProcessor new.
+			provider
+				spanProcessor: failingProcessor;
+				addSpanProcessor: succeedingProcessor.
+			self deny: provider forceFlush.
+			self assert: succeedingProcessor forceFlushCount equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during forceFlush for OTFailingSpanProcessor: processor failure' } ]
 ]
 
 { #category : 'tests' }
@@ -969,21 +954,17 @@ OTTracerProviderTest >> testNonRecordingSpanSamplerCanExplicitlyClearParentTrace
 	| parentContext provider sampler span |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
-	sampler := OTSamplingResultSampler result: (OTSamplingResult
-		decision: #drop
-		attributes: #()
-		traceState: OTTraceState empty).
+	sampler := OTSamplingResultSampler result: (OTSamplingResult decision: #drop attributes: #(  ) traceState: OTTraceState empty).
 	provider sampler: sampler.
-	parentContext := OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: '03'
-			traceState: 'vendor=value'
-			remote: true) asNonRecordingSpan).
-	span := (((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
-		inContext: parentContext;
-		startSpan).
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '03'
+			                  traceState: 'vendor=value'
+			                  remote: true) asNonRecordingSpan.
+	span := ((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
+		        inContext: parentContext;
+		        startSpan.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self assert: span spanContext traceState class identicalTo: OTTraceState.
 	self assert: span spanContext traceState isEmpty
@@ -1112,16 +1093,15 @@ OTTracerProviderTest >> testParentBasedSamplerErasesInconsistentInheritedParentT
 	provider
 		spanProcessor: OTSimpleSpanProcessor new;
 		sampler: OTSampler parentBased.
-	parentContext := OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: '01'
-			traceState: 'ot=rv:7fffffffffffff;th:8'
-			remote: true) asNonRecordingSpan).
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '01'
+			                  traceState: 'ot=rv:7fffffffffffff;th:8'
+			                  remote: true) asNonRecordingSpan.
 	span := ((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
-		inContext: parentContext;
-		startSpan.
+		        inContext: parentContext;
+		        startSpan.
 	self assert: span isRecording.
 	self assert: (span spanContext traceState otelValueAt: 'rv') equals: '7fffffffffffff'.
 	self assert: (span spanContext traceState otelValueAt: 'th') equals: nil
@@ -1135,16 +1115,15 @@ OTTracerProviderTest >> testParentBasedSamplerPreservesConsistentInheritedParent
 	provider
 		spanProcessor: OTSimpleSpanProcessor new;
 		sampler: OTSampler parentBased.
-	parentContext := OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: '01'
-			traceState: 'ot=rv:80000000000000;th:8'
-			remote: true) asNonRecordingSpan).
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '01'
+			                  traceState: 'ot=rv:80000000000000;th:8'
+			                  remote: true) asNonRecordingSpan.
 	span := ((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
-		inContext: parentContext;
-		startSpan.
+		        inContext: parentContext;
+		        startSpan.
 	self assert: span isRecording.
 	self assert: (span spanContext traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (span spanContext traceState otelValueAt: 'th') equals: '8'
@@ -1158,16 +1137,15 @@ OTTracerProviderTest >> testParentBasedSamplerRemovesInheritedThresholdForUnsamp
 	provider
 		spanProcessor: OTSimpleSpanProcessor new;
 		sampler: OTSampler parentBased.
-	parentContext := OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: '00'
-			traceState: 'ot=rv:80000000000000;th:8'
-			remote: true) asNonRecordingSpan).
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '00'
+			                  traceState: 'ot=rv:80000000000000;th:8'
+			                  remote: true) asNonRecordingSpan.
 	span := ((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
-		inContext: parentContext;
-		startSpan.
+		        inContext: parentContext;
+		        startSpan.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self assert: (span spanContext traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (span spanContext traceState otelValueAt: 'th') equals: nil
@@ -1177,23 +1155,24 @@ OTTracerProviderTest >> testParentBasedSamplerRemovesInheritedThresholdForUnsamp
 OTTracerProviderTest >> testProcessorErrorsDuringSpanLifecycleAreSuppressedAndLaterProcessorsStillRun [
 
 	self withSpanProcessorWarningsDo: [ :warnings |
-		| failingProcessor provider succeedingProcessor span tracer |
-		provider := OTTracerProvider new.
-		failingProcessor := OTFailingSpanProcessor failingOperations: { 'onStart'. 'onEnding'. 'onEnd' }.
-		succeedingProcessor := OTFailingSpanProcessor new.
-		provider
-			spanProcessor: failingProcessor;
-			addSpanProcessor: succeedingProcessor.
-		tracer := provider tracerNamed: 'demo.scope'.
-		span := (tracer spanBuilderNamed: 'operation') startSpan.
-		span end.
-		self assert: succeedingProcessor startedSpans asArray equals: { span }.
-		self assert: succeedingProcessor endingSpans asArray equals: { span }.
-		self assert: succeedingProcessor endedSpans asArray equals: { span }.
-		self assert: warnings asArray equals: {
-			'OpenTelemetry span processor callback failed during onStart for OTFailingSpanProcessor: processor failure'.
-			'OpenTelemetry span processor callback failed during onEnding for OTFailingSpanProcessor: processor failure'.
-			'OpenTelemetry span processor callback failed during onEnd for OTFailingSpanProcessor: processor failure' } ]
+			| failingProcessor provider succeedingProcessor span tracer |
+			provider := OTTracerProvider new.
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'onStart'. 'onEnding'. 'onEnd' }.
+			succeedingProcessor := OTFailingSpanProcessor new.
+			provider
+				spanProcessor: failingProcessor;
+				addSpanProcessor: succeedingProcessor.
+			tracer := provider tracerNamed: 'demo.scope'.
+			span := (tracer spanBuilderNamed: 'operation') startSpan.
+			span end.
+			self assert: succeedingProcessor startedSpans asArray equals: { span }.
+			self assert: succeedingProcessor endingSpans asArray equals: { span }.
+			self assert: succeedingProcessor endedSpans asArray equals: { span }.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during onStart for OTFailingSpanProcessor: processor failure'.
+					'OpenTelemetry span processor callback failed during onEnding for OTFailingSpanProcessor: processor failure'.
+					'OpenTelemetry span processor callback failed during onEnd for OTFailingSpanProcessor: processor failure' } ]
 ]
 
 { #category : 'tests' }
@@ -1417,15 +1396,15 @@ OTTracerProviderTest >> testRecordingSpanNotifiesSpanProcessorOnStartWithResolve
 	provider spanProcessor: processor.
 	tracer := provider tracerNamed: 'demo.scope'.
 	parentSpan := (OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '03'
-		traceState: nil
-		remote: true) asNonRecordingSpan.
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '03'
+		               traceState: nil
+		               remote: true) asNonRecordingSpan.
 	parentContext := OTContext new withSpan: parentSpan.
-	span := ((tracer spanBuilderNamed: 'child')
-		inContext: parentContext;
-		startSpan).
+	span := (tracer spanBuilderNamed: 'child')
+		        inContext: parentContext;
+		        startSpan.
 	self assert: processor startedSpans asArray equals: { span }.
 	self assert: processor startedParentContexts asArray equals: { parentContext }.
 	self assert: processor endedSpans isEmpty
@@ -1437,21 +1416,18 @@ OTTracerProviderTest >> testRecordingSpanSamplerCanExplicitlyClearParentTraceSta
 	| parentContext provider sampler span |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
-	sampler := OTSamplingResultSampler result: (OTSamplingResult
-		decision: #recordAndSample
-		attributes: #()
-		traceState: OTTraceState empty).
+	sampler := OTSamplingResultSampler result:
+		           (OTSamplingResult decision: #recordAndSample attributes: #(  ) traceState: OTTraceState empty).
 	provider sampler: sampler.
-	parentContext := OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: '03'
-			traceState: 'vendor=value'
-			remote: true) asNonRecordingSpan).
-	span := (((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
-		inContext: parentContext;
-		startSpan).
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '03'
+			                  traceState: 'vendor=value'
+			                  remote: true) asNonRecordingSpan.
+	span := ((provider tracerNamed: 'demo.scope') spanBuilderNamed: 'child')
+		        inContext: parentContext;
+		        startSpan.
 	self assert: span spanContext traceState class identicalTo: OTTraceState.
 	self assert: span spanContext traceState isEmpty
 ]
@@ -1618,9 +1594,7 @@ OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	self assert: provider shutdown.
-	span := (provider tracerNamed: 'demo.scope')
-		startSpanNamed: 'operation'
-		in: OTContext new.
+	span := (provider tracerNamed: 'demo.scope') startSpanNamed: 'operation' in: OTContext new.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self deny: span spanContext isValid
 ]
@@ -1673,18 +1647,19 @@ OTTracerProviderTest >> testShutdownShutsDownLifecycleManagedSampler [
 OTTracerProviderTest >> testShutdownSuppressesProcessorErrorsAndContinues [
 
 	self withSpanProcessorWarningsDo: [ :warnings |
-		| failingProcessor provider succeedingProcessor |
-		provider := OTTracerProvider new.
-		failingProcessor := OTFailingSpanProcessor failingOperations: { 'shutdown' }.
-		succeedingProcessor := OTFailingSpanProcessor new.
-		provider
-			spanProcessor: failingProcessor;
-			addSpanProcessor: succeedingProcessor.
-		self deny: provider shutdown.
-		self assert: provider isShutdown.
-		self assert: succeedingProcessor shutdownCount equals: 1.
-		self assert: warnings asArray equals: {
-			'OpenTelemetry span processor callback failed during shutdown for OTFailingSpanProcessor: processor failure' } ]
+			| failingProcessor provider succeedingProcessor |
+			provider := OTTracerProvider new.
+			failingProcessor := OTFailingSpanProcessor failingOperations: { 'shutdown' }.
+			succeedingProcessor := OTFailingSpanProcessor new.
+			provider
+				spanProcessor: failingProcessor;
+				addSpanProcessor: succeedingProcessor.
+			self deny: provider shutdown.
+			self assert: provider isShutdown.
+			self assert: succeedingProcessor shutdownCount equals: 1.
+			self
+				assert: warnings asArray
+				equals: { 'OpenTelemetry span processor callback failed during shutdown for OTFailingSpanProcessor: processor failure' } ]
 ]
 
 { #category : 'tests' }
@@ -1773,20 +1748,20 @@ OTTracerProviderTest >> testTracerCachesByFullInstrumentationScope [
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	first := provider
-		tracerNamed: 'demo.scope'
-		version: '1.2.3'
-		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
-		attributes: self sampleAttributes.
+		         tracerNamed: 'demo.scope'
+		         version: '1.2.3'
+		         schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		         attributes: self sampleAttributes.
 	second := provider
-		tracerNamed: 'demo.scope'
-		version: '1.2.3'
-		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
-		attributes: self sampleAttributes.
+		          tracerNamed: 'demo.scope'
+		          version: '1.2.3'
+		          schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		          attributes: self sampleAttributes.
 	third := provider
-		tracerNamed: 'demo.scope'
-		version: '2.0.0'
-		schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
-		attributes: self sampleAttributes.
+		         tracerNamed: 'demo.scope'
+		         version: '2.0.0'
+		         schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
+		         attributes: self sampleAttributes.
 	self assert: first identicalTo: second.
 	self deny: first identicalTo: third
 ]
@@ -1902,16 +1877,14 @@ OTTracerProviderTest >> testTracerLookupDuringShutdownBehavesAsNoop [
 { #category : 'tests' }
 OTTracerProviderTest >> testTracerNamedEmptyStringReturnsWorkingTracerWithEmptyNameAndWarning [
 
-	self
-		withTracerNameWarningsDo: [ :warnings |
+	self withTracerNameWarningsDo: [ :warnings |
 			| provider tracer |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
 			tracer := provider tracerNamed: ''.
 			self assert: tracer instrumentationName equals: ''.
 			self assert: warnings size equals: 1.
-			self assert: warnings first equals:
-				'OpenTelemetry tracer name was invalid and has been normalized to an empty string: ''''' ]
+			self assert: warnings first equals: 'OpenTelemetry tracer name was invalid and has been normalized to an empty string: ''''' ]
 ]
 
 { #category : 'tests' }
@@ -1944,16 +1917,14 @@ OTTracerProviderTest >> testTracerNamedInvalidScopeAttributesReturnWorkingTracer
 { #category : 'tests' }
 OTTracerProviderTest >> testTracerNamedNilReturnsWorkingTracerWithEmptyNameAndWarning [
 
-	self
-		withTracerNameWarningsDo: [ :warnings |
+	self withTracerNameWarningsDo: [ :warnings |
 			| provider tracer |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
 			tracer := provider tracerNamed: nil.
 			self assert: tracer instrumentationName equals: ''.
 			self assert: warnings size equals: 1.
-			self assert: warnings first equals:
-				'OpenTelemetry tracer name was invalid and has been normalized to an empty string: nil' ]
+			self assert: warnings first equals: 'OpenTelemetry tracer name was invalid and has been normalized to an empty string: nil' ]
 ]
 
 { #category : 'tests' }
@@ -1980,8 +1951,7 @@ OTTracerProviderTest >> testTracerNamedRichOverloadNormalizesInvalidNameToEmptyS
 { #category : 'tests' }
 OTTracerProviderTest >> testTracerNamedWhitespaceOnlyStringNormalizesToEmptyName [
 
-	self
-		withTracerNameWarningsDo: [ :warnings |
+	self withTracerNameWarningsDo: [ :warnings |
 			| provider tracer |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
@@ -2139,16 +2109,15 @@ OTTracerProviderTest >> testUnsampledChildSpanPreservesParentRandomFlag [
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
 	tracer := provider tracerNamed: 'demo.scope'.
-	parentContext := OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: '02'
-			traceState: nil
-			remote: true) asNonRecordingSpan).
-	span := ((tracer spanBuilderNamed: 'child')
-		inContext: parentContext;
-		startSpan).
+	parentContext := OTContext new withSpan: (OTSpanContext
+			                  traceId: '00112233445566778899aabbccddeeff'
+			                  spanId: '1122334455667788'
+			                  traceFlags: '02'
+			                  traceState: nil
+			                  remote: true) asNonRecordingSpan.
+	span := (tracer spanBuilderNamed: 'child')
+		        inContext: parentContext;
+		        startSpan.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self assert: span spanContext traceFlags equals: '02'.
 	self assert: span spanContext isRandom
@@ -2161,26 +2130,23 @@ OTTracerProviderTest >> withEnvironmentValues: aDictionary during: aBlock [
 	absent := Object new.
 	environment := Smalltalk os environment.
 	effectiveValues := aDictionary copy.
-	managedKeys := (environment keys
-		select: [ :each | each beginsWith: 'OTEL_' ])
-		asOrderedCollection.
-	effectiveValues keysDo: [ :each |
-		(managedKeys includes: each) ifFalse: [ managedKeys add: each ] ].
+	managedKeys := (environment keys select: [ :each | each beginsWith: 'OTEL_' ]) asOrderedCollection.
+	effectiveValues keysDo: [ :each | (managedKeys includes: each) ifFalse: [ managedKeys add: each ] ].
 	snapshot := Dictionary new.
 	managedKeys do: [ :key |
-		| value |
-		value := effectiveValues at: key ifAbsent: [ nil ].
-		snapshot at: key put: (environment at: key ifAbsent: [ absent ]).
-		self setEnvironmentValue: value forKey: key ].
-	[
-		^ aBlock value ]
-		ensure: [
+			| value |
+			value := effectiveValues at: key ifAbsent: [ nil ].
+			snapshot at: key put: (environment at: key ifAbsent: [ absent ]).
+			self setEnvironmentValue: value forKey: key ].
+	[ ^ aBlock value ] ensure: [
 			managedKeys do: [ :key |
-				| value |
-				value := snapshot at: key.
-				self
-					setEnvironmentValue: (value == absent ifTrue: [ nil ] ifFalse: [ value ])
-					forKey: key ] ]
+					| value |
+					value := snapshot at: key.
+					self
+						setEnvironmentValue: (value == absent
+								 ifTrue: [ nil ]
+								 ifFalse: [ value ])
+						forKey: key ] ]
 ]
 
 { #category : 'private' }
@@ -2189,9 +2155,7 @@ OTTracerProviderTest >> withResourceConfigurationWarningsDo: aBlock [
 	| warnings |
 	warnings := OrderedCollection new.
 	OTTracerProvider resourceConfigurationWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
+	[ ^ aBlock value: warnings ] ensure: [ OTTracerProvider resourceConfigurationWarningSink: nil ]
 ]
 
 { #category : 'private' }
@@ -2209,9 +2173,7 @@ OTTracerProviderTest >> withSpanProcessorWarningsDo: aBlock [
 	| warnings |
 	warnings := OrderedCollection new.
 	OTTracerProvider spanProcessorWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTTracerProvider spanProcessorWarningSink: nil ]
+	[ ^ aBlock value: warnings ] ensure: [ OTTracerProvider spanProcessorWarningSink: nil ]
 ]
 
 { #category : 'private' }
@@ -2220,9 +2182,7 @@ OTTracerProviderTest >> withTracerConfigurationWarningsDo: aBlock [
 	| warnings |
 	warnings := OrderedCollection new.
 	OTTracerProvider tracerConfigurationWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTTracerProvider tracerConfigurationWarningSink: nil ]
+	[ ^ aBlock value: warnings ] ensure: [ OTTracerProvider tracerConfigurationWarningSink: nil ]
 ]
 
 { #category : 'private' }
@@ -2231,7 +2191,5 @@ OTTracerProviderTest >> withTracerNameWarningsDo: aBlock [
 	| warnings |
 	warnings := OrderedCollection new.
 	OTTracerProvider tracerNameWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTTracerProvider tracerNameWarningSink: nil ]
+	[ ^ aBlock value: warnings ] ensure: [ OTTracerProvider tracerNameWarningSink: nil ]
 ]

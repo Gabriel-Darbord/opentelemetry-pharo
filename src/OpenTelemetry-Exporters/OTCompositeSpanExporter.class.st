@@ -16,8 +16,8 @@ Class {
 OTCompositeSpanExporter class >> withAll: aCollection [
 
 	^ self new
-		exporters: aCollection;
-		yourself
+		  exporters: aCollection;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -48,9 +48,7 @@ OTCompositeSpanExporter >> exporters [
 { #category : 'accessing' }
 OTCompositeSpanExporter >> exporters: aCollection [
 
-	exporters := aCollection
-		ifNil: [ OrderedCollection new ]
-		ifNotNil: [ aCollection asOrderedCollection ]
+	exporters := aCollection ifNil: [ OrderedCollection new ] ifNotNil: [ aCollection asOrderedCollection ]
 ]
 
 { #category : 'exporting' }

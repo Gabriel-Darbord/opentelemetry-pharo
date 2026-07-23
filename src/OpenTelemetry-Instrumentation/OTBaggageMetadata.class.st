@@ -29,8 +29,8 @@ OTBaggageMetadata class >> from: anObject [
 OTBaggageMetadata class >> value: aString [
 
 	^ self new
-		value: (aString ifNil: [ '' ]);
-		yourself
+		  value: (aString ifNil: [ '' ]);
+		  yourself
 ]
 
 { #category : 'comparing' }

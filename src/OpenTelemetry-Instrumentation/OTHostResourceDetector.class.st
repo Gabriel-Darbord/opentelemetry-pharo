@@ -19,20 +19,12 @@ OTHostResourceDetector >> detectResource [
 
 	| attributes |
 	attributes := OrderedDictionary new.
-	OTTracerProvider defaultHostName ifNotNil: [ :value |
-		attributes at: 'host.name' put: value ].
-	OTTracerProvider defaultHostArchitecture ifNotNil: [ :value |
-		attributes at: 'host.arch' put: value ].
-	OTTracerProvider defaultOsType ifNotNil: [ :value |
-		attributes at: 'os.type' put: value ].
-	OTTracerProvider defaultOsName ifNotNil: [ :value |
-		attributes at: 'os.name' put: value ].
-	OTTracerProvider defaultOsDescription ifNotNil: [ :value |
-		attributes at: 'os.description' put: value ].
+	OTTracerProvider defaultHostName ifNotNil: [ :value | attributes at: 'host.name' put: value ].
+	OTTracerProvider defaultHostArchitecture ifNotNil: [ :value | attributes at: 'host.arch' put: value ].
+	OTTracerProvider defaultOsType ifNotNil: [ :value | attributes at: 'os.type' put: value ].
+	OTTracerProvider defaultOsName ifNotNil: [ :value | attributes at: 'os.name' put: value ].
+	OTTracerProvider defaultOsDescription ifNotNil: [ :value | attributes at: 'os.description' put: value ].
 	^ attributes
-		ifEmpty: [ OTResource empty ]
-		ifNotEmpty: [
-			OTResource
-				attributes: attributes
-				schemaUrl: OTTracerProvider semanticConventionsSchemaUrl ]
+		  ifEmpty: [ OTResource empty ]
+		  ifNotEmpty: [ OTResource attributes: attributes schemaUrl: OTTracerProvider semanticConventionsSchemaUrl ]
 ]

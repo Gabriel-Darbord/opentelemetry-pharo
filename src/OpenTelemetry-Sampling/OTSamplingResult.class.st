@@ -16,20 +16,17 @@ Class {
 { #category : 'instance creation' }
 OTSamplingResult class >> decision: aSymbol [
 
-	^ self
-		decision: aSymbol
-		attributes: #()
-		traceState: nil
+	^ self decision: aSymbol attributes: #(  ) traceState: nil
 ]
 
 { #category : 'instance creation' }
 OTSamplingResult class >> decision: aSymbol attributes: aCollection traceState: aTraceState [
 
 	^ self new
-		decision: aSymbol;
-		attributes: (aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]);
-		traceState: aTraceState;
-		yourself
+		  decision: aSymbol;
+		  attributes: (aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]);
+		  traceState: aTraceState;
+		  yourself
 ]
 
 { #category : 'instance creation' }
@@ -53,7 +50,7 @@ OTSamplingResult class >> recordOnly [
 { #category : 'accessing' }
 OTSamplingResult >> attributes [
 
-	^ attributes ifNil: [ #() ]
+	^ attributes ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
@@ -102,8 +99,8 @@ OTSamplingResult >> isRecording [
 OTSamplingResult >> traceFlags [
 
 	^ self isRecordAndSample
-		ifTrue: [ '01' ]
-		ifFalse: [ '00' ]
+		  ifTrue: [ '01' ]
+		  ifFalse: [ '00' ]
 ]
 
 { #category : 'accessing' }

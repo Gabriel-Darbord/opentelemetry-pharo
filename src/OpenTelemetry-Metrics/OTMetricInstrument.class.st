@@ -46,9 +46,7 @@ OTMetricInstrument >> advice: aDictionary [
 { #category : 'aggregating' }
 OTMetricInstrument >> attributeFilter [
 
-	^ OTMetricAttributeFilter
-		included: self retainedAttributeKeys
-		excluded: nil
+	^ OTMetricAttributeFilter included: self retainedAttributeKeys excluded: nil
 ]
 
 { #category : 'binding' }
@@ -75,42 +73,115 @@ OTMetricInstrument >> creationTimestamp: aDateAndTime [
 	creationTimestamp := aDateAndTime ifNil: [ DateAndTime now asUTC ] ifNotNil: [ aDateAndTime ]
 ]
 
+{ #category : 'accessing' }
+OTMetricInstrument >> description [
+
+	^ description ifNil: [ '' ]
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> description: aString [
+
+	description := aString
+]
+
+{ #category : 'testing' }
+OTMetricInstrument >> enabled [
+
+	^ false
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> exemplarsFromMeasurements: someMeasurements pointAttributes: aCollection using: anOTMetricAggregationContext [
+
+	| reservoir |
+	reservoir := anOTMetricAggregationContext newExemplarReservoirForInstrument: self pointAttributes: aCollection.
+	someMeasurements do: [ :each | reservoir offerMeasurement: each ].
+	^ reservoir collectForPointAttributes: aCollection
+]
+
 { #category : 'aggregating' }
 OTMetricInstrument >> groupedMeasurementsByAttributes: someMeasurements [
 
 	| grouped |
 	grouped := OrderedDictionary new.
 	someMeasurements do: [ :each |
-		(grouped
-			at: (self normalizedAttributesForMeasurement: each)
-			ifAbsentPut: [ OrderedCollection new ])
-			add: each ].
+		(grouped at: (self normalizedAttributesForMeasurement: each) ifAbsentPut: [ OrderedCollection new ]) add: each ].
 	^ grouped
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> instrumentType [
+
+	self subclassResponsibility
 ]
 
 { #category : 'accessing' }
 OTMetricInstrument >> instrumentationScope [
 
-	^ self meter
-		ifNil: [ OTInstrumentationScope named: '' ]
-		ifNotNil: [ :aMeter | aMeter instrumentationScope ]
+	^ self meter ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ :aMeter | aMeter instrumentationScope ]
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> meter [
+
+	^ meter
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> meter: anOTMeter [
+
+	meter := anOTMeter
 ]
 
 { #category : 'aggregating' }
 OTMetricInstrument >> metricDataFromMeasurements: someMeasurements [
 
-	^ self
-		metricDataFromMeasurements: someMeasurements
-		using: (OTMetricAggregationContext
-			collectedAt: DateAndTime now asUTC
-			startTimestamp: (someMeasurements ifEmpty: [ nil ] ifNotEmpty: [ someMeasurements first timestamp ])
-			temporality: #cumulative)
+	^ self metricDataFromMeasurements: someMeasurements using: (OTMetricAggregationContext
+			   collectedAt: DateAndTime now asUTC
+			   startTimestamp: (someMeasurements ifEmpty: [ nil ] ifNotEmpty: [ someMeasurements first timestamp ])
+			   temporality: #cumulative)
 ]
 
 { #category : 'aggregating' }
 OTMetricInstrument >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
 	self subclassResponsibility
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> name [
+
+	^ name ifNil: [ '' ]
+]
+
+{ #category : 'accessing' }
+OTMetricInstrument >> name: aString [
+
+	name := aString
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement [
+
+	^ self normalizedAttributesForMeasurement: anOTMetricMeasurement usingAttributeFilter: self attributeFilter
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement retainingKeys: someKeys [
+
+	^ self
+		  normalizedAttributesForMeasurement: anOTMetricMeasurement
+		  usingAttributeFilter: (OTMetricAttributeFilter included: someKeys excluded: nil)
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement usingAttributeFilter: anOTMetricAttributeFilter [
+
+	| normalized |
+	normalized := OTAttributeNormalizer normalizeAttributes: anOTMetricMeasurement attributes.
+	anOTMetricAttributeFilter ifNil: [ ^ normalized ].
+	^ anOTMetricAttributeFilter selectedAttributesFrom: normalized
 ]
 
 { #category : 'aggregating' }
@@ -152,111 +223,23 @@ OTMetricInstrument >> preparedMeasurementsFrom: someMeasurements forReader: anOT
 ]
 
 { #category : 'aggregating' }
-OTMetricInstrument >> exemplarsFromMeasurements: someMeasurements pointAttributes: aCollection using: anOTMetricAggregationContext [
-
-	| reservoir |
-	reservoir := anOTMetricAggregationContext
-		newExemplarReservoirForInstrument: self
-		pointAttributes: aCollection.
-	someMeasurements do: [ :each | reservoir offerMeasurement: each ].
-	^ reservoir collectForPointAttributes: aCollection
-]
-
-{ #category : 'accessing' }
-OTMetricInstrument >> description [
-
-	^ description ifNil: [ '' ]
-]
-
-{ #category : 'accessing' }
-OTMetricInstrument >> description: aString [
-
-	description := aString
-]
-
-{ #category : 'testing' }
-OTMetricInstrument >> enabled [
-
-	^ false
-]
-
-{ #category : 'accessing' }
-OTMetricInstrument >> meter [
-
-	^ meter
-]
-
-{ #category : 'accessing' }
-OTMetricInstrument >> meter: anOTMeter [
-
-	meter := anOTMeter
-]
-
-{ #category : 'accessing' }
-OTMetricInstrument >> name [
-
-	^ name ifNil: [ '' ]
-]
-
-{ #category : 'accessing' }
-OTMetricInstrument >> name: aString [
-
-	name := aString
-]
-
-{ #category : 'aggregating' }
-OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement [
-
-	^ self
-		normalizedAttributesForMeasurement: anOTMetricMeasurement
-		usingAttributeFilter: self attributeFilter
-]
-
-{ #category : 'aggregating' }
-OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement retainingKeys: someKeys [
-
-	^ self
-		normalizedAttributesForMeasurement: anOTMetricMeasurement
-		usingAttributeFilter: (OTMetricAttributeFilter
-				included: someKeys
-				excluded: nil)
-]
-
-{ #category : 'aggregating' }
-OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement usingAttributeFilter: anOTMetricAttributeFilter [
-
-	| normalized |
-	normalized := OTAttributeNormalizer normalizeAttributes: anOTMetricMeasurement attributes.
-	anOTMetricAttributeFilter ifNil: [ ^ normalized ].
-	^ anOTMetricAttributeFilter selectedAttributesFrom: normalized
-]
-
-{ #category : 'aggregating' }
 OTMetricInstrument >> retainedAttributeKeys [
 
-	^ self advice
-		at: 'Attributes'
-		ifAbsent: [ self advice at: 'attributes' ifAbsent: [ nil ] ]
-]
-
-{ #category : 'accessing' }
-OTMetricInstrument >> instrumentType [
-
-	self subclassResponsibility
-]
-
-{ #category : 'aggregating' }
-OTMetricInstrument >> supportsAggregation: aSymbol [
-
-	^ aSymbol = #default or: [ aSymbol = #drop ]
+	^ self advice at: 'Attributes' ifAbsent: [ self advice at: 'attributes' ifAbsent: [ nil ] ]
 ]
 
 { #category : 'collecting' }
 OTMetricInstrument >> startTimestampForPreviousCollection: aDateAndTime temporality: aTemporalitySymbol [
 
 	^ aTemporalitySymbol = #delta
-		ifTrue: [ aDateAndTime ifNil: [ self creationTimestamp ] ]
-		ifFalse: [ nil ]
+		  ifTrue: [ aDateAndTime ifNil: [ self creationTimestamp ] ]
+		  ifFalse: [ nil ]
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> supportsAggregation: aSymbol [
+
+	^ aSymbol = #default or: [ aSymbol = #drop ]
 ]
 
 { #category : 'accessing' }

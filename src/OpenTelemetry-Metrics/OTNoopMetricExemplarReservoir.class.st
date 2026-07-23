@@ -8,7 +8,7 @@ Class {
 { #category : 'collecting' }
 OTNoopMetricExemplarReservoir >> collectForPointAttributes: aCollection [
 
-	^ #()
+	^ #(  )
 ]
 
 { #category : 'offering' }

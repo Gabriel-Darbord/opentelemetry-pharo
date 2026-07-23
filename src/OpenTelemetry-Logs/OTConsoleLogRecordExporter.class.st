@@ -18,9 +18,9 @@ OTConsoleLogRecordExporter >> export: someLogRecords [
 	| stream |
 	stream := self outputStream.
 	someLogRecords do: [ :each |
-		stream
-			nextPutAll: (self formattedLogRecord: each);
-			lf ].
+			stream
+				nextPutAll: (self formattedLogRecord: each);
+				lf ].
 	^ true
 ]
 
@@ -28,28 +28,26 @@ OTConsoleLogRecordExporter >> export: someLogRecords [
 OTConsoleLogRecordExporter >> formattedLogRecord: anOTLogRecord [
 
 	^ String streamContents: [ :stream |
-		stream
-			nextPutAll: '[';
-			nextPutAll: anOTLogRecord observedTimestamp printString;
-			nextPutAll: '] '.
-		anOTLogRecord severityText
-			ifNotNil: [ :value | stream nextPutAll: value ]
-			ifNil: [
-				anOTLogRecord severityNumber = OTSeverity undefined
-					ifFalse: [ stream nextPutAll: (OTSeverity shortNameFor: anOTLogRecord severityNumber) ] ].
-		anOTLogRecord eventName ifNotNil: [ :value |
-			stream
-				nextPutAll: ' {';
-				nextPutAll: value;
-				nextPut: $} ].
-		anOTLogRecord body ifNotNil: [
-			stream
-				nextPutAll: ': ';
-				nextPutAll: anOTLogRecord body printString ].
-		anOTLogRecord attributes ifNotEmpty: [
-			stream
-				nextPutAll: ' attributes=';
-				nextPutAll: anOTLogRecord attributes printString ] ]
+			  stream
+				  nextPutAll: '[';
+				  nextPutAll: anOTLogRecord observedTimestamp printString;
+				  nextPutAll: '] '.
+			  anOTLogRecord severityText ifNotNil: [ :value | stream nextPutAll: value ] ifNil: [
+					  anOTLogRecord severityNumber = OTSeverity undefined ifFalse: [
+						  stream nextPutAll: (OTSeverity shortNameFor: anOTLogRecord severityNumber) ] ].
+			  anOTLogRecord eventName ifNotNil: [ :value |
+					  stream
+						  nextPutAll: ' {';
+						  nextPutAll: value;
+						  nextPut: $} ].
+			  anOTLogRecord body ifNotNil: [
+					  stream
+						  nextPutAll: ': ';
+						  nextPutAll: anOTLogRecord body printString ].
+			  anOTLogRecord attributes ifNotEmpty: [
+					  stream
+						  nextPutAll: ' attributes=';
+						  nextPutAll: anOTLogRecord attributes printString ] ]
 ]
 
 { #category : 'accessing' }
@@ -62,7 +60,7 @@ OTConsoleLogRecordExporter >> outputStream [
 OTConsoleLogRecordExporter >> outputStream: anObject [
 
 	outputStreamBlock := anObject isBlock
-		ifTrue: [ anObject ]
-		ifFalse: [ [ anObject ] ].
+		                     ifTrue: [ anObject ]
+		                     ifFalse: [ [ anObject ] ].
 	^ anObject
 ]

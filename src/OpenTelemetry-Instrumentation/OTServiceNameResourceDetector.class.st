@@ -22,15 +22,9 @@ OTServiceNameResourceDetector >> detectResource [
 	serviceName := OTTracerProvider configuredServiceName.
 	serviceName ifNotNil: [ attributes at: 'service.name' put: serviceName ].
 	rawResourceAttributes := OTTracerProvider environmentValueAt: 'OTEL_RESOURCE_ATTRIBUTES'.
-	(rawResourceAttributes isNil
-		or: [ (rawResourceAttributes includesSubstring: 'service.instance.id=') not ]) ifTrue: [
-			attributes
-				at: 'service.instance.id'
-				put: OTTracerProvider defaultServiceInstanceId ].
+	(rawResourceAttributes isNil or: [ (rawResourceAttributes includesSubstring: 'service.instance.id=') not ]) ifTrue: [
+		attributes at: 'service.instance.id' put: OTTracerProvider defaultServiceInstanceId ].
 	^ attributes
-		ifEmpty: [ OTResource empty ]
-		ifNotEmpty: [
-			OTResource
-				attributes: attributes
-				schemaUrl: OTTracerProvider semanticConventionsSchemaUrl ]
+		  ifEmpty: [ OTResource empty ]
+		  ifNotEmpty: [ OTResource attributes: attributes schemaUrl: OTTracerProvider semanticConventionsSchemaUrl ]
 ]

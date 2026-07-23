@@ -48,27 +48,15 @@ OTHistogramDataPoint >> attributes: aCollection [
 ]
 
 { #category : 'accessing' }
-OTHistogramDataPoint >> exemplars [
-
-	^ exemplars ifNil: [ #() ]
-]
-
-{ #category : 'accessing' }
-OTHistogramDataPoint >> exemplars: aCollection [
-
-	exemplars := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
-]
-
-{ #category : 'accessing' }
 OTHistogramDataPoint >> bucketCounts [
 
-	^ bucketCounts ifNil: [ #() ]
+	^ bucketCounts ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTHistogramDataPoint >> bucketCounts: aCollection [
 
-	bucketCounts := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
+	bucketCounts := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }
@@ -84,15 +72,27 @@ OTHistogramDataPoint >> count: anInteger [
 ]
 
 { #category : 'accessing' }
+OTHistogramDataPoint >> exemplars [
+
+	^ exemplars ifNil: [ #(  ) ]
+]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> exemplars: aCollection [
+
+	exemplars := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
+]
+
+{ #category : 'accessing' }
 OTHistogramDataPoint >> explicitBounds [
 
-	^ explicitBounds ifNil: [ #() ]
+	^ explicitBounds ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTHistogramDataPoint >> explicitBounds: aCollection [
 
-	explicitBounds := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
+	explicitBounds := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }
@@ -120,18 +120,6 @@ OTHistogramDataPoint >> min: aNumber [
 ]
 
 { #category : 'accessing' }
-OTHistogramDataPoint >> sum [
-
-	^ sum ifNil: [ 0 ]
-]
-
-{ #category : 'accessing' }
-OTHistogramDataPoint >> sum: aNumber [
-
-	sum := aNumber
-]
-
-{ #category : 'accessing' }
 OTHistogramDataPoint >> startTimestamp [
 
 	^ startTimestamp
@@ -141,6 +129,18 @@ OTHistogramDataPoint >> startTimestamp [
 OTHistogramDataPoint >> startTimestamp: aDateAndTime [
 
 	startTimestamp := aDateAndTime
+]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> sum [
+
+	^ sum ifNil: [ 0 ]
+]
+
+{ #category : 'accessing' }
+OTHistogramDataPoint >> sum: aNumber [
+
+	sum := aNumber
 ]
 
 { #category : 'accessing' }

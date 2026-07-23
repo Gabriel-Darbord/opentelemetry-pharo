@@ -15,12 +15,16 @@ Class {
 OTCompositeTextMapPropagator class >> withAll: aCollection [
 
 	| normalizedPropagators |
-	normalizedPropagators := aCollection
-		ifNil: [ #() ]
-		ifNotNil: [ aCollection asArray ].
+	normalizedPropagators := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ].
 	normalizedPropagators isEmpty ifTrue: [ ^ OTTextMapPropagator noop ].
 	normalizedPropagators size = 1 ifTrue: [ ^ normalizedPropagators first ].
 	^ self new propagators: normalizedPropagators
+]
+
+{ #category : 'accessing' }
+OTCompositeTextMapPropagator >> componentPropagators [
+
+	^ propagators copy
 ]
 
 { #category : 'extracting' }
@@ -29,15 +33,8 @@ OTCompositeTextMapPropagator >> extract: aContext from: aCarrier getter: aGetter
 	| context |
 	context := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
 	aGetter ifNil: [ ^ context ].
-	propagators do: [ :eachPropagator |
-		context := eachPropagator extract: context from: aCarrier getter: aGetter ].
+	propagators do: [ :eachPropagator | context := eachPropagator extract: context from: aCarrier getter: aGetter ].
 	^ context
-]
-
-{ #category : 'accessing' }
-OTCompositeTextMapPropagator >> componentPropagators [
-
-	^ propagators copy
 ]
 
 { #category : 'accessing' }
@@ -47,10 +44,10 @@ OTCompositeTextMapPropagator >> fields [
 	orderedFields := OrderedCollection new.
 	seen := Set new.
 	propagators do: [ :eachPropagator |
-		eachPropagator fields do: [ :eachField |
-			(seen includes: eachField) ifFalse: [
-				seen add: eachField.
-				orderedFields add: eachField ] ] ].
+			eachPropagator fields do: [ :eachField |
+					(seen includes: eachField) ifFalse: [
+							seen add: eachField.
+							orderedFields add: eachField ] ] ].
 	^ orderedFields asArray
 ]
 
@@ -58,8 +55,7 @@ OTCompositeTextMapPropagator >> fields [
 OTCompositeTextMapPropagator >> inject: aContext into: aCarrier setter: aSetter [
 
 	(aContext isNil or: [ aSetter isNil ]) ifTrue: [ ^ self ].
-	propagators do: [ :eachPropagator |
-		eachPropagator inject: aContext into: aCarrier setter: aSetter ].
+	propagators do: [ :eachPropagator | eachPropagator inject: aContext into: aCarrier setter: aSetter ].
 	^ self
 ]
 

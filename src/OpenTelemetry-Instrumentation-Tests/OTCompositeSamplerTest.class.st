@@ -8,58 +8,49 @@ Class {
 { #category : 'private' }
 OTCompositeSamplerTest >> contextWithTraceFlags: aTraceFlags traceState: aTraceState [
 
-	^ OTContext new
-		withSpan: ((OTSpanContext
-			traceId: '00112233445566778899aabbccddeeff'
-			spanId: '1122334455667788'
-			traceFlags: aTraceFlags
-			traceState: aTraceState
-			remote: false) asNonRecordingSpan)
+	^ OTContext new withSpan: (OTSpanContext
+			   traceId: '00112233445566778899aabbccddeeff'
+			   spanId: '1122334455667788'
+			   traceFlags: aTraceFlags
+			   traceState: aTraceState
+			   remote: false) asNonRecordingSpan
 ]
 
 { #category : 'tests' }
 OTCompositeSamplerTest >> testComposableProbabilityZeroReturnsComposableAlwaysOff [
 
-	self
-		assert: (OTComposableSampler probability: 0) class
-		identicalTo: OTComposableAlwaysOffSampler
+	self assert: (OTComposableSampler probability: 0) class identicalTo: OTComposableAlwaysOffSampler
 ]
 
 { #category : 'tests' }
 OTCompositeSamplerTest >> testCompositeAnnotatingAddsAttributesOnlyWhenSampled [
 
 	| result sampler |
-	sampler := OTSampler composite: (OTComposableSampler
-		annotating: { 'sampler.rule' -> 'checkout' }
-		delegate: OTComposableSampler alwaysOn).
+	sampler := OTSampler composite:
+		           (OTComposableSampler annotating: { ('sampler.rule' -> 'checkout') } delegate: OTComposableSampler alwaysOn).
 	result := sampler
-		shouldSampleIn: OTContext new
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'checkout'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: OTContext new
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'checkout'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: result isRecordAndSample.
-	self
-		assert: result attributes
-		equals: { 'sampler.rule' -> 'checkout' }
+	self assert: result attributes equals: { ('sampler.rule' -> 'checkout') }
 ]
 
 { #category : 'tests' }
 OTCompositeSamplerTest >> testCompositeParentThresholdDropsUnsampledParentWithoutThreshold [
 
 	| result sampler |
-	sampler := OTSampler composite: (OTComposableSampler
-		parentThreshold: OTComposableSampler alwaysOn).
+	sampler := OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOn).
 	result := sampler
-		shouldSampleIn: (self
-				contextWithTraceFlags: '00'
-				traceState: nil)
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'child'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: (self contextWithTraceFlags: '00' traceState: nil)
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'child'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: result isDrop.
 	self assert: result traceState equals: nil
 ]
@@ -85,15 +76,14 @@ OTCompositeSamplerTest >> testCompositeParentThresholdUsesParentThresholdWithout
 OTCompositeSamplerTest >> testCompositeParentThresholdUsesRootSamplerWithoutParent [
 
 	| result sampler |
-	sampler := OTSampler composite: (OTComposableSampler
-		parentThreshold: OTComposableSampler alwaysOff).
+	sampler := OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOff).
 	result := sampler
-		shouldSampleIn: OTContext new
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'root'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: OTContext new
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'root'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: result isDrop
 ]
 
@@ -101,17 +91,14 @@ OTCompositeSamplerTest >> testCompositeParentThresholdUsesRootSamplerWithoutPare
 OTCompositeSamplerTest >> testCompositeParentThresholdUsesSampledParentThresholdWhenAvailable [
 
 	| result sampler |
-	sampler := OTSampler composite: (OTComposableSampler
-		parentThreshold: OTComposableSampler alwaysOff).
+	sampler := OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOff).
 	result := sampler
-		shouldSampleIn: (self
-				contextWithTraceFlags: '01'
-				traceState: 'ot=rv:80000000000000;th:8')
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'child'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: (self contextWithTraceFlags: '01' traceState: 'ot=rv:80000000000000;th:8')
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'child'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: result isRecordAndSample.
 	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (result traceState otelValueAt: 'th') equals: '8'
@@ -123,14 +110,12 @@ OTCompositeSamplerTest >> testCompositeProbabilitySamplerAddsThresholdAndPreserv
 	| result sampler |
 	sampler := OTSampler composite: (OTComposableSampler probability: 0.5).
 	result := sampler
-		shouldSampleIn: (self
-				contextWithTraceFlags: '00'
-				traceState: 'ot=rv:80000000000000')
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'operation'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:80000000000000')
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'operation'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: result isRecordAndSample.
 	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (result traceState otelValueAt: 'th') equals: '8'
@@ -227,22 +212,22 @@ OTCompositeSamplerTest >> testCompositeRuleBasedUsesFirstMatchingRule [
 
 	| healthResult sampler traceResult |
 	sampler := OTSampler composite: (OTComposableSampler ruleBased: {
-		[ :context :name | name = 'healthcheck' ] -> OTComposableSampler alwaysOff.
-		[ true ] -> OTComposableSampler alwaysOn }).
+				            ([ :context :name | name = 'healthcheck' ] -> OTComposableSampler alwaysOff).
+				            ([ true ] -> OTComposableSampler alwaysOn) }).
 	healthResult := sampler
-		shouldSampleIn: OTContext new
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'healthcheck'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		                shouldSampleIn: OTContext new
+		                traceId: '00112233445566778899aabbccddeeff'
+		                name: 'healthcheck'
+		                kind: OTSpan internal
+		                attributes: #(  )
+		                links: #(  ).
 	traceResult := sampler
-		shouldSampleIn: OTContext new
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'checkout'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		               shouldSampleIn: OTContext new
+		               traceId: '00112233445566778899aabbccddeeff'
+		               name: 'checkout'
+		               kind: OTSpan internal
+		               attributes: #(  )
+		               links: #(  ).
 	self assert: healthResult isDrop.
 	self assert: traceResult isRecordAndSample.
 	self assert: (traceResult traceState otelValueAt: 'th') equals: '0'

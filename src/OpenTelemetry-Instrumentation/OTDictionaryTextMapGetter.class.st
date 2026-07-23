@@ -28,12 +28,11 @@ OTDictionaryTextMapGetter >> addHeaderValuesFrom: anObject to: aCollection [
 
 	anObject ifNil: [ ^ self ].
 	(anObject isString or: [ anObject isSymbol ]) ifTrue: [
-		aCollection add: anObject asString.
-		^ self ].
+			aCollection add: anObject asString.
+			^ self ].
 	anObject isCollection ifTrue: [
-		anObject do: [ :each |
-			each ifNotNil: [ aCollection add: each asString ] ].
-		^ self ].
+			anObject do: [ :each | each ifNotNil: [ aCollection add: each asString ] ].
+			^ self ].
 	aCollection add: anObject asString
 ]
 
@@ -41,12 +40,11 @@ OTDictionaryTextMapGetter >> addHeaderValuesFrom: anObject to: aCollection [
 OTDictionaryTextMapGetter >> getAllFrom: aCarrier key: aString [
 
 	| expectedKey values |
-	aCarrier ifNil: [ ^ #() ].
+	aCarrier ifNil: [ ^ #(  ) ].
 	expectedKey := aString asString asLowercase.
 	values := OrderedCollection new.
 	aCarrier keysAndValuesDo: [ :eachKey :eachValue |
-		(eachKey asString asLowercase = expectedKey) ifTrue: [
-			self addHeaderValuesFrom: eachValue to: values ] ].
+		eachKey asString asLowercase = expectedKey ifTrue: [ self addHeaderValuesFrom: eachValue to: values ] ].
 	^ values asArray
 ]
 
@@ -56,14 +54,13 @@ OTDictionaryTextMapGetter >> getFrom: aCarrier key: aString [
 	| expectedKey |
 	aCarrier ifNil: [ ^ nil ].
 	expectedKey := aString asString asLowercase.
-	aCarrier keysAndValuesDo: [ :eachKey :eachValue |
-		(eachKey asString asLowercase = expectedKey) ifTrue: [ ^ eachValue ] ].
+	aCarrier keysAndValuesDo: [ :eachKey :eachValue | eachKey asString asLowercase = expectedKey ifTrue: [ ^ eachValue ] ].
 	^ nil
 ]
 
 { #category : 'accessing' }
 OTDictionaryTextMapGetter >> keysIn: aCarrier [
 
-	aCarrier ifNil: [ ^ #() ].
+	aCarrier ifNil: [ ^ #(  ) ].
 	^ aCarrier keys collect: [ :each | each asString ]
 ]

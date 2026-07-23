@@ -32,19 +32,16 @@ OTTracerProvider class >> configuredResourceAttributes [
 	rawValue := self environmentValueAt: 'OTEL_RESOURCE_ATTRIBUTES'.
 	rawValue ifNil: [ ^ OrderedDictionary new ].
 	^ [ self resourceAttributesFromEnvironment: rawValue ]
-		on: Error
-		do: [ :error |
-			self noteInvalidResourceAttributes: rawValue error: error.
-			OrderedDictionary new ]
+		  on: Error
+		  do: [ :error |
+				  self noteInvalidResourceAttributes: rawValue error: error.
+				  OrderedDictionary new ]
 ]
 
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredResourceDetectors [
 
-	^ OTClassStateStore
-		valueAt: #otResourceDetectors
-		forClass: self
-		ifAbsent: [ self defaultResourceDetectors ]
+	^ OTClassStateStore valueAt: #otResourceDetectors forClass: self ifAbsent: [ self defaultResourceDetectors ]
 ]
 
 { #category : 'instance creation' }
@@ -62,10 +59,7 @@ OTTracerProvider class >> configuredSamplerForResource: anOTResource [
 	samplerName := self environmentValueAt: 'OTEL_TRACES_SAMPLER'.
 	samplerName ifNil: [ ^ self defaultSampler ].
 	samplerArgument := self environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG'.
-	^ self
-		samplerFromEnvironmentName: samplerName
-		argument: samplerArgument
-		resource: anOTResource
+	^ self samplerFromEnvironmentName: samplerName argument: samplerArgument resource: anOTResource
 ]
 
 { #category : 'private' }
@@ -79,16 +73,27 @@ OTTracerProvider class >> configuredSpanLimits [
 
 	| defaultLimits generalAttributeCountLimit generalValueLengthLimit limits |
 	defaultLimits := OTSpanLimits default.
-	generalAttributeCountLimit := self nonNegativeIntegerEnvironmentValueAt: 'OTEL_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributeCountLimit.
-	generalValueLengthLimit := self nonNegativeIntegerEnvironmentValueAt: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT' default: defaultLimits attributeValueLengthLimit.
+	generalAttributeCountLimit := self
+		                              nonNegativeIntegerEnvironmentValueAt: 'OTEL_ATTRIBUTE_COUNT_LIMIT'
+		                              default: defaultLimits attributeCountLimit.
+	generalValueLengthLimit := self
+		                           nonNegativeIntegerEnvironmentValueAt: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT'
+		                           default: defaultLimits attributeValueLengthLimit.
 	limits := OTSpanLimits default.
 	limits
-		attributeCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT' default: generalAttributeCountLimit);
-		attributeValueLengthLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT' default: generalValueLengthLimit);
-		eventCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_EVENT_COUNT_LIMIT' default: defaultLimits eventCountLimit);
+		attributeCountLimit:
+			(self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT' default: generalAttributeCountLimit);
+		attributeValueLengthLimit:
+			(self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT' default: generalValueLengthLimit);
+		eventCountLimit:
+			(self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_EVENT_COUNT_LIMIT' default: defaultLimits eventCountLimit);
 		linkCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_LINK_COUNT_LIMIT' default: defaultLimits linkCountLimit);
-		attributePerEventCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributePerEventCountLimit);
-		attributePerLinkCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributePerLinkCountLimit).
+		attributePerEventCountLimit:
+			(self
+				 nonNegativeIntegerEnvironmentValueAt: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT'
+				 default: defaultLimits attributePerEventCountLimit);
+		attributePerLinkCountLimit:
+			(self nonNegativeIntegerEnvironmentValueAt: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributePerLinkCountLimit).
 	^ limits
 ]
 
@@ -122,47 +127,53 @@ OTTracerProvider class >> currentProcessId [
 	| libc |
 	libc := Smalltalk at: #LibC ifAbsent: [ ^ nil ].
 	^ [ libc uniqueInstance currentProcessId ]
-		on: Error
-		do: [ nil ]
+		  on: Error
+		  do: [ nil ]
 ]
 
 { #category : 'private' }
 OTTracerProvider class >> decodePercentEncoded: aString [
 
 	^ String streamContents: [ :decoded |
-		| index |
-		index := 1.
-		[ index <= aString size ] whileTrue: [
-			| character |
-			character := aString at: index.
-			character = $%
-				ifTrue: [
-					index + 2 <= aString size ifFalse: [ Error signal: 'Malformed percent encoding' ].
-					decoded nextPut: (Character value: (self hexadecimalValueFrom: (aString copyFrom: index + 1 to: index + 2))).
-					index := index + 3 ]
-				ifFalse: [
-					decoded nextPut: character.
-					index := index + 1 ] ] ]
+			  | index |
+			  index := 1.
+			  [ index <= aString size ] whileTrue: [
+					  | character |
+					  character := aString at: index.
+					  character = $%
+						  ifTrue: [
+								  index + 2 <= aString size ifFalse: [ Error signal: 'Malformed percent encoding' ].
+								  decoded nextPut: (Character value: (self hexadecimalValueFrom: (aString copyFrom: index + 1 to: index + 2))).
+								  index := index + 3 ]
+						  ifFalse: [
+								  decoded nextPut: character.
+								  index := index + 1 ] ] ]
 ]
 
 { #category : 'instance creation' }
 OTTracerProvider class >> defaultHostArchitecture [
 
-	^ [ | architecture |
-		architecture := Smalltalk os current processorArchitecture asString trimBoth asLowercase.
-		architecture isEmpty ifTrue: [ nil ] ifFalse: [ architecture ] ]
-		on: Error
-		do: [ nil ]
+	^ [
+		  | architecture |
+		  architecture := Smalltalk os current processorArchitecture asString trimBoth asLowercase.
+		  architecture isEmpty
+			  ifTrue: [ nil ]
+			  ifFalse: [ architecture ] ]
+		  on: Error
+		  do: [ nil ]
 ]
 
 { #category : 'instance creation' }
 OTTracerProvider class >> defaultHostName [
 
-	^ [ | hostName |
-		hostName := NetNameResolver localHostName asString trimBoth.
-		hostName isEmpty ifTrue: [ nil ] ifFalse: [ hostName ] ]
-		on: Error
-		do: [ nil ]
+	^ [
+		  | hostName |
+		  hostName := NetNameResolver localHostName asString trimBoth.
+		  hostName isEmpty
+			  ifTrue: [ nil ]
+			  ifFalse: [ hostName ] ]
+		  on: Error
+		  do: [ nil ]
 ]
 
 { #category : 'instance creation' }
@@ -178,46 +189,50 @@ OTTracerProvider class >> defaultOsDescription [
 	parts := OrderedCollection new.
 	self defaultOsName ifNotNil: [ :value | parts add: value ].
 	osVersion := [ Smalltalk os version asString trimBoth ]
-		on: Error
-		do: [ nil ].
+		             on: Error
+		             do: [ nil ].
 	(osVersion notNil and: [ osVersion isNotEmpty ]) ifTrue: [ parts add: osVersion ].
 	osSubtype := [ Smalltalk os subtype asString trimBoth ]
-		on: Error
-		do: [ nil ].
+		             on: Error
+		             do: [ nil ].
 	(osSubtype notNil and: [ osSubtype isNotEmpty ]) ifTrue: [ parts add: osSubtype ].
 	parts isEmpty ifTrue: [ ^ nil ].
-	^ String streamContents: [ :stream |
-		parts
-			do: [ :each | stream nextPutAll: each ]
-			separatedBy: [ stream space ] ]
+	^ String streamContents: [ :stream | parts do: [ :each | stream nextPutAll: each ] separatedBy: [ stream space ] ]
 ]
 
 { #category : 'instance creation' }
 OTTracerProvider class >> defaultOsName [
 
-	^ [ | name |
-		name := Smalltalk os name asString trimBoth.
-		name isEmpty ifTrue: [ nil ] ifFalse: [ name ] ]
-		on: Error
-		do: [ nil ]
+	^ [
+		  | osName |
+		  osName := Smalltalk os name asString trimBoth.
+		  osName isEmpty
+			  ifTrue: [ nil ]
+			  ifFalse: [ osName ] ]
+		  on: Error
+		  do: [ nil ]
 ]
 
 { #category : 'instance creation' }
 OTTracerProvider class >> defaultOsType [
 
-	| os name |
-	os := [ Smalltalk os current ] on: Error do: [ nil ].
-	os ifNil: [ ^ nil ].
-	(os isLinux) ifTrue: [ ^ 'linux' ].
-	(os isWindows) ifTrue: [ ^ 'windows' ].
-	((os isMacOS) or: [ os isMacOSX ]) ifTrue: [ ^ 'darwin' ].
-	name := [ os name asString trimBoth asLowercase ] on: Error do: [ '' ].
-	(name includesSubstring: 'freebsd') ifTrue: [ ^ 'freebsd' ].
-	(name includesSubstring: 'netbsd') ifTrue: [ ^ 'netbsd' ].
-	(name includesSubstring: 'openbsd') ifTrue: [ ^ 'openbsd' ].
-	((name includesSubstring: 'sunos') or: [ name includesSubstring: 'solaris' ]) ifTrue: [ ^ 'solaris' ].
-	(name includesSubstring: 'aix') ifTrue: [ ^ 'aix' ].
-	((name includesSubstring: 'hp-ux') or: [ name includesSubstring: 'hpux' ]) ifTrue: [ ^ 'hpux' ].
+	| detectedOs detectedName |
+	detectedOs := [ Smalltalk os current ]
+		              on: Error
+		              do: [ nil ].
+	detectedOs ifNil: [ ^ nil ].
+	detectedOs isLinux ifTrue: [ ^ 'linux' ].
+	detectedOs isWindows ifTrue: [ ^ 'windows' ].
+	(detectedOs isMacOS or: [ detectedOs isMacOSX ]) ifTrue: [ ^ 'darwin' ].
+	detectedName := [ detectedOs name asString trimBoth asLowercase ]
+		                on: Error
+		                do: [ '' ].
+	(detectedName includesSubstring: 'freebsd') ifTrue: [ ^ 'freebsd' ].
+	(detectedName includesSubstring: 'netbsd') ifTrue: [ ^ 'netbsd' ].
+	(detectedName includesSubstring: 'openbsd') ifTrue: [ ^ 'openbsd' ].
+	((detectedName includesSubstring: 'sunos') or: [ detectedName includesSubstring: 'solaris' ]) ifTrue: [ ^ 'solaris' ].
+	(detectedName includesSubstring: 'aix') ifTrue: [ ^ 'aix' ].
+	((detectedName includesSubstring: 'hp-ux') or: [ detectedName includesSubstring: 'hpux' ]) ifTrue: [ ^ 'hpux' ].
 	^ nil
 ]
 
@@ -228,8 +243,8 @@ OTTracerProvider class >> defaultProcessExecutableName [
 	path := self defaultProcessExecutablePath.
 	path ifNil: [ ^ nil ].
 	^ [ path asFileReference basename ]
-		on: Error
-		do: [ nil ]
+		  on: Error
+		  do: [ nil ]
 ]
 
 { #category : 'instance creation' }
@@ -242,13 +257,13 @@ OTTracerProvider class >> defaultProcessExecutablePath [
 OTTracerProvider class >> defaultResource [
 
 	^ OTResource
-		attributes: (OrderedDictionary new
-			at: 'service.name' put: self defaultServiceName;
-			at: 'telemetry.sdk.name' put: 'opentelemetry';
-			at: 'telemetry.sdk.language' put: 'pharo';
-			at: 'telemetry.sdk.version' put: self sdkVersion;
-			yourself)
-		schemaUrl: self semanticConventionsSchemaUrl
+		  attributes: (OrderedDictionary new
+				   at: 'service.name' put: self defaultServiceName;
+				   at: 'telemetry.sdk.name' put: 'opentelemetry';
+				   at: 'telemetry.sdk.language' put: 'pharo';
+				   at: 'telemetry.sdk.version' put: self sdkVersion;
+				   yourself)
+		  schemaUrl: self semanticConventionsSchemaUrl
 ]
 
 { #category : 'private - logging' }
@@ -261,12 +276,12 @@ OTTracerProvider class >> defaultResourceConfigurationWarningSink [
 OTTracerProvider class >> defaultResourceDetectors [
 
 	^ OrderedCollection new
-		add: (OTStaticResourceDetector named: 'sdk' resource: self defaultResource);
-		add: OTHostResourceDetector new;
-		add: OTProcessResourceDetector new;
-		add: OTEnvironmentResourceDetector new;
-		add: OTServiceNameResourceDetector new;
-		yourself
+		  add: (OTStaticResourceDetector named: 'sdk' resource: self defaultResource);
+		  add: OTHostResourceDetector new;
+		  add: OTProcessResourceDetector new;
+		  add: OTEnvironmentResourceDetector new;
+		  add: OTServiceNameResourceDetector new;
+		  yourself
 ]
 
 { #category : 'instance creation' }
@@ -285,16 +300,10 @@ OTTracerProvider class >> defaultSamplerConfigurationWarningSink [
 OTTracerProvider class >> defaultServiceInstanceId [
 
 	| identifier |
-	identifier := OTClassStateStore
-		valueAt: #otDefaultServiceInstanceId
-		forClass: self
-		ifAbsent: [ nil ].
+	identifier := OTClassStateStore valueAt: #otDefaultServiceInstanceId forClass: self ifAbsent: [ nil ].
 	identifier ifNil: [
-		identifier := UUID new asString36.
-		OTClassStateStore
-			valueAt: #otDefaultServiceInstanceId
-			forClass: self
-			put: identifier ].
+			identifier := UUID new asString36.
+			OTClassStateStore valueAt: #otDefaultServiceInstanceId forClass: self put: identifier ].
 	^ identifier
 ]
 
@@ -303,9 +312,7 @@ OTTracerProvider class >> defaultServiceName [
 
 	| executableName |
 	executableName := self defaultProcessExecutableName.
-	^ executableName
-		ifNil: [ 'unknown_service' ]
-		ifNotNil: [ 'unknown_service:' , executableName ]
+	^ executableName ifNil: [ 'unknown_service' ] ifNotNil: [ 'unknown_service:' , executableName ]
 ]
 
 { #category : 'private - logging' }
@@ -337,7 +344,9 @@ OTTracerProvider class >> hexadecimalValueFrom: aString [
 
 	| stream value |
 	stream := aString readStream.
-	value := [ Integer readFrom: stream base: 16 ] on: Error do: [ Error signal: 'Malformed percent encoding' ].
+	value := [ Integer readFrom: stream base: 16 ]
+		         on: Error
+		         do: [ Error signal: 'Malformed percent encoding' ].
 	stream atEnd ifFalse: [ Error signal: 'Malformed percent encoding' ].
 	^ value
 ]
@@ -375,22 +384,21 @@ OTTracerProvider class >> jaegerRemoteSamplerForResource: anOTResource argument:
 
 	| configuredSampler options sampler samplerName |
 	samplerName := aBoolean
-		ifTrue: [ 'parentbased_jaeger_remote' ]
-		ifFalse: [ 'jaeger_remote' ].
+		               ifTrue: [ 'parentbased_jaeger_remote' ]
+		               ifFalse: [ 'jaeger_remote' ].
 	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [
-		self noteMissingGrpcDependencyForSampler: samplerName.
-		^ self defaultSampler ].
+			self noteMissingGrpcDependencyForSampler: samplerName.
+			^ self defaultSampler ].
 	options := self strictJaegerRemoteSamplerOptionsFrom: anotherString.
-	(anotherString notNil and: [ options isNil ]) ifTrue: [
-		self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+	(anotherString notNil and: [ options isNil ]) ifTrue: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
 	sampler := OTJaegerRemoteSampler serviceName: (self serviceNameForSamplerResource: anOTResource).
 	options ifNotNil: [ self updateJaegerRemoteSampler: sampler withOptions: options ].
 	configuredSampler := aBoolean
-		ifTrue: [
-			OTParentBasedSampler default
-				rootSampler: sampler;
-				yourself ]
-		ifFalse: [ sampler ].
+		                     ifTrue: [
+				                     OTParentBasedSampler default
+					                     rootSampler: sampler;
+					                     yourself ]
+		                     ifFalse: [ sampler ].
 	^ configuredSampler
 ]
 
@@ -407,15 +415,15 @@ OTTracerProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default:
 { #category : 'private' }
 OTTracerProvider class >> normalizedTracerNameFrom: aValue [
 
-	| name |
+	| normalizedName |
 	aValue ifNil: [
-		self noteInvalidTracerName: aValue.
-		^ '' ].
-	name := aValue asString.
-	name trimBoth isEmpty ifTrue: [
-		self noteInvalidTracerName: aValue.
-		^ '' ].
-	^ name
+			self noteInvalidTracerName: aValue.
+			^ '' ].
+	normalizedName := aValue asString.
+	normalizedName trimBoth isEmpty ifTrue: [
+			self noteInvalidTracerName: aValue.
+			^ '' ].
+	^ normalizedName
 ]
 
 { #category : 'private' }
@@ -433,19 +441,15 @@ OTTracerProvider class >> normalizedTracerScopeAttributesFrom: aCollection [
 OTTracerProvider class >> noteDuplicateResourceDetectorName: aString [
 
 	self resourceConfigurationWarningSink value:
-		'OpenTelemetry resource detector name was registered more than once: '
-			, aString printString
+		'OpenTelemetry resource detector name was registered more than once: ' , aString printString
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidResourceAttributes: aValue error: anError [
 
 	self resourceConfigurationWarningSink value:
-		'OpenTelemetry resource attributes configuration was invalid and has been ignored: '
-			, aValue printString
-			, ' ('
-			, anError messageText
-			, ')'
+		'OpenTelemetry resource attributes configuration was invalid and has been ignored: ' , aValue printString , ' ('
+		, anError messageText , ')'
 ]
 
 { #category : 'private - logging' }
@@ -460,10 +464,7 @@ OTTracerProvider class >> noteInvalidResourceConfigurationValue: aValue forOpera
 OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSamplerName [
 
 	self samplerConfigurationWarningSink value:
-		'OpenTelemetry sampler argument was invalid and has been ignored for '
-			, aSamplerName printString
-			, ': '
-			, aValue printString
+		'OpenTelemetry sampler argument was invalid and has been ignored for ' , aSamplerName printString , ': ' , aValue printString
 ]
 
 { #category : 'private - logging' }
@@ -485,9 +486,8 @@ OTTracerProvider class >> noteInvalidTracerConfigurationValue: aValue forOperati
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidTracerName: aValue [
 
-	self tracerNameWarningSink value:
-		'OpenTelemetry tracer name was invalid and has been normalized to an empty string: '
-			, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self tracerNameWarningSink value: 'OpenTelemetry tracer name was invalid and has been normalized to an empty string: '
+		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
 ]
 
 { #category : 'private - logging' }
@@ -502,22 +502,15 @@ OTTracerProvider class >> noteInvalidTracerScopeAttributes: aValue error: anErro
 OTTracerProvider class >> noteMissingGrpcDependencyForSampler: aSamplerName [
 
 	self samplerConfigurationWarningSink value:
-		'OpenTelemetry sampler requires grpc-pharo to be loaded and has been ignored for '
-			, aSamplerName printString
+		'OpenTelemetry sampler requires grpc-pharo to be loaded and has been ignored for ' , aSamplerName printString
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteResourceDetector: aDetector failedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry resource detector failed during '
-		, anOperationName
-		, ' for '
-		, aDetector class name
-		, ' ('
-		, aDetector detectorName printString
-		, '): '
-		, anError messageText.
+	message := 'OpenTelemetry resource detector failed during ' , anOperationName , ' for ' , aDetector class name , ' ('
+	           , aDetector detectorName printString , '): ' , anError messageText.
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message
@@ -528,12 +521,8 @@ OTTracerProvider class >> noteResourceDetector: aDetector failedDuring: anOperat
 OTTracerProvider class >> noteSampler: aSampler failedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry sampler callback failed during '
-		, anOperationName
-		, ' for '
-		, aSampler class name
-		, ': '
-		, anError messageText.
+	message := 'OpenTelemetry sampler callback failed during ' , anOperationName , ' for ' , aSampler class name , ': '
+	           , anError messageText.
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message
@@ -544,12 +533,8 @@ OTTracerProvider class >> noteSampler: aSampler failedDuring: anOperationName er
 OTTracerProvider class >> noteSpanProcessor: aProcessor failedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry span processor callback failed during '
-		, anOperationName
-		, ' for '
-		, aProcessor class name
-		, ': '
-		, anError messageText.
+	message := 'OpenTelemetry span processor callback failed during ' , anOperationName , ' for ' , aProcessor class name , ': '
+	           , anError messageText.
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message
@@ -560,10 +545,7 @@ OTTracerProvider class >> noteSpanProcessor: aProcessor failedDuring: anOperatio
 OTTracerProvider class >> noteTracerConfigurationFailedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry tracer configuration callback failed during '
-		, anOperationName
-		, ': '
-		, anError messageText.
+	message := 'OpenTelemetry tracer configuration callback failed during ' , anOperationName , ': ' , anError messageText.
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message
@@ -574,16 +556,14 @@ OTTracerProvider class >> noteTracerConfigurationFailedDuring: anOperationName e
 OTTracerProvider class >> noteUnknownSamplerName: aValue [
 
 	self samplerConfigurationWarningSink value:
-		'OpenTelemetry sampler name was unrecognized and has been ignored: '
-			, aValue printString
+		'OpenTelemetry sampler name was unrecognized and has been ignored: ' , aValue printString
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteUnsupportedSamplerName: aValue [
 
 	self samplerConfigurationWarningSink value:
-		'OpenTelemetry sampler name is recognized but not supported by this SDK yet: '
-			, aValue printString
+		'OpenTelemetry sampler name is recognized but not supported by this SDK yet: ' , aValue printString
 ]
 
 { #category : 'instance creation' }
@@ -595,10 +575,10 @@ OTTracerProvider class >> processCommandArguments [
 	imagePath := self currentImagePath.
 	imagePath ifNotNil: [ arguments add: imagePath ].
 	2 to: 32 do: [ :index |
-		| value |
-		value := self systemAttributeAt: index.
-		value ifNil: [ ^ arguments asArray ].
-		arguments add: value ].
+			| value |
+			value := self systemAttributeAt: index.
+			value ifNil: [ ^ arguments asArray ].
+			arguments add: value ].
 	^ arguments asArray
 ]
 
@@ -609,9 +589,9 @@ OTTracerProvider class >> processCommandLine [
 	arguments := self processCommandArguments.
 	arguments ifEmpty: [ ^ nil ].
 	^ String streamContents: [ :stream |
-		arguments doWithIndex: [ :each :index |
-			index > 1 ifTrue: [ stream space ].
-			self writeShellQuotedCommandArgument: each on: stream ] ]
+			  arguments doWithIndex: [ :each :index |
+					  index > 1 ifTrue: [ stream space ].
+					  self writeShellQuotedCommandArgument: each on: stream ] ]
 ]
 
 { #category : 'instance creation' }
@@ -628,11 +608,11 @@ OTTracerProvider class >> readConfiguration [
 		spanLimits: self configuredSpanLimits;
 		tracerConfigurator: OTConfigurationSource configuredTracerConfigurator.
 	processors := explicitProcessor
-		ifNil: [
-			(self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
-				ifTrue: [ #() ]
-				ifFalse: [ OTSpanProcessor current componentProcessors ] ]
-		ifNotNil: [ explicitProcessor componentProcessors ].
+		              ifNil: [
+				              (self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
+					              ifTrue: [ #(  ) ]
+					              ifFalse: [ OTSpanProcessor current componentProcessors ] ]
+		              ifNotNil: [ explicitProcessor componentProcessors ].
 	provider spanProcessors: processors.
 	^ provider
 ]
@@ -654,9 +634,9 @@ OTTracerProvider class >> resourceAttributesFromEnvironment: aString [
 	attributes := OrderedDictionary new.
 	start := 1.
 	1 to: aString size do: [ :index |
-		(aString at: index) = $, ifTrue: [
-			self resourceEnvironmentEntry: (aString copyFrom: start to: index - 1) into: attributes.
-			start := index + 1 ] ].
+			(aString at: index) = $, ifTrue: [
+					self resourceEnvironmentEntry: (aString copyFrom: start to: index - 1) into: attributes.
+					start := index + 1 ] ].
 	self resourceEnvironmentEntry: (aString copyFrom: start to: aString size) into: attributes.
 	^ attributes
 ]
@@ -671,25 +651,17 @@ OTTracerProvider class >> resourceByProvider [
 OTTracerProvider class >> resourceConfigurationWarningSink [
 
 	^ OTClassStateStore
-		valueAt: #otResourceConfigurationWarningSink
-		forClass: self
-		ifAbsent: [ self defaultResourceConfigurationWarningSink ]
+		  valueAt: #otResourceConfigurationWarningSink
+		  forClass: self
+		  ifAbsent: [ self defaultResourceConfigurationWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> resourceConfigurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otResourceConfigurationWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otResourceConfigurationWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otResourceConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otResourceConfigurationWarningSink forClass: self put: aBlock ].
 	^ self resourceConfigurationWarningSink
 ]
 
@@ -697,16 +669,8 @@ OTTracerProvider class >> resourceConfigurationWarningSink: aBlock [
 OTTracerProvider class >> resourceDetectors: aCollection [
 
 	aCollection
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otResourceDetectors
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otResourceDetectors
-				forClass: self
-				put: aCollection ].
+		ifNil: [ OTClassStateStore removeValueAt: #otResourceDetectors forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otResourceDetectors forClass: self put: aCollection ].
 	^ self configuredResourceDetectors
 ]
 
@@ -730,14 +694,13 @@ OTTracerProvider class >> resourceFromDetectors: aCollection [
 	detectorNames := Set new.
 	resource := OTResource empty.
 	aCollection do: [ :detector |
-		(detectorNames includes: detector detectorName) ifTrue: [
-			self noteDuplicateResourceDetectorName: detector detectorName ].
-		detectorNames add: detector detectorName.
-		resource := [ resource merge: detector detectResource ]
-			on: Error
-			do: [ :error |
-				self noteResourceDetector: detector failedDuring: 'resource detection' error: error.
-				resource ] ].
+			(detectorNames includes: detector detectorName) ifTrue: [ self noteDuplicateResourceDetectorName: detector detectorName ].
+			detectorNames add: detector detectorName.
+			resource := [ resource merge: detector detectResource ]
+				            on: Error
+				            do: [ :error |
+						            self noteResourceDetector: detector failedDuring: 'resource detection' error: error.
+						            resource ] ].
 	^ resource
 ]
 
@@ -745,8 +708,8 @@ OTTracerProvider class >> resourceFromDetectors: aCollection [
 OTTracerProvider class >> runtimeDescription [
 
 	^ [ Smalltalk vm version trimBoth ]
-		on: Error
-		do: [ self runtimeName ]
+		  on: Error
+		  do: [ self runtimeName ]
 ]
 
 { #category : 'instance creation' }
@@ -759,8 +722,8 @@ OTTracerProvider class >> runtimeName [
 OTTracerProvider class >> runtimeVersion [
 
 	^ [ SystemVersion current dottedMajorMinor ]
-		on: Error
-		do: [ 'unknown' ]
+		  on: Error
+		  do: [ 'unknown' ]
 ]
 
 { #category : 'private' }
@@ -773,35 +736,24 @@ OTTracerProvider class >> samplerByProvider [
 OTTracerProvider class >> samplerConfigurationWarningSink [
 
 	^ OTClassStateStore
-		valueAt: #otSamplerConfigurationWarningSink
-		forClass: self
-		ifAbsent: [ self defaultSamplerConfigurationWarningSink ]
+		  valueAt: #otSamplerConfigurationWarningSink
+		  forClass: self
+		  ifAbsent: [ self defaultSamplerConfigurationWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> samplerConfigurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otSamplerConfigurationWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otSamplerConfigurationWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otSamplerConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otSamplerConfigurationWarningSink forClass: self put: aBlock ].
 	^ self samplerConfigurationWarningSink
 ]
 
 { #category : 'private' }
 OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherString [
 
-	^ self
-		samplerFromEnvironmentName: aString
-		argument: anotherString
-		resource: self configuredResource
+	^ self samplerFromEnvironmentName: aString argument: anotherString resource: self configuredResource
 ]
 
 { #category : 'private' }
@@ -900,26 +852,15 @@ OTTracerProvider class >> spanLimitsByProvider [
 { #category : 'private - logging' }
 OTTracerProvider class >> spanProcessorWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otSpanProcessorWarningSink
-		forClass: self
-		ifAbsent: [ self defaultSpanProcessorWarningSink ]
+	^ OTClassStateStore valueAt: #otSpanProcessorWarningSink forClass: self ifAbsent: [ self defaultSpanProcessorWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> spanProcessorWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otSpanProcessorWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otSpanProcessorWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otSpanProcessorWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otSpanProcessorWarningSink forClass: self put: aBlock ].
 	^ self spanProcessorWarningSink
 ]
 
@@ -933,16 +874,10 @@ OTTracerProvider class >> spanProcessorsByProvider [
 OTTracerProvider class >> stateDictionaryAt: aSymbol [
 
 	| dictionary |
-	dictionary := OTClassStateStore
-		valueAt: aSymbol
-		forClass: self
-		ifAbsent: [ nil ].
+	dictionary := OTClassStateStore valueAt: aSymbol forClass: self ifAbsent: [ nil ].
 	dictionary ifNil: [
-		dictionary := WeakIdentityKeyDictionary new.
-		OTClassStateStore
-			valueAt: aSymbol
-			forClass: self
-			put: dictionary ].
+			dictionary := WeakIdentityKeyDictionary new.
+			OTClassStateStore valueAt: aSymbol forClass: self put: dictionary ].
 	^ dictionary
 ]
 
@@ -957,19 +892,19 @@ OTTracerProvider class >> strictJaegerRemoteSamplerOption: aString into: anOrder
 	value := (aString copyFrom: separator + 1 to: aString size) trimBoth.
 	value isEmpty ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
 	key = 'endpoint' ifTrue: [
-		parsedValue := OTJaegerRemoteSampler normalizedEndpoint: value.
-		anOrderedDictionary at: key put: parsedValue.
-		^ self ].
+			parsedValue := OTJaegerRemoteSampler normalizedEndpoint: value.
+			anOrderedDictionary at: key put: parsedValue.
+			^ self ].
 	key = 'pollingIntervalMs' ifTrue: [
-		parsedValue := self strictPositiveIntegerFrom: value.
-		parsedValue ifNil: [ Error signal: 'Invalid Jaeger remote polling interval' ].
-		anOrderedDictionary at: key put: parsedValue.
-		^ self ].
+			parsedValue := self strictPositiveIntegerFrom: value.
+			parsedValue ifNil: [ Error signal: 'Invalid Jaeger remote polling interval' ].
+			anOrderedDictionary at: key put: parsedValue.
+			^ self ].
 	key = 'initialSamplingRate' ifTrue: [
-		parsedValue := self strictProbabilityFrom: value.
-		parsedValue ifNil: [ Error signal: 'Invalid Jaeger remote initial sampling rate' ].
-		anOrderedDictionary at: key put: parsedValue.
-		^ self ].
+			parsedValue := self strictProbabilityFrom: value.
+			parsedValue ifNil: [ Error signal: 'Invalid Jaeger remote initial sampling rate' ].
+			anOrderedDictionary at: key put: parsedValue.
+			^ self ].
 	Error signal: 'Unrecognized Jaeger remote sampler option'
 ]
 
@@ -981,8 +916,7 @@ OTTracerProvider class >> strictJaegerRemoteSamplerOptionsFrom: aString [
 	rawValue := aString asString trimBoth.
 	rawValue isEmpty ifTrue: [ ^ OrderedDictionary new ].
 	options := OrderedDictionary new.
-	[ (rawValue substrings: ',') do: [ :each |
-		self strictJaegerRemoteSamplerOption: each trimBoth into: options ] ]
+	[ (rawValue substrings: ',') do: [ :each | self strictJaegerRemoteSamplerOption: each trimBoth into: options ] ]
 		on: Error
 		do: [ ^ nil ].
 	^ options
@@ -994,7 +928,9 @@ OTTracerProvider class >> strictNonNegativeIntegerFrom: aString [
 	| stream value |
 	stream := aString trimBoth readStream.
 	stream atEnd ifTrue: [ ^ nil ].
-	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
 	stream atEnd ifFalse: [ ^ nil ].
 	value >= 0 ifFalse: [ ^ nil ].
 	^ value
@@ -1006,7 +942,9 @@ OTTracerProvider class >> strictPositiveIntegerFrom: aString [
 	| stream value |
 	stream := aString trimBoth readStream.
 	stream atEnd ifTrue: [ ^ nil ].
-	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
 	stream atEnd ifFalse: [ ^ nil ].
 	value > 0 ifFalse: [ ^ nil ].
 	^ value
@@ -1019,7 +957,9 @@ OTTracerProvider class >> strictProbabilityFrom: aString [
 	aString ifNil: [ ^ nil ].
 	stream := aString trimBoth readStream.
 	stream atEnd ifTrue: [ ^ nil ].
-	value := [ Number readFrom: stream ] on: Error do: [ ^ nil ].
+	value := [ Number readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
 	stream atEnd ifFalse: [ ^ nil ].
 	(value isNumber and: [ value >= 0 and: [ value <= 1 ] ]) ifFalse: [ ^ nil ].
 	^ value
@@ -1066,36 +1006,30 @@ OTTracerProvider class >> systemAttributeAt: anInteger [
 
 	| value |
 	value := [ Smalltalk getSystemAttribute: anInteger ]
-		on: Error
-		do: [ nil ].
+		         on: Error
+		         do: [ nil ].
 	value ifNil: [ ^ nil ].
 	value := value asString trimBoth.
-	^ value isEmpty ifTrue: [ nil ] ifFalse: [ value ]
+	^ value isEmpty
+		  ifTrue: [ nil ]
+		  ifFalse: [ value ]
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> tracerConfigurationWarningSink [
 
 	^ OTClassStateStore
-		valueAt: #otTracerConfigurationWarningSink
-		forClass: self
-		ifAbsent: [ self defaultTracerConfigurationWarningSink ]
+		  valueAt: #otTracerConfigurationWarningSink
+		  forClass: self
+		  ifAbsent: [ self defaultTracerConfigurationWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> tracerConfigurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otTracerConfigurationWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otTracerConfigurationWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otTracerConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otTracerConfigurationWarningSink forClass: self put: aBlock ].
 	^ self tracerConfigurationWarningSink
 ]
 
@@ -1108,38 +1042,24 @@ OTTracerProvider class >> tracerConfiguratorByProvider [
 { #category : 'private - logging' }
 OTTracerProvider class >> tracerNameWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otTracerNameWarningSink
-		forClass: self
-		ifAbsent: [ self defaultTracerNameWarningSink ]
+	^ OTClassStateStore valueAt: #otTracerNameWarningSink forClass: self ifAbsent: [ self defaultTracerNameWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> tracerNameWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otTracerNameWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otTracerNameWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otTracerNameWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otTracerNameWarningSink forClass: self put: aBlock ].
 	^ self tracerNameWarningSink
 ]
 
 { #category : 'private' }
 OTTracerProvider class >> updateJaegerRemoteSampler: aSampler withOptions: options [
 
-	options at: 'endpoint' ifPresent: [ :value |
-		aSampler endpoint: value ].
-	options at: 'pollingIntervalMs' ifPresent: [ :value |
-		aSampler pollingIntervalMillis: value ].
-	options at: 'initialSamplingRate' ifPresent: [ :value |
-		aSampler initialSampler: (OTSampler probabilityOrAlwaysOff: value) ]
+	options at: 'endpoint' ifPresent: [ :value | aSampler endpoint: value ].
+	options at: 'pollingIntervalMs' ifPresent: [ :value | aSampler pollingIntervalMillis: value ].
+	options at: 'initialSamplingRate' ifPresent: [ :value | aSampler initialSampler: (OTSampler probabilityOrAlwaysOff: value) ]
 ]
 
 { #category : 'private' }
@@ -1157,13 +1077,12 @@ OTTracerProvider class >> writeShellQuotedCommandArgument: anObject on: aStream 
 	escapeCharacter := Character value: 92.
 	quoteCharacter := Character value: 34.
 	argument isEmpty ifTrue: [ ^ aStream nextPutAll: '""' ].
-	needsQuoting := argument anySatisfy: [ :each |
-		each isSeparator or: [ each = quoteCharacter or: [ each = escapeCharacter ] ] ].
+	needsQuoting := argument anySatisfy: [ :each | each isSeparator or: [ each = quoteCharacter or: [ each = escapeCharacter ] ] ].
 	needsQuoting ifFalse: [ ^ aStream nextPutAll: argument ].
 	aStream nextPut: quoteCharacter.
 	argument do: [ :each |
-		(each = quoteCharacter or: [ each = escapeCharacter ]) ifTrue: [ aStream nextPut: escapeCharacter ].
-		aStream nextPut: each ].
+			(each = quoteCharacter or: [ each = escapeCharacter ]) ifTrue: [ aStream nextPut: escapeCharacter ].
+			aStream nextPut: each ].
 	aStream nextPut: quoteCharacter
 ]
 
@@ -1195,9 +1114,9 @@ OTTracerProvider >> addSpanProcessor: aSpanProcessor [
 OTTracerProvider >> asTwoDigitLowercaseHex: anInteger [
 
 	^ String streamContents: [ :stream |
-		stream
-			nextPut: ('0123456789abcdef' at: ((anInteger bitShift: -4) bitAnd: 16rF) + 1);
-			nextPut: ('0123456789abcdef' at: (anInteger bitAnd: 16rF) + 1) ]
+			  stream
+				  nextPut: ('0123456789abcdef' at: ((anInteger bitShift: -4) bitAnd: 16rF) + 1);
+				  nextPut: ('0123456789abcdef' at: (anInteger bitAnd: 16rF) + 1) ]
 ]
 
 { #category : 'private - configuration' }
@@ -1321,10 +1240,10 @@ OTTracerProvider >> isStopping [
 OTTracerProvider >> nonRecordingSpanContext: aSpanContext context: aContext parent: aSpan instrumentationScope: anInstrumentationScope [
 
 	^ OTNonRecordingSpan
-		spanContext: aSpanContext
-		context: aContext
-		parent: aSpan
-		instrumentationScope: anInstrumentationScope
+		  spanContext: aSpanContext
+		  context: aContext
+		  parent: aSpan
+		  instrumentationScope: anInstrumentationScope
 ]
 
 { #category : 'tracing' }
@@ -1539,12 +1458,12 @@ OTTracerProvider >> sampler: anOTSampler [
 OTTracerProvider >> samplingResultIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	^ self sampler
-		shouldSampleIn: aContext
-		traceId: aTraceId
-		name: aString
-		kind: aSpanKind
-		attributes: someAttributes
-		links: someLinks
+		  shouldSampleIn: aContext
+		  traceId: aTraceId
+		  name: aString
+		  kind: aSpanKind
+		  attributes: someAttributes
+		  links: someLinks
 ]
 
 { #category : 'processing' }
@@ -1604,10 +1523,10 @@ OTTracerProvider >> shutdownSampler: aSampler [
 
 	aSampler ifNil: [ ^ true ].
 	^ [ aSampler shutdown ]
-		on: Error
-		do: [ :error |
-			self class noteSampler: aSampler failedDuring: 'shutdown' error: error.
-			false ]
+		  on: Error
+		  do: [ :error |
+				  self class noteSampler: aSampler failedDuring: 'shutdown' error: error.
+				  false ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -1681,12 +1600,13 @@ OTTracerProvider >> spanProcessors: aCollection [
 OTTracerProvider >> startSampler: aSampler [
 
 	aSampler ifNil: [ ^ true ].
-	^ [ aSampler start.
-		true ]
-		on: Error
-		do: [ :error |
-			self class noteSampler: aSampler failedDuring: 'start' error: error.
-			false ]
+	^ [
+		  aSampler start.
+		  true ]
+		  on: Error
+		  do: [ :error |
+				  self class noteSampler: aSampler failedDuring: 'start' error: error.
+				  false ]
 ]
 
 { #category : 'sampling' }
@@ -1780,12 +1700,12 @@ OTTracerProvider >> tracerConfigurator: aBlock [
 OTTracerProvider >> tracerEnabled: aTracer [
 
 	^ self
-		tracerEnabled: aTracer
-		forSpanNamed: nil
-		kind: nil
-		inContext: nil
-		attributes: #()
-		links: #()
+		  tracerEnabled: aTracer
+		  forSpanNamed: nil
+		  kind: nil
+		  inContext: nil
+		  attributes: #(  )
+		  links: #(  )
 ]
 
 { #category : 'testing' }
@@ -1810,7 +1730,11 @@ OTTracerProvider >> tracerForInstrumentationScope: anInstrumentationScope [
 { #category : 'tracing' }
 OTTracerProvider >> tracerNamed: aString [
 
-	^ self tracerNamed: aString version: '' schemaUrl: '' attributes: #()
+	^ self
+		  tracerNamed: aString
+		  version: ''
+		  schemaUrl: ''
+		  attributes: #(  )
 ]
 
 { #category : 'tracing' }
@@ -1912,20 +1836,20 @@ OTTracerProvider >> validatedTracerConfigurator: aBlock forOperation: anOperatio
 OTTracerProvider >> withSpanProcessor: aProcessor operationNamed: anOperationName default: aDefaultValue do: aBlock [
 
 	^ [ aBlock value ]
-		on: Error
-		do: [ :error |
-			self class noteSpanProcessor: aProcessor failedDuring: anOperationName error: error.
-			aDefaultValue ]
+		  on: Error
+		  do: [ :error |
+				  self class noteSpanProcessor: aProcessor failedDuring: anOperationName error: error.
+				  aDefaultValue ]
 ]
 
 { #category : 'private - error handling' }
 OTTracerProvider >> withTracerConfigurationDefault: aDefaultValue operationNamed: anOperationName do: aBlock [
 
 	^ [ aBlock value ]
-		on: Error
-		do: [ :error |
-			self class noteTracerConfigurationFailedDuring: anOperationName error: error.
-			aDefaultValue ]
+		  on: Error
+		  do: [ :error |
+				  self class noteTracerConfigurationFailedDuring: anOperationName error: error.
+				  aDefaultValue ]
 ]
 
 { #category : 'tracing' }

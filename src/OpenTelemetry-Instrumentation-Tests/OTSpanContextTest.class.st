@@ -13,13 +13,13 @@ OTSpanContextTest >> testBinaryAccessorsReturnSpecSizedByteArrays [
 
 	| spanContext |
 	spanContext := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '01'
-		traceState: nil
-		remote: false.
-	self assert: spanContext traceIdBytes equals: #[0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255].
-	self assert: spanContext spanIdBytes equals: #[17 34 51 68 85 102 119 136]
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '01'
+		               traceState: nil
+		               remote: false.
+	self assert: spanContext traceIdBytes equals: #[ 0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255 ].
+	self assert: spanContext spanIdBytes equals: #[ 17 34 51 68 85 102 119 136 ]
 ]
 
 { #category : 'tests' }
@@ -27,11 +27,11 @@ OTSpanContextTest >> testBinaryConstructorBuildsEquivalentSpanContext [
 
 	| spanContext |
 	spanContext := OTSpanContext
-		traceIdBytes: #[0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255]
-		spanIdBytes: #[17 34 51 68 85 102 119 136]
-		traceFlags: '01'
-		traceState: 'vendor=value'
-		remote: true.
+		               traceIdBytes: #[ 0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255 ]
+		               spanIdBytes: #[ 17 34 51 68 85 102 119 136 ]
+		               traceFlags: '01'
+		               traceState: 'vendor=value'
+		               remote: true.
 	self assert: spanContext traceIdHex equals: '00112233445566778899aabbccddeeff'.
 	self assert: spanContext spanIdHex equals: '1122334455667788'.
 	self assert: spanContext traceFlags equals: '01'.
@@ -191,11 +191,11 @@ OTSpanContextTest >> testIdentifiersNormalizeToLowercaseHex [
 
 	| spanContext |
 	spanContext := OTSpanContext
-		traceId: '4BF92F3577B34DA6A3CE929D0E0E4736'
-		spanId: '00F067AA0BA902B7'
-		traceFlags: '0A'
-		traceState: nil
-		remote: true.
+		               traceId: '4BF92F3577B34DA6A3CE929D0E0E4736'
+		               spanId: '00F067AA0BA902B7'
+		               traceFlags: '0A'
+		               traceState: nil
+		               remote: true.
 	self assert: spanContext traceIdHex equals: '4bf92f3577b34da6a3ce929d0e0e4736'.
 	self assert: spanContext spanIdHex equals: '00f067aa0ba902b7'.
 	self assert: spanContext traceFlags equals: '0a'.
@@ -220,11 +220,11 @@ OTSpanContextTest >> testInvalidTraceStateIsDiscardedByConstructor [
 
 	| spanContext |
 	spanContext := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '01'
-		traceState: 'vendor=value,vendor=duplicate'
-		remote: false.
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '01'
+		               traceState: 'vendor=value,vendor=duplicate'
+		               remote: false.
 	self assert: spanContext traceState equals: nil
 ]
 
@@ -341,17 +341,17 @@ OTSpanContextTest >> testTraceFlagsSupportSampledAndRandomBits [
 
 	| sampledRandom randomOnly |
 	sampledRandom := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '03'
-		traceState: nil
-		remote: false.
+		                 traceId: '00112233445566778899aabbccddeeff'
+		                 spanId: '1122334455667788'
+		                 traceFlags: '03'
+		                 traceState: nil
+		                 remote: false.
 	randomOnly := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '02'
-		traceState: nil
-		remote: false.
+		              traceId: '00112233445566778899aabbccddeeff'
+		              spanId: '1122334455667788'
+		              traceFlags: '02'
+		              traceState: nil
+		              remote: false.
 	self assert: sampledRandom isSampled.
 	self assert: sampledRandom isRandom.
 	self deny: randomOnly isSampled.
@@ -363,11 +363,11 @@ OTSpanContextTest >> testTraceStateStringNormalizesToTraceStateObject [
 
 	| spanContext |
 	spanContext := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '01'
-		traceState: 'vendor=value,tenant@system=opaque'
-		remote: false.
+		               traceId: '00112233445566778899aabbccddeeff'
+		               spanId: '1122334455667788'
+		               traceFlags: '01'
+		               traceState: 'vendor=value,tenant@system=opaque'
+		               remote: false.
 	self assert: spanContext traceState class identicalTo: OTTraceState.
 	self assert: (spanContext traceState valueAt: 'vendor') equals: 'value'.
 	self assert: spanContext traceState asHeaderValue equals: 'vendor=value,tenant@system=opaque'
@@ -378,11 +378,11 @@ OTSpanContextTest >> testWithRemoteHelpersPreserveIdentityAndFlags [
 
 	| local remote |
 	local := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '03'
-		traceState: 'vendor=value'
-		remote: false.
+		         traceId: '00112233445566778899aabbccddeeff'
+		         spanId: '1122334455667788'
+		         traceFlags: '03'
+		         traceState: 'vendor=value'
+		         remote: false.
 	remote := local asRemote.
 	self deny: local identicalTo: remote.
 	self deny: local isRemote.
@@ -399,11 +399,11 @@ OTSpanContextTest >> testWithTraceStateReturnsCopiedImmutableContext [
 
 	| original updated |
 	original := OTSpanContext
-		traceId: '00112233445566778899aabbccddeeff'
-		spanId: '1122334455667788'
-		traceFlags: '01'
-		traceState: nil
-		remote: false.
+		            traceId: '00112233445566778899aabbccddeeff'
+		            spanId: '1122334455667788'
+		            traceFlags: '01'
+		            traceState: nil
+		            remote: false.
 	updated := original withTraceState: 'vendor=value'.
 	self deny: updated identicalTo: original.
 	self assert: original traceState equals: nil.

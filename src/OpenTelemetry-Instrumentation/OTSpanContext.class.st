@@ -21,13 +21,9 @@ OTSpanContext class >> byteArrayFromHex: aString size: anInteger [
 	| bytes |
 	bytes := ByteArray new: anInteger.
 	1 to: anInteger do: [ :index |
-		| start |
-		start := ((index - 1) * 2) + 1.
-		bytes
-			at: index
-			put: (Integer
-				readFrom: ((aString copyFrom: start to: start + 1) readStream)
-				base: 16) ].
+			| start |
+			start := index - 1 * 2 + 1.
+			bytes at: index put: (Integer readFrom: (aString copyFrom: start to: start + 1) readStream base: 16) ].
 	^ bytes
 ]
 
@@ -74,11 +70,11 @@ OTSpanContext class >> hexFromByteArray: aByteArray size: anInteger label: aLabe
 OTSpanContext class >> invalid [
 
 	^ self
-		traceId: self invalidTraceId
-		spanId: self invalidSpanId
-		traceFlags: '00'
-		traceState: nil
-		remote: false
+		  traceId: self invalidTraceId
+		  spanId: self invalidSpanId
+		  traceFlags: '00'
+		  traceState: nil
+		  remote: false
 ]
 
 { #category : 'private' }
@@ -106,8 +102,7 @@ OTSpanContext class >> isLowercaseHexString: aString size: anInteger [
 
 	aString ifNil: [ ^ false ].
 	aString size = anInteger ifFalse: [ ^ false ].
-	^ aString allSatisfy: [ :each |
-		each isDigit or: [ 'abcdef' includes: each ] ]
+	^ aString allSatisfy: [ :each | each isDigit or: [ 'abcdef' includes: each ] ]
 ]
 
 { #category : 'private - id generation' }
@@ -127,9 +122,7 @@ OTSpanContext class >> newHexIdentifierOfSize: anInteger [
 
 	| identifier |
 	[
-		identifier := String streamContents: [ :stream |
-			anInteger timesRepeat: [
-				stream nextPut: self randomHexDigit ] ].
+		identifier := String streamContents: [ :stream | anInteger timesRepeat: [ stream nextPut: self randomHexDigit ] ].
 		self isZeroHexIdentifier: identifier ] whileTrue.
 	^ identifier
 ]
@@ -184,11 +177,11 @@ OTSpanContext class >> randomHexDigit [
 OTSpanContext class >> traceId: aTraceId spanId: aSpanId [
 
 	^ self
-		traceId: aTraceId
-		spanId: aSpanId
-		traceFlags: '00'
-		traceState: nil
-		remote: false
+		  traceId: aTraceId
+		  spanId: aSpanId
+		  traceFlags: '00'
+		  traceState: nil
+		  remote: false
 ]
 
 { #category : 'instance creation' }
@@ -207,11 +200,11 @@ OTSpanContext class >> traceId: aTraceId spanId: aSpanId traceFlags: someTraceFl
 OTSpanContext class >> traceIdBytes: aTraceIdByteArray spanIdBytes: aSpanIdByteArray traceFlags: someTraceFlags traceState: aTraceState remote: aBoolean [
 
 	^ self
-		traceId: (self hexFromByteArray: aTraceIdByteArray size: 16 label: 'TraceId')
-		spanId: (self hexFromByteArray: aSpanIdByteArray size: 8 label: 'SpanId')
-		traceFlags: someTraceFlags
-		traceState: aTraceState
-		remote: aBoolean
+		  traceId: (self hexFromByteArray: aTraceIdByteArray size: 16 label: 'TraceId')
+		  spanId: (self hexFromByteArray: aSpanIdByteArray size: 8 label: 'SpanId')
+		  traceFlags: someTraceFlags
+		  traceState: aTraceState
+		  remote: aBoolean
 ]
 
 { #category : 'comparing' }
@@ -219,11 +212,10 @@ OTSpanContext >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class == self class ifFalse: [ ^ false ].
-	^ self traceId = anObject traceId
-		and: [ self spanId = anObject spanId
-		and: [ self traceFlags = anObject traceFlags
-		and: [ self traceState = anObject traceState
-		and: [ self isRemote = anObject isRemote ] ] ] ]
+	^ self traceId = anObject traceId and: [
+			  self spanId = anObject spanId and: [
+				  self traceFlags = anObject traceFlags and: [
+					  self traceState = anObject traceState and: [ self isRemote = anObject isRemote ] ] ] ]
 ]
 
 { #category : 'converting' }
@@ -253,7 +245,12 @@ OTSpanContext >> asSpanContext [
 { #category : 'comparing' }
 OTSpanContext >> hash [
 
-	^ { self traceId. self spanId. self traceFlags. self traceState. self isRemote } hash
+	^ {
+		  self traceId.
+		  self spanId.
+		  self traceFlags.
+		  self traceState.
+		  self isRemote } hash
 ]
 
 { #category : 'testing' }
@@ -277,8 +274,7 @@ OTSpanContext >> isSampled [
 { #category : 'testing' }
 OTSpanContext >> isValid [
 
-	^ (self traceId anySatisfy: [ :each | each ~= $0 ])
-		and: [ self spanId anySatisfy: [ :each | each ~= $0 ] ]
+	^ (self traceId anySatisfy: [ :each | each ~= $0 ]) and: [ self spanId anySatisfy: [ :each | each ~= $0 ] ]
 ]
 
 { #category : 'private' }
@@ -375,31 +371,31 @@ OTSpanContext >> traceState [
 OTSpanContext >> withRemote: aBoolean [
 
 	^ self class
-		traceId: self traceId
-		spanId: self spanId
-		traceFlags: self traceFlags
-		traceState: self traceState
-		remote: aBoolean
+		  traceId: self traceId
+		  spanId: self spanId
+		  traceFlags: self traceFlags
+		  traceState: self traceState
+		  remote: aBoolean
 ]
 
 { #category : 'copying' }
 OTSpanContext >> withTraceFlags: someTraceFlags [
 
 	^ self class
-		traceId: self traceId
-		spanId: self spanId
-		traceFlags: someTraceFlags
-		traceState: self traceState
-		remote: self isRemote
+		  traceId: self traceId
+		  spanId: self spanId
+		  traceFlags: someTraceFlags
+		  traceState: self traceState
+		  remote: self isRemote
 ]
 
 { #category : 'copying' }
 OTSpanContext >> withTraceState: aTraceState [
 
 	^ self class
-		traceId: self traceId
-		spanId: self spanId
-		traceFlags: self traceFlags
-		traceState: aTraceState
-		remote: self isRemote
+		  traceId: self traceId
+		  spanId: self spanId
+		  traceFlags: self traceFlags
+		  traceState: aTraceState
+		  remote: self isRemote
 ]

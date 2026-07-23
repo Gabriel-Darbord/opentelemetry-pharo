@@ -17,5 +17,5 @@ OTServiceInstanceResourceDetector class >> detectorName [
 { #category : 'detecting' }
 OTServiceInstanceResourceDetector >> detectResource [
 
-	^ OTResource attributes: { 'service.instance.id' -> OTTracerProvider defaultServiceInstanceId }
+	^ OTResource attributes: { ('service.instance.id' -> OTTracerProvider defaultServiceInstanceId) }
 ]

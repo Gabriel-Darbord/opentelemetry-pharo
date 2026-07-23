@@ -13,8 +13,7 @@ OTOtlpJsonTraceEncoderTest >> attributeValuesByKeyFrom: someKeyValueDictionaries
 
 	| valuesByKey |
 	valuesByKey := Dictionary new.
-	someKeyValueDictionaries do: [ :each |
-		valuesByKey at: (each at: 'key') put: (each at: 'value') ].
+	someKeyValueDictionaries do: [ :each | valuesByKey at: (each at: 'key') put: (each at: 'value') ].
 	^ valuesByKey
 ]
 
@@ -131,14 +130,7 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 OTOtlpJsonTraceEncoderTest >> setUp [
 
 	super setUp.
-	OTSpanExporter current: OTNoopSpanExporter new.
 	encoder := OTOtlpJsonTraceEncoder new
-]
-
-{ #category : 'running' }
-OTOtlpJsonTraceEncoderTest >> tearDown [
-
-	[ OTSpanExporter current: nil ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -146,17 +138,17 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansGroupsByResourceAndScope [
 
 	| payload resourceSpans scopeSpans |
 	payload := encoder encodeSpans: {
-			(self buildSiblingSpanNamed: 'one' scopeName: 'scope-a').
-			(self buildSiblingSpanNamed: 'two' scopeName: 'scope-a').
-			(self buildSiblingSpanNamed: 'three' scopeName: 'scope-b') }.
+			           (self buildSiblingSpanNamed: 'one' scopeName: 'scope-a').
+			           (self buildSiblingSpanNamed: 'two' scopeName: 'scope-a').
+			           (self buildSiblingSpanNamed: 'three' scopeName: 'scope-b') }.
 	resourceSpans := payload at: 'resourceSpans'.
 	self assert: resourceSpans size equals: 1.
-	scopeSpans := (resourceSpans first at: 'scopeSpans').
+	scopeSpans := resourceSpans first at: 'scopeSpans'.
 	self assert: scopeSpans size equals: 2.
 	self assert: ((scopeSpans first at: 'scope') at: 'name') equals: 'scope-a'.
-	self assert: ((scopeSpans first at: 'spans') size) equals: 2.
+	self assert: (scopeSpans first at: 'spans') size equals: 2.
 	self assert: ((scopeSpans second at: 'scope') at: 'name') equals: 'scope-b'.
-	self assert: ((scopeSpans second at: 'spans') size) equals: 1
+	self assert: (scopeSpans second at: 'spans') size equals: 1
 ]
 
 { #category : 'tests' }
@@ -164,13 +156,12 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansProducesSpecShapedOtlpJsonPayload [
 
 	| payload resourceSpan scopeSpan span attributes link |
 	payload := encoder encodeSpans: { self buildPrimarySpan }.
-	self assert: (payload keys asArray) equals: #( 'resourceSpans' ).
+	self assert: payload keys asArray equals: #( 'resourceSpans' ).
 	resourceSpan := (payload at: 'resourceSpans') first.
 	self assert: (resourceSpan at: 'schemaUrl') equals: 'https://opentelemetry.io/schemas/1.24.0'.
 	self
 		assert:
-			(((self attributeValuesByKeyFrom: ((resourceSpan at: 'resource') at: 'attributes'))
-				at: 'service.name') at: 'stringValue')
+		(((self attributeValuesByKeyFrom: ((resourceSpan at: 'resource') at: 'attributes')) at: 'service.name') at: 'stringValue')
 		equals: 'demo'.
 	scopeSpan := (resourceSpan at: 'scopeSpans') first.
 	self assert: (scopeSpan at: 'schemaUrl') equals: 'https://opentelemetry.io/schemas/1.25.0'.
@@ -197,20 +188,16 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansProducesSpecShapedOtlpJsonPayload [
 	self assert: ((((attributes at: 'heterogeneousArray') at: 'arrayValue') at: 'values') first at: 'stringValue') equals: 'string'.
 	self assert: ((((attributes at: 'heterogeneousArray') at: 'arrayValue') at: 'values') second at: 'intValue') equals: '123'.
 	self assert: ((attributes at: 'lives') at: 'intValue') equals: '9'.
-	self
-		assert:
-			((((((attributes at: 'map') at: 'kvlistValue') at: 'values') first at: 'value')
-				at: 'stringValue'))
-		equals: 'value'.
-	self assert: (((span at: 'events') first at: 'timeUnixNano')) equals: '600'.
-	self assert: ((((self attributeValuesByKeyFrom: (((span at: 'events') first) at: 'attributes')) at: 'important') at: 'boolValue')).
-	self assert: ((((span at: 'events') first) at: 'droppedAttributesCount')) equals: 1.
+	self assert: (((((attributes at: 'map') at: 'kvlistValue') at: 'values') first at: 'value') at: 'stringValue') equals: 'value'.
+	self assert: ((span at: 'events') first at: 'timeUnixNano') equals: '600'.
+	self assert: (((self attributeValuesByKeyFrom: ((span at: 'events') first at: 'attributes')) at: 'important') at: 'boolValue').
+	self assert: ((span at: 'events') first at: 'droppedAttributesCount') equals: 1.
 	link := (span at: 'links') first.
 	self assert: (link at: 'traceId') equals: 'cccccccccccccccccccccccccccccccc'.
 	self assert: (link at: 'spanId') equals: 'dddddddddddddddd'.
 	self assert: (link at: 'traceState') equals: 'link=value'.
 	self assert: (link at: 'flags') equals: 259.
-	self assert: ((((self attributeValuesByKeyFrom: (link at: 'attributes')) at: 'link-attribute') at: 'stringValue')) equals: 'value'.
+	self assert: (((self attributeValuesByKeyFrom: (link at: 'attributes')) at: 'link-attribute') at: 'stringValue') equals: 'value'.
 	self assert: (link at: 'droppedAttributesCount') equals: 2
 ]
 

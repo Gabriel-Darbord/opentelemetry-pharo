@@ -35,8 +35,8 @@ OTOtlpHttpProtobufLogRecordExporter >> entityForPayload: aByteArray [
 
 	| entity |
 	entity := self configuration usesGzipCompression
-		ifTrue: [ ZnEntity bytes: (self gzipCompressedBytesFor: aByteArray) ]
-		ifFalse: [ ZnEntity bytes: aByteArray ].
+		          ifTrue: [ ZnEntity bytes: (self gzipCompressedBytesFor: aByteArray) ]
+		          ifFalse: [ ZnEntity bytes: aByteArray ].
 	entity contentType: 'application/x-protobuf' asZnMimeType.
 	^ entity
 ]
@@ -45,10 +45,10 @@ OTOtlpHttpProtobufLogRecordExporter >> entityForPayload: aByteArray [
 OTOtlpHttpProtobufLogRecordExporter >> gzipCompressedBytesFor: aByteArray [
 
 	^ ByteArray streamContents: [ :stream |
-		| zipper |
-		zipper := GZipWriteStream on: stream.
-		zipper nextPutAll: aByteArray.
-		zipper close ]
+			  | zipper |
+			  zipper := GZipWriteStream on: stream.
+			  zipper nextPutAll: aByteArray.
+			  zipper close ]
 ]
 
 { #category : 'private - encoding' }
@@ -60,8 +60,7 @@ OTOtlpHttpProtobufLogRecordExporter >> payloadStringFrom: logRecords [
 { #category : 'accessing' }
 OTOtlpHttpProtobufLogRecordExporter >> responseDecoder [
 
-	^ responseDecoder ifNil: [
-		  responseDecoder := OTOtlpProtobufLogRecordResponseDecoder new ]
+	^ responseDecoder ifNil: [ responseDecoder := OTOtlpProtobufLogRecordResponseDecoder new ]
 ]
 
 { #category : 'accessing' }

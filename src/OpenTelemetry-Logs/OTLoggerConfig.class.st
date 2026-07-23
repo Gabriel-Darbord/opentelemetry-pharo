@@ -41,14 +41,6 @@ OTLoggerConfig >> allowsSeverityNumber: anObject [
 	^ severity >= self minimumSeverity
 ]
 
-{ #category : 'comparing' }
-OTLoggerConfig >> equalsDefaultConfiguration [
-
-	^ enabled = true
-		and: [ minimumSeverity = OTSeverity undefined
-		and: [ traceBased = false ] ]
-]
-
 { #category : 'accessing' }
 OTLoggerConfig >> enabled [
 
@@ -58,8 +50,16 @@ OTLoggerConfig >> enabled [
 { #category : 'accessing' }
 OTLoggerConfig >> enabled: aBoolean [
 
-	enabled := aBoolean == false ifTrue: [ false ] ifFalse: [ true ].
+	enabled := aBoolean == false
+		           ifTrue: [ false ]
+		           ifFalse: [ true ].
 	^ enabled
+]
+
+{ #category : 'comparing' }
+OTLoggerConfig >> equalsDefaultConfiguration [
+
+	^ enabled = true and: [ minimumSeverity = OTSeverity undefined and: [ traceBased = false ] ]
 ]
 
 { #category : 'initialization' }

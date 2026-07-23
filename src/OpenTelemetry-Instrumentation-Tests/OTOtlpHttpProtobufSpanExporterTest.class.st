@@ -47,19 +47,19 @@ OTOtlpHttpProtobufSpanExporterTest >> setUp [
 
 	super setUp.
 	client := OTRecordingHttpClient new.
-	configuration := OTOtlpExporterConfiguration
-		forSignalNamed: 'TRACES'
-		relativePath: 'v1/traces'.
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES' relativePath: 'v1/traces'.
 	configuration
 		endpoint: 'http://collector:4318/v1/traces';
 		protocol: 'http/protobuf';
 		timeoutMillis: 1234;
-		headers: (OrderedDictionary new at: 'authorization' put: 'Bearer 123'; yourself);
+		headers: (OrderedDictionary new
+				 at: 'authorization' put: 'Bearer 123';
+				 yourself);
 		compression: 'none';
 		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
 	exporter := OTOtlpHttpProtobufSpanExporter configuration: configuration.
 	exporter httpClient: client.
-	client responseContents: #[]
+	client responseContents: #[  ]
 ]
 
 { #category : 'private' }
@@ -70,13 +70,13 @@ OTOtlpHttpProtobufSpanExporterTest >> successResponseWithRejectedSpans: aCount m
 	writer
 		writeTag: 1 wireType: 2;
 		writeEmbedded: [ :partialSuccess |
-			partialSuccess
-				writeTag: 1 wireType: 0;
-				writeVarint: aCount.
-			aString ifNotEmpty: [
 				partialSuccess
-					writeTag: 2 wireType: 2;
-					writeString: aString ] ].
+					writeTag: 1 wireType: 0;
+					writeVarint: aCount.
+				aString ifNotEmpty: [
+						partialSuccess
+							writeTag: 2 wireType: 2;
+							writeString: aString ] ].
 	^ writer contents
 ]
 
@@ -103,10 +103,8 @@ OTOtlpHttpProtobufSpanExporterTest >> testExportAppliesHttpProtobufConfiguration
 { #category : 'tests' }
 OTOtlpHttpProtobufSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
-	client responseContents:
-		(self successResponseWithRejectedSpans: 2 message: 'collector dropped spans').
-	self
-		withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+	client responseContents: (self successResponseWithRejectedSpans: 2 message: 'collector dropped spans').
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
 			self assert: (exporter export: { self sampleSpan }).
 			self assert: retrySleeps isEmpty.
 			self assert: warnings size equals: 1.

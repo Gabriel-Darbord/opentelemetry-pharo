@@ -21,8 +21,8 @@ OTMeterConfig class >> default [
 OTMeterConfig class >> enabled: aBoolean [
 
 	^ self new
-		enabled: aBoolean;
-		yourself
+		  enabled: aBoolean;
+		  yourself
 ]
 
 { #category : 'copying' }

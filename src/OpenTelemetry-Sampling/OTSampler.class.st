@@ -175,8 +175,8 @@ OTSampler >> shouldSample [
 OTSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	^ self shouldSample
-		ifTrue: [ OTSamplingResult recordAndSample ]
-		ifFalse: [ OTSamplingResult drop ]
+		  ifTrue: [ OTSamplingResult recordAndSample ]
+		  ifFalse: [ OTSamplingResult drop ]
 ]
 
 { #category : 'lifecycle' }

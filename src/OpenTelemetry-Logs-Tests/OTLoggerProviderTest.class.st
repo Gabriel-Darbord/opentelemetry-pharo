@@ -16,7 +16,9 @@ OTLoggerProviderTest >> setUp [
 	super setUp.
 	provider := OTLoggerProvider new.
 	exporter := OTRecordingLogRecordExporter new.
-	processor := OTSimpleLogRecordProcessor new exporter: exporter; yourself.
+	processor := OTSimpleLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
 	OpenTelemetry loggerProvider: provider.
 	OpenTelemetry resetCurrentContext
 ]
@@ -24,10 +26,10 @@ OTLoggerProviderTest >> setUp [
 { #category : 'running' }
 OTLoggerProviderTest >> tearDown [
 
-	[ OpenTelemetry loggerProvider: nil.
+	[
+		OpenTelemetry loggerProvider: nil.
 		OpenTelemetry resetCurrentContext.
-		provider ifNotNil: [ provider shutdown ] ]
-		ensure: [ super tearDown ]
+		provider ifNotNil: [ provider shutdown ] ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -43,9 +45,13 @@ OTLoggerProviderTest >> testEmitAddsExceptionAttributesWithoutOverwritingUserAtt
 		severityNumber: OTSeverity error
 		severityText: 'ERROR'
 		body: 'boom'
-		attributes: { 'exception.message' -> 'user message'. 'custom' -> 42 }
+		attributes: {
+				('exception.message' -> 'user message').
+				('custom' -> 42) }
 		eventName: 'exception'
-		exception: (Error new messageText: 'actual message'; yourself).
+		exception: (Error new
+				 messageText: 'actual message';
+				 yourself).
 	self assert: exporter exportedRecords size equals: 1.
 	self assert: (exporter exportedRecords first attributeNamed: 'exception.message') equals: 'user message'.
 	self assert: (exporter exportedRecords first attributeNamed: 'custom') equals: 42.
@@ -58,11 +64,11 @@ OTLoggerProviderTest >> testEmitPopulatesObservedTimestampAndTraceContextFromCur
 	| context logger spanContext |
 	provider addLogRecordProcessor: processor.
 	spanContext := OTSpanContext
-		traceId: '0123456789abcdef0123456789abcdef'
-		spanId: '0123456789abcdef'
-		traceFlags: '01'
-		traceState: nil
-		remote: false.
+		               traceId: '0123456789abcdef0123456789abcdef'
+		               spanId: '0123456789abcdef'
+		               traceFlags: '01'
+		               traceState: nil
+		               remote: false.
 	context := OTContext new withSpan: spanContext asNonRecordingSpan.
 	OpenTelemetry currentContext: context.
 	logger := provider loggerNamed: 'spec.logs'.
@@ -108,17 +114,16 @@ OTLoggerProviderTest >> testMinimumSeverityFilteringDropsBelowThreshold [
 	logger := provider loggerNamed: 'spec.logs'.
 	self deny: (logger enabledIn: nil severityNumber: OTSeverity warn eventName: nil).
 	self assert: (logger enabledIn: nil severityNumber: OTSeverity error eventName: nil).
-	self deny: (
-		logger
-			emitTimestamp: nil
-			observedTimestamp: nil
-			in: nil
-			severityNumber: OTSeverity warn
-			severityText: 'WARN'
-			body: 'skip'
-			attributes: #()
-			eventName: nil
-			exception: nil).
+	self deny: (logger
+			 emitTimestamp: nil
+			 observedTimestamp: nil
+			 in: nil
+			 severityNumber: OTSeverity warn
+			 severityText: 'WARN'
+			 body: 'skip'
+			 attributes: #(  )
+			 eventName: nil
+			 exception: nil).
 	self assert: exporter exportedRecords isEmpty
 ]
 
@@ -142,24 +147,23 @@ OTLoggerProviderTest >> testTraceBasedFilteringDropsUnsampledTrace [
 	config traceBased: true.
 	provider loggerConfigurator: [ :scope | config ].
 	spanContext := OTSpanContext
-		traceId: '0123456789abcdef0123456789abcdef'
-		spanId: '0123456789abcdef'
-		traceFlags: '00'
-		traceState: nil
-		remote: false.
+		               traceId: '0123456789abcdef0123456789abcdef'
+		               spanId: '0123456789abcdef'
+		               traceFlags: '00'
+		               traceState: nil
+		               remote: false.
 	context := OTContext new withSpan: spanContext asNonRecordingSpan.
 	logger := provider loggerNamed: 'spec.logs'.
 	self deny: (logger enabledIn: context severityNumber: OTSeverity info eventName: nil).
-	self deny: (
-		logger
-			emitTimestamp: nil
-			observedTimestamp: nil
-			in: context
-			severityNumber: OTSeverity info
-			severityText: 'INFO'
-			body: 'skip'
-			attributes: #()
-			eventName: nil
-			exception: nil).
+	self deny: (logger
+			 emitTimestamp: nil
+			 observedTimestamp: nil
+			 in: context
+			 severityNumber: OTSeverity info
+			 severityText: 'INFO'
+			 body: 'skip'
+			 attributes: #(  )
+			 eventName: nil
+			 exception: nil).
 	self assert: exporter exportedRecords isEmpty
 ]

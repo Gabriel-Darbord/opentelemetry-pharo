@@ -18,41 +18,33 @@ OTOtlpGrpcLogRecordExporter >> encoder [
 OTOtlpGrpcLogRecordExporter >> export: logRecords [
 
 	self isShutdown ifTrue: [ ^ false ].
-	^ self
-		exportAttemptNumber: 1
-		payloadBytes: (self payloadBytesFrom: logRecords)
+	^ self exportAttemptNumber: 1 payloadBytes: (self payloadBytesFrom: logRecords)
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcLogRecordExporter >> noteInvalidGrpcSuccessResponse: anError [
 
-	self warningSink value:
-		'OpenTelemetry OTLP log export returned an invalid gRPC success response: '
-			, anError messageText
+	self warningSink value: 'OpenTelemetry OTLP log export returned an invalid gRPC success response: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcLogRecordExporter >> notePartialSuccess: aDictionary [
 
-	self warningSink value:
-		'OpenTelemetry OTLP log export reported partial success: '
-			, aDictionary printString
+	self warningSink value: 'OpenTelemetry OTLP log export reported partial success: ' , aDictionary printString
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcLogRecordExporter >> noteRetryExhaustedForError: anError [
 
 	self warningSink value:
-		'OpenTelemetry OTLP log export exhausted retries after a retryable transport failure: '
-			, anError messageText
+		'OpenTelemetry OTLP log export exhausted retries after a retryable transport failure: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcLogRecordExporter >> noteRetryExhaustedForStatus: aStatus [
 
 	self warningSink value:
-		'OpenTelemetry OTLP log export exhausted retries after gRPC status '
-			, aStatus codeName, ' (', aStatus code asString, ')'
+		'OpenTelemetry OTLP log export exhausted retries after gRPC status ' , aStatus codeName , ' (' , aStatus code asString , ')'
 ]
 
 { #category : 'private - encoding' }
@@ -64,8 +56,7 @@ OTOtlpGrpcLogRecordExporter >> payloadBytesFrom: logRecords [
 { #category : 'accessing' }
 OTOtlpGrpcLogRecordExporter >> responseDecoder [
 
-	^ responseDecoder ifNil: [
-		  responseDecoder := OTOtlpProtobufLogRecordResponseDecoder new ]
+	^ responseDecoder ifNil: [ responseDecoder := OTOtlpProtobufLogRecordResponseDecoder new ]
 ]
 
 { #category : 'private - grpc' }

@@ -58,8 +58,7 @@ OTAttributeNormalizer class >> normalizeArrayValue: aCollection lengthLimit: aLe
 
 	| normalized |
 	normalized := OrderedCollection new: aCollection size.
-	aCollection do: [ :each |
-		normalized add: (self normalizeAttributeValue: each lengthLimit: aLengthLimit) ].
+	aCollection do: [ :each | normalized add: (self normalizeAttributeValue: each lengthLimit: aLengthLimit) ].
 	^ normalized asArray
 ]
 
@@ -68,8 +67,7 @@ OTAttributeNormalizer class >> normalizeAttributeKey: aKey [
 
 	| normalized |
 	aKey ifNil: [ self signalInvalidAttributeKey: aKey ].
-	((aKey isString) or: [ aKey isSymbol ]) ifFalse: [
-		self signalInvalidAttributeKey: aKey ].
+	(aKey isString or: [ aKey isSymbol ]) ifFalse: [ self signalInvalidAttributeKey: aKey ].
 	normalized := aKey asString.
 	normalized isEmpty ifTrue: [ self signalInvalidAttributeKey: aKey ].
 	^ normalized
@@ -85,8 +83,7 @@ OTAttributeNormalizer class >> normalizeAttributeValue: anObject [
 OTAttributeNormalizer class >> normalizeAttributeValue: anObject lengthLimit: aLengthLimit [
 
 	anObject isNil ifTrue: [ ^ nil ].
-	((anObject isString) or: [ anObject isSymbol ]) ifTrue: [
-		^ self truncateString: anObject asString lengthLimit: aLengthLimit ].
+	(anObject isString or: [ anObject isSymbol ]) ifTrue: [ ^ self truncateString: anObject asString lengthLimit: aLengthLimit ].
 	(self isBoolean: anObject) ifTrue: [ ^ anObject ].
 	anObject isInteger ifTrue: [ ^ self normalizeIntegerValue: anObject ].
 	anObject isNumber ifTrue: [ ^ anObject asFloat ].
@@ -108,26 +105,28 @@ OTAttributeNormalizer class >> normalizeAttributes: aCollection countLimit: aCou
 	| normalized droppedCount |
 	normalized := OrderedDictionary new.
 	droppedCount := 0.
-	aCollection ifNil: [ ^ { normalized. droppedCount } ].
-	(aCollection isDictionary or: [
-		(aCollection isCollection and: [
-			aCollection allSatisfy: [ :each | each isAssociation ] ]) ]) ifFalse: [
-		self signalInvalidAttributeCollection: aCollection ].
+	aCollection ifNil: [
+			^ {
+				  normalized.
+				  droppedCount } ].
+	(aCollection isDictionary or: [ aCollection isCollection and: [ aCollection allSatisfy: [ :each | each isAssociation ] ] ])
+		ifFalse: [ self signalInvalidAttributeCollection: aCollection ].
 	aCollection associationsDo: [ :each |
-		| key value |
-		key := self normalizeAttributeKey: each key.
-		value := self normalizeAttributeValue: each value lengthLimit: aLengthLimit.
-		((normalized includesKey: key) or: [ self mayAddAttributeNamed: key to: normalized countLimit: aCountLimit ])
-			ifTrue: [ normalized at: key put: value ]
-			ifFalse: [ droppedCount := droppedCount + 1 ] ].
-	^ { normalized. droppedCount }
+			| key value |
+			key := self normalizeAttributeKey: each key.
+			value := self normalizeAttributeValue: each value lengthLimit: aLengthLimit.
+			((normalized includesKey: key) or: [ self mayAddAttributeNamed: key to: normalized countLimit: aCountLimit ])
+				ifTrue: [ normalized at: key put: value ]
+				ifFalse: [ droppedCount := droppedCount + 1 ] ].
+	^ {
+		  normalized.
+		  droppedCount }
 ]
 
 { #category : 'normalizing' }
 OTAttributeNormalizer class >> normalizeIntegerValue: anInteger [
 
-	(anInteger between: self minSignedInteger64 and: self maxSignedInteger64)
-		ifFalse: [ self signalInvalidAttributeValue: anInteger ].
+	(anInteger between: self minSignedInteger64 and: self maxSignedInteger64) ifFalse: [ self signalInvalidAttributeValue: anInteger ].
 	^ anInteger
 ]
 
@@ -143,9 +142,7 @@ OTAttributeNormalizer class >> normalizeMapValue: aCollection lengthLimit: aLeng
 	| normalized |
 	normalized := OrderedDictionary new.
 	aCollection associationsDo: [ :each |
-		normalized
-			at: (self normalizeAttributeKey: each key)
-			put: (self normalizeAttributeValue: each value lengthLimit: aLengthLimit) ].
+		normalized at: (self normalizeAttributeKey: each key) put: (self normalizeAttributeValue: each value lengthLimit: aLengthLimit) ].
 	^ normalized
 ]
 

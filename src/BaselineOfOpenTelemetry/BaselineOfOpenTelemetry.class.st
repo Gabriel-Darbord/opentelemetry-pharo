@@ -11,9 +11,7 @@ BaselineOfOpenTelemetry >> baseline: spec [
 	<baseline>
 	spec for: #common do: [ self baselineCommon: spec ].
 
-	spec
-		for: #( 'pharo12.x' 'pharo13.x' 'pharo14.x' )
-		do: [ self baselinePharo12Plus: spec ]
+	spec for: #( 'pharo12.x' 'pharo13.x' 'pharo14.x' ) do: [ self baselinePharo12Plus: spec ]
 ]
 
 { #category : 'baselines' }
@@ -27,11 +25,9 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Instrumentation-MetaLink' ) ];
 		package: 'OpenTelemetry-Instrumentation-Tests' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Logs' with: [ spec requires: #( 'OpenTelemetry-Exporters' 'OpenTelemetry-Instrumentation' ) ];
-		package: 'OpenTelemetry-Logs-Tests'
-		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Logs' ) ];
+		package: 'OpenTelemetry-Logs-Tests' with: [ spec requires: 'OpenTelemetry-Logs' ];
 		package: 'OpenTelemetry-Metrics' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Metrics-Tests'
-		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Metrics' ) ];
+		package: 'OpenTelemetry-Metrics-Tests' with: [ spec requires: 'OpenTelemetry-Metrics' ];
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Matchers';
 		package: 'OpenTelemetry-Sampling' with: [ spec requires: 'OpenTelemetry-Exporters' ].

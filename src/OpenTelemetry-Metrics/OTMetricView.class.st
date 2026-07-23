@@ -27,15 +27,21 @@ OTMetricView class >> all [
 	^ self named: '*'
 ]
 
+{ #category : 'instance creation' }
+OTMetricView class >> named: aString [
+
+	^ self new
+		  namePattern: aString;
+		  yourself
+]
+
 { #category : 'normalization' }
 OTMetricView class >> normalizedAggregationFrom: anObject [
 
 	| normalized |
 	anObject ifNil: [ ^ #default ].
-	anObject isSymbol ifTrue: [
-		normalized := anObject asString ].
-	anObject isString ifTrue: [
-		normalized := anObject ].
+	anObject isSymbol ifTrue: [ normalized := anObject asString ].
+	anObject isString ifTrue: [ normalized := anObject ].
 	normalized ifNil: [ ^ #default ].
 	normalized := (normalized select: [ :each | each isAlphaNumeric ]) asLowercase.
 	normalized = 'drop' ifTrue: [ ^ #drop ].
@@ -47,12 +53,9 @@ OTMetricView class >> normalizedAggregationFrom: anObject [
 	normalized = 'lastvalue' ifTrue: [ ^ #lastValue ].
 	normalized = 'lastvalueaggregation' ifTrue: [ ^ #lastValue ].
 	normalized = 'explicitbuckethistogram' ifTrue: [ ^ #explicitBucketHistogram ].
-	normalized = 'explicitbuckethistogramaggregation'
-		ifTrue: [ ^ #explicitBucketHistogram ].
-	normalized = 'base2exponentialbuckethistogram'
-		ifTrue: [ ^ #base2ExponentialBucketHistogram ].
-	normalized = 'base2exponentialbuckethistogramaggregation'
-		ifTrue: [ ^ #base2ExponentialBucketHistogram ].
+	normalized = 'explicitbuckethistogramaggregation' ifTrue: [ ^ #explicitBucketHistogram ].
+	normalized = 'base2exponentialbuckethistogram' ifTrue: [ ^ #base2ExponentialBucketHistogram ].
+	normalized = 'base2exponentialbuckethistogramaggregation' ifTrue: [ ^ #base2ExponentialBucketHistogram ].
 	^ #default
 ]
 
@@ -79,9 +82,9 @@ OTMetricView class >> normalizedAggregationParametersFrom: aCollection [
 	aCollection ifNil: [ ^ nil ].
 	normalized := OrderedDictionary new.
 	aCollection associationsDo: [ :each |
-		| key |
-		key := self normalizedAggregationParameterKeyFrom: each key.
-		key ifNotNil: [ normalized at: key put: each value ] ].
+			| key |
+			key := self normalizedAggregationParameterKeyFrom: each key.
+			key ifNotNil: [ normalized at: key put: each value ] ].
 	^ normalized
 ]
 
@@ -97,10 +100,8 @@ OTMetricView class >> normalizedInstrumentTypeFrom: anObject [
 	anObject = OTObservableCounter ifTrue: [ ^ #observableCounter ].
 	anObject = OTObservableGauge ifTrue: [ ^ #observableGauge ].
 	anObject = OTObservableUpDownCounter ifTrue: [ ^ #observableUpDownCounter ].
-	anObject isSymbol ifTrue: [
-		normalized := anObject asString ].
-	anObject isString ifTrue: [
-		normalized := anObject ].
+	anObject isSymbol ifTrue: [ normalized := anObject asString ].
+	anObject isString ifTrue: [ normalized := anObject ].
 	normalized ifNil: [ ^ nil ].
 	normalized := (normalized select: [ :each | each isAlphaNumeric ]) asLowercase.
 	normalized = 'counter' ifTrue: [ ^ #counter ].
@@ -109,25 +110,8 @@ OTMetricView class >> normalizedInstrumentTypeFrom: anObject [
 	normalized = 'gauge' ifTrue: [ ^ #gauge ].
 	normalized = 'observablecounter' ifTrue: [ ^ #observableCounter ].
 	normalized = 'observablegauge' ifTrue: [ ^ #observableGauge ].
-	normalized = 'observableupdowncounter'
-		ifTrue: [ ^ #observableUpDownCounter ].
+	normalized = 'observableupdowncounter' ifTrue: [ ^ #observableUpDownCounter ].
 	^ nil
-]
-
-{ #category : 'instance creation' }
-OTMetricView class >> named: aString [
-
-	^ self new
-		namePattern: aString;
-		yourself
-]
-
-{ #category : 'applying' }
-OTMetricView >> applyToMetricData: anOTMetricData [
-
-	streamName ifNotNil: [ anOTMetricData name: streamName ].
-	streamDescription ifNotNil: [ anOTMetricData description: streamDescription ].
-	^ anOTMetricData
 ]
 
 { #category : 'accessing' }
@@ -152,8 +136,8 @@ OTMetricView >> aggregationCardinalityLimit [
 OTMetricView >> aggregationCardinalityLimit: anInteger [
 
 	cardinalityLimit := (anInteger isInteger and: [ anInteger > 0 ])
-		ifTrue: [ anInteger ]
-		ifFalse: [ nil ]
+		                    ifTrue: [ anInteger ]
+		                    ifFalse: [ nil ]
 ]
 
 { #category : 'accessing' }
@@ -168,16 +152,12 @@ OTMetricView >> aggregationParameters: aCollection [
 	aggregationParameters := self class normalizedAggregationParametersFrom: aCollection
 ]
 
-{ #category : 'accessing' }
-OTMetricView >> exemplarReservoirFactory [
+{ #category : 'applying' }
+OTMetricView >> applyToMetricData: anOTMetricData [
 
-	^ exemplarReservoirFactory
-]
-
-{ #category : 'accessing' }
-OTMetricView >> exemplarReservoirFactory: aBlockClosure [
-
-	exemplarReservoirFactory := aBlockClosure
+	streamName ifNotNil: [ anOTMetricData name: streamName ].
+	streamDescription ifNotNil: [ anOTMetricData description: streamDescription ].
+	^ anOTMetricData
 ]
 
 { #category : 'accessing' }
@@ -189,9 +169,7 @@ OTMetricView >> attributeKeys [
 { #category : 'accessing' }
 OTMetricView >> attributeKeys: aCollection [
 
-	attributeKeys := aCollection
-		ifNil: [ nil ]
-		ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+	attributeKeys := aCollection ifNil: [ nil ] ifNotNil: [ aCollection collect: [ :each | each asString ] ]
 ]
 
 { #category : 'accessing' }
@@ -203,9 +181,19 @@ OTMetricView >> excludedAttributeKeys [
 { #category : 'accessing' }
 OTMetricView >> excludedAttributeKeys: aCollection [
 
-	excludedAttributeKeys := aCollection
-		ifNil: [ nil ]
-		ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+	excludedAttributeKeys := aCollection ifNil: [ nil ] ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+]
+
+{ #category : 'accessing' }
+OTMetricView >> exemplarReservoirFactory [
+
+	^ exemplarReservoirFactory
+]
+
+{ #category : 'accessing' }
+OTMetricView >> exemplarReservoirFactory: aBlockClosure [
+
+	exemplarReservoirFactory := aBlockClosure
 ]
 
 { #category : 'accessing' }
@@ -223,20 +211,12 @@ OTMetricView >> instrumentType: anObject [
 { #category : 'matching' }
 OTMetricView >> matchesInstrument: anOTMetricInstrument [
 
-	^ (self matchesInstrumentName: anOTMetricInstrument name)
-		and: [
-			(self matchesInstrumentType: anOTMetricInstrument instrumentType)
-				and: [
-					(self matchesUnit: anOTMetricInstrument unit)
-						and: [
-							(self matchesMeterName: anOTMetricInstrument instrumentationScope name)
-								and: [
-									(self
-										matchesMeterVersion: anOTMetricInstrument instrumentationScope version)
-										and: [
-											self
-												matchesMeterSchemaUrl:
-													anOTMetricInstrument instrumentationScope schemaUrl ] ] ] ] ]
+	^ (self matchesInstrumentName: anOTMetricInstrument name) and: [
+			  (self matchesInstrumentType: anOTMetricInstrument instrumentType) and: [
+					  (self matchesUnit: anOTMetricInstrument unit) and: [
+							  (self matchesMeterName: anOTMetricInstrument instrumentationScope name) and: [
+									  (self matchesMeterVersion: anOTMetricInstrument instrumentationScope version) and: [
+										  self matchesMeterSchemaUrl: anOTMetricInstrument instrumentationScope schemaUrl ] ] ] ] ]
 ]
 
 { #category : 'matching' }
@@ -244,8 +224,7 @@ OTMetricView >> matchesInstrumentName: aString [
 
 	namePattern ifNil: [ ^ true ].
 	namePattern = '*' ifTrue: [ ^ true ].
-	((namePattern includes: $*) or: [ namePattern includes: $? ]) ifTrue: [
-		^ self wildcardPattern: namePattern matches: aString ].
+	((namePattern includes: $*) or: [ namePattern includes: $? ]) ifTrue: [ ^ self wildcardPattern: namePattern matches: aString ].
 	^ namePattern = aString
 ]
 
@@ -293,9 +272,7 @@ OTMetricView >> meterName [
 { #category : 'accessing' }
 OTMetricView >> meterName: aString [
 
-	meterName := aString
-		ifNil: [ nil ]
-		ifNotNil: [ aString asString ]
+	meterName := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -307,9 +284,7 @@ OTMetricView >> meterSchemaUrl [
 { #category : 'accessing' }
 OTMetricView >> meterSchemaUrl: aString [
 
-	meterSchemaUrl := aString
-		ifNil: [ nil ]
-		ifNotNil: [ aString asString ]
+	meterSchemaUrl := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -321,9 +296,7 @@ OTMetricView >> meterVersion [
 { #category : 'accessing' }
 OTMetricView >> meterVersion: aString [
 
-	meterVersion := aString
-		ifNil: [ nil ]
-		ifNotNil: [ aString asString ]
+	meterVersion := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -335,9 +308,7 @@ OTMetricView >> namePattern [
 { #category : 'accessing' }
 OTMetricView >> namePattern: aString [
 
-	namePattern := aString
-		ifNil: [ nil ]
-		ifNotNil: [ aString asString ]
+	namePattern := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'resolving' }
@@ -354,9 +325,10 @@ OTMetricView >> resolvedAggregationParametersFor: anOTMetricInstrument reader: a
 ]
 
 { #category : 'resolving' }
-OTMetricView >> resolvedExemplarReservoirFactoryFor: anOTMetricInstrument reader: anOTMetricReader [
+OTMetricView >> resolvedAttributeFilterFor: anOTMetricInstrument [
 
-	^ exemplarReservoirFactory
+	(attributeKeys isNil and: [ excludedAttributeKeys isNil ]) ifTrue: [ ^ anOTMetricInstrument attributeFilter ].
+	^ OTMetricAttributeFilter included: attributeKeys excluded: excludedAttributeKeys
 ]
 
 { #category : 'resolving' }
@@ -367,13 +339,9 @@ OTMetricView >> resolvedCardinalityLimitFor: anOTMetricInstrument reader: anOTMe
 ]
 
 { #category : 'resolving' }
-OTMetricView >> resolvedAttributeFilterFor: anOTMetricInstrument [
+OTMetricView >> resolvedExemplarReservoirFactoryFor: anOTMetricInstrument reader: anOTMetricReader [
 
-	(attributeKeys isNil and: [ excludedAttributeKeys isNil ]) ifTrue: [
-		^ anOTMetricInstrument attributeFilter ].
-	^ OTMetricAttributeFilter
-		included: attributeKeys
-		excluded: excludedAttributeKeys
+	^ exemplarReservoirFactory
 ]
 
 { #category : 'resolving' }
@@ -391,9 +359,7 @@ OTMetricView >> streamDescription [
 { #category : 'accessing' }
 OTMetricView >> streamDescription: aString [
 
-	streamDescription := aString
-		ifNil: [ nil ]
-		ifNotNil: [ aString asString ]
+	streamDescription := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -405,9 +371,7 @@ OTMetricView >> streamName [
 { #category : 'accessing' }
 OTMetricView >> streamName: aString [
 
-	streamName := aString
-		ifNil: [ nil ]
-		ifNotNil: [ aString asString ]
+	streamName := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -419,9 +383,7 @@ OTMetricView >> unit [
 { #category : 'accessing' }
 OTMetricView >> unit: aString [
 
-	unit := aString
-		ifNil: [ nil ]
-		ifNotNil: [ aString asString ]
+	unit := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'matching' }
@@ -431,25 +393,29 @@ OTMetricView >> wildcardPattern: aPattern at: patternIndex matches: aString at: 
 	patternIndex > aPattern size ifTrue: [ ^ stringIndex > aString size ].
 	character := aPattern at: patternIndex.
 	character = $* ifTrue: [
-		patternIndex = aPattern size ifTrue: [ ^ true ].
-		stringIndex to: aString size + 1 do: [ :eachIndex |
-			(self
-				wildcardPattern: aPattern
-				at: patternIndex + 1
-				matches: aString
-				at: eachIndex) ifTrue: [ ^ true ] ].
-		^ false ].
+			patternIndex = aPattern size ifTrue: [ ^ true ].
+			stringIndex to: aString size + 1 do: [ :eachIndex |
+					(self
+						 wildcardPattern: aPattern
+						 at: patternIndex + 1
+						 matches: aString
+						 at: eachIndex) ifTrue: [ ^ true ] ].
+			^ false ].
 	stringIndex > aString size ifTrue: [ ^ false ].
 	(character = $? or: [ character = (aString at: stringIndex) ]) ifFalse: [ ^ false ].
 	^ self
-		wildcardPattern: aPattern
-		at: patternIndex + 1
-		matches: aString
-		at: stringIndex + 1
+		  wildcardPattern: aPattern
+		  at: patternIndex + 1
+		  matches: aString
+		  at: stringIndex + 1
 ]
 
 { #category : 'matching' }
 OTMetricView >> wildcardPattern: aPattern matches: aString [
 
-	^ self wildcardPattern: aPattern at: 1 matches: aString at: 1
+	^ self
+		  wildcardPattern: aPattern
+		  at: 1
+		  matches: aString
+		  at: 1
 ]

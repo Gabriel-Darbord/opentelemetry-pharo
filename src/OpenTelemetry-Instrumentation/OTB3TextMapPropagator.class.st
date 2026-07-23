@@ -33,8 +33,8 @@ OTB3TextMapPropagator class >> debugPropertyKey [
 OTB3TextMapPropagator class >> multiHeader [
 
 	^ self new
-		injectMultiHeaders;
-		yourself
+		  injectMultiHeaders;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -65,8 +65,8 @@ OTB3TextMapPropagator class >> reset [
 OTB3TextMapPropagator class >> singleHeader [
 
 	^ self new
-		injectSingleHeader;
-		yourself
+		  injectSingleHeader;
+		  yourself
 ]
 
 { #category : 'extracting' }
@@ -81,10 +81,7 @@ OTB3TextMapPropagator >> extract: aContext from: aCarrier getter: aGetter [
 	| baseContext singleHeaderValue |
 	baseContext := aContext ifNil: [ OTContext new ] ifNotNil: [ aContext ].
 	aGetter ifNil: [ ^ baseContext ].
-	singleHeaderValue := self
-		headerValueIn: self class b3HeaderName
-		from: aCarrier
-		getter: aGetter.
+	singleHeaderValue := self headerValueIn: self class b3HeaderName from: aCarrier getter: aGetter.
 	singleHeaderValue ifNotNil: [ ^ self extractSingleHeader: singleHeaderValue into: baseContext ].
 	^ self extractMultiHeaderFrom: baseContext carrier: aCarrier getter: aGetter
 ]
@@ -93,34 +90,16 @@ OTB3TextMapPropagator >> extract: aContext from: aCarrier getter: aGetter [
 OTB3TextMapPropagator >> extractMultiHeaderFrom: aContext carrier: aCarrier getter: aGetter [
 
 	| traceId spanId debugValue sampledValue traceFlags context |
-	traceId := self
-		headerValueIn: self class multiHeaderTraceIdHeaderName
-		from: aCarrier
-		getter: aGetter.
-	spanId := self
-		headerValueIn: self class multiHeaderSpanIdHeaderName
-		from: aCarrier
-		getter: aGetter.
+	traceId := self headerValueIn: self class multiHeaderTraceIdHeaderName from: aCarrier getter: aGetter.
+	spanId := self headerValueIn: self class multiHeaderSpanIdHeaderName from: aCarrier getter: aGetter.
 	(self isValidTraceId: traceId) ifFalse: [ ^ aContext ].
 	(self isValidSpanId: spanId) ifFalse: [ ^ aContext ].
-	debugValue := self
-		headerValueIn: self class debugHeaderName
-		from: aCarrier
-		getter: aGetter.
-	sampledValue := self
-		headerValueIn: self class multiHeaderSampledHeaderName
-		from: aCarrier
-		getter: aGetter.
-	traceFlags := self
-		traceFlagsForMultiHeaderSampledValue: sampledValue
-		debugValue: debugValue.
+	debugValue := self headerValueIn: self class debugHeaderName from: aCarrier getter: aGetter.
+	sampledValue := self headerValueIn: self class multiHeaderSampledHeaderName from: aCarrier getter: aGetter.
+	traceFlags := self traceFlagsForMultiHeaderSampledValue: sampledValue debugValue: debugValue.
 	traceFlags ifNil: [ ^ aContext ].
-	context := aContext withSpan: ((self
-		spanContextForTraceId: traceId
-		spanId: spanId
-		traceFlags: traceFlags) asNonRecordingSpan).
-	(self isDebugHeaderValue: debugValue)
-		ifTrue: [ ^ context withPropertyAt: self class debugPropertyKey put: true ].
+	context := aContext withSpan: (self spanContextForTraceId: traceId spanId: spanId traceFlags: traceFlags) asNonRecordingSpan.
+	(self isDebugHeaderValue: debugValue) ifTrue: [ ^ context withPropertyAt: self class debugPropertyKey put: true ].
 	^ context withoutPropertyAt: self class debugPropertyKey
 ]
 
@@ -129,20 +108,19 @@ OTB3TextMapPropagator >> extractSingleHeader: aString into: aContext [
 
 	| parts traceId spanId samplingState traceFlags context |
 	parts := aString substrings: '-'.
-	((parts size between: 2 and: 4)) ifFalse: [ ^ aContext ].
+	(parts size between: 2 and: 4) ifFalse: [ ^ aContext ].
 	traceId := parts first trimBoth.
 	spanId := parts second trimBoth.
 	(self isValidTraceId: traceId) ifFalse: [ ^ aContext ].
 	(self isValidSpanId: spanId) ifFalse: [ ^ aContext ].
-	samplingState := parts size >= 3 ifTrue: [ parts third ] ifFalse: [ nil ].
+	samplingState := parts size >= 3
+		                 ifTrue: [ parts third ]
+		                 ifFalse: [ nil ].
 	traceFlags := self traceFlagsForSingleHeaderSamplingState: samplingState.
 	traceFlags ifNil: [ ^ aContext ].
-	context := aContext withSpan: ((self
-		spanContextForTraceId: traceId
-		spanId: spanId
-		traceFlags: traceFlags) asNonRecordingSpan).
-	((samplingState ifNil: [ '' ] ifNotNil: [ samplingState ]) trimBoth asLowercase = 'd')
-		ifTrue: [ ^ context withPropertyAt: self class debugPropertyKey put: true ].
+	context := aContext withSpan: (self spanContextForTraceId: traceId spanId: spanId traceFlags: traceFlags) asNonRecordingSpan.
+	(samplingState ifNil: [ '' ] ifNotNil: [ samplingState ]) trimBoth asLowercase = 'd' ifTrue: [
+		^ context withPropertyAt: self class debugPropertyKey put: true ].
 	^ context withoutPropertyAt: self class debugPropertyKey
 ]
 
@@ -150,12 +128,13 @@ OTB3TextMapPropagator >> extractSingleHeader: aString into: aContext [
 OTB3TextMapPropagator >> fields [
 
 	^ injectMultiHeaders
-		ifTrue: [ {
-			self class multiHeaderTraceIdHeaderName.
-			self class multiHeaderSpanIdHeaderName.
-			self class multiHeaderSampledHeaderName.
-			self class debugHeaderName } ]
-		ifFalse: [ { self class b3HeaderName } ]
+		  ifTrue: [
+				  {
+					  self class multiHeaderTraceIdHeaderName.
+					  self class multiHeaderSpanIdHeaderName.
+					  self class multiHeaderSampledHeaderName.
+					  self class debugHeaderName } ]
+		  ifFalse: [ { self class b3HeaderName } ]
 ]
 
 { #category : 'private' }
@@ -164,15 +143,17 @@ OTB3TextMapPropagator >> headerStringFrom: anObject [
 	| firstValue normalized |
 	anObject ifNil: [ ^ nil ].
 	(anObject isString or: [ anObject isSymbol ]) ifTrue: [
-		normalized := anObject asString trimBoth.
-		^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ] ].
+			normalized := anObject asString trimBoth.
+			^ normalized isEmpty
+				  ifTrue: [ nil ]
+				  ifFalse: [ normalized ] ].
 	anObject isCollection ifTrue: [
-		firstValue := anObject
-			detect: [ :each | each isNotNil ]
-			ifNone: [ nil ].
-		^ self headerStringFrom: firstValue ].
+			firstValue := anObject detect: [ :each | each isNotNil ] ifNone: [ nil ].
+			^ self headerStringFrom: firstValue ].
 	normalized := anObject asString trimBoth.
-	^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ]
+	^ normalized isEmpty
+		  ifTrue: [ nil ]
+		  ifFalse: [ normalized ]
 ]
 
 { #category : 'private' }
@@ -205,8 +186,18 @@ OTB3TextMapPropagator >> inject: aContext into: aCarrier setter: aSetter [
 	spanContext := span spanContext.
 	spanContext isValid ifFalse: [ ^ self ].
 	injectMultiHeaders
-		ifTrue: [ self injectMultiHeadersFrom: context spanContext: spanContext into: aCarrier setter: aSetter ]
-		ifFalse: [ self injectSingleHeaderFrom: context spanContext: spanContext into: aCarrier setter: aSetter ].
+		ifTrue: [
+				self
+					injectMultiHeadersFrom: context
+					spanContext: spanContext
+					into: aCarrier
+					setter: aSetter ]
+		ifFalse: [
+				self
+					injectSingleHeaderFrom: context
+					spanContext: spanContext
+					into: aCarrier
+					setter: aSetter ].
 	^ self
 ]
 
@@ -220,25 +211,14 @@ OTB3TextMapPropagator >> injectMultiHeaders [
 { #category : 'private' }
 OTB3TextMapPropagator >> injectMultiHeadersFrom: aContext spanContext: aSpanContext into: aCarrier setter: aSetter [
 
-	aSetter
-		setIn: aCarrier
-		key: self class multiHeaderTraceIdHeaderName
-		value: aSpanContext traceId.
-	aSetter
-		setIn: aCarrier
-		key: self class multiHeaderSpanIdHeaderName
-		value: aSpanContext spanId.
-	(aContext propertyAt: self class debugPropertyKey ifAbsent: [ false ])
-		ifTrue: [
-			aSetter
-				setIn: aCarrier
-				key: self class debugHeaderName
-				value: '1'.
+	aSetter setIn: aCarrier key: self class multiHeaderTraceIdHeaderName value: aSpanContext traceId.
+	aSetter setIn: aCarrier key: self class multiHeaderSpanIdHeaderName value: aSpanContext spanId.
+	(aContext propertyAt: self class debugPropertyKey ifAbsent: [ false ]) ifTrue: [
+			aSetter setIn: aCarrier key: self class debugHeaderName value: '1'.
 			^ self ].
-	aSetter
-		setIn: aCarrier
-		key: self class multiHeaderSampledHeaderName
-		value: (aSpanContext isSampled ifTrue: [ '1' ] ifFalse: [ '0' ]).
+	aSetter setIn: aCarrier key: self class multiHeaderSampledHeaderName value: (aSpanContext isSampled
+			 ifTrue: [ '1' ]
+			 ifFalse: [ '0' ]).
 	^ self
 ]
 
@@ -254,16 +234,13 @@ OTB3TextMapPropagator >> injectSingleHeaderFrom: aContext spanContext: aSpanCont
 
 	| value |
 	value := String streamContents: [ :stream |
-		stream
-			nextPutAll: aSpanContext traceId;
-			nextPut: $-;
-			nextPutAll: aSpanContext spanId;
-			nextPut: $-;
-			nextPutAll: (self samplingStateFor: aSpanContext in: aContext) ].
-	aSetter
-		setIn: aCarrier
-		key: self class b3HeaderName
-		value: value.
+			         stream
+				         nextPutAll: aSpanContext traceId;
+				         nextPut: $-;
+				         nextPutAll: aSpanContext spanId;
+				         nextPut: $-;
+				         nextPutAll: (self samplingStateFor: aSpanContext in: aContext) ].
+	aSetter setIn: aCarrier key: self class b3HeaderName value: value.
 	^ self
 ]
 
@@ -278,8 +255,7 @@ OTB3TextMapPropagator >> isHexString: aString size: anInteger [
 
 	aString ifNil: [ ^ false ].
 	aString size = anInteger ifFalse: [ ^ false ].
-	^ aString allSatisfy: [ :each |
-		each isDigit or: [ 'abcdefABCDEF' includes: each ] ]
+	^ aString allSatisfy: [ :each | each isDigit or: [ 'abcdefABCDEF' includes: each ] ]
 ]
 
 { #category : 'private' }
@@ -303,7 +279,7 @@ OTB3TextMapPropagator >> normalizedTraceIdFromB3: aString [
 
 	| normalized |
 	normalized := aString ifNil: [ '' ] ifNotNil: [ aString trimBoth asLowercase ].
-	normalized size = 16 ifTrue: [ ^ '0000000000000000', normalized ].
+	normalized size = 16 ifTrue: [ ^ '0000000000000000' , normalized ].
 	^ normalized
 ]
 
@@ -311,18 +287,20 @@ OTB3TextMapPropagator >> normalizedTraceIdFromB3: aString [
 OTB3TextMapPropagator >> samplingStateFor: aSpanContext in: aContext [
 
 	(aContext propertyAt: self class debugPropertyKey ifAbsent: [ false ]) ifTrue: [ ^ 'd' ].
-	^ aSpanContext isSampled ifTrue: [ '1' ] ifFalse: [ '0' ]
+	^ aSpanContext isSampled
+		  ifTrue: [ '1' ]
+		  ifFalse: [ '0' ]
 ]
 
 { #category : 'private' }
 OTB3TextMapPropagator >> spanContextForTraceId: aTraceId spanId: aSpanId traceFlags: someTraceFlags [
 
 	^ OTSpanContext
-		traceId: (self normalizedTraceIdFromB3: aTraceId)
-		spanId: aSpanId trimBoth asLowercase
-		traceFlags: someTraceFlags
-		traceState: nil
-		remote: true
+		  traceId: (self normalizedTraceIdFromB3: aTraceId)
+		  spanId: aSpanId trimBoth asLowercase
+		  traceFlags: someTraceFlags
+		  traceState: nil
+		  remote: true
 ]
 
 { #category : 'private' }

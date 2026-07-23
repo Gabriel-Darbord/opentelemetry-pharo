@@ -35,7 +35,5 @@ OTProcessResourceDetector >> detectResource [
 		at: 'process.runtime.name' put: OTTracerProvider runtimeName;
 		at: 'process.runtime.version' put: OTTracerProvider runtimeVersion;
 		at: 'process.runtime.description' put: OTTracerProvider runtimeDescription.
-	^ OTResource
-		attributes: attributes
-		schemaUrl: OTTracerProvider semanticConventionsSchemaUrl
+	^ OTResource attributes: attributes schemaUrl: OTTracerProvider semanticConventionsSchemaUrl
 ]

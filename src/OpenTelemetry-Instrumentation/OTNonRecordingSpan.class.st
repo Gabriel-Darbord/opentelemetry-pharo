@@ -22,10 +22,10 @@ OTNonRecordingSpan class >> new [
 OTNonRecordingSpan class >> spanContext: aSpanContext context: aContext parent: aSpan instrumentationName: aString [
 
 	^ self
-		spanContext: aSpanContext
-		context: aContext
-		parent: aSpan
-		instrumentationScope: (OTInstrumentationScope named: aString)
+		  spanContext: aSpanContext
+		  context: aContext
+		  parent: aSpan
+		  instrumentationScope: (OTInstrumentationScope named: aString)
 ]
 
 { #category : 'instance creation' }

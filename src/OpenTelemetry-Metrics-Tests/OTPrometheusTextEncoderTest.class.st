@@ -16,8 +16,7 @@ OTPrometheusTextEncoderTest >> occurrencesOfSubstring: aSubstring in: aString [
 	index := 1.
 	[
 		index := aString findString: aSubstring startingAt: index.
-		index > 0 ]
-		whileTrue: [
+		index > 0 ] whileTrue: [
 			count := count + 1.
 			index := index + aSubstring size ].
 	^ count
@@ -38,20 +37,20 @@ OTPrometheusTextEncoderTest >> sampleExemplarValue: aNumber timestamp: aDateAndT
 { #category : 'private' }
 OTPrometheusTextEncoderTest >> sampleResource [
 
-	^ OTResource attributes:
-		{ 'service.name' -> 'demo'.
-		'service.namespace' -> 'shop'.
-		'service.instance.id' -> 'pharo-1' }
+	^ OTResource attributes: {
+			  ('service.name' -> 'demo').
+			  ('service.namespace' -> 'shop').
+			  ('service.instance.id' -> 'pharo-1') }
 ]
 
 { #category : 'private' }
 OTPrometheusTextEncoderTest >> sampleScope [
 
 	^ OTInstrumentationScope
-		named: 'instrumentation'
-		version: '1.0.0'
-		schemaUrl: 'https://scope.example/schema'
-		attributes: { 'scope.key' -> 'scope-value' }
+		  named: 'instrumentation'
+		  version: '1.0.0'
+		  schemaUrl: 'https://scope.example/schema'
+		  attributes: { ('scope.key' -> 'scope-value') }
 ]
 
 { #category : 'running' }
@@ -66,10 +65,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotAddsUnitSuffixAndUnitMetadataFo
 
 	| metric point snapshot text |
 	point := OTNumberDataPoint
-		attributes: { 'method' -> 'GET' }
-		value: 4
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		         attributes: { ('method' -> 'GET') }
+		         value: 4
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
 	metric := OTSumMetricData new.
 	metric
 		instrumentationScope: self sampleScope;
@@ -80,10 +79,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotAddsUnitSuffixAndUnitMetadataFo
 		monotonic: true;
 		temporality: #cumulative.
 	snapshot := OTMetricSnapshot
-		resource: self sampleResource
-		measurements: #()
-		metrics: { metric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
 	text := encoder encodeSnapshot: snapshot format: #openMetricsText100.
 	self assert: (text includesSubstring: '# TYPE response_size_bytes_total counter').
 	self assert: (text includesSubstring: '# UNIT response_size_bytes_total bytes').
@@ -158,7 +157,7 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsExponentialHistogramsFromT
 	| metric point snapshot text |
 	point := OTExponentialHistogramDataPoint new.
 	point
-		attributes: { 'method' -> 'GET' };
+		attributes: { ('method' -> 'GET') };
 		count: 3;
 		sum: 12;
 		scale: 0;
@@ -172,10 +171,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsExponentialHistogramsFromT
 		points: { point };
 		temporality: #cumulative.
 	snapshot := OTMetricSnapshot
-		resource: self sampleResource
-		measurements: #()
-		metrics: { metric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
 	text := encoder encodeSnapshot: snapshot.
 	self deny: (text includesSubstring: 'request_duration').
 	self assert: (text includesSubstring: 'target_info')
@@ -186,15 +185,15 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsMetricFamilyWhenPrometheus
 
 	| counterMetric gaugeMetric counterPoint gaugePoint snapshot text warnings |
 	counterPoint := OTNumberDataPoint
-		attributes: { 'source' -> 'counter' }
-		value: 4
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		                attributes: { ('source' -> 'counter') }
+		                value: 4
+		                startTimestamp: DateAndTime unixEpoch
+		                timestamp: DateAndTime unixEpoch.
 	gaugePoint := OTNumberDataPoint
-		attributes: { 'source' -> 'gauge' }
-		value: 2
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		              attributes: { ('source' -> 'gauge') }
+		              value: 2
+		              startTimestamp: DateAndTime unixEpoch
+		              timestamp: DateAndTime unixEpoch.
 	counterMetric := OTSumMetricData new.
 	counterMetric
 		instrumentationScope: self sampleScope;
@@ -212,10 +211,12 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsMetricFamilyWhenPrometheus
 		unit: '1';
 		points: { gaugePoint }.
 	snapshot := OTMetricSnapshot
-		resource: OTResource empty
-		measurements: #()
-		metrics: { counterMetric. gaugeMetric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: {
+				            counterMetric.
+				            gaugeMetric }
+		            collectedAt: DateAndTime unixEpoch.
 	warnings := OrderedCollection new.
 	encoder warningSink: [ :message | warnings add: message ].
 	text := encoder encodeSnapshot: snapshot format: #prometheusText100.
@@ -415,10 +416,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesInfoTypeHintAcrossFormats [
 
 	| metric point prometheusText openMetricsText snapshot |
 	point := OTNumberDataPoint
-		attributes: { 'version' -> '1.2.3' }
-		value: 42
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		         attributes: { ('version' -> '1.2.3') }
+		         value: 42
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
 	metric := OTGaugeMetricData new.
 	metric
 		instrumentationScope: self sampleScope;
@@ -426,12 +427,12 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesInfoTypeHintAcrossFormats [
 		description: 'Build metadata';
 		unit: 'ms';
 		points: { point };
-		metadata: { 'prometheus.type' -> 'info' }.
+		metadata: { ('prometheus.type' -> 'info') }.
 	snapshot := OTMetricSnapshot
-		resource: OTResource empty
-		measurements: #()
-		metrics: { metric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
 	prometheusText := encoder encodeSnapshot: snapshot format: #prometheusText100.
 	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
 	self assert: (prometheusText includesSubstring: '# TYPE build_info gauge').
@@ -446,10 +447,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesStateSetTypeHintAcrossForma
 
 	| metric point openMetricsText prometheusText snapshot |
 	point := OTNumberDataPoint
-		attributes: { 'connection_state' -> 'idle' }
-		value: 1
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		         attributes: { ('connection_state' -> 'idle') }
+		         value: 1
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
 	metric := OTGaugeMetricData new.
 	metric
 		instrumentationScope: self sampleScope;
@@ -457,12 +458,12 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesStateSetTypeHintAcrossForma
 		description: 'Connection state';
 		unit: '1';
 		points: { point };
-		metadata: { 'prometheus.type' -> 'stateset' }.
+		metadata: { ('prometheus.type' -> 'stateset') }.
 	snapshot := OTMetricSnapshot
-		resource: OTResource empty
-		measurements: #()
-		metrics: { metric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
 	prometheusText := encoder encodeSnapshot: snapshot format: #prometheusText100.
 	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
 	self assert: (prometheusText includesSubstring: '# TYPE connection_state gauge').
@@ -476,10 +477,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesUnknownTypeHintAcrossFormat
 
 	| metric openMetricsText point prometheusText snapshot |
 	point := OTNumberDataPoint
-		attributes: { 'method' -> 'GET' }
-		value: 7
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		         attributes: { ('method' -> 'GET') }
+		         value: 7
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
 	metric := OTGaugeMetricData new.
 	metric
 		instrumentationScope: self sampleScope;
@@ -487,12 +488,12 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesUnknownTypeHintAcrossFormat
 		description: 'Requests';
 		unit: '1';
 		points: { point };
-		metadata: { 'prometheus.type' -> 'unkown' }.
+		metadata: { ('prometheus.type' -> 'unkown') }.
 	snapshot := OTMetricSnapshot
-		resource: OTResource empty
-		measurements: #()
-		metrics: { metric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
 	prometheusText := encoder encodeSnapshot: snapshot format: #prometheusText100.
 	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
 	self assert: (prometheusText includesSubstring: '# TYPE requests untyped').
@@ -505,10 +506,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesCountersScopeLabelsAndTar
 
 	| metric point snapshot text |
 	point := OTNumberDataPoint
-		attributes: { 'http.method' -> 'GET' }
-		value: 4
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		         attributes: { ('http.method' -> 'GET') }
+		         value: 4
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
 	metric := OTSumMetricData new.
 	metric
 		instrumentationScope: self sampleScope;
@@ -519,10 +520,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesCountersScopeLabelsAndTar
 		monotonic: true;
 		temporality: #cumulative.
 	snapshot := OTMetricSnapshot
-		resource: self sampleResource
-		measurements: #()
-		metrics: { metric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
 	text := encoder encodeSnapshot: snapshot.
 	self assert: (text includesSubstring: '# TYPE http_requests_total counter').
 	self assert: (text includesSubstring: 'http_requests_total{').
@@ -581,15 +582,15 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesSingleHelpLineWhenDescrip
 
 	| firstMetric secondMetric firstPoint secondPoint snapshot text warnings |
 	firstPoint := OTNumberDataPoint
-		attributes: { 'source' -> 'one' }
-		value: 1
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		              attributes: { ('source' -> 'one') }
+		              value: 1
+		              startTimestamp: DateAndTime unixEpoch
+		              timestamp: DateAndTime unixEpoch.
 	secondPoint := OTNumberDataPoint
-		attributes: { 'source' -> 'two' }
-		value: 2
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		               attributes: { ('source' -> 'two') }
+		               value: 2
+		               startTimestamp: DateAndTime unixEpoch
+		               timestamp: DateAndTime unixEpoch.
 	firstMetric := OTSumMetricData new.
 	firstMetric
 		instrumentationScope: self sampleScope;
@@ -609,16 +610,16 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesSingleHelpLineWhenDescrip
 		monotonic: true;
 		temporality: #cumulative.
 	snapshot := OTMetricSnapshot
-		resource: OTResource empty
-		measurements: #()
-		metrics: { firstMetric. secondMetric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: {
+				            firstMetric.
+				            secondMetric }
+		            collectedAt: DateAndTime unixEpoch.
 	warnings := OrderedCollection new.
 	encoder warningSink: [ :message | warnings add: message ].
 	text := encoder encodeSnapshot: snapshot format: #prometheusText100.
-	self
-		assert: (self occurrencesOfSubstring: '# HELP requests_total ' in: text)
-		equals: 1.
+	self assert: (self occurrencesOfSubstring: '# HELP requests_total ' in: text) equals: 1.
 	self assert: (text includesSubstring: 'source="one"').
 	self assert: (text includesSubstring: 'source="two"').
 	self assert: warnings size equals: 1.
@@ -630,14 +631,14 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesSummaryQuantilesCountAndS
 
 	| metric point snapshot text |
 	point := OTSummaryDataPoint
-		attributes: { 'http.method' -> 'GET' }
-		count: 2
-		sum: 3.0
-		quantileValues:
-			{ (OTSummaryQuantileValue quantile: 0.5 value: 1.5).
-			(OTSummaryQuantileValue quantile: 0.9 value: 2.5) }
-		startTimestamp: DateAndTime unixEpoch
-		timestamp: DateAndTime unixEpoch.
+		         attributes: { ('http.method' -> 'GET') }
+		         count: 2
+		         sum: 3.0
+		         quantileValues: {
+				         (OTSummaryQuantileValue quantile: 0.5 value: 1.5).
+				         (OTSummaryQuantileValue quantile: 0.9 value: 2.5) }
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
 	metric := OTSummaryMetricData new.
 	metric
 		instrumentationScope: self sampleScope;
@@ -646,10 +647,10 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesSummaryQuantilesCountAndS
 		unit: 'ms';
 		points: { point }.
 	snapshot := OTMetricSnapshot
-		resource: OTResource empty
-		measurements: #()
-		metrics: { metric }
-		collectedAt: DateAndTime unixEpoch.
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
 	text := encoder encodeSnapshot: snapshot format: #openMetricsText100.
 	self assert: (text includesSubstring: '# TYPE request_duration_milliseconds summary').
 	self assert: (text includesSubstring: '# UNIT request_duration_milliseconds milliseconds').

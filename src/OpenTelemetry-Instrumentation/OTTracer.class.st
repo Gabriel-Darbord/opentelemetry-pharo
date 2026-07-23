@@ -17,9 +17,7 @@ Class {
 { #category : 'instance creation' }
 OTTracer class >> forProvider: aTracerProvider instrumentationName: aString [
 
-	^ self
-		forProvider: aTracerProvider
-		instrumentationScope: (OTInstrumentationScope named: aString)
+	^ self forProvider: aTracerProvider instrumentationScope: (OTInstrumentationScope named: aString)
 ]
 
 { #category : 'instance creation' }

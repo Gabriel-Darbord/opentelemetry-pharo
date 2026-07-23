@@ -13,29 +13,27 @@ Class {
 OTAlignedHistogramBucketMetricExemplarReservoir class >> boundaries: aCollection [
 
 	^ self new
-		boundaries: aCollection;
-		yourself
+		  boundaries: aCollection;
+		  yourself
 ]
 
 { #category : 'accessing' }
 OTAlignedHistogramBucketMetricExemplarReservoir >> boundaries [
 
-	^ boundaries ifNil: [ #() ]
+	^ boundaries ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTAlignedHistogramBucketMetricExemplarReservoir >> boundaries: aCollection [
 
-	boundaries := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ].
+	boundaries := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ].
 	measurementsByBucket := Array new: self boundaries size + 1 withAll: nil
 ]
 
 { #category : 'private' }
 OTAlignedHistogramBucketMetricExemplarReservoir >> bucketIndexForValue: aNumber [
 
-	^ self boundaries
-		detectIndex: [ :boundary | aNumber <= boundary ]
-		ifNone: [ self boundaries size + 1 ]
+	^ self boundaries detectIndex: [ :boundary | aNumber <= boundary ] ifNone: [ self boundaries size + 1 ]
 ]
 
 { #category : 'collecting' }
@@ -43,9 +41,8 @@ OTAlignedHistogramBucketMetricExemplarReservoir >> collectForPointAttributes: aC
 
 	| exemplars |
 	exemplars := self measurementsByBucket
-		select: [ :each | each notNil ]
-		thenCollect: [ :each |
-			OTMetricExemplar measurement: each pointAttributes: aCollection ].
+		             select: [ :each | each notNil ]
+		             thenCollect: [ :each | OTMetricExemplar measurement: each pointAttributes: aCollection ].
 	measurementsByBucket := Array new: self boundaries size + 1 withAll: nil.
 	^ exemplars asArray
 ]
@@ -54,14 +51,13 @@ OTAlignedHistogramBucketMetricExemplarReservoir >> collectForPointAttributes: aC
 OTAlignedHistogramBucketMetricExemplarReservoir >> initialize [
 
 	super initialize.
-	self boundaries: #()
+	self boundaries: #(  )
 ]
 
 { #category : 'accessing' }
 OTAlignedHistogramBucketMetricExemplarReservoir >> measurementsByBucket [
 
-	^ measurementsByBucket
-		ifNil: [ measurementsByBucket := Array new: self boundaries size + 1 withAll: nil ]
+	^ measurementsByBucket ifNil: [ measurementsByBucket := Array new: self boundaries size + 1 withAll: nil ]
 ]
 
 { #category : 'offering' }

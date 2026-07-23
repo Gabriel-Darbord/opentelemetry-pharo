@@ -37,14 +37,13 @@ OTOtlpJsonLineSpanExporterTest >> setUp [
 
 	super setUp.
 	exporter := OTRecordingOtlpJsonLineSpanExporter new.
-	outputFile := FileLocator temp / ('otlp-json-lines-', UUID new asString36, '.jsonl')
+	outputFile := FileLocator temp / ('otlp-json-lines-' , UUID new asString36 , '.jsonl')
 ]
 
 { #category : 'running' }
 OTOtlpJsonLineSpanExporterTest >> tearDown [
 
-	[ outputFile ifNotNil: [ outputFile ensureDelete ] ]
-		ensure: [ super tearDown ]
+	[ outputFile ifNotNil: [ outputFile ensureDelete ] ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }

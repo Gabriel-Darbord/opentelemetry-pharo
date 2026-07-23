@@ -21,6 +21,8 @@ OTMetaLinkInstrumentation class >> isAbstract [
 OTMetaLinkInstrumentation class >> onMethodEnter: event [
 	"This method is executed BEFORE the instrumented method.
 	The event contains the RFMethodOperation plus the data requested in #configure:."
+
+	
 ]
 
 { #category : 'evaluating' }
@@ -28,6 +30,8 @@ OTMetaLinkInstrumentation class >> onMethodExit: event withValue: returnValue [
 	"This method is executed AFTER the instrumented method.
 	The first argument contains the RFMethodOperation plus the data requested in #configure:.
 	The second contains the return value of the method."
+
+	
 ]
 
 { #category : 'private' }
@@ -40,10 +44,9 @@ OTMetaLinkInstrumentation class >> run: arguments [
 	sampler ifNotNil: [ sampler shouldSample ifFalse: [ ^ arguments first value ] ].
 	self onMethodEnter: arguments.
 	^ [
-		[ returnValue := arguments first value ]
-			on: Exception
-			do: [ :e |
-				OTSpan recordException: e.
-				e pass ] ]
-		ensure: [ self onMethodExit: arguments withValue: returnValue ]
+		  [ returnValue := arguments first value ]
+			  on: Exception
+			  do: [ :e |
+					  OTSpan recordException: e.
+					  e pass ] ] ensure: [ self onMethodExit: arguments withValue: returnValue ]
 ]

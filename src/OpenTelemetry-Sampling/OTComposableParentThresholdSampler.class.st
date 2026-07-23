@@ -11,7 +11,7 @@ Class {
 { #category : 'accessing' }
 OTComposableParentThresholdSampler >> description [
 
-	^ 'ComposableParentThreshold{', rootSampler description, '}'
+	^ 'ComposableParentThreshold{' , rootSampler description , '}'
 ]
 
 { #category : 'private' }
@@ -32,10 +32,9 @@ OTComposableParentThresholdSampler >> isConsistentThreshold: aThreshold forParen
 
 	| sampled |
 	sampled := OTConsistentProbability
-		sampledWithRandomness: (OTConsistentProbability
-				randomnessValueFromTraceId: aSpanContext traceId
-				traceState: aTraceState)
-		threshold: aThreshold.
+		           sampledWithRandomness:
+		           (OTConsistentProbability randomnessValueFromTraceId: aSpanContext traceId traceState: aTraceState)
+		           threshold: aThreshold.
 	^ sampled = aSpanContext isSampled
 ]
 

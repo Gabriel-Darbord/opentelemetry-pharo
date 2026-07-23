@@ -20,16 +20,16 @@ OTSpanEvent class >> fromSton: stonReader [
 	| representation |
 	representation := stonReader parseMap.
 	^ self
-		named: (representation at: #name ifAbsent: [ '' ])
-		attributes: (representation at: #attributes ifAbsent: [ #() ])
-		timestamp: (representation at: #timestamp ifAbsent: [ DateAndTime now ])
-		droppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ 0 ])
+		  named: (representation at: #name ifAbsent: [ '' ])
+		  attributes: (representation at: #attributes ifAbsent: [ #(  ) ])
+		  timestamp: (representation at: #timestamp ifAbsent: [ DateAndTime now ])
+		  droppedAttributesCount: (representation at: #droppedAttributesCount ifAbsent: [ 0 ])
 ]
 
 { #category : 'instance creation' }
 OTSpanEvent class >> named: aString [
 
-	^ self named: aString attributes: #() timestamp: DateAndTime now
+	^ self named: aString attributes: #(  ) timestamp: DateAndTime now
 ]
 
 { #category : 'instance creation' }
@@ -90,10 +90,9 @@ OTSpanEvent >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class = self class ifFalse: [ ^ false ].
-	^ self name = anObject name
-		and: [ self timestamp = anObject timestamp
-		and: [ self attributes = anObject attributes
-		and: [ self droppedAttributesCount = anObject droppedAttributesCount ] ] ]
+	^ self name = anObject name and: [
+			  self timestamp = anObject timestamp and: [
+				  self attributes = anObject attributes and: [ self droppedAttributesCount = anObject droppedAttributesCount ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -129,7 +128,11 @@ OTSpanEvent >> droppedAttributesCount [
 { #category : 'comparing' }
 OTSpanEvent >> hash [
 
-	^ { self name. self timestamp. self attributes. self droppedAttributesCount } hash
+	^ {
+		  self name.
+		  self timestamp.
+		  self attributes.
+		  self droppedAttributesCount } hash
 ]
 
 { #category : 'accessing' }
@@ -174,10 +177,11 @@ OTSpanEvent >> restoreTimestamp: aDateAndTime [
 OTSpanEvent >> stonOn: stonWriter [
 
 	stonWriter writeObject: self streamMap: [ :map |
-		map at: #name put: self name; at: #timestamp put: self timestamp.
-		self attributes ifNotEmpty: [ map at: #attributes put: self attributes ].
-		self droppedAttributesCount > 0 ifTrue: [
-			map at: #droppedAttributesCount put: self droppedAttributesCount ] ]
+			map
+				at: #name put: self name;
+				at: #timestamp put: self timestamp.
+			self attributes ifNotEmpty: [ map at: #attributes put: self attributes ].
+			self droppedAttributesCount > 0 ifTrue: [ map at: #droppedAttributesCount put: self droppedAttributesCount ] ]
 ]
 
 { #category : 'accessing' }
@@ -192,8 +196,8 @@ OTSpanEvent >> withAttributeCountLimit: aCountLimit valueLengthLimit: aLengthLim
 	| result |
 	result := OTAttributeNormalizer normalizeAttributes: self attributes countLimit: aCountLimit valueLengthLimit: aLengthLimit.
 	^ self class
-		named: self name
-		attributes: result first
-		timestamp: self timestamp
-		droppedAttributesCount: self droppedAttributesCount + result second
+		  named: self name
+		  attributes: result first
+		  timestamp: self timestamp
+		  droppedAttributesCount: self droppedAttributesCount + result second
 ]

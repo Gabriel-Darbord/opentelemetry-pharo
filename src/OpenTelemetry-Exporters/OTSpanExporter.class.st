@@ -24,12 +24,12 @@ OTSpanExporter class >> beCurrent [
 	self isAbstract
 		ifTrue: [ Error signal: self name , ' is abstract' ]
 		ifFalse: [
-			^ self == Current class
-				  ifTrue: [ Current ]
-				  ifFalse: [
-					  Current := self new.
-					  OTTracerProvider invalidateCurrent.
-					  Current ] ]
+				^ self == Current class
+					  ifTrue: [ Current ]
+					  ifFalse: [
+							  Current := self new.
+							  OTTracerProvider invalidateCurrent.
+							  Current ] ]
 ]
 
 { #category : 'instance creation' }
@@ -49,12 +49,12 @@ OTSpanExporter class >> configuredOtlpExporter [
 
 	| configuration |
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES'.
-	configuration protocol = OTOtlpGrpcSpanExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpGrpcSpanExporter configuration: configuration ].
-	configuration protocol = OTOtlpHttpProtobufSpanExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpHttpProtobufSpanExporter configuration: configuration ].
-	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol
-		ifTrue: [ ^ OTOtlpHttpJsonSpanExporter configuration: configuration ].
+	configuration protocol = OTOtlpGrpcSpanExporter supportedProtocol ifTrue: [
+		^ OTOtlpGrpcSpanExporter configuration: configuration ].
+	configuration protocol = OTOtlpHttpProtobufSpanExporter supportedProtocol ifTrue: [
+		^ OTOtlpHttpProtobufSpanExporter configuration: configuration ].
+	configuration protocol = OTOtlpHttpJsonSpanExporter supportedProtocol ifTrue: [
+		^ OTOtlpHttpJsonSpanExporter configuration: configuration ].
 	self noteUnsupportedOtlpProtocol: configuration protocol.
 	configuration protocol: OTOtlpExporterConfiguration defaultProtocol.
 	^ OTOtlpHttpProtobufSpanExporter configuration: configuration
@@ -169,13 +169,13 @@ OTSpanExporter class >> exporterNamesFromConfigurationValue: aString [
 	names := OrderedCollection new.
 	seen := Set new.
 	(aString substrings: ',') do: [ :each |
-		| exporterName normalizedName |
-		exporterName := each trimBoth.
-		exporterName ifNotEmpty: [
-			normalizedName := exporterName asLowercase.
-			(seen includes: normalizedName) ifFalse: [
-				seen add: normalizedName.
-				names add: exporterName ] ] ].
+			| exporterName normalizedName |
+			exporterName := each trimBoth.
+			exporterName ifNotEmpty: [
+					normalizedName := exporterName asLowercase.
+					(seen includes: normalizedName) ifFalse: [
+							seen add: normalizedName.
+							names add: exporterName ] ] ].
 	^ names asArray
 ]
 
@@ -184,17 +184,16 @@ OTSpanExporter class >> exportersFromConfigurationValue: aString [
 
 	| exporterNames exporters |
 	exporterNames := self exporterNamesFromConfigurationValue: aString.
-	(exporterNames size > 1 and: [
-		 exporterNames anySatisfy: [ :each | each asLowercase = 'none' ] ]) ifTrue: [
-		self noteTraceExporterNoneConflictIn: aString.
-		^ #() ].
+	(exporterNames size > 1 and: [ exporterNames anySatisfy: [ :each | each asLowercase = 'none' ] ]) ifTrue: [
+			self noteTraceExporterNoneConflictIn: aString.
+			^ #(  ) ].
 	exporters := OrderedCollection new.
 	exporterNames do: [ :each |
-		| exporter |
-		exporter := self exporterFromEnvironmentName: each.
-		exporter ifNotNil: [
-			exporter class == OTNoopSpanExporter ifTrue: [ ^ { exporter } ].
-			exporters add: exporter ] ].
+			| exporter |
+			exporter := self exporterFromEnvironmentName: each.
+			exporter ifNotNil: [
+					exporter class == OTNoopSpanExporter ifTrue: [ ^ { exporter } ].
+					exporters add: exporter ] ].
 	^ exporters asArray
 ]
 
@@ -264,24 +263,20 @@ OTSpanExporter class >> noteSpanExporter: anExporter failedDuring: anOperationNa
 OTSpanExporter class >> noteTraceExporterNoneConflictIn: aString [
 
 	self warningSink value:
-		'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: '
-			, aString printString
+		'OpenTelemetry trace exporter configuration mixes ''none'' with other exporters and has been ignored: ' , aString printString
 ]
 
 { #category : 'private - logging' }
 OTSpanExporter class >> noteUnknownTraceExporterName: aString [
 
-	self warningSink value:
-		'OpenTelemetry trace exporter name was unrecognized and has been ignored: '
-			, aString printString
+	self warningSink value: 'OpenTelemetry trace exporter name was unrecognized and has been ignored: ' , aString printString
 ]
 
 { #category : 'private - logging' }
 OTSpanExporter class >> noteUnsupportedOtlpProtocol: aString [
 
 	self warningSink value:
-		'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: '
-			, aString printString
+		'OpenTelemetry OTLP traces exporter protocol is recognized but not supported by this SDK yet: ' , aString printString
 ]
 
 { #category : 'private' }
@@ -300,8 +295,8 @@ OTSpanExporter class >> readConfiguration [
 	| exporters |
 	exporters := self configuredExporters.
 	^ exporters size = 1
-		ifTrue: [ exporters first ]
-		ifFalse: [ OTCompositeSpanExporter withAll: exporters ]
+		  ifTrue: [ exporters first ]
+		  ifFalse: [ OTCompositeSpanExporter withAll: exporters ]
 ]
 
 { #category : 'class initialization' }
@@ -320,10 +315,7 @@ OTSpanExporter class >> reset [
 { #category : 'private - lifecycle' }
 OTSpanExporter class >> resetLifecycleState [
 
-	OTClassStateStore
-		removeValueAt: #otLifecycleStateByExporter
-		forClass: self
-		ifAbsent: [  ]
+	OTClassStateStore removeValueAt: #otLifecycleStateByExporter forClass: self ifAbsent: [ ]
 ]
 
 { #category : 'exporting' }
@@ -360,7 +352,9 @@ OTSpanExporter class >> strictPositiveIntegerFrom: aString [
 	| stream value |
 	stream := aString trimBoth readStream.
 	stream atEnd ifTrue: [ ^ nil ].
-	value := [ Integer readFrom: stream ] on: Error do: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
 	stream atEnd ifFalse: [ ^ nil ].
 	value > 0 ifFalse: [ ^ nil ].
 	^ value
@@ -369,26 +363,15 @@ OTSpanExporter class >> strictPositiveIntegerFrom: aString [
 { #category : 'private - logging' }
 OTSpanExporter class >> warningSink [
 
-	^ OTClassStateStore
-		valueAt: #otWarningSink
-		forClass: self
-		ifAbsent: [ self defaultWarningSink ]
+	^ OTClassStateStore valueAt: #otWarningSink forClass: self ifAbsent: [ self defaultWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTSpanExporter class >> warningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otWarningSink forClass: self put: aBlock ].
 	^ self warningSink
 ]
 

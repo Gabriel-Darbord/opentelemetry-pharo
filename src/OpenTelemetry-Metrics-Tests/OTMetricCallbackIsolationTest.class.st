@@ -11,8 +11,7 @@ OTMetricCallbackIsolationTest >> tearDown [
 	[
 		OTMetricReader callbackWarningSink: nil.
 		OTMeterProvider current: nil.
-		OTMeterProvider reset ]
-		ensure: [ super tearDown ]
+		OTMeterProvider reset ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -27,8 +26,8 @@ OTMetricCallbackIsolationTest >> testReaderSkipsFailedAsynchronousCallbacksAndCo
 	(provider meterNamed: 'demo.metrics')
 		observableGaugeNamed: 'runtime.memory'
 		callbacks: {
-			[ Error signal: 'boom' ].
-			[ :observer | observer observe: 42 attributes: { 'state' -> 'used' } ] }
+				[ Error signal: 'boom' ].
+				[ :observer | observer observe: 42 attributes: { ('state' -> 'used') } ] }
 		unit: 'By'
 		description: 'Runtime memory'
 		advice: Dictionary new.
@@ -51,10 +50,9 @@ OTMetricCallbackIsolationTest >> testReaderSkipsTimedOutAsynchronousCallbacks [
 	provider addMetricReader: reader.
 	(provider meterNamed: 'demo.metrics')
 		observableGaugeNamed: 'runtime.memory'
-		callbacks: {
-			[ :observer |
-			(Delay forMilliseconds: 50) wait.
-			observer observe: 42 attributes: { 'state' -> 'used' } ] }
+		callbacks: { [ :observer |
+				(Delay forMilliseconds: 50) wait.
+				observer observe: 42 attributes: { ('state' -> 'used') } ] }
 		unit: 'By'
 		description: 'Runtime memory'
 		advice: Dictionary new.

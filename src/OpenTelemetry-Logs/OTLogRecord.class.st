@@ -26,17 +26,17 @@ Class {
 	#package : 'OpenTelemetry-Logs'
 }
 
+{ #category : 'accessing' }
+OTLogRecord >> attributeCountLimit [
+
+	^ self limits attributeCountLimit
+]
+
 { #category : 'private' }
 OTLogRecord >> attributeCountWithinLimit: aLimit currentSize: aCurrentSize [
 
 	aLimit ifNil: [ ^ true ].
 	^ aCurrentSize < aLimit
-]
-
-{ #category : 'accessing' }
-OTLogRecord >> attributeCountLimit [
-
-	^ self limits attributeCountLimit
 ]
 
 { #category : 'accessing' }
@@ -56,12 +56,9 @@ OTLogRecord >> attributeNamed: aKey put: aValue [
 
 	| normalizedKey normalizedValue |
 	normalizedKey := OTAttributeNormalizer normalizeAttributeKey: aKey.
-	normalizedValue := OTAttributeNormalizer
-		normalizeAttributeValue: aValue
-		lengthLimit: self limits attributeValueLengthLimit.
-	((attributes includesKey: normalizedKey)
-		or: [ self attributeCountWithinLimit: self attributeCountLimit currentSize: attributes size ])
-		ifTrue: [
+	normalizedValue := OTAttributeNormalizer normalizeAttributeValue: aValue lengthLimit: self limits attributeValueLengthLimit.
+	((attributes includesKey: normalizedKey) or: [
+		 self attributeCountWithinLimit: self attributeCountLimit currentSize: attributes size ]) ifTrue: [
 			attributes at: normalizedKey put: normalizedValue.
 			^ normalizedValue ].
 	droppedAttributesCount := droppedAttributesCount + 1.
@@ -80,9 +77,9 @@ OTLogRecord >> attributes: aCollection [
 
 	| normalized |
 	normalized := OTAttributeNormalizer
-		normalizeAttributes: aCollection
-		countLimit: self attributeCountLimit
-		valueLengthLimit: self limits attributeValueLengthLimit.
+		              normalizeAttributes: aCollection
+		              countLimit: self attributeCountLimit
+		              valueLengthLimit: self limits attributeValueLengthLimit.
 	attributes := normalized first.
 	droppedAttributesCount := normalized second.
 	droppedAttributesCount > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
@@ -98,9 +95,7 @@ OTLogRecord >> body [
 { #category : 'accessing' }
 OTLogRecord >> body: anObject [
 
-	body := OTAttributeNormalizer
-		normalizeAttributeValue: anObject
-		lengthLimit: self limits attributeValueLengthLimit.
+	body := OTAttributeNormalizer normalizeAttributeValue: anObject lengthLimit: self limits attributeValueLengthLimit.
 	^ body
 ]
 
@@ -111,20 +106,20 @@ OTLogRecord >> context: anOTContext [
 	context := anOTContext ifNil: [ OpenTelemetry currentContext ].
 	span := context ifNotNil: [ context span ].
 	span ifNil: [
-		traceId := nil.
-		spanId := nil.
-		traceFlags := nil.
-		^ self ].
+			traceId := nil.
+			spanId := nil.
+			traceFlags := nil.
+			^ self ].
 	spanContext := span spanContext.
 	spanContext isValid
 		ifTrue: [
-			traceId := spanContext traceId.
-			spanId := spanContext spanId.
-			traceFlags := spanContext traceFlags ]
+				traceId := spanContext traceId.
+				spanId := spanContext spanId.
+				traceFlags := spanContext traceFlags ]
 		ifFalse: [
-			traceId := nil.
-			spanId := nil.
-			traceFlags := nil ].
+				traceId := nil.
+				spanId := nil.
+				traceFlags := nil ].
 	self
 ]
 
@@ -148,6 +143,20 @@ OTLogRecord >> eventName: aString [
 	^ eventName
 ]
 
+{ #category : 'initialization' }
+OTLogRecord >> initialize [
+
+	super initialize.
+	attributes := OrderedDictionary new.
+	droppedAttributesCount := 0.
+	severityNumber := OTSeverity undefined.
+	resource := OTResource empty.
+	instrumentationScope := OTInstrumentationScope named: ''.
+	limits := OTLogRecordLimits default.
+	warningSink := OTDiagnosticLogger defaultWarningSink.
+	warnedAboutDiscardedData := false
+]
+
 { #category : 'accessing' }
 OTLogRecord >> instrumentationScope [
 
@@ -157,9 +166,7 @@ OTLogRecord >> instrumentationScope [
 { #category : 'accessing' }
 OTLogRecord >> instrumentationScope: anInstrumentationScope [
 
-	instrumentationScope := anInstrumentationScope
-		ifNil: [ OTInstrumentationScope named: '' ]
-		ifNotNil: [ anInstrumentationScope ].
+	instrumentationScope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ anInstrumentationScope ].
 	^ instrumentationScope
 ]
 
@@ -175,28 +182,14 @@ OTLogRecord >> instrumentationVersion [
 	^ self instrumentationScope version
 ]
 
-{ #category : 'initialization' }
-OTLogRecord >> initialize [
-
-	super initialize.
-	attributes := OrderedDictionary new.
-	droppedAttributesCount := 0.
-	severityNumber := OTSeverity undefined.
-	resource := OTResource empty.
-	instrumentationScope := OTInstrumentationScope named: ''.
-	limits := OTLogRecordLimits default.
-	warningSink := OTDiagnosticLogger defaultWarningSink.
-	warnedAboutDiscardedData := false
-]
-
 { #category : 'private - logging' }
 OTLogRecord >> limitDiscardWarningMessage [
 
 	^ String streamContents: [ :stream |
-		stream
-			nextPutAll: 'OpenTelemetry discarded log record attributes due to configured log record limits on ';
-			nextPutAll: self printString;
-			nextPutAll: '. Further warnings for this log record are suppressed.' ]
+			  stream
+				  nextPutAll: 'OpenTelemetry discarded log record attributes due to configured log record limits on ';
+				  nextPutAll: self printString;
+				  nextPutAll: '. Further warnings for this log record are suppressed.' ]
 ]
 
 { #category : 'accessing' }
@@ -259,11 +252,10 @@ OTLogRecord >> printOn: aStream [
 	self severityText
 		ifNotNil: [ :value | aStream nextPutAll: value ]
 		ifNil: [
-			self severityNumber = OTSeverity undefined
-				ifFalse: [ aStream nextPutAll: (OTSeverity shortNameFor: self severityNumber) ] ].
+		self severityNumber = OTSeverity undefined ifFalse: [ aStream nextPutAll: (OTSeverity shortNameFor: self severityNumber) ] ].
 	self body ifNotNil: [
-		(aStream position > 11) ifTrue: [ aStream nextPutAll: ': ' ].
-		aStream nextPutAll: self body printString ].
+			aStream position > 11 ifTrue: [ aStream nextPutAll: ': ' ].
+			aStream nextPutAll: self body printString ].
 	aStream nextPut: $]
 ]
 
@@ -368,6 +360,15 @@ OTLogRecord >> traceId: aString [
 	^ traceId
 ]
 
+{ #category : 'private - logging' }
+OTLogRecord >> warnOnceAboutDiscardedData [
+
+	warnedAboutDiscardedData ifTrue: [ ^ self ].
+	warnedAboutDiscardedData := true.
+	self warningSink value: self limitDiscardWarningMessage.
+	self
+]
+
 { #category : 'accessing' }
 OTLogRecord >> warningSink [
 
@@ -379,13 +380,4 @@ OTLogRecord >> warningSink: aBlock [
 
 	warningSink := aBlock ifNil: [ OTDiagnosticLogger defaultWarningSink ] ifNotNil: [ aBlock ].
 	^ warningSink
-]
-
-{ #category : 'private - logging' }
-OTLogRecord >> warnOnceAboutDiscardedData [
-
-	warnedAboutDiscardedData ifTrue: [ ^ self ].
-	warnedAboutDiscardedData := true.
-	self warningSink value: self limitDiscardWarningMessage.
-	self
 ]

@@ -28,7 +28,7 @@ OTCompositeSampler >> delegate: aComposableSampler [
 { #category : 'accessing' }
 OTCompositeSampler >> description [
 
-	^ 'CompositeSampler{', delegate description, '}'
+	^ 'CompositeSampler{' , delegate description , '}'
 ]
 
 { #category : 'private' }
@@ -36,14 +36,11 @@ OTCompositeSampler >> finalizedTraceStateFrom: aTraceState sampled: aBoolean thr
 
 	| baseState |
 	baseState := OTTraceState from: aTraceState.
-	(baseState isNil and: [ aBoolean and: [ isReliable ] ]) ifTrue: [
-		baseState := OTTraceState empty ].
+	(baseState isNil and: [ aBoolean and: [ isReliable ] ]) ifTrue: [ baseState := OTTraceState empty ].
 	baseState ifNil: [ ^ nil ].
 	aBoolean ifFalse: [ ^ baseState withoutOtelValueAt: 'th' ].
 	isReliable ifFalse: [ ^ baseState withoutOtelValueAt: 'th' ].
-	^ baseState
-		withOtelValueAt: 'th'
-		put: (OTConsistentProbability thresholdStringFor: aThreshold)
+	^ baseState withOtelValueAt: 'th' put: (OTConsistentProbability thresholdStringFor: aThreshold)
 ]
 
 { #category : 'private' }

@@ -21,8 +21,8 @@ Class {
 OTOtlpHttpJsonSpanExporter class >> configuration: anOtlpConfiguration [
 
 	^ self new
-		configuration: anOtlpConfiguration;
-		yourself
+		  configuration: anOtlpConfiguration;
+		  yourself
 ]
 
 { #category : 'private - retry' }
@@ -70,26 +70,15 @@ OTOtlpHttpJsonSpanExporter class >> tlsEnvironmentLock [
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter class >> warningSink [
 
-	^ OTClassStateStore
-		valueAt: #otWarningSink
-		forClass: self
-		ifAbsent: [ self defaultWarningSink ]
+	^ OTClassStateStore valueAt: #otWarningSink forClass: self ifAbsent: [ self defaultWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter class >> warningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otWarningSink forClass: self put: aBlock ].
 	^ self warningSink
 ]
 
@@ -120,8 +109,7 @@ OTOtlpHttpJsonSpanExporter >> applyTlsCertificateName: aStringOrNil toHttpClient
 { #category : 'accessing' }
 OTOtlpHttpJsonSpanExporter >> configuration [
 
-	^ configuration ifNil: [
-		  configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES' ]
+	^ configuration ifNil: [ configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES' ]
 ]
 
 { #category : 'accessing' }
@@ -136,10 +124,7 @@ OTOtlpHttpJsonSpanExporter >> decodedResponseContentsFrom: aResponse [
 	| contents encoding |
 	contents := self responseContentsFrom: aResponse.
 	contents ifNil: [ ^ nil ].
-	encoding := self
-		responseHeaderAt: 'Content-Encoding'
-		in: aResponse
-		ifAbsent: [ 'identity' ].
+	encoding := self responseHeaderAt: 'Content-Encoding' in: aResponse ifAbsent: [ 'identity' ].
 	(encoding asString sameAs: 'gzip') ifFalse: [ ^ contents ].
 	^ (GZipReadStream on: contents readStream) upToEnd
 ]
@@ -161,8 +146,8 @@ OTOtlpHttpJsonSpanExporter >> entityForPayload: aString [
 
 	| entity |
 	entity := self configuration usesGzipCompression
-		ifTrue: [ ZnEntity bytes: (self gzipCompressedBytesFor: aString) ]
-		ifFalse: [ ZnEntity with: aString type: ZnMimeType applicationJson ].
+		          ifTrue: [ ZnEntity bytes: (self gzipCompressedBytesFor: aString) ]
+		          ifFalse: [ ZnEntity with: aString type: ZnMimeType applicationJson ].
 	entity contentType: ZnMimeType applicationJson.
 	^ entity
 ]
@@ -211,10 +196,10 @@ OTOtlpHttpJsonSpanExporter >> exportAttemptNumber: attemptNumber payloadString: 
 OTOtlpHttpJsonSpanExporter >> gzipCompressedBytesFor: aString [
 
 	^ ByteArray streamContents: [ :stream |
-		| zipper |
-		zipper := GZipWriteStream on: stream.
-		zipper nextPutAll: aString utf8Encoded.
-		zipper close ]
+			  | zipper |
+			  zipper := GZipWriteStream on: stream.
+			  zipper nextPutAll: aString utf8Encoded.
+			  zipper close ]
 ]
 
 { #category : 'private - success handling' }
@@ -222,10 +207,10 @@ OTOtlpHttpJsonSpanExporter >> handleSuccessResponse: aResponse [
 
 	| partialSuccess responseRepresentation |
 	responseRepresentation := [ self successfulResponseRepresentationFrom: aResponse ]
-		on: Error
-		do: [ :error |
-			self noteInvalidSuccessResponse: error.
-			^ false ].
+		                          on: Error
+		                          do: [ :error |
+				                          self noteInvalidSuccessResponse: error.
+				                          ^ false ].
 	partialSuccess := self partialSuccessFrom: responseRepresentation.
 	partialSuccess ifNil: [ ^ true ].
 	self notePartialSuccess: partialSuccess.
@@ -282,33 +267,27 @@ OTOtlpHttpJsonSpanExporter >> nonNegativeIntegerFrom: anObject default: aDefault
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteInvalidSuccessResponse: anError [
 
-	self warningSink value:
-		'OpenTelemetry OTLP trace export returned an invalid success response: '
-			, anError messageText
+	self warningSink value: 'OpenTelemetry OTLP trace export returned an invalid success response: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> notePartialSuccess: aDictionary [
 
-	self warningSink value:
-		'OpenTelemetry OTLP trace export reported partial success: '
-			, aDictionary printString
+	self warningSink value: 'OpenTelemetry OTLP trace export reported partial success: ' , aDictionary printString
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForError: anError [
 
 	self warningSink value:
-		'OpenTelemetry OTLP trace export exhausted retries after a retryable transport failure: '
-			, anError messageText
+		'OpenTelemetry OTLP trace export exhausted retries after a retryable transport failure: ' , anError messageText
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForResponse: aResponse [
 
 	self warningSink value:
-		'OpenTelemetry OTLP trace export exhausted retries after HTTP status '
-			, (self responseCodeFrom: aResponse) asString
+		'OpenTelemetry OTLP trace export exhausted retries after HTTP status ' , (self responseCodeFrom: aResponse) asString
 ]
 
 { #category : 'private - tls' }
@@ -330,14 +309,11 @@ OTOtlpHttpJsonSpanExporter >> parseRetryAfterMillisFrom: aValue [
 OTOtlpHttpJsonSpanExporter >> partialSuccessFrom: aDictionary [
 
 	| partialSuccess |
-	partialSuccess := aDictionary
-		at: 'partialSuccess'
-		ifAbsent: [ aDictionary at: 'partial_success' ifAbsent: [ nil ] ].
+	partialSuccess := aDictionary at: 'partialSuccess' ifAbsent: [ aDictionary at: 'partial_success' ifAbsent: [ nil ] ].
 	partialSuccess ifNil: [ ^ nil ].
-	((self rejectedSpanCountFromPartialSuccess: partialSuccess) <= 0
-		and: [ ((partialSuccess at: 'errorMessage' ifAbsent: [
-					  partialSuccess at: 'error_message' ifAbsent: [ '' ] ]) asString)
-				trimBoth isEmpty ]) ifTrue: [ ^ nil ].
+	((self rejectedSpanCountFromPartialSuccess: partialSuccess) <= 0 and: [
+		 (partialSuccess at: 'errorMessage' ifAbsent: [ partialSuccess at: 'error_message' ifAbsent: [ '' ] ]) asString trimBoth isEmpty ])
+		ifTrue: [ ^ nil ].
 	^ partialSuccess
 ]
 
@@ -360,18 +336,14 @@ OTOtlpHttpJsonSpanExporter >> platformSupportsPemFileBasedTlsOverrides [
 OTOtlpHttpJsonSpanExporter >> rejectedSpanCountFromPartialSuccess: aDictionary [
 
 	^ self
-		nonNegativeIntegerFrom:
-			(aDictionary
-				at: 'rejectedSpans'
-				ifAbsent: [ aDictionary at: 'rejected_spans' ifAbsent: [ 0 ] ])
-		default: 0
+		  nonNegativeIntegerFrom: (aDictionary at: 'rejectedSpans' ifAbsent: [ aDictionary at: 'rejected_spans' ifAbsent: [ 0 ] ])
+		  default: 0
 ]
 
 { #category : 'private - configuration' }
 OTOtlpHttpJsonSpanExporter >> removeRequestHeaderNamed: aString [
 
-	(self httpClient respondsTo: #headers) ifFalse: [ ^ self ].
-	self httpClient headers removeKey: aString ifAbsent: [  ]
+	self httpClient headers removeKey: aString ifAbsent: [ ]
 ]
 
 { #category : 'private - retry' }
@@ -383,40 +355,26 @@ OTOtlpHttpJsonSpanExporter >> responseCodeFrom: aResponse [
 { #category : 'private - decoding' }
 OTOtlpHttpJsonSpanExporter >> responseContentsFrom: aResponse [
 
-	(aResponse respondsTo: #responseContents) ifTrue: [ ^ aResponse responseContents ].
-	(aResponse respondsTo: #entity) ifTrue: [
-		| entity |
-		entity := aResponse entity.
-		entity ifNotNil: [ ^ entity contents ] ].
-	(aResponse respondsTo: #contents) ifTrue: [ ^ aResponse contents ].
-	^ nil
+	^ aResponse responseContents
 ]
 
 { #category : 'private - decoding' }
 OTOtlpHttpJsonSpanExporter >> responseHeaderAt: aString in: aResponse ifAbsent: aBlock [
 
-	(aResponse respondsTo: #responseHeaderAt:ifAbsent:) ifTrue: [
-		^ aResponse responseHeaderAt: aString ifAbsent: aBlock ].
-	(aResponse respondsTo: #headers) ifTrue: [
-		^ aResponse headers at: aString ifAbsent: aBlock ].
-	^ aBlock value
+	^ aResponse responseHeaderAt: aString ifAbsent: aBlock
 ]
 
 { #category : 'private - retry' }
 OTOtlpHttpJsonSpanExporter >> retryAfterMillisFromResponse: aResponse [
 
-	^ self
-		parseRetryAfterMillisFrom:
-			(self responseHeaderAt: 'Retry-After' in: aResponse ifAbsent: [ nil ])
+	^ self parseRetryAfterMillisFrom: (self responseHeaderAt: 'Retry-After' in: aResponse ifAbsent: [ nil ])
 ]
 
 { #category : 'private - retry' }
 OTOtlpHttpJsonSpanExporter >> retryDelayMillisForAttempt: attemptNumber response: aResponse [
 
 	| retryAfter baseDelay cappedDelay |
-	retryAfter := aResponse
-		ifNil: [ nil ]
-		ifNotNil: [ self retryAfterMillisFromResponse: aResponse ].
+	retryAfter := aResponse ifNil: [ nil ] ifNotNil: [ self retryAfterMillisFromResponse: aResponse ].
 	retryAfter ifNotNil: [ ^ retryAfter ].
 	baseDelay := self class defaultRetryBaseDelayMillis * (2 raisedTo: attemptNumber - 1).
 	cappedDelay := baseDelay min: self class defaultRetryMaxDelayMillis.
@@ -427,9 +385,10 @@ OTOtlpHttpJsonSpanExporter >> retryDelayMillisForAttempt: attemptNumber response
 OTOtlpHttpJsonSpanExporter >> retryJitterBlock [
 
 	^ retryJitterBlock ifNil: [
-		  retryJitterBlock := [ :delayMillis | | multiplier |
-			  multiplier := 0.8 + ((Random new next) * 0.4).
-			  ((delayMillis asFloat * multiplier) rounded max: 1) ] ]
+			  retryJitterBlock := [ :delayMillis |
+				                      | multiplier |
+				                      multiplier := 0.8 + (Random new next * 0.4).
+				                      (delayMillis asFloat * multiplier) rounded max: 1 ] ]
 ]
 
 { #category : 'private - retry' }
@@ -448,8 +407,7 @@ OTOtlpHttpJsonSpanExporter >> sleepForMilliseconds: anInteger [
 { #category : 'private - retry' }
 OTOtlpHttpJsonSpanExporter >> sleepStrategy [
 
-	^ sleepStrategy ifNil: [
-		  sleepStrategy := [ :delayMillis | (Delay forMilliseconds: delayMillis) wait ] ]
+	^ sleepStrategy ifNil: [ sleepStrategy := [ :delayMillis | (Delay forMilliseconds: delayMillis) wait ] ]
 ]
 
 { #category : 'private - retry' }

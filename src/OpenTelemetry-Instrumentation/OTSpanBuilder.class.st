@@ -48,32 +48,21 @@ OTSpanBuilder class >> noteInvalidParentContext: anObject [
 
 	self parentContextWarningSink value:
 		'OpenTelemetry span builder ignored an invalid parent context and used a root context instead: '
-			, (anObject ifNil: [ 'nil' ] ifNotNil: [ anObject printString ])
+		, (anObject ifNil: [ 'nil' ] ifNotNil: [ anObject printString ])
 ]
 
 { #category : 'private - logging' }
 OTSpanBuilder class >> parentContextWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otParentContextWarningSink
-		forClass: self
-		ifAbsent: [ self defaultParentContextWarningSink ]
+	^ OTClassStateStore valueAt: #otParentContextWarningSink forClass: self ifAbsent: [ self defaultParentContextWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTSpanBuilder class >> parentContextWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otParentContextWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otParentContextWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otParentContextWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otParentContextWarningSink forClass: self put: aBlock ].
 	^ self parentContextWarningSink
 ]
 

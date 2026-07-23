@@ -40,25 +40,13 @@ OTNumberDataPoint >> attributes: aCollection [
 { #category : 'accessing' }
 OTNumberDataPoint >> exemplars [
 
-	^ exemplars ifNil: [ #() ]
+	^ exemplars ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTNumberDataPoint >> exemplars: aCollection [
 
-	exemplars := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
-]
-
-{ #category : 'accessing' }
-OTNumberDataPoint >> value [
-
-	^ value
-]
-
-{ #category : 'accessing' }
-OTNumberDataPoint >> value: aNumber [
-
-	value := aNumber
+	exemplars := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
 ]
 
 { #category : 'accessing' }
@@ -83,4 +71,16 @@ OTNumberDataPoint >> timestamp [
 OTNumberDataPoint >> timestamp: aDateAndTime [
 
 	timestamp := aDateAndTime
+]
+
+{ #category : 'accessing' }
+OTNumberDataPoint >> value [
+
+	^ value
+]
+
+{ #category : 'accessing' }
+OTNumberDataPoint >> value: aNumber [
+
+	value := aNumber
 ]

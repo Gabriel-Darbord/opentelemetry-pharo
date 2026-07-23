@@ -11,7 +11,7 @@ Class {
 { #category : 'accessing' }
 OTComposableRuleBasedSampler >> description [
 
-	^ 'ComposableRuleBased{', rules size asString, ' rules}'
+	^ 'ComposableRuleBased{' , rules size asString , ' rules}'
 ]
 
 { #category : 'initialization' }
@@ -28,7 +28,12 @@ OTComposableRuleBasedSampler >> matches: aPredicate in: aContext name: aString k
 	aPredicate numArgs = 0 ifTrue: [ ^ aPredicate value ].
 	(aPredicate numArgs between: 1 and: 5) ifFalse: [
 		self error: 'ComposableRuleBased predicates must accept between 0 and 5 arguments' ].
-	arguments := { aContext. aString. aSpanKind. someAttributes. someLinks }.
+	arguments := {
+		             aContext.
+		             aString.
+		             aSpanKind.
+		             someAttributes.
+		             someLinks }.
 	^ aPredicate valueWithArguments: (arguments copyFrom: 1 to: aPredicate numArgs)
 ]
 
@@ -42,32 +47,31 @@ OTComposableRuleBasedSampler >> rules [
 OTComposableRuleBasedSampler >> rules: aCollection [
 
 	rules := aCollection
-		collect: [ :each |
-			each isAssociation ifFalse: [
-				self error: 'ComposableRuleBased rules must be predicate->sampler associations' ].
-			each key ifNil: [ self error: 'ComposableRuleBased rules require a predicate block' ].
-			each value ifNil: [ self error: 'ComposableRuleBased rules require a delegate sampler' ].
-			each key -> each value ]
-		as: OrderedCollection
+		         collect: [ :each |
+				         each isAssociation ifFalse: [ self error: 'ComposableRuleBased rules must be predicate->sampler associations' ].
+				         each key ifNil: [ self error: 'ComposableRuleBased rules require a predicate block' ].
+				         each value ifNil: [ self error: 'ComposableRuleBased rules require a delegate sampler' ].
+				         each key -> each value ]
+		         as: OrderedCollection
 ]
 
 { #category : 'sampling' }
 OTComposableRuleBasedSampler >> samplingIntentIn: aContext name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	rules do: [ :each |
-		(self
-			matches: each key
-			in: aContext
-			name: aString
-			kind: aSpanKind
-			attributes: someAttributes
-			links: someLinks) ifTrue: [
-			^ each value
-				samplingIntentIn: aContext
-				name: aString
-				kind: aSpanKind
-				attributes: someAttributes
-				links: someLinks ] ].
+			(self
+				 matches: each key
+				 in: aContext
+				 name: aString
+				 kind: aSpanKind
+				 attributes: someAttributes
+				 links: someLinks) ifTrue: [
+					^ each value
+						  samplingIntentIn: aContext
+						  name: aString
+						  kind: aSpanKind
+						  attributes: someAttributes
+						  links: someLinks ] ].
 	^ OTSamplingIntent drop
 ]
 
@@ -76,8 +80,7 @@ OTComposableRuleBasedSampler >> shutdown [
 
 	| allShutdown |
 	allShutdown := true.
-	rules do: [ :each |
-		allShutdown := each value shutdown & allShutdown ].
+	rules do: [ :each | allShutdown := each value shutdown & allShutdown ].
 	^ allShutdown
 ]
 

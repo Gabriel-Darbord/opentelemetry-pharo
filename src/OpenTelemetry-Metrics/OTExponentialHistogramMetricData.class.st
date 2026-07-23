@@ -40,6 +40,5 @@ OTExponentialHistogramMetricData >> writeOtlpProtobufDataOn: aWriter encoder: an
 
 	aWriter
 		writeTag: 10 wireType: 2;
-		writeEmbedded: [ :histogram |
-			anEncoder writeExponentialHistogram: self on: histogram ]
+		writeEmbedded: [ :histogram | anEncoder writeExponentialHistogram: self on: histogram ]
 ]

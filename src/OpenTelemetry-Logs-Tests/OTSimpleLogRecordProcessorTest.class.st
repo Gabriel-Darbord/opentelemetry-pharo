@@ -14,14 +14,18 @@ OTSimpleLogRecordProcessorTest >> setUp [
 
 	super setUp.
 	exporter := OTRecordingLogRecordExporter new.
-	processor := OTSimpleLogRecordProcessor new exporter: exporter; yourself
+	processor := OTSimpleLogRecordProcessor new
+		             exporter: exporter;
+		             yourself
 ]
 
 { #category : 'tests' }
 OTSimpleLogRecordProcessorTest >> testOnEmitExportsSingleRecordBatch [
 
 	| record |
-	record := OTLogRecord new body: 'hello'; yourself.
+	record := OTLogRecord new
+		          body: 'hello';
+		          yourself.
 	processor onEmit: record context: OTContext new.
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter exportedBatches first size equals: 1.
@@ -34,5 +38,9 @@ OTSimpleLogRecordProcessorTest >> testShutdownFlushesAndShutsDownExporter [
 	self assert: processor shutdown.
 	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter shutdownCount equals: 1.
-	self deny: (processor enabledIn: nil instrumentationScope: (OTInstrumentationScope named: '') severityNumber: OTSeverity info eventName: nil)
+	self deny: (processor
+			 enabledIn: nil
+			 instrumentationScope: (OTInstrumentationScope named: '')
+			 severityNumber: OTSeverity info
+			 eventName: nil)
 ]

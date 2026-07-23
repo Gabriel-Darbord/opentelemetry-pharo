@@ -24,17 +24,17 @@ OTComposableSampler class >> alwaysOn [
 OTComposableSampler class >> annotating: someAttributes delegate: aComposableSampler [
 
 	^ OTComposableAnnotatingSampler new
-		attributes: someAttributes;
-		delegate: aComposableSampler;
-		yourself
+		  attributes: someAttributes;
+		  delegate: aComposableSampler;
+		  yourself
 ]
 
 { #category : 'instance creation' }
 OTComposableSampler class >> parentThreshold: aComposableSampler [
 
 	^ OTComposableParentThresholdSampler new
-		rootSampler: aComposableSampler;
-		yourself
+		  rootSampler: aComposableSampler;
+		  yourself
 ]
 
 { #category : 'instance creation' }
@@ -48,8 +48,8 @@ OTComposableSampler class >> probability: aNumber [
 OTComposableSampler class >> ruleBased: someRules [
 
 	^ OTComposableRuleBasedSampler new
-		rules: someRules;
-		yourself
+		  rules: someRules;
+		  yourself
 ]
 
 { #category : 'accessing' }

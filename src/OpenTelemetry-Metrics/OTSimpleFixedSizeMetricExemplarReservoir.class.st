@@ -14,8 +14,8 @@ Class {
 OTSimpleFixedSizeMetricExemplarReservoir class >> size: anInteger [
 
 	^ self new
-		size: anInteger;
-		yourself
+		  size: anInteger;
+		  yourself
 ]
 
 { #category : 'collecting' }
@@ -23,9 +23,8 @@ OTSimpleFixedSizeMetricExemplarReservoir >> collectForPointAttributes: aCollecti
 
 	| exemplars |
 	exemplars := self measurements
-		select: [ :each | each notNil ]
-		thenCollect: [ :each |
-			OTMetricExemplar measurement: each pointAttributes: aCollection ].
+		             select: [ :each | each notNil ]
+		             thenCollect: [ :each | OTMetricExemplar measurement: each pointAttributes: aCollection ].
 	self reset.
 	^ exemplars asArray
 ]
@@ -51,11 +50,10 @@ OTSimpleFixedSizeMetricExemplarReservoir >> offerMeasurement: anOTMetricMeasurem
 	(anOTMetricMeasurement exemplarEligible not or: [ self size <= 0 ]) ifTrue: [ ^ self ].
 	measurementsSeen := measurementsSeen + 1.
 	measurementsSeen <= self size ifTrue: [
-		measurements at: measurementsSeen put: anOTMetricMeasurement.
-		^ self ].
+			measurements at: measurementsSeen put: anOTMetricMeasurement.
+			^ self ].
 	bucket := SharedRandom globalGenerator nextInteger: measurementsSeen.
-	bucket <= self size ifTrue: [
-		measurements at: bucket put: anOTMetricMeasurement ].
+	bucket <= self size ifTrue: [ measurements at: bucket put: anOTMetricMeasurement ].
 	^ self
 ]
 
@@ -76,7 +74,7 @@ OTSimpleFixedSizeMetricExemplarReservoir >> size [
 OTSimpleFixedSizeMetricExemplarReservoir >> size: anInteger [
 
 	size := (anInteger isInteger and: [ anInteger > 0 ])
-		ifTrue: [ anInteger ]
-		ifFalse: [ 1 ].
+		        ifTrue: [ anInteger ]
+		        ifFalse: [ 1 ].
 	self reset
 ]

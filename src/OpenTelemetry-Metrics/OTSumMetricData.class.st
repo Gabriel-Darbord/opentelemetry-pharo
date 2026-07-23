@@ -19,6 +19,12 @@ OTSumMetricData class >> instrument: anOTMetricInstrument points: aCollection mo
 	^ metric
 ]
 
+{ #category : 'otlp - encoding' }
+OTSumMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
+
+	aDictionary at: 'sum' put: (anEncoder sumDataFor: self)
+]
+
 { #category : 'accessing' }
 OTSumMetricData >> monotonic [
 
@@ -29,6 +35,20 @@ OTSumMetricData >> monotonic [
 OTSumMetricData >> monotonic: aBoolean [
 
 	monotonic := aBoolean = true
+]
+
+{ #category : 'prometheus - encoding' }
+OTSumMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
+
+	^ self monotonic
+		  ifTrue: [ #counter ]
+		  ifFalse: [ anEncoder prometheusGaugeLikeMetricTypeFor: self format: aFormatSymbol ]
+]
+
+{ #category : 'prometheus - encoding' }
+OTSumMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
+
+	^ anEncoder sampleSpecificationsForSum: self type: aTypeSymbol format: aFormatSymbol
 ]
 
 { #category : 'accessing' }
@@ -44,35 +64,14 @@ OTSumMetricData >> temporality: aSymbol [
 ]
 
 { #category : 'otlp - encoding' }
-OTSumMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
-
-	aDictionary at: 'sum' put: (anEncoder sumDataFor: self)
-]
-
-{ #category : 'otlp - encoding' }
 OTSumMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
 
 	aWriter
 		writeTag: 7 wireType: 2;
-		writeEmbedded: [ :sum |
-			anEncoder writeSum: self on: sum ]
+		writeEmbedded: [ :sum | anEncoder writeSum: self on: sum ]
 ]
 
-{ #category : 'prometheus' }
-OTSumMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
-
-	^ self monotonic
-		  ifTrue: [ #counter ]
-		  ifFalse: [ anEncoder prometheusGaugeLikeMetricTypeFor: self format: aFormatSymbol ]
-]
-
-{ #category : 'prometheus' }
-OTSumMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
-
-	^ anEncoder sampleSpecificationsForSum: self type: aTypeSymbol format: aFormatSymbol
-]
-
-{ #category : 'prometheus' }
+{ #category : 'prometheus - encoding' }
 OTSumMetricData >> writePrometheusWith: anEncoder type: aTypeSymbol format: aFormatSymbol on: aStream [
 
 	^ anEncoder

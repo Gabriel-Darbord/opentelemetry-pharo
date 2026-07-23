@@ -27,6 +27,12 @@ OTMetricData class >> instrument: anOTMetricInstrument points: aCollection [
 	^ metric
 ]
 
+{ #category : 'otlp - encoding' }
+OTMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
+
+	self subclassResponsibility
+]
+
 { #category : 'accessing' }
 OTMetricData >> description [
 
@@ -49,20 +55,8 @@ OTMetricData >> instrumentationScope [
 OTMetricData >> instrumentationScope: anOTInstrumentationScope [
 
 	instrumentationScope := anOTInstrumentationScope
-		ifNil: [ OTInstrumentationScope named: '' ]
-		ifNotNil: [ anOTInstrumentationScope ]
-]
-
-{ #category : 'accessing' }
-OTMetricData >> name [
-
-	^ name ifNil: [ '' ]
-]
-
-{ #category : 'accessing' }
-OTMetricData >> name: aString [
-
-	name := aString ifNil: [ '' ] ifNotNil: [ aString ]
+		                        ifNil: [ OTInstrumentationScope named: '' ]
+		                        ifNotNil: [ anOTInstrumentationScope ]
 ]
 
 { #category : 'accessing' }
@@ -84,15 +78,39 @@ OTMetricData >> metadataValueAt: aString ifAbsent: aBlock [
 ]
 
 { #category : 'accessing' }
+OTMetricData >> name [
+
+	^ name ifNil: [ '' ]
+]
+
+{ #category : 'accessing' }
+OTMetricData >> name: aString [
+
+	name := aString ifNil: [ '' ] ifNotNil: [ aString ]
+]
+
+{ #category : 'accessing' }
 OTMetricData >> points [
 
-	^ points ifNil: [ #() ]
+	^ points ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTMetricData >> points: aCollection [
 
-	points := aCollection ifNil: [ #() ] ifNotNil: [ aCollection asArray ]
+	points := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
+]
+
+{ #category : 'prometheus - encoding' }
+OTMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
+
+	^ #drop
+]
+
+{ #category : 'prometheus - encoding' }
+OTMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
+
+	^ #(  )
 ]
 
 { #category : 'accessing' }
@@ -108,30 +126,12 @@ OTMetricData >> unit: aString [
 ]
 
 { #category : 'otlp - encoding' }
-OTMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
-
-	self subclassResponsibility
-]
-
-{ #category : 'otlp - encoding' }
 OTMetricData >> writeOtlpProtobufDataOn: aWriter encoder: anEncoder [
 
 	self subclassResponsibility
 ]
 
-{ #category : 'prometheus' }
-OTMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
-
-	^ #drop
-]
-
-{ #category : 'prometheus' }
-OTMetricData >> prometheusSampleSpecificationsWith: anEncoder type: aTypeSymbol format: aFormatSymbol [
-
-	^ #(  )
-]
-
-{ #category : 'prometheus' }
+{ #category : 'prometheus - encoding' }
 OTMetricData >> writePrometheusWith: anEncoder type: aTypeSymbol format: aFormatSymbol on: aStream [
 
 	self

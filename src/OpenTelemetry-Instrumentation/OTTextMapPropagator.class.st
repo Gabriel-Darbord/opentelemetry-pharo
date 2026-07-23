@@ -47,6 +47,12 @@ OTTextMapPropagator class >> reset [
 	Current := nil
 ]
 
+{ #category : 'accessing' }
+OTTextMapPropagator >> componentPropagators [
+
+	^ { self }
+]
+
 { #category : 'extracting' }
 OTTextMapPropagator >> extract: aContext from: aCarrier [
 
@@ -60,15 +66,9 @@ OTTextMapPropagator >> extract: aContext from: aCarrier getter: aGetter [
 ]
 
 { #category : 'accessing' }
-OTTextMapPropagator >> componentPropagators [
-
-	^ { self }
-]
-
-{ #category : 'accessing' }
 OTTextMapPropagator >> fields [
 
-	^ #()
+	^ #(  )
 ]
 
 { #category : 'injecting' }

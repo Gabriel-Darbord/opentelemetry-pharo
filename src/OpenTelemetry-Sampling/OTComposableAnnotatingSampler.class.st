@@ -12,7 +12,7 @@ Class {
 { #category : 'accessing' }
 OTComposableAnnotatingSampler >> attributes [
 
-	^ attributes ifNil: [ #() ]
+	^ attributes ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
@@ -37,7 +37,7 @@ OTComposableAnnotatingSampler >> delegate: aComposableSampler [
 { #category : 'accessing' }
 OTComposableAnnotatingSampler >> description [
 
-	^ 'ComposableAnnotating{', delegate description, '}'
+	^ 'ComposableAnnotating{' , delegate description , '}'
 ]
 
 { #category : 'sampling' }
@@ -45,20 +45,17 @@ OTComposableAnnotatingSampler >> samplingIntentIn: aContext name: aString kind: 
 
 	| delegateIntent extraAttributes |
 	delegateIntent := delegate
-		samplingIntentIn: aContext
-		name: aString
-		kind: aSpanKind
-		attributes: someAttributes
-		links: someLinks.
+		                  samplingIntentIn: aContext
+		                  name: aString
+		                  kind: aSpanKind
+		                  attributes: someAttributes
+		                  links: someLinks.
 	extraAttributes := self attributes.
 	^ OTSamplingIntent
-		threshold: delegateIntent threshold
-		adjustedCountReliable: delegateIntent adjustedCountReliable
-		attributesProvider: [ delegateIntent attributes , extraAttributes ]
-		traceStateProvider: [ :traceState :decision |
-			delegateIntent
-				traceStateForParent: traceState
-				decision: decision ]
+		  threshold: delegateIntent threshold
+		  adjustedCountReliable: delegateIntent adjustedCountReliable
+		  attributesProvider: [ delegateIntent attributes , extraAttributes ]
+		  traceStateProvider: [ :traceState :decision | delegateIntent traceStateForParent: traceState decision: decision ]
 ]
 
 { #category : 'lifecycle' }

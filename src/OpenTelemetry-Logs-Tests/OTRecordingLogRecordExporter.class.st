@@ -27,8 +27,7 @@ OTRecordingLogRecordExporter >> exportedBatches [
 OTRecordingLogRecordExporter >> exportedRecords [
 
 	^ OrderedCollection streamContents: [ :stream |
-		self exportedBatches do: [ :each |
-			each do: [ :record | stream nextPut: record ] ] ]
+		  self exportedBatches do: [ :each | each do: [ :record | stream nextPut: record ] ] ]
 ]
 
 { #category : 'exporting' }

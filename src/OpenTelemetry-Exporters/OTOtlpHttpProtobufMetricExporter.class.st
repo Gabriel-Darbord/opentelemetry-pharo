@@ -35,8 +35,8 @@ OTOtlpHttpProtobufMetricExporter >> entityForPayload: aByteArray [
 
 	| entity |
 	entity := self configuration usesGzipCompression
-		ifTrue: [ ZnEntity bytes: (self gzipCompressedBytesFor: aByteArray) ]
-		ifFalse: [ ZnEntity bytes: aByteArray ].
+		          ifTrue: [ ZnEntity bytes: (self gzipCompressedBytesFor: aByteArray) ]
+		          ifFalse: [ ZnEntity bytes: aByteArray ].
 	entity contentType: 'application/x-protobuf' asZnMimeType.
 	^ entity
 ]
@@ -45,10 +45,10 @@ OTOtlpHttpProtobufMetricExporter >> entityForPayload: aByteArray [
 OTOtlpHttpProtobufMetricExporter >> gzipCompressedBytesFor: aByteArray [
 
 	^ ByteArray streamContents: [ :stream |
-		| zipper |
-		zipper := GZipWriteStream on: stream.
-		zipper nextPutAll: aByteArray.
-		zipper close ]
+			  | zipper |
+			  zipper := GZipWriteStream on: stream.
+			  zipper nextPutAll: aByteArray.
+			  zipper close ]
 ]
 
 { #category : 'private - encoding' }
@@ -60,8 +60,7 @@ OTOtlpHttpProtobufMetricExporter >> payloadStringFrom: anOTMetricSnapshot [
 { #category : 'accessing' }
 OTOtlpHttpProtobufMetricExporter >> responseDecoder [
 
-	^ responseDecoder ifNil: [
-		  responseDecoder := OTOtlpProtobufMetricResponseDecoder new ]
+	^ responseDecoder ifNil: [ responseDecoder := OTOtlpProtobufMetricResponseDecoder new ]
 ]
 
 { #category : 'accessing' }

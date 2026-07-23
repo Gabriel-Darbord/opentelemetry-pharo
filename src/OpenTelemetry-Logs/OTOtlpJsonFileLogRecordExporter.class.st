@@ -14,12 +14,7 @@ Class {
 { #category : 'accessing' }
 OTOtlpJsonFileLogRecordExporter >> fileReference [
 
-	^ fileReference ifNil: [
-		  fileReference := FileLocator imageDirectory
-			                   / 'pharo-local'
-			                   / 'OpenTelemetry'
-			                   / 'logs'
-			                   / 'logs.jsonl' ]
+	^ fileReference ifNil: [ fileReference := FileLocator imageDirectory / 'pharo-local' / 'OpenTelemetry' / 'logs' / 'logs.jsonl' ]
 ]
 
 { #category : 'accessing' }
@@ -34,6 +29,6 @@ OTOtlpJsonFileLogRecordExporter >> writeJsonLine: aString [
 	self fileReference parent ensureCreateDirectory.
 	self fileReference ensureCreateFile.
 	self fileReference writeStreamDo: [ :stream |
-		stream setToEnd.
-		stream nextPutAll: aString ]
+			stream setToEnd.
+			stream nextPutAll: aString ]
 ]

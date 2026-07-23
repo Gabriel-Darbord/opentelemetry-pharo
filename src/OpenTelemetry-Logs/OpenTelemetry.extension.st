@@ -10,10 +10,10 @@ OpenTelemetry class >> loggerNamed: aString [
 OpenTelemetry class >> loggerNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
 	^ self loggerProvider
-		loggerNamed: aString
-		version: aVersionString
-		schemaUrl: aSchemaUrlString
-		attributes: aCollection
+		  loggerNamed: aString
+		  version: aVersionString
+		  schemaUrl: aSchemaUrlString
+		  attributes: aCollection
 ]
 
 { #category : '*OpenTelemetry-Logs' }

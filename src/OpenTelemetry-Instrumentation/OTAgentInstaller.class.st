@@ -59,8 +59,7 @@ OTAgentInstaller class >> install [
 	"Install all the active instrumentation modules present in this image."
 
 	<script>
-	OTInstrumentationModule allSubmodulesDo: [ :module |
-		module enabled ifTrue: [ self installModule: module ] ]
+	OTInstrumentationModule allSubmodulesDo: [ :module | module enabled ifTrue: [ self installModule: module ] ]
 ]
 
 { #category : 'actions' }
@@ -74,16 +73,14 @@ OTAgentInstaller class >> installInstrumentation: anInstrumentation [
 		defineInstrumenter;
 		defineSampler;
 		matchingMethodsDo: [ :method |
-			(installer shouldInstrument: method with: anInstrumentation)
-				ifTrue: [ installer instrument: method ] ]
+			(installer shouldInstrument: method with: anInstrumentation) ifTrue: [ installer instrument: method ] ]
 ]
 
 { #category : 'actions' }
 OTAgentInstaller class >> installModule: anInstrumentationModule [
 	"Install all enabled instrumentations from the module."
 
-	anInstrumentationModule initialize instrumentations do: [
-		:instrumentation |
+	anInstrumentationModule initialize instrumentations do: [ :instrumentation |
 		instrumentation enabled ifTrue: [ instrumentation install ] ]
 ]
 
@@ -115,8 +112,7 @@ OTAgentInstaller class >> uninstall [
 
 	<script>
 	self resetEnvironment.
-	OTInstrumentationModule allSubmodulesDo: [ :module |
-		self uninstallModule: module ]
+	OTInstrumentationModule allSubmodulesDo: [ :module | self uninstallModule: module ]
 ]
 
 { #category : 'actions' }
@@ -128,8 +124,7 @@ OTAgentInstaller class >> uninstallInstrumentation: anInstrumentation [
 { #category : 'actions' }
 OTAgentInstaller class >> uninstallModule: anInstrumentationModule [
 
-	anInstrumentationModule instrumentations do: [ :instrumentation |
-		instrumentation uninstall ]
+	anInstrumentationModule instrumentations do: [ :instrumentation | instrumentation uninstall ]
 ]
 
 { #category : 'private' }

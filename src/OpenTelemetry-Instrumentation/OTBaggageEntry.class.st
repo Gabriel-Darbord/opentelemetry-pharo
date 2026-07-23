@@ -22,9 +22,9 @@ OTBaggageEntry class >> value: aString [
 OTBaggageEntry class >> value: aString metadata: aMetadataObject [
 
 	^ self new
-		value: aString;
-		metadata: aMetadataObject;
-		yourself
+		  value: aString;
+		  metadata: aMetadataObject;
+		  yourself
 ]
 
 { #category : 'comparing' }
@@ -32,8 +32,7 @@ OTBaggageEntry >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	self class = anObject class ifFalse: [ ^ false ].
-	^ value = anObject value
-		and: [ metadata = anObject metadata ]
+	^ value = anObject value and: [ metadata = anObject metadata ]
 ]
 
 { #category : 'testing' }

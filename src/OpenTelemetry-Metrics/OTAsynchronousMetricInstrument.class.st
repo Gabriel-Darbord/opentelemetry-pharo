@@ -16,11 +16,11 @@ OTAsynchronousMetricInstrument class >> forMeter: anOTMeter name: aString callba
 
 	| instrument |
 	instrument := self
-		forMeter: anOTMeter
-		name: aString
-		unit: aUnitString
-		description: aDescriptionString
-		advice: aDictionary.
+		              forMeter: anOTMeter
+		              name: aString
+		              unit: aUnitString
+		              description: aDescriptionString
+		              advice: aDictionary.
 	instrument callbacks: someCallbacks.
 	^ instrument
 ]
@@ -28,40 +28,30 @@ OTAsynchronousMetricInstrument class >> forMeter: anOTMeter name: aString callba
 { #category : 'instance creation' }
 OTAsynchronousMetricInstrument class >> noop [
 
-	^ OTClassStateStore
-		valueAt: #otNoopMetricInstrument
-		forClass: self
-		ifAbsent: [
-			| instrument |
-			instrument := self new.
-			OTClassStateStore
-				valueAt: #otNoopMetricInstrument
-				forClass: self
-				put: instrument.
-			instrument ]
+	^ OTClassStateStore valueAt: #otNoopMetricInstrument forClass: self ifAbsent: [
+			  | instrument |
+			  instrument := self new.
+			  OTClassStateStore valueAt: #otNoopMetricInstrument forClass: self put: instrument.
+			  instrument ]
 ]
 
 { #category : 'accessing' }
 OTAsynchronousMetricInstrument >> callbacks [
 
-	^ callbacks ifNil: [ #() ]
+	^ callbacks ifNil: [ #(  ) ]
 ]
 
 { #category : 'accessing' }
 OTAsynchronousMetricInstrument >> callbacks: someCallbacks [
 
-	callbacks := someCallbacks ifNil: [ #() ] ifNotNil: [ someCallbacks asArray ]
+	callbacks := someCallbacks ifNil: [ #(  ) ] ifNotNil: [ someCallbacks asArray ]
 ]
 
 { #category : 'collecting' }
 OTAsynchronousMetricInstrument >> collectFor: anOTMetricReader into: aCollection [
 
 	self collectsMeasurements ifFalse: [ ^ self ].
-	self callbacks do: [ :each |
-		anOTMetricReader
-			collectAsynchronousCallback: each
-			for: self
-			into: aCollection ].
+	self callbacks do: [ :each | anOTMetricReader collectAsynchronousCallback: each for: self into: aCollection ]
 ]
 
 { #category : 'collecting' }
@@ -81,27 +71,25 @@ OTAsynchronousMetricInstrument >> invokeCallback: aBlock with: anOTAsynchronousM
 { #category : 'collecting' }
 OTAsynchronousMetricInstrument >> newObserverOn: aCollection [
 
-	^ OTAsynchronousMetricObserver
-		instrument: self
-		measurements: aCollection
-]
-
-{ #category : 'collecting' }
-OTAsynchronousMetricInstrument >> startTimestampForPreviousCollection: aDateAndTime temporality: aTemporalitySymbol [
-
-	^ aTemporalitySymbol = #delta
-		ifTrue: [ aDateAndTime ifNil: [ self creationTimestamp ] ]
-		ifFalse: [ self creationTimestamp ]
+	^ OTAsynchronousMetricObserver instrument: self measurements: aCollection
 ]
 
 { #category : 'recording' }
 OTAsynchronousMetricInstrument >> observe: aNumber [
 
-	^ self observe: aNumber attributes: #()
+	^ self observe: aNumber attributes: #(  )
 ]
 
 { #category : 'recording' }
 OTAsynchronousMetricInstrument >> observe: aNumber attributes: aCollection [
 
 	self
+]
+
+{ #category : 'collecting' }
+OTAsynchronousMetricInstrument >> startTimestampForPreviousCollection: aDateAndTime temporality: aTemporalitySymbol [
+
+	^ aTemporalitySymbol = #delta
+		  ifTrue: [ aDateAndTime ifNil: [ self creationTimestamp ] ]
+		  ifFalse: [ self creationTimestamp ]
 ]

@@ -14,35 +14,31 @@ OTOtlpJsonTraceEncoder >> anyValueDataFor: anObject [
 	| data |
 	data := OrderedDictionary new.
 	anObject isNil ifTrue: [ ^ data ].
-	((anObject isString) or: [ anObject isSymbol ]) ifTrue: [
-		data at: 'stringValue' put: anObject asString.
-		^ data ].
+	(anObject isString or: [ anObject isSymbol ]) ifTrue: [
+			data at: 'stringValue' put: anObject asString.
+			^ data ].
 	(OTAttributeNormalizer isBoolean: anObject) ifTrue: [
-		data at: 'boolValue' put: anObject.
-		^ data ].
+			data at: 'boolValue' put: anObject.
+			^ data ].
 	anObject isInteger ifTrue: [
-		data at: 'intValue' put: anObject asString.
-		^ data ].
+			data at: 'intValue' put: anObject asString.
+			^ data ].
 	anObject isNumber ifTrue: [
-		data at: 'doubleValue' put: anObject asFloat.
-		^ data ].
+			data at: 'doubleValue' put: anObject asFloat.
+			^ data ].
 	(anObject isKindOf: ByteArray) ifTrue: [
-		data at: 'bytesValue' put: anObject base64Encoded.
-		^ data ].
+			data at: 'bytesValue' put: anObject base64Encoded.
+			^ data ].
 	(OTAttributeNormalizer isMapValue: anObject) ifTrue: [
-		data
-			at: 'kvlistValue'
-			put: (OrderedDictionary new
-					at: 'values' put: (self keyValueDataFrom: anObject);
-					yourself).
-		^ data ].
+			data at: 'kvlistValue' put: (OrderedDictionary new
+					 at: 'values' put: (self keyValueDataFrom: anObject);
+					 yourself).
+			^ data ].
 	anObject isCollection ifTrue: [
-		data
-			at: 'arrayValue'
-			put: (OrderedDictionary new
-					at: 'values' put: (anObject collect: [ :each | self anyValueDataFor: each ]) asArray;
-					yourself).
-		^ data ].
+			data at: 'arrayValue' put: (OrderedDictionary new
+					 at: 'values' put: (anObject collect: [ :each | self anyValueDataFor: each ]) asArray;
+					 yourself).
+			^ data ].
 	Error signal: 'Unsupported OTLP AnyValue: ' , anObject printString
 ]
 
@@ -50,8 +46,8 @@ OTOtlpJsonTraceEncoder >> anyValueDataFor: anObject [
 OTOtlpJsonTraceEncoder >> encodeSpans: someSpans [
 
 	^ OrderedDictionary new
-		at: 'resourceSpans' put: (self resourceSpansDataFor: someSpans);
-		yourself
+		  at: 'resourceSpans' put: (self resourceSpansDataFor: someSpans);
+		  yourself
 ]
 
 { #category : 'private - encoding' }
@@ -62,10 +58,8 @@ OTOtlpJsonTraceEncoder >> eventDataFor: anEvent [
 	data
 		at: 'timeUnixNano' put: (self unixNanosecondsStringFor: anEvent timestamp);
 		at: 'name' put: anEvent name.
-	anEvent attributes ifNotEmpty: [
-		data at: 'attributes' put: (self keyValueDataFrom: anEvent attributes) ].
-	anEvent droppedAttributesCount > 0 ifTrue: [
-		data at: 'droppedAttributesCount' put: anEvent droppedAttributesCount ].
+	anEvent attributes ifNotEmpty: [ data at: 'attributes' put: (self keyValueDataFrom: anEvent attributes) ].
+	anEvent droppedAttributesCount > 0 ifTrue: [ data at: 'droppedAttributesCount' put: anEvent droppedAttributesCount ].
 	^ data
 ]
 
@@ -83,9 +77,7 @@ OTOtlpJsonTraceEncoder >> flagsForParentContext: aSpanContext traceFlagsHex: aSt
 { #category : 'private - encoding' }
 OTOtlpJsonTraceEncoder >> flagsForSpanContext: aSpanContext [
 
-	^ self
-		flagsForParentContext: aSpanContext
-		traceFlagsHex: aSpanContext traceFlags
+	^ self flagsForParentContext: aSpanContext traceFlagsHex: aSpanContext traceFlags
 ]
 
 { #category : 'private - encoding' }
@@ -106,16 +98,15 @@ OTOtlpJsonTraceEncoder >> groupedSpansFrom: someSpans [
 OTOtlpJsonTraceEncoder >> keyValueDataFor: anAssociation [
 
 	^ OrderedDictionary new
-		at: 'key' put: anAssociation key;
-		at: 'value' put: (self anyValueDataFor: anAssociation value);
-		yourself
+		  at: 'key' put: anAssociation key;
+		  at: 'value' put: (self anyValueDataFor: anAssociation value);
+		  yourself
 ]
 
 { #category : 'private - encoding' }
 OTOtlpJsonTraceEncoder >> keyValueDataFrom: aCollection [
 
-	^ aCollection associations collect: [ :each |
-		  self keyValueDataFor: each ]
+	^ aCollection associations collect: [ :each | self keyValueDataFor: each ]
 ]
 
 { #category : 'private - encoding' }
@@ -142,12 +133,9 @@ OTOtlpJsonTraceEncoder >> linkDataFor: aLink [
 		at: 'spanId' put: linkContext spanIdHex;
 		at: 'flags' put: (self flagsForSpanContext: linkContext).
 	linkContext traceState ifNotNil: [ :traceState |
-		traceState isEmpty ifFalse: [
-			data at: 'traceState' put: traceState asHeaderValue ] ].
-	aLink attributes ifNotEmpty: [
-		data at: 'attributes' put: (self keyValueDataFrom: aLink attributes) ].
-	aLink droppedAttributesCount > 0 ifTrue: [
-		data at: 'droppedAttributesCount' put: aLink droppedAttributesCount ].
+		traceState isEmpty ifFalse: [ data at: 'traceState' put: traceState asHeaderValue ] ].
+	aLink attributes ifNotEmpty: [ data at: 'attributes' put: (self keyValueDataFrom: aLink attributes) ].
+	aLink droppedAttributesCount > 0 ifTrue: [ data at: 'droppedAttributesCount' put: aLink droppedAttributesCount ].
 	^ data
 ]
 
@@ -156,8 +144,7 @@ OTOtlpJsonTraceEncoder >> resourceDataFor: aResource [
 
 	| data |
 	data := OrderedDictionary new.
-	aResource allAttributes ifNotEmpty: [
-		data at: 'attributes' put: (self keyValueDataFrom: aResource allAttributes) ].
+	aResource allAttributes ifNotEmpty: [ data at: 'attributes' put: (self keyValueDataFrom: aResource allAttributes) ].
 	^ data
 ]
 
@@ -165,9 +152,7 @@ OTOtlpJsonTraceEncoder >> resourceDataFor: aResource [
 OTOtlpJsonTraceEncoder >> resourceSpansDataFor: someSpans [
 
 	^ (self groupedSpansFrom: someSpans) associations collect: [ :eachResourceGroup |
-		  self
-			  resourceSpansDataForResource: eachResourceGroup key
-			  scopeGroups: eachResourceGroup value ]
+		  self resourceSpansDataForResource: eachResourceGroup key scopeGroups: eachResourceGroup value ]
 ]
 
 { #category : 'private - encoding' }
@@ -178,11 +163,8 @@ OTOtlpJsonTraceEncoder >> resourceSpansDataForResource: aResource scopeGroups: s
 	data
 		at: 'resource' put: (self resourceDataFor: aResource);
 		at: 'scopeSpans' put: (scopeGroups associations collect: [ :eachScopeGroup |
-				 self
-					 scopeSpansDataForScope: eachScopeGroup key
-					 spans: eachScopeGroup value ]) asArray.
-	aResource schemaUrl ifNotEmpty: [
-		data at: 'schemaUrl' put: aResource schemaUrl ].
+					 self scopeSpansDataForScope: eachScopeGroup key spans: eachScopeGroup value ]) asArray.
+	aResource schemaUrl ifNotEmpty: [ data at: 'schemaUrl' put: aResource schemaUrl ].
 	^ data
 ]
 
@@ -192,10 +174,8 @@ OTOtlpJsonTraceEncoder >> scopeDataFor: anInstrumentationScope [
 	| data |
 	anInstrumentationScope isEmpty ifTrue: [ ^ OrderedDictionary new ].
 	data := OrderedDictionary new.
-	anInstrumentationScope name ifNotEmpty: [
-		data at: 'name' put: anInstrumentationScope name ].
-	anInstrumentationScope version ifNotEmpty: [
-		data at: 'version' put: anInstrumentationScope version ].
+	anInstrumentationScope name ifNotEmpty: [ data at: 'name' put: anInstrumentationScope name ].
+	anInstrumentationScope version ifNotEmpty: [ data at: 'version' put: anInstrumentationScope version ].
 	data at: 'attributes' put: (self keyValueDataFrom: anInstrumentationScope allAttributes).
 	^ data
 ]
@@ -208,8 +188,7 @@ OTOtlpJsonTraceEncoder >> scopeSpansDataForScope: anInstrumentationScope spans: 
 	data
 		at: 'scope' put: (self scopeDataFor: anInstrumentationScope);
 		at: 'spans' put: (someSpans collect: [ :each | self spanDataFor: each ]) asArray.
-	anInstrumentationScope schemaUrl ifNotEmpty: [
-		data at: 'schemaUrl' put: anInstrumentationScope schemaUrl ].
+	anInstrumentationScope schemaUrl ifNotEmpty: [ data at: 'schemaUrl' put: anInstrumentationScope schemaUrl ].
 	^ data
 ]
 
@@ -233,15 +212,10 @@ OTOtlpJsonTraceEncoder >> spanDataFor: aSpan [
 		at: 'status' put: (self statusDataFor: aSpan);
 		at: 'flags' put: (self flagsForParentContext: parentContext traceFlagsHex: aSpan traceFlags).
 	traceState := aSpan traceState.
-	traceState ifNotNil: [
-		traceState isEmpty ifFalse: [
-			data at: 'traceState' put: traceState asHeaderValue ] ].
-	aSpan droppedAttributesCount > 0 ifTrue: [
-		data at: 'droppedAttributesCount' put: aSpan droppedAttributesCount ].
-	aSpan droppedEventsCount > 0 ifTrue: [
-		data at: 'droppedEventsCount' put: aSpan droppedEventsCount ].
-	aSpan droppedLinksCount > 0 ifTrue: [
-		data at: 'droppedLinksCount' put: aSpan droppedLinksCount ].
+	traceState ifNotNil: [ traceState isEmpty ifFalse: [ data at: 'traceState' put: traceState asHeaderValue ] ].
+	aSpan droppedAttributesCount > 0 ifTrue: [ data at: 'droppedAttributesCount' put: aSpan droppedAttributesCount ].
+	aSpan droppedEventsCount > 0 ifTrue: [ data at: 'droppedEventsCount' put: aSpan droppedEventsCount ].
+	aSpan droppedLinksCount > 0 ifTrue: [ data at: 'droppedLinksCount' put: aSpan droppedLinksCount ].
 	^ data
 ]
 
@@ -251,13 +225,12 @@ OTOtlpJsonTraceEncoder >> statusDataFor: aSpan [
 	| data description |
 	data := OrderedDictionary new.
 	aSpan status = OTSpan ok ifTrue: [
-		data at: 'code' put: 1.
-		^ data ].
+			data at: 'code' put: 1.
+			^ data ].
 	aSpan status = OTSpan error ifTrue: [
-		data at: 'code' put: 2.
-		description := aSpan statusDescription.
-		description ifNotNil: [
-			description ifNotEmpty: [ data at: 'message' put: description ] ] ].
+			data at: 'code' put: 2.
+			description := aSpan statusDescription.
+			description ifNotNil: [ description ifNotEmpty: [ data at: 'message' put: description ] ] ].
 	^ data
 ]
 
@@ -265,7 +238,6 @@ OTOtlpJsonTraceEncoder >> statusDataFor: aSpan [
 OTOtlpJsonTraceEncoder >> unixNanosecondsStringFor: aDateAndTime [
 
 	| value |
-	value := (((aDateAndTime ifNil: [ DateAndTime unixEpoch ]) offset: Duration zero)
-		          - DateAndTime unixEpoch) asNanoSeconds.
+	value := (((aDateAndTime ifNil: [ DateAndTime unixEpoch ]) offset: Duration zero) - DateAndTime unixEpoch) asNanoSeconds.
 	^ value asString
 ]

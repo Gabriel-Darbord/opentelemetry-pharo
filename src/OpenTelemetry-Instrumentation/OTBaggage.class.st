@@ -96,10 +96,7 @@ OTBaggage class >> currentWithEntryNamed: aName value: aValue [
 OTBaggage class >> currentWithEntryNamed: aName value: aValue metadata: aMetadata [
 
 	| baggage |
-	baggage := self current
-		withEntryNamed: aName
-		value: aValue
-		metadata: aMetadata.
+	baggage := self current withEntryNamed: aName value: aValue metadata: aMetadata.
 	self current: baggage.
 	^ baggage
 ]
@@ -195,8 +192,8 @@ OTBaggage >> copyWithoutEntryNamed: aName [
 	updatedEntries := entriesByName copy.
 	updatedEntries removeKey: name.
 	^ self class new
-		entriesByName: updatedEntries;
-		yourself
+		  entriesByName: updatedEntries;
+		  yourself
 ]
 
 { #category : 'accessing' }
@@ -285,8 +282,7 @@ OTBaggage >> size [
 { #category : 'accessing' }
 OTBaggage >> valueAt: aName [
 
-	^ (self entryAt: aName)
-		ifNotNil: [ :anEntry | anEntry value ]
+	^ (self entryAt: aName) ifNotNil: [ :anEntry | anEntry value ]
 ]
 
 { #category : 'accessing' }
@@ -328,12 +324,10 @@ OTBaggage >> withEntryNamed: aName value: aValue metadata: aMetadataString [
 	value := self class normalizedEntryValueFrom: aValue.
 	(name isNil or: [ value isNil ]) ifTrue: [ ^ self ].
 	updatedEntries := entriesByName copy.
-	updatedEntries
-		at: name
-		put: (OTBaggageEntry value: value metadata: aMetadataString).
+	updatedEntries at: name put: (OTBaggageEntry value: value metadata: aMetadataString).
 	^ self class new
-		entriesByName: updatedEntries;
-		yourself
+		  entriesByName: updatedEntries;
+		  yourself
 ]
 
 { #category : 'updating' }

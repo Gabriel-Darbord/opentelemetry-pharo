@@ -28,9 +28,7 @@ OTEnvironmentVariableTextMapGetter >> getAllFrom: aCarrier key: aString [
 
 	| value |
 	value := self getFrom: aCarrier key: aString.
-	^ value
-		ifNil: [ #() ]
-		ifNotNil: [ { value } ]
+	^ value ifNil: [ #(  ) ] ifNotNil: [ { value } ]
 ]
 
 { #category : 'accessing' }
@@ -51,7 +49,6 @@ OTEnvironmentVariableTextMapGetter >> keysFrom: aCarrier [
 { #category : 'accessing' }
 OTEnvironmentVariableTextMapGetter >> keysIn: aCarrier [
 
-	aCarrier ifNil: [ ^ #() ].
-	^ aCarrier keys select: [ :each |
-		OTEnvironmentVariableTextMapSetter isNormalizedKey: each asString ]
+	aCarrier ifNil: [ ^ #(  ) ].
+	^ aCarrier keys select: [ :each | OTEnvironmentVariableTextMapSetter isNormalizedKey: each asString ]
 ]

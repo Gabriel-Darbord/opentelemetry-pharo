@@ -42,6 +42,23 @@ OTW3CBaggagePropagator class >> reset [
 ]
 
 { #category : 'private' }
+OTW3CBaggagePropagator >> baggageAndEntryCountFromHeader: aString startingWith: aBaggage remainingEntries: anInteger [
+
+	| acceptedEntries baggage |
+	baggage := aBaggage.
+	acceptedEntries := 0.
+	(aString substrings: ',') do: [ :eachMember |
+			acceptedEntries < anInteger ifTrue: [
+					(self baggageMemberFrom: eachMember) ifNotNil: [ :anAssociation |
+							acceptedEntries := acceptedEntries + 1.
+							baggage := baggage
+								           withEntryNamed: anAssociation key
+								           value: anAssociation value value
+								           metadata: anAssociation value metadata ] ] ].
+	^ Array with: baggage with: acceptedEntries
+]
+
+{ #category : 'private' }
 OTW3CBaggagePropagator >> baggageFromCarrier: aCarrier getter: aGetter [
 
 	| baggage totalBytes totalEntries |
@@ -49,47 +66,24 @@ OTW3CBaggagePropagator >> baggageFromCarrier: aCarrier getter: aGetter [
 	totalBytes := 0.
 	totalEntries := 0.
 	(aGetter getAllFrom: aCarrier key: self class baggageHeaderName) do: [ :eachHeader |
-		| headerBytes parsedHeader remainingEntries |
-		eachHeader isEmpty ifFalse: [
-			headerBytes := eachHeader size.
-			(totalEntries >= self class maxBaggageEntries or: [ totalBytes + headerBytes > self class maxBaggageBytes ]) ifTrue: [ ^ baggage ].
-			remainingEntries := self class maxBaggageEntries - totalEntries.
-			parsedHeader := self
-				baggageAndEntryCountFromHeader: eachHeader
-				startingWith: baggage
-				remainingEntries: remainingEntries.
-			baggage := parsedHeader first.
-			totalEntries := totalEntries + parsedHeader second.
-			totalBytes := totalBytes + headerBytes ] ].
+			| headerBytes parsedHeader remainingEntries |
+			eachHeader isEmpty ifFalse: [
+					headerBytes := eachHeader size.
+					(totalEntries >= self class maxBaggageEntries or: [ totalBytes + headerBytes > self class maxBaggageBytes ]) ifTrue: [
+						^ baggage ].
+					remainingEntries := self class maxBaggageEntries - totalEntries.
+					parsedHeader := self baggageAndEntryCountFromHeader: eachHeader startingWith: baggage remainingEntries: remainingEntries.
+					baggage := parsedHeader first.
+					totalEntries := totalEntries + parsedHeader second.
+					totalBytes := totalBytes + headerBytes ] ].
 	^ baggage
 ]
 
 { #category : 'private' }
 OTW3CBaggagePropagator >> baggageFromHeader: aString [
 
-	^ (self
-		baggageAndEntryCountFromHeader: aString
-		startingWith: OTBaggage empty
-		remainingEntries: self class maxBaggageEntries) first
-]
-
-{ #category : 'private' }
-OTW3CBaggagePropagator >> baggageAndEntryCountFromHeader: aString startingWith: aBaggage remainingEntries: anInteger [
-
-	| acceptedEntries baggage |
-	baggage := aBaggage.
-	acceptedEntries := 0.
-	(aString substrings: ',') do: [ :eachMember |
-		acceptedEntries < anInteger ifTrue: [
-			(self baggageMemberFrom: eachMember) ifNotNil: [ :anAssociation |
-				acceptedEntries := acceptedEntries + 1.
-				baggage := baggage
-					withEntryNamed: anAssociation key
-					value: anAssociation value value
-					metadata: anAssociation value metadata ] ] ].
-	^ Array
-		with: baggage
-		with: acceptedEntries
+	^ (self baggageAndEntryCountFromHeader: aString startingWith: OTBaggage empty remainingEntries: self class maxBaggageEntries)
+		  first
 ]
 
 { #category : 'private' }
@@ -100,8 +94,8 @@ OTW3CBaggagePropagator >> baggageMemberFrom: aString [
 	member isEmpty ifTrue: [ ^ nil ].
 	metadataIndex := member indexOf: $; ifAbsent: [ 0 ].
 	memberPart := metadataIndex = 0
-		ifTrue: [ member ]
-		ifFalse: [ member copyFrom: 1 to: metadataIndex - 1 ].
+		              ifTrue: [ member ]
+		              ifFalse: [ member copyFrom: 1 to: metadataIndex - 1 ].
 	keyValueIndex := memberPart indexOf: $= ifAbsent: [ ^ nil ].
 	keyValueIndex = 1 ifTrue: [ ^ nil ].
 	keyValueIndex = memberPart size ifTrue: [ ^ nil ].
@@ -113,8 +107,8 @@ OTW3CBaggagePropagator >> baggageMemberFrom: aString [
 	value := self decodedComponentFrom: rawValue.
 	((self isValidBaggageKey: key) and: [ value isNotNil and: [ value isNotEmpty ] ]) ifFalse: [ ^ nil ].
 	metadata := metadataIndex = 0
-		ifTrue: [ '' ]
-		ifFalse: [ (member copyFrom: metadataIndex + 1 to: member size) trimBoth ].
+		            ifTrue: [ '' ]
+		            ifFalse: [ (member copyFrom: metadataIndex + 1 to: member size) trimBoth ].
 	metadata := self decodedComponentFrom: metadata.
 	metadata ifNil: [ ^ nil ].
 	^ key -> (OTBaggageEntry value: value metadata: metadata)
@@ -123,9 +117,9 @@ OTW3CBaggagePropagator >> baggageMemberFrom: aString [
 { #category : 'private' }
 OTW3CBaggagePropagator >> decodedComponentFrom: aString [
 
-	^[ aString urlDecoded ]
-		on: Error
-		do: [ nil ]
+	^ [ aString urlDecoded ]
+		  on: Error
+		  do: [ nil ]
 ]
 
 { #category : 'extracting' }
@@ -158,15 +152,16 @@ OTW3CBaggagePropagator >> headerValueFor: aBaggage [
 	stream := String new writeStream.
 	entryCount := 0.
 	aBaggage entries do: [ :anAssociation |
-		(self serializedMemberNamed: anAssociation key entry: anAssociation value)
-			ifNotNil: [ :aString |
-				| projectedSize |
-				(entryCount < self class maxBaggageEntries) ifTrue: [
-					projectedSize := stream position + aString size + (entryCount > 0 ifTrue: [ 1 ] ifFalse: [ 0 ]).
-					projectedSize <= self class maxBaggageBytes ifTrue: [
-						entryCount > 0 ifTrue: [ stream nextPut: $, ].
-						stream nextPutAll: aString.
-						entryCount := entryCount + 1 ] ] ] ].
+			(self serializedMemberNamed: anAssociation key entry: anAssociation value) ifNotNil: [ :aString |
+					| projectedSize |
+					entryCount < self class maxBaggageEntries ifTrue: [
+							projectedSize := stream position + aString size + (entryCount > 0
+								                  ifTrue: [ 1 ]
+								                  ifFalse: [ 0 ]).
+							projectedSize <= self class maxBaggageBytes ifTrue: [
+									entryCount > 0 ifTrue: [ stream nextPut: $, ].
+									stream nextPutAll: aString.
+									entryCount := entryCount + 1 ] ] ] ].
 	^ stream contents
 ]
 
@@ -185,10 +180,7 @@ OTW3CBaggagePropagator >> inject: aContext into: aCarrier setter: aSetter [
 	baggage isEmpty ifTrue: [ ^ self ].
 	headerValue := self headerValueFor: baggage.
 	headerValue ifEmpty: [ ^ self ].
-	aSetter
-		setIn: aCarrier
-		key: self class baggageHeaderName
-		value: headerValue.
+	aSetter setIn: aCarrier key: self class baggageHeaderName value: headerValue.
 	^ self
 ]
 
@@ -197,9 +189,7 @@ OTW3CBaggagePropagator >> isValidBaggageKey: aString [
 
 	aString ifNil: [ ^ false ].
 	aString isEmpty ifTrue: [ ^ false ].
-	^ aString allSatisfy: [ :eachCharacter |
-		eachCharacter isAlphaNumeric
-			or: [ '!#$%&''*+-.^_`|~' includes: eachCharacter ] ]
+	^ aString allSatisfy: [ :eachCharacter | eachCharacter isAlphaNumeric or: [ '!#$%&''*+-.^_`|~' includes: eachCharacter ] ]
 ]
 
 { #category : 'private' }
@@ -213,8 +203,7 @@ OTW3CBaggagePropagator >> isValidEncodedBaggageValue: aString [
 
 	aString ifNil: [ ^ false ].
 	aString isEmpty ifTrue: [ ^ false ].
-	^ aString allSatisfy: [ :eachCharacter |
-		self isValidEncodedBaggageValueCharacter: eachCharacter ]
+	^ aString allSatisfy: [ :eachCharacter | self isValidEncodedBaggageValueCharacter: eachCharacter ]
 ]
 
 { #category : 'private' }
@@ -231,10 +220,10 @@ OTW3CBaggagePropagator >> serializedMemberNamed: aName entry: anEntry [
 
 	((self isValidBaggageKey: aName) and: [ anEntry value isNotEmpty ]) ifFalse: [ ^ nil ].
 	^ String streamContents: [ :stream |
-		stream nextPutAll: aName urlEncoded.
-		stream nextPut: $=.
-		stream nextPutAll: anEntry value urlEncoded.
-		anEntry hasMetadata ifTrue: [
-			stream nextPut: $;.
-			stream nextPutAll: anEntry metadata asString urlEncoded ] ]
+			  stream nextPutAll: aName urlEncoded.
+			  stream nextPut: $=.
+			  stream nextPutAll: anEntry value urlEncoded.
+			  anEntry hasMetadata ifTrue: [
+					  stream nextPut: $;.
+					  stream nextPutAll: anEntry metadata asString urlEncoded ] ]
 ]

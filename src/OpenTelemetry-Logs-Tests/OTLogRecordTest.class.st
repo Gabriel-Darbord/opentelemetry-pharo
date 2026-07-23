@@ -13,9 +13,9 @@ OTLogRecordTest >> testAttributeLimitsDropAndWarnOnce [
 	limits attributeCountLimit: 1.
 	warnings := OrderedCollection new.
 	logRecord := OTLogRecord new
-		limits: limits;
-		warningSink: [ :message | warnings add: message ];
-		yourself.
+		             limits: limits;
+		             warningSink: [ :message | warnings add: message ];
+		             yourself.
 	logRecord
 		attributeNamed: 'first' put: 1;
 		attributeNamed: 'second' put: 2;

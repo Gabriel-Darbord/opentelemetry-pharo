@@ -23,8 +23,7 @@ OTLogRecordLimits >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class = self class ifFalse: [ ^ false ].
-	^ attributeCountLimit = anObject attributeCountLimit
-		and: [ attributeValueLengthLimit = anObject attributeValueLengthLimit ]
+	^ attributeCountLimit = anObject attributeCountLimit and: [ attributeValueLengthLimit = anObject attributeValueLengthLimit ]
 ]
 
 { #category : 'accessing' }
@@ -56,7 +55,9 @@ OTLogRecordLimits >> attributeValueLengthLimit: anInteger [
 { #category : 'comparing' }
 OTLogRecordLimits >> hash [
 
-	^ { attributeCountLimit. attributeValueLengthLimit } hash
+	^ {
+		  attributeCountLimit.
+		  attributeValueLengthLimit } hash
 ]
 
 { #category : 'initialization' }
@@ -71,10 +72,9 @@ OTLogRecordLimits >> initialize [
 OTLogRecordLimits >> normalizedLimit: aNumber allowNil: aBoolean [
 
 	aNumber ifNil: [
-		aBoolean ifTrue: [ ^ nil ].
-		Error signal: 'OpenTelemetry limits must be non-negative integers' ].
-	(aNumber isInteger and: [ aNumber >= 0 ]) ifFalse: [
-		Error signal: 'OpenTelemetry limits must be non-negative integers' ].
+			aBoolean ifTrue: [ ^ nil ].
+			Error signal: 'OpenTelemetry limits must be non-negative integers' ].
+	(aNumber isInteger and: [ aNumber >= 0 ]) ifFalse: [ Error signal: 'OpenTelemetry limits must be non-negative integers' ].
 	^ aNumber
 ]
 

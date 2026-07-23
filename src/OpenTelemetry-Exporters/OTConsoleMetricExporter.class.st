@@ -34,7 +34,7 @@ OTConsoleMetricExporter >> outputStream [
 OTConsoleMetricExporter >> outputStream: anObject [
 
 	outputStreamBlock := anObject isBlock
-		ifTrue: [ anObject ]
-		ifFalse: [ [ anObject ] ].
+		                     ifTrue: [ anObject ]
+		                     ifFalse: [ [ anObject ] ].
 	^ anObject
 ]

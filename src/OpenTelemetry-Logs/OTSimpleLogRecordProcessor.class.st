@@ -13,6 +13,19 @@ Class {
 	#package : 'OpenTelemetry-Logs'
 }
 
+{ #category : 'testing' }
+OTSimpleLogRecordProcessor >> enabledIn: anOTContext instrumentationScope: anInstrumentationScope severityNumber: anObject eventName: aString [
+
+	^ shutdown = true
+		  ifTrue: [ false ]
+		  ifFalse: [
+				  self exporter
+					  enabledIn: anOTContext
+					  instrumentationScope: anInstrumentationScope
+					  severityNumber: anObject
+					  eventName: aString ]
+]
+
 { #category : 'accessing' }
 OTSimpleLogRecordProcessor >> exporter [
 
@@ -24,19 +37,6 @@ OTSimpleLogRecordProcessor >> exporter: anOTLogRecordExporter [
 
 	exporter := anOTLogRecordExporter.
 	^ exporter
-]
-
-{ #category : 'testing' }
-OTSimpleLogRecordProcessor >> enabledIn: anOTContext instrumentationScope: anInstrumentationScope severityNumber: anObject eventName: aString [
-
-	^ shutdown = true
-		ifTrue: [ false ]
-		ifFalse: [
-			self exporter
-				enabledIn: anOTContext
-				instrumentationScope: anInstrumentationScope
-				severityNumber: anObject
-				eventName: aString ]
 ]
 
 { #category : 'processing' }

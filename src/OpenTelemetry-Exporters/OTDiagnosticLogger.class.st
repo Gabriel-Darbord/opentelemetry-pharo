@@ -23,10 +23,17 @@ OTDiagnosticLogger class >> allSeverity [
 	^ 6
 ]
 
-{ #category : 'severity' }
-OTDiagnosticLogger class >> debugSeverity [
+{ #category : 'instance creation' }
+OTDiagnosticLogger class >> buildDefaultLogger [
 
-	^ 4
+	| tinyLoggerClass logger |
+	tinyLoggerClass := self tinyLoggerClassIfAvailable.
+	tinyLoggerClass ifNil: [ ^ self defaultStandardOutputLogger ].
+	logger := tinyLoggerClass new.
+	logger ensureStdoutLogger.
+	^ (self onMessageDo: [ :severity :message | logger record: [ self messageForSeverity: severity text: message ] ])
+		  minimumSeverity: self configuredMinimumSeverity;
+		  yourself
 ]
 
 { #category : 'private - configuration' }
@@ -36,10 +43,10 @@ OTDiagnosticLogger class >> configuredMinimumSeverity [
 	configuredValue := self environmentValueAt: 'OTEL_LOG_LEVEL'.
 	configuredValue ifNil: [ ^ self infoSeverity ].
 	^ (self severityFromLogLevelValue: configuredValue)
-		ifNil: [
-			self noteInvalidLogLevel: configuredValue.
-			self infoSeverity ]
-		ifNotNil: [ :severity | severity ]
+		  ifNil: [
+				  self noteInvalidLogLevel: configuredValue.
+				  self infoSeverity ]
+		  ifNotNil: [ :severity | severity ]
 ]
 
 { #category : 'accessing' }
@@ -54,24 +61,16 @@ OTDiagnosticLogger class >> current: aDiagnosticLogger [
 	Current := aDiagnosticLogger
 ]
 
+{ #category : 'severity' }
+OTDiagnosticLogger class >> debugSeverity [
+
+	^ 4
+]
+
 { #category : 'instance creation' }
 OTDiagnosticLogger class >> default [
 
 	^ self loggerFactory value
-]
-
-{ #category : 'instance creation' }
-OTDiagnosticLogger class >> buildDefaultLogger [
-
-	| tinyLoggerClass logger |
-	tinyLoggerClass := self tinyLoggerClassIfAvailable.
-	tinyLoggerClass ifNil: [ ^ self defaultStandardOutputLogger ].
-	logger := tinyLoggerClass new.
-	logger ensureStdoutLogger.
-	^ (self onMessageDo: [ :severity :message |
-		   logger record: [ self messageForSeverity: severity text: message ] ])
-		minimumSeverity: self configuredMinimumSeverity;
-		yourself
 ]
 
 { #category : 'private - logging' }
@@ -83,48 +82,15 @@ OTDiagnosticLogger class >> defaultErrorHandler [
 { #category : 'instance creation' }
 OTDiagnosticLogger class >> defaultStandardOutputLogger [
 
-	^ (self onMessageDo: [ :severity :message |
-		   self writeMessageToStandardOutput: message severity: severity ])
-		minimumSeverity: self configuredMinimumSeverity;
-		yourself
-]
-
-{ #category : 'instance creation' }
-OTDiagnosticLogger class >> loggerFactory [
-
-	^ OTClassStateStore
-		valueAt: #otDiagnosticLoggerFactory
-		forClass: self
-		ifAbsent: [ [ self buildDefaultLogger ] ]
-]
-
-{ #category : 'instance creation' }
-OTDiagnosticLogger class >> loggerFactory: aBlockOrNil [
-
-	aBlockOrNil
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otDiagnosticLoggerFactory
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otDiagnosticLoggerFactory
-				forClass: self
-				put: aBlockOrNil ].
-	^ self loggerFactory
+	^ (self onMessageDo: [ :severity :message | self writeMessageToStandardOutput: message severity: severity ])
+		  minimumSeverity: self configuredMinimumSeverity;
+		  yourself
 ]
 
 { #category : 'private - logging' }
 OTDiagnosticLogger class >> defaultWarningSink [
 
 	^ [ :message | self current warning: message ]
-]
-
-{ #category : 'severity' }
-OTDiagnosticLogger class >> errorSeverity [
-
-	^ 1
 ]
 
 { #category : 'private - configuration' }
@@ -134,18 +100,36 @@ OTDiagnosticLogger class >> environmentValueAt: aString [
 ]
 
 { #category : 'severity' }
+OTDiagnosticLogger class >> errorSeverity [
+
+	^ 1
+]
+
+{ #category : 'severity' }
 OTDiagnosticLogger class >> infoSeverity [
 
 	^ 3
 ]
 
+{ #category : 'instance creation' }
+OTDiagnosticLogger class >> loggerFactory [
+
+	^ OTClassStateStore valueAt: #otDiagnosticLoggerFactory forClass: self ifAbsent: [ [ self buildDefaultLogger ] ]
+]
+
+{ #category : 'instance creation' }
+OTDiagnosticLogger class >> loggerFactory: aBlockOrNil [
+
+	aBlockOrNil
+		ifNil: [ OTClassStateStore removeValueAt: #otDiagnosticLoggerFactory forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otDiagnosticLoggerFactory forClass: self put: aBlockOrNil ].
+	^ self loggerFactory
+]
+
 { #category : 'private - logging' }
 OTDiagnosticLogger class >> messageForSeverity: aSeverity text: aString [
 
-	^ 'OpenTelemetry '
-		, (self severityNameFor: aSeverity)
-		, ': '
-		, aString
+	^ 'OpenTelemetry ' , (self severityNameFor: aSeverity) , ': ' , aString
 ]
 
 { #category : 'severity' }
@@ -158,9 +142,7 @@ OTDiagnosticLogger class >> noneSeverity [
 OTDiagnosticLogger class >> noteInvalidLogLevel: aString [
 
 	self
-		writeMessageToStandardOutput:
-			('OpenTelemetry diagnostic log level was unrecognized and has been ignored: '
-				, aString printString)
+		writeMessageToStandardOutput: 'OpenTelemetry diagnostic log level was unrecognized and has been ignored: ' , aString printString
 		severity: self warningSeverity
 ]
 
@@ -168,15 +150,14 @@ OTDiagnosticLogger class >> noteInvalidLogLevel: aString [
 OTDiagnosticLogger class >> onMessageDo: aBlock [
 
 	^ self new
-		messageSink: aBlock;
-		yourself
+		  messageSink: aBlock;
+		  yourself
 ]
 
 { #category : 'instance creation' }
 OTDiagnosticLogger class >> onWarningDo: aBlock [
 
-	^ self onMessageDo: [ :severity :message |
-		severity = self warningSeverity ifTrue: [ aBlock value: message ] ]
+	^ self onMessageDo: [ :severity :message | severity = self warningSeverity ifTrue: [ aBlock value: message ] ]
 ]
 
 { #category : 'class initialization' }
@@ -225,25 +206,17 @@ OTDiagnosticLogger class >> tinyLoggerClassIfAvailable [
 OTDiagnosticLogger class >> tinyLoggerClassResolver [
 
 	^ OTClassStateStore
-		valueAt: #otTinyLoggerClassResolver
-		forClass: self
-		ifAbsent: [ [ Smalltalk globals at: #TinyLogger ifAbsent: [ nil ] ] ]
+		  valueAt: #otTinyLoggerClassResolver
+		  forClass: self
+		  ifAbsent: [ [ Smalltalk globals at: #TinyLogger ifAbsent: [ nil ] ] ]
 ]
 
 { #category : 'private - logging' }
 OTDiagnosticLogger class >> tinyLoggerClassResolver: aBlockOrNil [
 
 	aBlockOrNil
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otTinyLoggerClassResolver
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otTinyLoggerClassResolver
-				forClass: self
-				put: aBlockOrNil ].
+		ifNil: [ OTClassStateStore removeValueAt: #otTinyLoggerClassResolver forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otTinyLoggerClassResolver forClass: self put: aBlockOrNil ].
 	^ self tinyLoggerClassResolver
 ]
 

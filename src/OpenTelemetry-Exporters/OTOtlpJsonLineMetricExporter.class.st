@@ -34,8 +34,7 @@ OTOtlpJsonLineMetricExporter >> export: anOTMetricSnapshot [
 { #category : 'private' }
 OTOtlpJsonLineMetricExporter >> jsonLineFrom: anOTMetricSnapshot [
 
-	^ (ZnUtils defaultJSONWriter toString: (self encoder encodeSnapshot: anOTMetricSnapshot))
-		, String lf
+	^ (ZnUtils defaultJSONWriter toString: (self encoder encodeSnapshot: anOTMetricSnapshot)) , String lf
 ]
 
 { #category : 'private' }

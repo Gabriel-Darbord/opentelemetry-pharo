@@ -53,10 +53,7 @@ OTOtTraceTextMapPropagator class >> traceIdHeaderName [
 { #category : 'private' }
 OTOtTraceTextMapPropagator >> baggageBytesOf: aBaggage [
 
-	^ aBaggage entries
-		inject: 0
-		into: [ :total :each |
-			total + each key size + each value value size ]
+	^ aBaggage entries inject: 0 into: [ :total :each | total + each key size + each value value size ]
 ]
 
 { #category : 'private' }
@@ -65,16 +62,16 @@ OTOtTraceTextMapPropagator >> baggageFromCarrier: aCarrier getter: aGetter [
 	| baggage |
 	baggage := OTBaggage empty.
 	(aGetter keysIn: aCarrier) do: [ :eachKey |
-		| baggageKey value updatedBaggage |
-		baggage size >= self class maxBaggageEntries ifTrue: [ ^ baggage ].
-		baggageKey := self baggageKeyFromHeaderName: eachKey.
-		baggageKey ifNotNil: [
-			value := self headerValueIn: eachKey from: aCarrier getter: aGetter.
-			(value isNotNil and: [ value isNotEmpty ]) ifTrue: [
-				updatedBaggage := baggage withEntryNamed: baggageKey value: value metadata: nil.
-				(self baggageBytesOf: updatedBaggage) > self class maxBaggageBytes
-					ifTrue: [ ^ baggage ]
-					ifFalse: [ baggage := updatedBaggage ] ] ] ].
+			| baggageKey value updatedBaggage |
+			baggage size >= self class maxBaggageEntries ifTrue: [ ^ baggage ].
+			baggageKey := self baggageKeyFromHeaderName: eachKey.
+			baggageKey ifNotNil: [
+					value := self headerValueIn: eachKey from: aCarrier getter: aGetter.
+					(value isNotNil and: [ value isNotEmpty ]) ifTrue: [
+							updatedBaggage := baggage withEntryNamed: baggageKey value: value metadata: nil.
+							(self baggageBytesOf: updatedBaggage) > self class maxBaggageBytes
+								ifTrue: [ ^ baggage ]
+								ifFalse: [ baggage := updatedBaggage ] ] ] ].
 	^ baggage
 ]
 
@@ -85,8 +82,7 @@ OTOtTraceTextMapPropagator >> baggageKeyFromHeaderName: aString [
 	aString ifNil: [ ^ nil ].
 	headerName := aString asString asLowercase.
 	prefix := self class baggagePrefix.
-	((headerName beginsWith: prefix) and: [ headerName size > prefix size ])
-		ifFalse: [ ^ nil ].
+	((headerName beginsWith: prefix) and: [ headerName size > prefix size ]) ifFalse: [ ^ nil ].
 	^ headerName copyFrom: prefix size + 1 to: headerName size
 ]
 
@@ -117,9 +113,9 @@ OTOtTraceTextMapPropagator >> extract: aContext from: aCarrier getter: aGetter [
 OTOtTraceTextMapPropagator >> fields [
 
 	^ {
-		self class traceIdHeaderName.
-		self class spanIdHeaderName.
-		self class sampledHeaderName }
+		  self class traceIdHeaderName.
+		  self class spanIdHeaderName.
+		  self class sampledHeaderName }
 ]
 
 { #category : 'private' }
@@ -128,15 +124,17 @@ OTOtTraceTextMapPropagator >> headerStringFrom: anObject [
 	| firstValue normalized |
 	anObject ifNil: [ ^ nil ].
 	(anObject isString or: [ anObject isSymbol ]) ifTrue: [
-		normalized := anObject asString trimBoth.
-		^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ] ].
+			normalized := anObject asString trimBoth.
+			^ normalized isEmpty
+				  ifTrue: [ nil ]
+				  ifFalse: [ normalized ] ].
 	anObject isCollection ifTrue: [
-		firstValue := anObject
-			detect: [ :each | each isNotNil ]
-			ifNone: [ nil ].
-		^ self headerStringFrom: firstValue ].
+			firstValue := anObject detect: [ :each | each isNotNil ] ifNone: [ nil ].
+			^ self headerStringFrom: firstValue ].
 	normalized := anObject asString trimBoth.
-	^ normalized isEmpty ifTrue: [ nil ] ifFalse: [ normalized ]
+	^ normalized isEmpty
+		  ifTrue: [ nil ]
+		  ifFalse: [ normalized ]
 ]
 
 { #category : 'private' }
@@ -158,18 +156,11 @@ OTOtTraceTextMapPropagator >> inject: aContext into: aCarrier setter: aSetter [
 	(aContext isNil or: [ aSetter isNil ]) ifTrue: [ ^ self ].
 	spanContext := aContext span ifNotNil: [ :span | span spanContext ].
 	(spanContext isNil or: [ spanContext isValid not ]) ifTrue: [ ^ self ].
-	aSetter
-		setIn: aCarrier
-		key: self class traceIdHeaderName
-		value: (spanContext traceId copyFrom: 17 to: 32).
-	aSetter
-		setIn: aCarrier
-		key: self class spanIdHeaderName
-		value: spanContext spanId.
-	aSetter
-		setIn: aCarrier
-		key: self class sampledHeaderName
-		value: (spanContext isSampled ifTrue: [ 'true' ] ifFalse: [ 'false' ]).
+	aSetter setIn: aCarrier key: self class traceIdHeaderName value: (spanContext traceId copyFrom: 17 to: 32).
+	aSetter setIn: aCarrier key: self class spanIdHeaderName value: spanContext spanId.
+	aSetter setIn: aCarrier key: self class sampledHeaderName value: (spanContext isSampled
+			 ifTrue: [ 'true' ]
+			 ifFalse: [ 'false' ]).
 	self injectBaggage: aContext baggage into: aCarrier setter: aSetter.
 	^ self
 ]
@@ -182,19 +173,16 @@ OTOtTraceTextMapPropagator >> injectBaggage: aBaggage into: aCarrier setter: aSe
 	entriesEmitted := 0.
 	bytesEmitted := 0.
 	baggage entries do: [ :each |
-		| key value projectedBytes |
-		entriesEmitted < self class maxBaggageEntries ifTrue: [
-			key := each key.
-			value := each value value.
-			((OTW3CBaggagePropagator current isValidBaggageKey: key) and: [ value isNotNil and: [ value isNotEmpty ] ]) ifTrue: [
-				projectedBytes := bytesEmitted + key size + value size.
-				projectedBytes <= self class maxBaggageBytes ifTrue: [
-					aSetter
-						setIn: aCarrier
-						key: self class baggagePrefix, key
-						value: value.
-					entriesEmitted := entriesEmitted + 1.
-					bytesEmitted := projectedBytes ] ] ] ].
+			| key value projectedBytes |
+			entriesEmitted < self class maxBaggageEntries ifTrue: [
+					key := each key.
+					value := each value value.
+					((OTW3CBaggagePropagator current isValidBaggageKey: key) and: [ value isNotNil and: [ value isNotEmpty ] ]) ifTrue: [
+							projectedBytes := bytesEmitted + key size + value size.
+							projectedBytes <= self class maxBaggageBytes ifTrue: [
+									aSetter setIn: aCarrier key: self class baggagePrefix , key value: value.
+									entriesEmitted := entriesEmitted + 1.
+									bytesEmitted := projectedBytes ] ] ] ].
 	^ self
 ]
 
@@ -203,8 +191,7 @@ OTOtTraceTextMapPropagator >> isHexString: aString maxSize: anInteger [
 
 	aString ifNil: [ ^ false ].
 	(aString isEmpty or: [ aString size > anInteger ]) ifTrue: [ ^ false ].
-	^ aString allSatisfy: [ :each |
-		each isDigit or: [ 'abcdef' includes: each asLowercase ] ]
+	^ aString allSatisfy: [ :each | each isDigit or: [ 'abcdef' includes: each asLowercase ] ]
 ]
 
 { #category : 'private' }
@@ -242,11 +229,11 @@ OTOtTraceTextMapPropagator >> spanContextFromTraceId: aTraceId spanId: aSpanId s
 	spanId := self normalizedSpanId: aSpanId.
 	spanId ifNil: [ ^ nil ].
 	^ OTSpanContext
-		traceId: traceId
-		spanId: spanId
-		traceFlags: (self traceFlagsFromSampled: aSampledValue)
-		traceState: nil
-		remote: true
+		  traceId: traceId
+		  spanId: spanId
+		  traceFlags: (self traceFlagsFromSampled: aSampledValue)
+		  traceState: nil
+		  remote: true
 ]
 
 { #category : 'private' }

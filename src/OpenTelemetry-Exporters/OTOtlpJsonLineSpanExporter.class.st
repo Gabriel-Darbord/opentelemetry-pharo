@@ -36,8 +36,7 @@ OTOtlpJsonLineSpanExporter >> export: spans [
 { #category : 'private' }
 OTOtlpJsonLineSpanExporter >> jsonLineFrom: spans [
 
-	^ (ZnUtils defaultJSONWriter toString: (self encoder encodeSpans: spans asArray))
-		, String lf
+	^ (ZnUtils defaultJSONWriter toString: (self encoder encodeSpans: spans asArray)) , String lf
 ]
 
 { #category : 'private' }

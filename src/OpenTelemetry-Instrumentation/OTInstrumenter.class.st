@@ -35,26 +35,15 @@ Class {
 { #category : 'private - logging' }
 OTInstrumenter class >> configurationWarningSink [
 
-	^ OTClassStateStore
-		valueAt: #otConfigurationWarningSink
-		forClass: self
-		ifAbsent: [ self defaultConfigurationWarningSink ]
+	^ OTClassStateStore valueAt: #otConfigurationWarningSink forClass: self ifAbsent: [ self defaultConfigurationWarningSink ]
 ]
 
 { #category : 'private - logging' }
 OTInstrumenter class >> configurationWarningSink: aBlock [
 
 	aBlock
-		ifNil: [
-			OTClassStateStore
-				removeValueAt: #otConfigurationWarningSink
-				forClass: self
-				ifAbsent: [  ] ]
-		ifNotNil: [
-			OTClassStateStore
-				valueAt: #otConfigurationWarningSink
-				forClass: self
-				put: aBlock ].
+		ifNil: [ OTClassStateStore removeValueAt: #otConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otConfigurationWarningSink forClass: self put: aBlock ].
 	^ self configurationWarningSink
 ]
 
@@ -74,8 +63,7 @@ OTInstrumenter class >> defaultConfigurationWarningSink [
 { #category : 'defaults' }
 OTInstrumenter class >> defaultContextProducer [
 
-	^ defaultContextProducer ifNil: [
-		  defaultContextProducer := [ OTContext new ] ]
+	^ defaultContextProducer ifNil: [ defaultContextProducer := [ OTContext new ] ]
 ]
 
 { #category : 'defaults' }
@@ -87,9 +75,7 @@ OTInstrumenter class >> defaultSpanKindExtractor [
 { #category : 'defaults' }
 OTInstrumenter class >> defaultSpanNameExtractor [
 
-	^ defaultSpanNameExtractor ifNil: [
-		  defaultSpanNameExtractor := [ :request |
-		                              request printStringLimitedTo: 50 ] ]
+	^ defaultSpanNameExtractor ifNil: [ defaultSpanNameExtractor := [ :request | request printStringLimitedTo: 50 ] ]
 ]
 
 { #category : 'instance creation' }
@@ -102,10 +88,7 @@ OTInstrumenter class >> forInstrumentationNamed: aString [
 OTInstrumenter class >> noteConfigurationFailedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry instrumenter callback failed during '
-		, anOperationName
-		, ': '
-		, anError messageText.
+	message := 'OpenTelemetry instrumenter callback failed during ' , anOperationName , ': ' , anError messageText.
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message
@@ -116,17 +99,16 @@ OTInstrumenter class >> noteConfigurationFailedDuring: anOperationName error: an
 OTInstrumenter >> configurationValueDuring: anOperationName default: aDefaultValue do: aBlock [
 
 	^ [ aBlock value ]
-		on: Error
-		do: [ :error |
-			self class noteConfigurationFailedDuring: anOperationName error: error.
-			aDefaultValue ]
+		  on: Error
+		  do: [ :error |
+				  self class noteConfigurationFailedDuring: anOperationName error: error.
+				  aDefaultValue ]
 ]
 
 { #category : 'accessing' }
 OTInstrumenter >> contextProducer [
 
-	^ contextProducer ifNil: [
-		  contextProducer := self class defaultContextProducer ]
+	^ contextProducer ifNil: [ contextProducer := self class defaultContextProducer ]
 ]
 
 { #category : 'accessing' }
@@ -141,8 +123,8 @@ OTInstrumenter >> currentContext [
 	| currentContext |
 	currentContext := OpenTelemetry currentContext.
 	^ currentContext isEmpty
-		ifTrue: [ self produceContext ]
-		ifFalse: [ currentContext ]
+		  ifTrue: [ self produceContext ]
+		  ifFalse: [ currentContext ]
 ]
 
 { #category : 'instrumenting' }
@@ -202,9 +184,9 @@ OTInstrumenter >> instrumentationName: aString [
 OTInstrumenter >> produceContext [
 
 	^ self
-		configurationValueDuring: 'contextProducer'
-		default: OTContext new
-		do: [ self contextProducer value ifNil: [ OTContext new ] ]
+		  configurationValueDuring: 'contextProducer'
+		  default: OTContext new
+		  do: [ self contextProducer value ifNil: [ OTContext new ] ]
 ]
 
 { #category : 'instrumenting' }
@@ -216,18 +198,17 @@ OTInstrumenter >> shouldStartUnder: span request: request [
 	spanName := self spanNameForRequest: request.
 	context := self decisionContextUnder: span.
 	^ self tracer
-		enabledForSpanNamed: spanName
-		kind: spanKind
-		in: context
-		attributes: #()
-		links: #()
+		  enabledForSpanNamed: spanName
+		  kind: spanKind
+		  in: context
+		  attributes: #(  )
+		  links: #(  )
 ]
 
 { #category : 'accessing' }
 OTInstrumenter >> spanKindExtractor [
 
-	^ spanKindExtractor ifNil: [
-		  spanKindExtractor := self class defaultSpanKindExtractor ]
+	^ spanKindExtractor ifNil: [ spanKindExtractor := self class defaultSpanKindExtractor ]
 ]
 
 { #category : 'accessing' }
@@ -240,16 +221,15 @@ OTInstrumenter >> spanKindExtractor: aBlock [
 OTInstrumenter >> spanKindForRequest: request [
 
 	^ self
-		configurationValueDuring: 'spanKindExtractor'
-		default: (self class defaultSpanKindExtractor value: request)
-		do: [ self spanKindExtractor value: request ]
+		  configurationValueDuring: 'spanKindExtractor'
+		  default: (self class defaultSpanKindExtractor value: request)
+		  do: [ self spanKindExtractor value: request ]
 ]
 
 { #category : 'accessing' }
 OTInstrumenter >> spanNameExtractor [
 
-	^ spanNameExtractor ifNil: [
-		  spanNameExtractor := self class defaultSpanNameExtractor ]
+	^ spanNameExtractor ifNil: [ spanNameExtractor := self class defaultSpanNameExtractor ]
 ]
 
 { #category : 'accessing' }
@@ -262,9 +242,9 @@ OTInstrumenter >> spanNameExtractor: aBlock [
 OTInstrumenter >> spanNameForRequest: request [
 
 	^ self
-		configurationValueDuring: 'spanNameExtractor'
-		default: (self class defaultSpanNameExtractor value: request)
-		do: [ self spanNameExtractor value: request ]
+		  configurationValueDuring: 'spanNameExtractor'
+		  default: (self class defaultSpanNameExtractor value: request)
+		  do: [ self spanNameExtractor value: request ]
 ]
 
 { #category : 'instrumenting' }
@@ -272,9 +252,9 @@ OTInstrumenter >> spanSuppressedUnder: span kind: aSpanKind [
 
 	spanSuppressionStrategy ifNil: [ ^ false ].
 	^ self
-		configurationValueDuring: 'spanSuppressionStrategy'
-		default: false
-		do: [ spanSuppressionStrategy value: span value: aSpanKind ]
+		  configurationValueDuring: 'spanSuppressionStrategy'
+		  default: false
+		  do: [ spanSuppressionStrategy value: span value: aSpanKind ]
 ]
 
 { #category : 'accessing' }
@@ -299,10 +279,7 @@ OTInstrumenter >> startContextUnder: parentSpan [
 OTInstrumenter >> startIn: aContext request: request [
 	"Start a new operation to be instrumented from a context."
 
-	^ self tracer
-		startSpanNamed: (self spanNameForRequest: request)
-		kind: (self spanKindForRequest: request)
-		in: aContext
+	^ self tracer startSpanNamed: (self spanNameForRequest: request) kind: (self spanKindForRequest: request) in: aContext
 ]
 
 { #category : 'instrumenting' }
@@ -317,9 +294,7 @@ OTInstrumenter >> startUnder: parentSpan request: request [
 	"Start a new operation to be instrumented.
 	The parentSpan is the parent context of the resulting instrumented operation."
 
-	^ self
-		startIn: (self startContextUnder: parentSpan)
-		request: request
+	^ self startIn: (self startContextUnder: parentSpan) request: request
 ]
 
 { #category : 'instrumenting' }

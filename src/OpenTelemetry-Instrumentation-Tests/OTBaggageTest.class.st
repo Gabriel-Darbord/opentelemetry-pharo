@@ -8,17 +8,13 @@ Class {
 { #category : 'private' }
 OTBaggageTest >> sampleImplicitSpan [
 
-	^ OTNonRecordingSpan withSpanContext: (OTSpanContext
-		traceId: '11111111111111111111111111111111'
-		spanId: '2222222222222222')
+	^ OTNonRecordingSpan withSpanContext: (OTSpanContext traceId: '11111111111111111111111111111111' spanId: '2222222222222222')
 ]
 
 { #category : 'running' }
 OTBaggageTest >> tearDown [
 
-	[
-		OpenTelemetry resetCurrentContext ]
-		ensure: [ super tearDown ]
+	[ OpenTelemetry resetCurrentContext ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -28,8 +24,8 @@ OTBaggageTest >> testBuildCurrentSetsImplicitBaggageAndPreservesSpan [
 	span := self sampleImplicitSpan.
 	OpenTelemetry currentSpan: span.
 	built := OTBaggage builder
-		putEntryNamed: 'user.id' value: '42';
-		buildCurrent.
+		         putEntryNamed: 'user.id' value: '42';
+		         buildCurrent.
 	self assert: built equals: OTBaggage current.
 	self assert: (OTBaggage currentValueAt: 'user.id') equals: '42'.
 	self assert: OpenTelemetry currentSpan identicalTo: span
@@ -82,13 +78,13 @@ OTBaggageTest >> testBuilderUseDuringTemporarilyActivatesBuiltBaggage [
 	span := self sampleImplicitSpan.
 	OpenTelemetry currentSpan: span.
 	OTBaggage current: original.
-	result := (OTBaggage currentBuilder
-		putEntryNamed: 'tenant.id' value: 'acme';
-		useDuring: [
-			self assert: (OTBaggage currentValueAt: 'request.id') equals: 'abc'.
-			self assert: (OTBaggage currentValueAt: 'tenant.id') equals: 'acme'.
-			self assert: OpenTelemetry currentSpan identicalTo: span.
-			'inside' ]).
+	result := OTBaggage currentBuilder
+		          putEntryNamed: 'tenant.id' value: 'acme';
+		          useDuring: [
+				          self assert: (OTBaggage currentValueAt: 'request.id') equals: 'abc'.
+				          self assert: (OTBaggage currentValueAt: 'tenant.id') equals: 'acme'.
+				          self assert: OpenTelemetry currentSpan identicalTo: span.
+				          'inside' ].
 	self assert: result equals: 'inside'.
 	self assert: OTBaggage current equals: original.
 	self assert: OpenTelemetry currentSpan identicalTo: span
@@ -132,8 +128,8 @@ OTBaggageTest >> testCurrentBuilderStartsFromImplicitCurrentBaggage [
 	baggage := OTBaggage empty withEntryNamed: 'user.id' value: '42'.
 	OTBaggage current: baggage.
 	built := OTBaggage currentBuilder
-		putEntryNamed: 'tenant.id' value: 'acme';
-		build.
+		         putEntryNamed: 'tenant.id' value: 'acme';
+		         build.
 	self assert: (built valueAt: 'user.id') equals: '42'.
 	self assert: (built valueAt: 'tenant.id') equals: 'acme'.
 	self assert: OTBaggage current equals: baggage
@@ -149,10 +145,7 @@ OTBaggageTest >> testCurrentDefaultsToEmptyBaggage [
 OTBaggageTest >> testCurrentValueAndEntryHelpersReadImplicitCurrentBaggage [
 
 	| baggage entry |
-	baggage := OTBaggage empty
-		withEntryNamed: 'user.id'
-		value: '42'
-		metadata: 'source=crm'.
+	baggage := OTBaggage empty withEntryNamed: 'user.id' value: '42' metadata: 'source=crm'.
 	OTBaggage current: baggage.
 	entry := OTBaggage currentEntryAt: 'user.id'.
 	self assert: entry value equals: '42'.
@@ -177,8 +170,7 @@ OTBaggageTest >> testCurrentWithEntryNamedUpdatesImplicitBaggageAndPreservesSpan
 OTBaggageTest >> testCurrentWithoutEntryNamedUpdatesImplicitBaggage [
 
 	| updated |
-	OTBaggage current: ((OTBaggage empty withEntryNamed: 'user.id' value: '42')
-		withEntryNamed: 'tenant.id' value: 'acme').
+	OTBaggage current: ((OTBaggage empty withEntryNamed: 'user.id' value: '42') withEntryNamed: 'tenant.id' value: 'acme').
 	updated := OTBaggage currentWithoutEntryNamed: 'user.id'.
 	self deny: (updated includesEntryNamed: 'user.id').
 	self assert: (updated valueAt: 'tenant.id') equals: 'acme'.
@@ -227,9 +219,7 @@ OTBaggageTest >> testWithEntriesFromIgnoresInvalidCallbackInputAndSuppressesCall
 OTBaggageTest >> testWithEntryNamedIgnoresNilEntryName [
 
 	| baggage |
-	baggage := (OTBaggage empty withEntryNamed: 'customer.id' value: '42')
-		withEntryNamed: nil
-		value: '100'.
+	baggage := (OTBaggage empty withEntryNamed: 'customer.id' value: '42') withEntryNamed: nil value: '100'.
 	self assert: baggage size equals: 1.
 	self assert: (baggage valueAt: 'customer.id') equals: '42'
 ]
@@ -238,9 +228,7 @@ OTBaggageTest >> testWithEntryNamedIgnoresNilEntryName [
 OTBaggageTest >> testWithEntryNamedIgnoresNilEntryValue [
 
 	| baggage |
-	baggage := (OTBaggage empty withEntryNamed: 'customer.id' value: '42')
-		withEntryNamed: 'tenant.id'
-		value: nil.
+	baggage := (OTBaggage empty withEntryNamed: 'customer.id' value: '42') withEntryNamed: 'tenant.id' value: nil.
 	self assert: baggage size equals: 1.
 	self assert: (baggage valueAt: 'customer.id') equals: '42'
 ]

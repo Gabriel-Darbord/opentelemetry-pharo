@@ -13,9 +13,9 @@ Class {
 OTFakeGRPCResponse class >> status: aStatus payload: aByteArrayOrNil [
 
 	^ self new
-		status: aStatus;
-		payload: aByteArrayOrNil;
-		yourself
+		  status: aStatus;
+		  payload: aByteArrayOrNil;
+		  yourself
 ]
 
 { #category : 'accessing' }

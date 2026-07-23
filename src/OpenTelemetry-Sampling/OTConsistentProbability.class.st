@@ -20,8 +20,7 @@ OTConsistentProbability class >> isLowercaseHexString: aString maxSize: anIntege
 	aString ifNil: [ ^ false ].
 	aString isEmpty ifTrue: [ ^ false ].
 	aString size <= anInteger ifFalse: [ ^ false ].
-	^ aString allSatisfy: [ :each |
-		each isDigit or: [ 'abcdef' includes: each ] ]
+	^ aString allSatisfy: [ :each | each isDigit or: [ 'abcdef' includes: each ] ]
 ]
 
 { #category : 'accessing' }
@@ -39,9 +38,9 @@ OTConsistentProbability class >> modulus [
 { #category : 'private' }
 OTConsistentProbability class >> newRandomnessValue [
 
-	^ Integer readFrom: ((String streamContents: [ :stream |
-		14 timesRepeat: [ stream nextPut: OTSpanContext randomHexDigit ] ]) readStream)
-		base: 16
+	^ Integer
+		  readFrom: (String streamContents: [ :stream | 14 timesRepeat: [ stream nextPut: OTSpanContext randomHexDigit ] ]) readStream
+		  base: 16
 ]
 
 { #category : 'private' }
@@ -49,11 +48,8 @@ OTConsistentProbability class >> randomnessValueFromTraceId: aTraceId traceState
 
 	| explicitRandomness |
 	explicitRandomness := aTraceState ifNotNil: [ aTraceState otelValueAt: 'rv' ].
-	(self usesExplicitRandomness: explicitRandomness) ifTrue: [
-		^ Integer readFrom: explicitRandomness readStream base: 16 ].
-	^ Integer
-		readFrom: ((aTraceId copyFrom: aTraceId size - 13 to: aTraceId size) readStream)
-		base: 16
+	(self usesExplicitRandomness: explicitRandomness) ifTrue: [ ^ Integer readFrom: explicitRandomness readStream base: 16 ].
+	^ Integer readFrom: (aTraceId copyFrom: aTraceId size - 13 to: aTraceId size) readStream base: 16
 ]
 
 { #category : 'private' }
@@ -90,9 +86,7 @@ OTConsistentProbability class >> thresholdForProbability: aNumber [
 OTConsistentProbability class >> thresholdFromString: aString [
 
 	(self isLowercaseHexString: aString maxSize: 14) ifFalse: [ ^ nil ].
-	^ Integer
-		readFrom: ((aString , (String new: 14 - aString size withAll: $0)) readStream)
-		base: 16
+	^ Integer readFrom: (aString , (String new: 14 - aString size withAll: $0)) readStream base: 16
 ]
 
 { #category : 'private' }
@@ -106,8 +100,7 @@ OTConsistentProbability class >> thresholdFromTraceState: aTraceState [
 OTConsistentProbability class >> thresholdStringFor: anInteger [
 
 	| end padded |
-	padded := String streamContents: [ :string |
-		self writeThreshold: anInteger on: string ].
+	padded := String streamContents: [ :string | self writeThreshold: anInteger on: string ].
 	end := padded size.
 	[ end > 1 and: [ (padded at: end) = $0 ] ] whileTrue: [ end := end - 1 ].
 	^ padded copyFrom: 1 to: end
@@ -125,7 +118,7 @@ OTConsistentProbability class >> writeThreshold: anInteger on: aStream [
 	| digits |
 	digits := '0123456789abcdef'.
 	14 to: 1 by: -1 do: [ :index |
-		| nibble |
-		nibble := (anInteger bitShift: ((index - 1) * 4) negated) bitAnd: 16rF.
-		aStream nextPut: (digits at: nibble + 1) ]
+			| nibble |
+			nibble := (anInteger bitShift: (index - 1 * 4) negated) bitAnd: 16rF.
+			aStream nextPut: (digits at: nibble + 1) ]
 ]
