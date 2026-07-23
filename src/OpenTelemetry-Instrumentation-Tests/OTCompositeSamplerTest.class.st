@@ -167,6 +167,27 @@ OTCompositeSamplerTest >> testCompositeProbabilitySamplerMatchesPublishedQuarter
 ]
 
 { #category : 'tests' }
+OTCompositeSamplerTest >> testCompositeProbabilitySamplerUsesRecommendedDefaultThresholdPrecisionExamples [
+
+	| examples |
+	examples := {
+		            (0.1 -> 'e666').
+		            (0.01 -> 'fd70a').
+		            (1.0 / 3.0 -> 'aaab') }.
+	examples do: [ :each |
+			| result sampler |
+			sampler := OTSampler composite: (OTComposableSampler probability: each key).
+			result := sampler
+				          shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:ffffffffffffff')
+				          traceId: '00112233445566778899aabbccddeeff'
+				          name: 'operation'
+				          kind: OTSpan internal
+				          attributes: #(  )
+				          links: #(  ).
+			self assert: (result traceState otelValueAt: 'th') equals: each value ]
+]
+
+{ #category : 'tests' }
 OTCompositeSamplerTest >> testCompositeRuleBasedUsesFirstMatchingRule [
 
 	| healthResult sampler traceResult |
