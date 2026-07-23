@@ -343,6 +343,44 @@ OTSamplerTest >> testProbabilitySamplerMatchesPublishedQuarterSamplingExample [
 ]
 
 { #category : 'tests' }
+OTSamplerTest >> testProbabilitySamplerMatchesPublishedThresholdTableExamples [
+
+	| examples |
+	examples := {
+		            (0.5 -> '8').
+		            (0.25 -> 'c').
+		            (1.0 / 3.0 -> 'aaab').
+		            (0.1 -> 'e666').
+		            (0.01 -> 'fd70a') }.
+	examples do: [ :each |
+			| threshold droppedResult droppedRv sampledResult sampledRv sampler |
+			threshold := OTConsistentProbability thresholdFromString: each value.
+			sampledRv := String streamContents: [ :stream | OTConsistentProbability writeThreshold: threshold on: stream ].
+			droppedRv := String streamContents: [ :stream | OTConsistentProbability writeThreshold: threshold - 1 on: stream ].
+			sampler := OTSampler probability: each key.
+			sampledResult := sampler
+				                 shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:' , sampledRv)
+				                 traceId: '00112233445566778899aabbccddeeff'
+				                 name: 'operation'
+				                 kind: OTSpan internal
+				                 attributes: #(  )
+				                 links: #(  ).
+			self assert: sampledResult isRecordAndSample.
+			self assert: (sampledResult traceState otelValueAt: 'rv') equals: sampledRv.
+			self assert: (sampledResult traceState otelValueAt: 'th') equals: each value.
+			droppedResult := sampler
+				                 shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:' , droppedRv)
+				                 traceId: '00112233445566778899aabbccddeeff'
+				                 name: 'operation'
+				                 kind: OTSpan internal
+				                 attributes: #(  )
+				                 links: #(  ).
+			self assert: droppedResult isDrop.
+			self assert: (droppedResult traceState otelValueAt: 'rv') equals: droppedRv.
+			self assert: (droppedResult traceState otelValueAt: 'th') equals: nil ]
+]
+
+{ #category : 'tests' }
 OTSamplerTest >> testProbabilitySamplerPreservesTraceStateWhenDropped [
 
 	| result sampler |
