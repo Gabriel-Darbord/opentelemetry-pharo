@@ -366,3 +366,41 @@ OTCompositeSamplerTest >> testCompositeSamplerPreservesParentOtelEntriesWhenComp
 	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (result traceState otelValueAt: 'th') equals: '0'
 ]
+
+{ #category : 'tests' }
+OTCompositeSamplerTest >> testCompositeSamplerRemovesThresholdOnDropEvenWithoutExplicitRandomness [
+
+	| cases traceId |
+	traceId := '00112233445566778800000000000000'.
+	cases := {
+		         {
+			         (OTSampler composite: OTComposableSampler alwaysOff).
+			         '00' }.
+		         {
+			         (OTSampler composite: OTComposableSampler alwaysOff).
+			         '01' }.
+		         {
+			         (OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOn)).
+			         '00' }.
+		         {
+			         (OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOn)).
+			         '01' }.
+		         {
+			         (OTSampler composite: (OTComposableSampler probability: 0.5)).
+			         '00' }.
+		         {
+			         (OTSampler composite: (OTComposableSampler probability: 0.5)).
+			         '01' } }.
+	cases do: [ :each |
+			| result |
+			result := each first
+				          shouldSampleIn: (self contextWithTraceFlags: each second traceState: 'ot=th:8')
+				          traceId: traceId
+				          name: 'operation'
+				          kind: OTSpan internal
+				          attributes: #(  )
+				          links: #(  ).
+			self assert: result isDrop.
+			self assert: (result traceState otelValueAt: 'th') equals: nil.
+			self assert: (result traceState valueAt: 'ot' ifAbsent: [ nil ]) equals: nil ]
+]
