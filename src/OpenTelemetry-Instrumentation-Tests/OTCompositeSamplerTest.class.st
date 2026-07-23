@@ -65,23 +65,20 @@ OTCompositeSamplerTest >> testCompositeParentThresholdDropsUnsampledParentWithou
 ]
 
 { #category : 'tests' }
-OTCompositeSamplerTest >> testCompositeParentThresholdErasesInconsistentParentThreshold [
+OTCompositeSamplerTest >> testCompositeParentThresholdUsesParentThresholdWithoutRevalidatingSampledFlag [
 
 	| result sampler |
-	sampler := OTSampler composite: (OTComposableSampler
-		parentThreshold: OTComposableSampler alwaysOff).
+	sampler := OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOn).
 	result := sampler
-		shouldSampleIn: (self
-				contextWithTraceFlags: '01'
-				traceState: 'ot=rv:7fffffffffffff;th:8')
-		traceId: '00112233445566778899aabbccddeeff'
-		name: 'child'
-		kind: OTSpan internal
-		attributes: #()
-		links: #().
+		          shouldSampleIn: (self contextWithTraceFlags: '00' traceState: 'ot=rv:7f99aa40c02744;th:7f99aa40c02744')
+		          traceId: '00112233445566778899aabbccddeeff'
+		          name: 'child'
+		          kind: OTSpan internal
+		          attributes: #(  )
+		          links: #(  ).
 	self assert: result isRecordAndSample.
-	self assert: (result traceState otelValueAt: 'rv') equals: '7fffffffffffff'.
-	self assert: (result traceState otelValueAt: 'th') equals: nil
+	self assert: (result traceState otelValueAt: 'rv') equals: '7f99aa40c02744'.
+	self assert: (result traceState otelValueAt: 'th') equals: '7f99aa40c02744'
 ]
 
 { #category : 'tests' }
@@ -272,6 +269,79 @@ OTCompositeSamplerTest >> testCompositeSamplerIgnoresInjectedOtelEntriesWhenNoPa
 	self assert: (result traceState valueAt: 'vendor') equals: 'two'.
 	self assert: (result traceState otelValueAt: 'rv') equals: nil.
 	self assert: (result traceState otelValueAt: 'th') equals: '0'
+]
+
+{ #category : 'tests' }
+OTCompositeSamplerTest >> testCompositeSamplerMatchesJavaScriptReferenceVectors [
+
+	| cases traceId |
+	traceId := '00112233445566778800000000000000'.
+	cases := {
+		         {
+			         [ OTSampler composite: OTComposableSampler alwaysOn ].
+			         '01'.
+			         nil.
+			         true.
+			         'th:0' }.
+		         {
+			         [ OTSampler composite: OTComposableSampler alwaysOn ].
+			         '01'.
+			         'rv:7f99aa40c02744'.
+			         true.
+			         'th:0;rv:7f99aa40c02744' }.
+		         {
+			         [ OTSampler composite: OTComposableSampler alwaysOff ].
+			         '01'.
+			         nil.
+			         false.
+			         nil }.
+		         {
+			         [ OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOn) ].
+			         '00'.
+			         'th:7f99aa40c02744;rv:7f99aa40c02744'.
+			         true.
+			         'th:7f99aa40c02744;rv:7f99aa40c02744' }.
+		         {
+			         [ OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOn) ].
+			         '01'.
+			         nil.
+			         true.
+			         nil }.
+		         {
+			         [ OTSampler composite: (OTComposableSampler probability: 0.5) ].
+			         '01'.
+			         'rv:7fffffffffffff'.
+			         false.
+			         'rv:7fffffffffffff' }.
+		         {
+			         [ OTSampler composite: (OTComposableSampler probability: 0.5) ].
+			         '00'.
+			         'rv:80000000000000'.
+			         true.
+			         'th:8;rv:80000000000000' }.
+		         {
+			         [ OTSampler composite: (OTComposableSampler probability: 1.0) ].
+			         '00'.
+			         'th:80000000000000;rv:80000000000000'.
+			         true.
+			         'th:0;rv:80000000000000' } }.
+	cases do: [ :each |
+			| expectedTraceState result sampler traceState |
+			sampler := each first value.
+			traceState := each third ifNotNil: [ 'ot=' , each third ].
+			result := sampler
+				          shouldSampleIn: (self contextWithTraceFlags: each second traceState: traceState)
+				          traceId: traceId
+				          name: 'operation'
+				          kind: OTSpan internal
+				          attributes: #(  )
+				          links: #(  ).
+			each fourth
+				ifTrue: [ self assert: result isRecordAndSample ]
+				ifFalse: [ self assert: result isDrop ].
+			each fifth ifNil: [ self assert: result traceState equals: nil ] ifNotNil: [
+					expectedTraceState := OTTraceState fromHeader: 'ot=' , each fifth.
+					self assert: result traceState otelEntries equals: expectedTraceState otelEntries ] ]
 ]
 
 { #category : 'tests' }

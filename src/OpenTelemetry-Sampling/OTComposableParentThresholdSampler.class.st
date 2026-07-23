@@ -20,19 +20,11 @@ OTComposableParentThresholdSampler >> intentForParentSpanContext: aSpanContext t
 	| parentThreshold sampled |
 	sampled := aSpanContext isSampled.
 	parentThreshold := OTConsistentProbability thresholdFromTraceState: aTraceState.
-	parentThreshold ifNotNil: [
-		(self
-			isConsistentThreshold: parentThreshold
-			forParentSpanContext: aSpanContext
-			traceState: aTraceState) ifFalse: [
-			parentThreshold := nil ] ].
 	parentThreshold ifNil: [
-		^ sampled
-			ifTrue: [ OTSamplingIntent threshold: 0 adjustedCountReliable: false ]
-			ifFalse: [ OTSamplingIntent drop ] ].
-	^ OTSamplingIntent
-		threshold: parentThreshold
-		adjustedCountReliable: true
+			^ sampled
+				  ifTrue: [ OTSamplingIntent threshold: 0 adjustedCountReliable: false ]
+				  ifFalse: [ OTSamplingIntent drop ] ].
+	^ OTSamplingIntent threshold: parentThreshold adjustedCountReliable: true
 ]
 
 { #category : 'private' }
