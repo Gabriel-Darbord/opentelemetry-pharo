@@ -94,6 +94,20 @@ OTBatchSpanProcessor >> exportAvailableBatchesAllowPartial: allowPartial [
 ]
 
 { #category : 'private - processing' }
+OTBatchSpanProcessor >> exportAvailableBatchesAllowPartialResult: allowPartial [
+
+	| allExported allowPartialNow spans |
+	allExported := OTLifecycleResult success.
+	allowPartialNow := allowPartial.
+	[
+		spans := self nextBatchForExportAllowPartial: allowPartialNow.
+		spans notNil ] whileTrue: [
+			allExported := allExported combinedWith: (self exportSpansResult: spans).
+			allowPartialNow := false ].
+	^ allExported
+]
+
+{ #category : 'private - processing' }
 OTBatchSpanProcessor >> exportInProgress [
 
 	^ stateLock critical: [ exportInProgress = true ]
@@ -125,6 +139,15 @@ OTBatchSpanProcessor >> exportSpans: spans [
 		self exportInProgress: true.
 		[ self runExporterOperation: [ self exporter export: spans ] ]
 			ensure: [ self exportInProgress: false ] ]
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> exportSpansResult: spans [
+
+	^ exportLock critical: [
+			  self exportInProgress: true.
+			  [ self runExporterOperationResultNamed: 'export' do: [ self exporter export: spans ] ] ensure: [
+				  self exportInProgress: false ] ]
 ]
 
 { #category : 'accessing' }
@@ -171,6 +194,15 @@ OTBatchSpanProcessor >> flush [
 ]
 
 { #category : 'processing' }
+OTBatchSpanProcessor >> flushResult [
+
+	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	self ensureFlushProcess.
+	^ (self exportAvailableBatchesAllowPartialResult: true) combinedWith:
+		  (self waitUntilIdleResultTimeoutMillis: self exportTimeoutMillis)
+]
+
+{ #category : 'processing' }
 OTBatchSpanProcessor >> forceFlush [
 
 	| exported flushed |
@@ -178,6 +210,16 @@ OTBatchSpanProcessor >> forceFlush [
 	flushed := self flush.
 	exported := self runExporterOperation: [ self exporter forceFlush ].
 	^ flushed & exported
+]
+
+{ #category : 'processing' }
+OTBatchSpanProcessor >> forceFlushResult [
+
+	| exported flushed |
+	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	flushed := self flushResult.
+	exported := self runExporterOperationResultNamed: 'forceFlush' do: [ self exporter forceFlush ].
+	^ flushed combinedWith: exported
 ]
 
 { #category : 'initialization' }
@@ -303,6 +345,16 @@ OTBatchSpanProcessor >> runExporterOperation: aBlock [
 ]
 
 { #category : 'private - processing' }
+OTBatchSpanProcessor >> runExporterOperationResultNamed: anOperationName do: aBlock [
+
+	self exportTimeoutMillis = 0 ifTrue: [
+		^ OTLifecycleResult fromBoolean: (self exporter withOperationNamed: anOperationName default: false do: aBlock) ].
+	^ [ OTLifecycleResult fromBoolean: (self exporter withOperationNamed: anOperationName default: false do: aBlock) ]
+		  valueWithinMilliseconds: self exportTimeoutMillis
+		  onTimeout: [ OTLifecycleResult timeout ]
+]
+
+{ #category : 'private - processing' }
 OTBatchSpanProcessor >> runFlushLoop [
 
 	| decision timedOut |
@@ -354,6 +406,20 @@ OTBatchSpanProcessor >> shutdown [
 	^ shutdownResult & flushed
 ]
 
+{ #category : 'processing' }
+OTBatchSpanProcessor >> shutdownResult [
+
+	| flushed shutdownResult |
+	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	self markShutdownRequested.
+	workAvailable signal.
+	flushed := self forceFlushResult.
+	self stopFlushProcess.
+	shutdownResult := self runExporterOperationResultNamed: 'shutdown' do: [ self exporter shutdown ].
+	self markShutdown.
+	^ flushed combinedWith: shutdownResult
+]
+
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> stopFlushProcess [
 
@@ -375,6 +441,21 @@ OTBatchSpanProcessor >> validatedRuntimeInteger: aValue minimum: aMinimum forOpe
 	(aValue isInteger and: [ aValue >= aMinimum ]) ifTrue: [ ^ aValue ].
 	self configurationWarningOwner noteInvalidRuntimeConfigurationValue: aValue forOperation: anOperationName.
 	^ nil
+]
+
+{ #category : 'private - processing' }
+OTBatchSpanProcessor >> waitUntilIdleResultTimeoutMillis: anInteger [
+
+	| deadline |
+	anInteger = 0 ifTrue: [
+			[
+				self isIdle ifTrue: [ ^ OTLifecycleResult success ].
+				(Delay forMilliseconds: 5) wait ] repeat ].
+	deadline := Time millisecondClockValue + anInteger.
+	[
+		self isIdle ifTrue: [ ^ OTLifecycleResult success ].
+		Time millisecondClockValue >= deadline ifTrue: [ ^ OTLifecycleResult timeout ].
+		(Delay forMilliseconds: 5) wait ] repeat
 ]
 
 { #category : 'private - processing' }

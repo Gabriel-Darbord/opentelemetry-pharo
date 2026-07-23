@@ -205,6 +205,13 @@ OTSpanExporter class >> forceFlush [
 	^ Current ifNil: [ false ] ifNotNil: [ Current forceFlush ]
 ]
 
+{ #category : 'exporting' }
+OTSpanExporter class >> forceFlushResult [
+
+	<script>
+	^ Current ifNil: [ OTLifecycleResult failure ] ifNotNil: [ Current forceFlushResult ]
+]
+
 { #category : 'testing' }
 OTSpanExporter class >> isAbstract [
 
@@ -221,6 +228,12 @@ OTSpanExporter class >> isShutdown: anExporter [
 OTSpanExporter class >> lifecycleStateByExporter [
 
 	^ OTClassStateStore valueAt: #otLifecycleStateByExporter forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
+]
+
+{ #category : 'private - configuration' }
+OTSpanExporter class >> lifecycleTimeoutMillisByExporter [
+
+	^ OTClassStateStore valueAt: #otLifecycleTimeoutMillisByExporter forClass: self ifAbsentPut: [ WeakIdentityKeyDictionary new ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -299,6 +312,7 @@ OTSpanExporter class >> reset [
 	self resetLifecycleState.
 	OTClassStateStore removeValueAt: #otExportLocksByExporter forClass: self ifAbsent: [ ].
 	OTClassStateStore removeValueAt: #otExportLockStateLock forClass: self ifAbsent: [ ].
+	OTClassStateStore removeValueAt: #otLifecycleTimeoutMillisByExporter forClass: self ifAbsent: [ ].
 	OTConfigurationSource reset.
 	Current := nil
 ]
@@ -317,6 +331,13 @@ OTSpanExporter class >> shutdown [
 
 	<script>
 	^ Current ifNil: [ false ] ifNotNil: [ Current shutdown ]
+]
+
+{ #category : 'exporting' }
+OTSpanExporter class >> shutdownResult [
+
+	<script>
+	^ Current ifNil: [ OTLifecycleResult failure ] ifNotNil: [ Current shutdownResult ]
 ]
 
 { #category : 'private' }
@@ -430,6 +451,13 @@ OTSpanExporter >> forceFlush [
 	^ self withExportLockDo: [ self isShutdown not ]
 ]
 
+{ #category : 'exporting' }
+OTSpanExporter >> forceFlushResult [
+
+	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	^ self runLifecycleOperationResultNamed: 'forceFlush' do: [ self forceFlush ]
+]
+
 { #category : 'initialization' }
 OTSpanExporter >> initialize [
 
@@ -443,6 +471,20 @@ OTSpanExporter >> initialize [
 OTSpanExporter >> isShutdown [
 
 	^ stateLock critical: [ shutdownRequested = true or: [ shutdownCompleted = true ] ]
+]
+
+{ #category : 'accessing' }
+OTSpanExporter >> lifecycleTimeoutMillis [
+
+	^ self class lifecycleTimeoutMillisByExporter at: self ifAbsent: [ 30000 ]
+]
+
+{ #category : 'accessing' }
+OTSpanExporter >> lifecycleTimeoutMillis: anInteger [
+
+	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [ ^ self lifecycleTimeoutMillis ].
+	self class lifecycleTimeoutMillisByExporter at: self put: anInteger.
+	^ anInteger
 ]
 
 { #category : 'private - lifecycle' }
@@ -460,6 +502,18 @@ OTSpanExporter >> prefersSimpleSpanProcessor [
 	^ false
 ]
 
+{ #category : 'private - lifecycle' }
+OTSpanExporter >> runLifecycleOperationResultNamed: anOperationName do: aBlock [
+
+	| timeoutMillis |
+	timeoutMillis := self lifecycleTimeoutMillis.
+	timeoutMillis = 0 ifTrue: [
+		^ OTLifecycleResult fromBoolean: (self withOperationNamed: anOperationName default: false do: aBlock) ].
+	^ [ OTLifecycleResult fromBoolean: (self withOperationNamed: anOperationName default: false do: aBlock) ]
+		  valueWithinMilliseconds: timeoutMillis
+		  onTimeout: [ OTLifecycleResult timeout ]
+]
+
 { #category : 'exporting' }
 OTSpanExporter >> shutdown [
 
@@ -467,6 +521,13 @@ OTSpanExporter >> shutdown [
 	^ self withExportLockDo: [
 			  self markShutdown.
 			  true ]
+]
+
+{ #category : 'exporting' }
+OTSpanExporter >> shutdownResult [
+
+	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	^ self runLifecycleOperationResultNamed: 'shutdown' do: [ self shutdown ]
 ]
 
 { #category : 'private - synchronization' }

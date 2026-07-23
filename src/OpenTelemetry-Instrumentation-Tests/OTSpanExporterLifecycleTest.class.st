@@ -78,6 +78,21 @@ OTSpanExporterLifecycleTest >> testCompositeForceFlushIsSafeUnderConcurrentCalls
 ]
 
 { #category : 'tests' }
+OTSpanExporterLifecycleTest >> testCompositeForceFlushResultPropagatesChildTimeout [
+
+	| child composite elapsed result startedAt |
+	child := OTBlockingForceFlushSpanExporter new.
+	child lifecycleTimeoutMillis: 25.
+	composite := OTCompositeSpanExporter withAll: { child }.
+	startedAt := Time millisecondClockValue.
+	result := composite forceFlushResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: elapsed < 250.
+	self assert: (child waitForForceFlushTimeoutMillis: 200)
+]
+
+{ #category : 'tests' }
 OTSpanExporterLifecycleTest >> testCompositeShutdownContinuesAfterChildFailure [
 
 	self withExporterWarningsDo: [ :warnings |
@@ -119,6 +134,22 @@ OTSpanExporterLifecycleTest >> testCompositeShutdownIsIdempotentUnderConcurrentC
 	self assert: firstResult.
 	self assert: exporter isShutdown.
 	self assert: child shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
+OTSpanExporterLifecycleTest >> testCompositeShutdownResultPropagatesChildTimeout [
+
+	| child composite elapsed result startedAt |
+	child := OTBlockingShutdownSpanExporter new.
+	child lifecycleTimeoutMillis: 25.
+	composite := OTCompositeSpanExporter withAll: { child }.
+	startedAt := Time millisecondClockValue.
+	result := composite shutdownResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: composite isShutdown.
+	self assert: elapsed < 250.
+	self assert: (child waitForShutdownTimeoutMillis: 200)
 ]
 
 { #category : 'tests' }
@@ -234,6 +265,20 @@ OTSpanExporterLifecycleTest >> testExportReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTSpanExporterLifecycleTest >> testForceFlushResultTimesOutWhenExporterForceFlushIsBlocked [
+
+	| elapsed result startedAt |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	exporter lifecycleTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	result := exporter forceFlushResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200)
+]
+
+{ #category : 'tests' }
 OTSpanExporterLifecycleTest >> testForceFlushReturnsFalseWhileShutdownIsInProgress [
 
 	| done shutdownResult |
@@ -270,6 +315,20 @@ OTSpanExporterLifecycleTest >> testForceFlushWaitsForInFlightExportBeforeComplet
 	self assert: (flushDone waitTimeoutMilliseconds: 200) not.
 	self assert: exportResult.
 	self assert: flushResult
+]
+
+{ #category : 'tests' }
+OTSpanExporterLifecycleTest >> testShutdownResultTimesOutWhenExporterShutdownIsBlocked [
+
+	| elapsed result startedAt |
+	exporter := OTBlockingShutdownSpanExporter new.
+	exporter lifecycleTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	result := exporter shutdownResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200)
 ]
 
 { #category : 'tests' }

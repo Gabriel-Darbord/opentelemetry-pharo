@@ -63,6 +63,19 @@ OTSimpleSpanProcessor >> flush [
 	^ exportLock critical: [ self runExporterOperation: [ self exporter forceFlush ] ]
 ]
 
+{ #category : 'processing' }
+OTSimpleSpanProcessor >> flushResult [
+
+	^ exportLock critical: [ self runExporterOperationResultNamed: 'forceFlush' do: [ self exporter forceFlush ] ]
+]
+
+{ #category : 'processing' }
+OTSimpleSpanProcessor >> forceFlushResult [
+
+	self isStopping ifTrue: [ ^ OTLifecycleResult failure ].
+	^ self flushResult
+]
+
 { #category : 'initialization' }
 OTSimpleSpanProcessor >> initialize [
 
@@ -91,6 +104,16 @@ OTSimpleSpanProcessor >> runExporterOperation: aBlock [
 	^ aBlock valueWithinMilliseconds: self exportTimeoutMillis onTimeout: [ false ]
 ]
 
+{ #category : 'private - processing' }
+OTSimpleSpanProcessor >> runExporterOperationResultNamed: anOperationName do: aBlock [
+
+	self exportTimeoutMillis = 0 ifTrue: [
+		^ OTLifecycleResult fromBoolean: (self exporter withOperationNamed: anOperationName default: false do: aBlock) ].
+	^ [ OTLifecycleResult fromBoolean: (self exporter withOperationNamed: anOperationName default: false do: aBlock) ]
+		  valueWithinMilliseconds: self exportTimeoutMillis
+		  onTimeout: [ OTLifecycleResult timeout ]
+]
+
 { #category : 'processing' }
 OTSimpleSpanProcessor >> shutdown [
 
@@ -100,6 +123,17 @@ OTSimpleSpanProcessor >> shutdown [
 	shutdownResult := exportLock critical: [ self runExporterOperation: [ self exporter shutdown ] ].
 	self markShutdown.
 	^ shutdownResult & flushed
+]
+
+{ #category : 'processing' }
+OTSimpleSpanProcessor >> shutdownResult [
+
+	| flushed shutdownResult |
+	self beginShutdown ifFalse: [ ^ OTLifecycleResult failure ].
+	flushed := self flushResult.
+	shutdownResult := exportLock critical: [ self runExporterOperationResultNamed: 'shutdown' do: [ self exporter shutdown ] ].
+	self markShutdown.
+	^ flushed combinedWith: shutdownResult
 ]
 
 { #category : 'private - configuration' }

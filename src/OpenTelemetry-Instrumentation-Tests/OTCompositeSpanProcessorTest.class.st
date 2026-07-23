@@ -23,6 +23,7 @@ OTCompositeSpanProcessorTest >> tearDown [
 
 	[
 		OTBlockingForceFlushSpanExporter allInstancesDo: [ :each | each allowForceFlush ].
+		OTBlockingShutdownSpanExporter allInstancesDo: [ :each | each allowShutdown ].
 		OTBlockingShutdownSpanProcessor allInstancesDo: [ :each | each allowShutdown ] ] ensure: [ super tearDown ]
 ]
 
@@ -91,6 +92,24 @@ OTCompositeSpanProcessorTest >> testForceFlushContinuesAfterChildFailure [
 			self
 				assert: warnings asArray
 				equals: { 'OpenTelemetry span processor callback failed during forceFlush for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'tests' }
+OTCompositeSpanProcessorTest >> testForceFlushResultPropagatesChildTimeout [
+
+	| child composite elapsed exporter result startedAt |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	child := OTSimpleSpanProcessor new
+		         exporter: exporter;
+		         exportTimeoutMillis: 25;
+		         yourself.
+	composite := OTCompositeSpanProcessor withAll: { child }.
+	startedAt := Time millisecondClockValue.
+	result := composite forceFlushResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200)
 ]
 
 { #category : 'tests' }
@@ -301,6 +320,25 @@ OTCompositeSpanProcessorTest >> testShutdownContinuesAfterChildFailure [
 				assert: warnings asArray
 				equals: { 'OpenTelemetry span processor callback failed during forceFlush for OTFailingSpanProcessor: processor failure'.
 					'OpenTelemetry span processor callback failed during shutdown for OTFailingSpanProcessor: processor failure' } ]
+]
+
+{ #category : 'tests' }
+OTCompositeSpanProcessorTest >> testShutdownResultPropagatesChildTimeout [
+
+	| child composite elapsed exporter result startedAt |
+	exporter := OTBlockingShutdownSpanExporter new.
+	child := OTSimpleSpanProcessor new
+		         exporter: exporter;
+		         exportTimeoutMillis: 25;
+		         yourself.
+	composite := OTCompositeSpanProcessor withAll: { child }.
+	startedAt := Time millisecondClockValue.
+	result := composite shutdownResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: composite isShutdown.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200)
 ]
 
 { #category : 'private' }

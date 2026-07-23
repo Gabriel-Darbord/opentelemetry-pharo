@@ -1242,6 +1242,25 @@ OTTracerProvider >> forceFlush [
 	^ allFlushed
 ]
 
+{ #category : 'processing' }
+OTTracerProvider >> forceFlushResult [
+
+	| allFlushed processors stopping |
+	processors := stateLock critical: [
+			              stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
+			              (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy ].
+	stopping ifTrue: [ ^ OTLifecycleResult failure ].
+	processors isEmpty ifTrue: [ ^ OTLifecycleResult success ].
+	allFlushed := OTLifecycleResult success.
+	processors do: [ :each |
+			allFlushed := allFlushed combinedWith: (self
+					               withSpanProcessor: each
+					               operationNamed: 'forceFlush'
+					               default: OTLifecycleResult failure
+					               do: [ each forceFlushResult ]) ].
+	^ allFlushed
+]
+
 { #category : 'accessing' }
 OTTracerProvider >> idGenerator [
 
@@ -1554,6 +1573,32 @@ OTTracerProvider >> shutdown [
 	^ allShutdown
 ]
 
+{ #category : 'processing' }
+OTTracerProvider >> shutdownResult [
+
+	| allShutdown alreadyStopping processors sampler |
+	processors := #(  ).
+	sampler := nil.
+	alreadyStopping := stateLock critical: [
+			                   | stopping |
+			                   stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
+			                   stopping ifFalse: [
+					                   shutdownRequested := true.
+					                   processors := (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy.
+					                   sampler := self class samplerByProvider at: self ifAbsent: [ nil ] ].
+			                   stopping ].
+	alreadyStopping ifTrue: [ ^ OTLifecycleResult failure ].
+	allShutdown := self shutdownSamplerResult: sampler.
+	processors do: [ :each |
+			allShutdown := allShutdown combinedWith: (self
+					                withSpanProcessor: each
+					                operationNamed: 'shutdown'
+					                default: OTLifecycleResult failure
+					                do: [ each shutdownResult ]) ].
+	stateLock critical: [ shutdownCompleted := true ].
+	^ allShutdown
+]
+
 { #category : 'private - lifecycle' }
 OTTracerProvider >> shutdownSampler: aSampler [
 
@@ -1563,6 +1608,17 @@ OTTracerProvider >> shutdownSampler: aSampler [
 		do: [ :error |
 			self class noteSampler: aSampler failedDuring: 'shutdown' error: error.
 			false ]
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> shutdownSamplerResult: aSampler [
+
+	aSampler ifNil: [ ^ OTLifecycleResult success ].
+	^ OTLifecycleResult fromBoolean: ([ aSampler shutdown ]
+			   on: Error
+			   do: [ :error |
+					   self class noteSampler: aSampler failedDuring: 'shutdown' error: error.
+					   false ])
 ]
 
 { #category : 'accessing' }

@@ -214,6 +214,13 @@ OTSpanProcessor class >> forceFlush [
 	^ Current ifNil: [ false ] ifNotNil: [ Current forceFlush ]
 ]
 
+{ #category : 'processing' }
+OTSpanProcessor class >> forceFlushResult [
+
+	<script>
+	^ Current ifNil: [ OTLifecycleResult failure ] ifNotNil: [ Current forceFlushResult ]
+]
+
 { #category : 'testing' }
 OTSpanProcessor class >> isAbstract [
 
@@ -343,6 +350,13 @@ OTSpanProcessor class >> shutdown [
 	^ Current ifNil: [ false ] ifNotNil: [ Current shutdown ]
 ]
 
+{ #category : 'processing' }
+OTSpanProcessor class >> shutdownResult [
+
+	<script>
+	^ Current ifNil: [ OTLifecycleResult failure ] ifNotNil: [ Current shutdownResult ]
+]
+
 { #category : 'private' }
 OTSpanProcessor class >> strictNonNegativeIntegerFrom: aString [
 
@@ -401,10 +415,22 @@ OTSpanProcessor >> flush [
 ]
 
 { #category : 'processing' }
+OTSpanProcessor >> flushResult [
+
+	^ OTLifecycleResult fromBoolean: self flush
+]
+
+{ #category : 'processing' }
 OTSpanProcessor >> forceFlush [
 
 	self isStopping ifTrue: [ ^ false ].
 	^ self flush
+]
+
+{ #category : 'processing' }
+OTSpanProcessor >> forceFlushResult [
+
+	^ OTLifecycleResult fromBoolean: self forceFlush
 ]
 
 { #category : 'testing' }
@@ -457,6 +483,12 @@ OTSpanProcessor >> shutdown [
 	flushed := self flush.
 	self markShutdown.
 	^ flushed
+]
+
+{ #category : 'processing' }
+OTSpanProcessor >> shutdownResult [
+
+	^ OTLifecycleResult fromBoolean: self shutdown
 ]
 
 { #category : 'private - configuration' }

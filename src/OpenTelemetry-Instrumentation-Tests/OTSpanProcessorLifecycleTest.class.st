@@ -29,6 +29,31 @@ OTSpanProcessorLifecycleTest >> testInheritedShutdownInvokesFlushAndMarksProcess
 ]
 
 { #category : 'tests' }
+OTSpanProcessorLifecycleTest >> testInheritedShutdownResultInvokesFlushAndMarksProcessorShutdown [
+
+	| result |
+	processor := OTFlushTrackingSpanProcessor new.
+	result := processor shutdownResult.
+	self assert: result isSuccess.
+	self assert: processor flushCount equals: 1.
+	self assert: processor isShutdown.
+	self deny: processor forceFlush
+]
+
+{ #category : 'tests' }
+OTSpanProcessorLifecycleTest >> testProviderShutdownResultSucceedsWithProcessorUsingInheritedLifecycle [
+
+	| provider result |
+	provider := OTTracerProvider new.
+	processor := OTFlushTrackingSpanProcessor new.
+	provider spanProcessor: processor.
+	result := provider shutdownResult.
+	self assert: result isSuccess.
+	self assert: processor flushCount equals: 1.
+	self assert: processor isShutdown
+]
+
+{ #category : 'tests' }
 OTSpanProcessorLifecycleTest >> testProviderShutdownSucceedsWithProcessorUsingInheritedLifecycle [
 
 	| provider |

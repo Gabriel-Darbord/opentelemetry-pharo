@@ -102,6 +102,27 @@ OTBatchSpanProcessorTest >> testConcurrentShutdownIsIdempotent [
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testFlushResultTimesOutWhenPendingExportBlocks [
+
+	| elapsed result startedAt |
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 1000;
+		exportTimeoutMillis: 25.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	startedAt := Time millisecondClockValue.
+	result := processor flushResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 200)
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExporter [
 
 	exporter := OTRecordingSpanExporter new.
@@ -129,6 +150,22 @@ OTBatchSpanProcessorTest >> testForceFlushHonorsExportTimeoutWhenExporterForceFl
 	startedAt := Time millisecondClockValue.
 	self deny: processor forceFlush.
 	elapsed := Time millisecondClockValue - startedAt.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200)
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testForceFlushResultHonorsExportTimeoutWhenExporterForceFlushIsBlocked [
+
+	| elapsed result startedAt |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor exportTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	result := processor forceFlushResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
 	self assert: elapsed < 250.
 	self assert: (exporter waitForForceFlushTimeoutMillis: 200)
 ]
@@ -469,6 +506,23 @@ OTBatchSpanProcessorTest >> testShutdownHonorsExportTimeoutWhenExporterShutdownI
 	self assert: (exporter waitForShutdownTimeoutMillis: 200).
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: processor isShutdown
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testShutdownResultHonorsExportTimeoutWhenExporterShutdownIsBlocked [
+
+	| elapsed result startedAt |
+	exporter := OTBlockingShutdownSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor exportTimeoutMillis: 25.
+	startedAt := Time millisecondClockValue.
+	result := processor shutdownResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: processor isShutdown.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200)
 ]
 
 { #category : 'private' }

@@ -69,6 +69,22 @@ OTCompositeSpanExporter >> forceFlush [
 									   do: [ each forceFlush ]) & allFlushed ] ] ]
 ]
 
+{ #category : 'exporting' }
+OTCompositeSpanExporter >> forceFlushResult [
+
+	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	^ self withExportLockDo: [
+			  self isShutdown
+				  ifTrue: [ OTLifecycleResult failure ]
+				  ifFalse: [
+						  exporters inject: OTLifecycleResult success into: [ :allFlushed :each |
+								  allFlushed combinedWith: (self
+										   withExporter: each
+										   operationNamed: 'forceFlush'
+										   default: OTLifecycleResult failure
+										   do: [ each forceFlushResult ]) ] ] ]
+]
+
 { #category : 'initialization' }
 OTCompositeSpanExporter >> initialize [
 
@@ -97,6 +113,29 @@ OTCompositeSpanExporter >> shutdown [
 						                  do: [ each shutdown ]) & allClosed ].
 			  self markShutdown.
 			  flushed & allShutdown ]
+]
+
+{ #category : 'exporting' }
+OTCompositeSpanExporter >> shutdownResult [
+
+	self beginShutdown ifFalse: [ ^ OTLifecycleResult failure ].
+	^ self withExportLockDo: [
+			  | allShutdown exportersSnapshot flushed |
+			  exportersSnapshot := self componentExporters.
+			  flushed := exportersSnapshot inject: OTLifecycleResult success into: [ :allFlushed :each |
+					             allFlushed combinedWith: (self
+							              withExporter: each
+							              operationNamed: 'forceFlush'
+							              default: OTLifecycleResult failure
+							              do: [ each forceFlushResult ]) ].
+			  allShutdown := exportersSnapshot inject: flushed into: [ :allClosed :each |
+					                 allClosed combinedWith: (self
+							                  withExporter: each
+							                  operationNamed: 'shutdown'
+							                  default: OTLifecycleResult failure
+							                  do: [ each shutdownResult ]) ].
+			  self markShutdown.
+			  allShutdown ]
 ]
 
 { #category : 'private - error handling' }

@@ -37,6 +37,18 @@ OTCompositeSpanProcessor >> forceFlush [
 				   do: [ each forceFlush ]) & allFlushed ]
 ]
 
+{ #category : 'processing' }
+OTCompositeSpanProcessor >> forceFlushResult [
+
+	self isStopping ifTrue: [ ^ OTLifecycleResult failure ].
+	^ self processors inject: OTLifecycleResult success into: [ :allFlushed :each |
+			  allFlushed combinedWith: (self
+					   withProcessor: each
+					   operationNamed: 'forceFlush'
+					   default: OTLifecycleResult failure
+					   do: [ each forceFlushResult ]) ]
+]
+
 { #category : 'initialization' }
 OTCompositeSpanProcessor >> initialize [
 
@@ -132,6 +144,27 @@ OTCompositeSpanProcessor >> shutdown [
 				                do: [ each shutdown ]) & allChildrenShutdown ].
 	self markShutdown.
 	^ allShutdown & flushed
+]
+
+{ #category : 'processing' }
+OTCompositeSpanProcessor >> shutdownResult [
+
+	| allShutdown flushed |
+	self beginShutdown ifFalse: [ ^ OTLifecycleResult failure ].
+	flushed := self processors inject: OTLifecycleResult success into: [ :allFlushed :each |
+			           allFlushed combinedWith: (self
+					            withProcessor: each
+					            operationNamed: 'forceFlush'
+					            default: OTLifecycleResult failure
+					            do: [ each forceFlushResult ]) ].
+	allShutdown := self processors inject: flushed into: [ :allChildrenShutdown :each |
+			               allChildrenShutdown combinedWith: (self
+					                withProcessor: each
+					                operationNamed: 'shutdown'
+					                default: OTLifecycleResult failure
+					                do: [ each shutdownResult ]) ].
+	self markShutdown.
+	^ allShutdown
 ]
 
 { #category : 'private - error handling' }

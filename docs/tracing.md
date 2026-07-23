@@ -425,6 +425,43 @@ batch processor finishes exporting a batch and still has a partial batch
 queued, it starts a fresh `scheduledDelayMillis` window from that export
 completion before exporting the partial batch.
 
+## Lifecycle Operations
+
+The shortest lifecycle API is still boolean:
+
+```smalltalk
+provider forceFlush.
+provider shutdown.
+processor forceFlush.
+processor shutdown.
+exporter forceFlush.
+exporter shutdown.
+```
+
+Those selectors answer `true` on success and `false` on any unsuccessful
+outcome, including timeout.
+
+When caller code needs to distinguish timeout from ordinary failure, use the
+result variants:
+
+- `forceFlushResult`
+- `shutdownResult`
+- `flushResult` on span processors
+
+Those selectors answer an `OTLifecycleResult`. Query it with:
+
+- `isSuccess`
+- `isFailure`
+- `isTimeout`
+
+Example:
+
+```smalltalk
+result := provider forceFlushResult.
+result isTimeout ifTrue: [
+  "react to timeout without confusing it with a hard failure" ].
+```
+
 ## Concurrency
 
 In this guide, "concurrent" means shared across multiple Pharo `Process`

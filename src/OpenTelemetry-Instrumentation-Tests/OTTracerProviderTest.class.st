@@ -51,6 +51,7 @@ OTTracerProviderTest >> tearDown [
 		OTSpanExporter current: nil.
 		OTSpan reset ] ensure: [
 			OTBlockingForceFlushSpanExporter allInstancesDo: [ :each | each allowForceFlush ].
+			OTBlockingShutdownSpanExporter allInstancesDo: [ :each | each allowShutdown ].
 			OTBlockingShutdownSpanProcessor allInstancesDo: [ :each | each allowShutdown ].
 			OTBlockingOnEndingSpanProcessor allInstancesDo: [ :each | each allowOnEnding ].
 			super tearDown ]
@@ -703,6 +704,25 @@ OTTracerProviderTest >> testForceFlushExportsPendingBatchProcessorSpans [
 	self assert: exporter exportedBatches first size equals: 1.
 	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter shutdownCount equals: 0
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testForceFlushResultPropagatesProcessorTimeout [
+
+	| elapsed exporter processor provider result startedAt |
+	exporter := OTBlockingForceFlushSpanExporter new.
+	processor := OTSimpleSpanProcessor new
+		             exporter: exporter;
+		             exportTimeoutMillis: 25;
+		             yourself.
+	provider := OTTracerProvider new.
+	provider spanProcessor: processor.
+	startedAt := Time millisecondClockValue.
+	result := provider forceFlushResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForForceFlushTimeoutMillis: 200)
 ]
 
 { #category : 'tests' }
@@ -1603,6 +1623,26 @@ OTTracerProviderTest >> testShutdownMakesReturnedTracerBehaveAsNoop [
 		in: OTContext new.
 	self assert: span class identicalTo: OTNonRecordingSpan.
 	self deny: span spanContext isValid
+]
+
+{ #category : 'tests' }
+OTTracerProviderTest >> testShutdownResultPropagatesProcessorTimeout [
+
+	| elapsed exporter processor provider result startedAt |
+	exporter := OTBlockingShutdownSpanExporter new.
+	processor := OTSimpleSpanProcessor new
+		             exporter: exporter;
+		             exportTimeoutMillis: 25;
+		             yourself.
+	provider := OTTracerProvider new.
+	provider spanProcessor: processor.
+	startedAt := Time millisecondClockValue.
+	result := provider shutdownResult.
+	elapsed := Time millisecondClockValue - startedAt.
+	self assert: result isTimeout.
+	self assert: provider isShutdown.
+	self assert: elapsed < 250.
+	self assert: (exporter waitForShutdownTimeoutMillis: 200)
 ]
 
 { #category : 'tests' }
