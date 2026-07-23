@@ -435,9 +435,18 @@ instances.
 - `OTTracer` instances are safe to reuse across concurrent callers. Tracer
   configurator updates are meant to become visible without reacquiring the
   tracer.
+- Built-in `OTSampler` implementations, including `OTParentBasedSampler`,
+  `OTTraceIdRatioBasedSampler`, `OTProbabilisticSampler`,
+  `OTCompositeSampler`, `OTJaegerRemoteSampler`, and `OTXRayRemoteSampler`,
+  make `shouldSampleIn:traceId:name:kind:attributes:links:` and `description`
+  safe under concurrent calls.
 - `OTSpan` instances are safe to mutate from concurrent callers. Once `end`
   starts, only the synchronous `onEnding:` span-processor callbacks are
   allowed to keep mutating that span; other concurrent mutations become no-ops.
+- `OTSpanEvent` values are immutable snapshots once created and are safe to
+  share across concurrent readers.
+- `OTSpanLink` values are immutable after creation and are safe to share across
+  concurrent readers.
 - `OTSpanProcessor` implementations are expected to be concurrency-safe. The
   built-in simple and batch processors serialize calls into their exporter so
   `export:` is not invoked concurrently by one processor instance.
@@ -488,6 +497,12 @@ The current implementation supports the standard built-in head samplers:
 - `jaeger_remote`
 - `parentbased_jaeger_remote`
 - `xray`
+
+Remote sampler lifecycle is provider-managed. Installing a
+`OTJaegerRemoteSampler` or `OTXRayRemoteSampler` on an `OTTracerProvider`
+starts its background polling worker automatically, and provider shutdown stops
+that worker. When a remote sampler is used standalone before `start`, it still
+falls back to lazy refresh on demand.
 
 The X-Ray remote sampler reads `OTEL_TRACES_SAMPLER_ARG` as a comma-separated
 set of `key=value` options. The supported options are:
