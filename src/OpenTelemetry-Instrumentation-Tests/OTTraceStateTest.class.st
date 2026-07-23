@@ -142,6 +142,23 @@ OTTraceStateTest >> testParsingRejectsHeaderWithMoreThanThirtyTwoMembers [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testParsingRoundTripsLongJavaScriptReferenceOtelConcernVector [
+
+	| longMember roundTripped traceState |
+	longMember := 'a:' , (String new: 214 withAll: $X) , ';rv:1234567890abcd;th:1234567890abcd;x:3'.
+	traceState := OTTraceState fromHeader: 'ot=' , longMember.
+	self assert: traceState notNil.
+	self assert: (traceState valueAt: 'ot') size equals: 256.
+	self assert: (traceState otelValueAt: 'rv') equals: '1234567890abcd'.
+	self assert: (traceState otelValueAt: 'th') equals: '1234567890abcd'.
+	self assert: (traceState otelEntries at: 'a') equals: (String new: 214 withAll: $X).
+	self assert: (traceState otelEntries at: 'x') equals: '3'.
+	roundTripped := OTTraceState fromHeader: traceState asHeaderValue.
+	self assert: roundTripped notNil.
+	self assert: roundTripped otelEntries equals: traceState otelEntries
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testParsingSkipsEmptyMembersAndAcceptsWhitespaceOnlyHeader [
 
 	| traceState emptyTraceState |
