@@ -4,8 +4,8 @@ Class {
 	#instVars : [
 		'status'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-SDK',
+	#package : 'OpenTelemetry-SDK'
 }
 
 { #category : 'instance creation' }

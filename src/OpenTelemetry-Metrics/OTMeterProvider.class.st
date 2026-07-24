@@ -24,7 +24,7 @@ Class {
 { #category : 'private' }
 OTMeterProvider class >> configurationSourceClass [
 
-	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+	^ self environment at: #OTConfigurationSource ifAbsent: [ nil ]
 ]
 
 { #category : 'private - logging' }

@@ -70,7 +70,7 @@ OTOtlpExporterConfiguration class >> compressionFromEnvironmentForSignalNamed: a
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> configurationSourceClass [
 
-	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+	^ self environment at: #OTConfigurationSource ifAbsent: [ nil ]
 ]
 
 { #category : 'private' }

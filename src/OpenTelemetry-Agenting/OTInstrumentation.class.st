@@ -10,8 +10,8 @@ Class {
 		'instrumenter',
 		'sampler'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Agenting',
+	#package : 'OpenTelemetry-Agenting'
 }
 
 { #category : 'matching' }

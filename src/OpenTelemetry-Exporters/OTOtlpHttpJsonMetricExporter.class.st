@@ -98,7 +98,7 @@ OTOtlpHttpJsonMetricExporter class >> maxExportAttempts [
 OTOtlpHttpJsonMetricExporter class >> noteInvalidHistogramAggregationPreference: aString [
 
 	| meterProviderClass warningSink |
-	meterProviderClass := OpenTelemetry dependencyClassNamed: #OTMeterProvider ifAbsent: [ nil ].
+	meterProviderClass := self environment at: #OTMeterProvider ifAbsent: [ nil ].
 	warningSink := meterProviderClass
 		               ifNil: [ OTDiagnosticLogger defaultWarningSink ]
 		               ifNotNil: [ meterProviderClass configurationWarningSink ].
@@ -110,7 +110,7 @@ OTOtlpHttpJsonMetricExporter class >> noteInvalidHistogramAggregationPreference:
 OTOtlpHttpJsonMetricExporter class >> noteInvalidTemporalityPreference: aString [
 
 	| meterProviderClass warningSink |
-	meterProviderClass := OpenTelemetry dependencyClassNamed: #OTMeterProvider ifAbsent: [ nil ].
+	meterProviderClass := self environment at: #OTMeterProvider ifAbsent: [ nil ].
 	warningSink := meterProviderClass
 		               ifNil: [ OTDiagnosticLogger defaultWarningSink ]
 		               ifNotNil: [ meterProviderClass configurationWarningSink ].

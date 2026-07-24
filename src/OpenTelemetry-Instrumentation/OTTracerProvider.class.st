@@ -20,7 +20,7 @@ Class {
 { #category : 'private' }
 OTTracerProvider class >> configurationSourceClass [
 
-	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+	^ self environment at: #OTConfigurationSource ifAbsent: [ nil ]
 ]
 
 { #category : 'instance creation' }
@@ -295,7 +295,7 @@ OTTracerProvider class >> defaultResourceDetectors [
 { #category : 'instance creation' }
 OTTracerProvider class >> defaultSampler [
 
-	^ OTParentBasedSampler default
+	^ (self samplingClassNamed: #OTParentBasedSampler) default
 ]
 
 { #category : 'private - logging' }
@@ -392,20 +392,22 @@ OTTracerProvider class >> invalidateCurrent [
 { #category : 'private' }
 OTTracerProvider class >> jaegerRemoteSamplerForResource: anOTResource argument: anotherString parentBased: aBoolean [
 
-	| configuredSampler options sampler samplerName |
+	| configuredSampler options parentBasedSamplerClass remoteSamplerClass sampler samplerName |
 	samplerName := aBoolean
 		               ifTrue: [ 'parentbased_jaeger_remote' ]
 		               ifFalse: [ 'jaeger_remote' ].
-	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [
+	remoteSamplerClass := self samplingClassNamed: #OTJaegerRemoteSampler.
+	remoteSamplerClass grpcDependenciesAvailable ifFalse: [
 			self noteMissingGrpcDependencyForSampler: samplerName.
 			^ self defaultSampler ].
 	options := self strictJaegerRemoteSamplerOptionsFrom: anotherString.
 	(anotherString notNil and: [ options isNil ]) ifTrue: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-	sampler := OTJaegerRemoteSampler serviceName: (self serviceNameForSamplerResource: anOTResource).
+	sampler := remoteSamplerClass serviceName: (self serviceNameForSamplerResource: anOTResource).
 	options ifNotNil: [ self updateJaegerRemoteSampler: sampler withOptions: options ].
 	configuredSampler := aBoolean
 		                     ifTrue: [
-				                     OTParentBasedSampler default
+				                     parentBasedSamplerClass := self samplingClassNamed: #OTParentBasedSampler.
+				                     parentBasedSamplerClass default
 					                     rootSampler: sampler;
 					                     yourself ]
 		                     ifFalse: [ sampler ].
@@ -666,7 +668,7 @@ OTTracerProvider class >> readConfiguration [
 		sampler: (self configuredSamplerForResource: resource);
 		spanLimits: self configuredSpanLimits;
 		tracerConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredTracerConfigurator ]).
-	noopSpanExporterClass := OpenTelemetry dependencyClassNamed: #OTNoopSpanExporter ifAbsent: [ nil ].
+	noopSpanExporterClass := self environment at: #OTNoopSpanExporter ifAbsent: [ nil ].
 	processors := explicitProcessor
 		              ifNil: [
 				              (self sdkDisabled or: [ noopSpanExporterClass notNil and: [ exporter class == noopSpanExporterClass ] ])
@@ -821,38 +823,42 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 { #category : 'private' }
 OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherString resource: anOTResource [
 
-	| probability rootSampler samplerName |
+	| alwaysOffSamplerClass alwaysOnSamplerClass parentBasedSamplerClass probability rootSampler samplerName traceIdRatioSamplerClass |
 	samplerName := aString asString trimBoth asLowercase.
 	probability := self strictProbabilityFrom: anotherString.
+	alwaysOnSamplerClass := self samplingClassNamed: #OTAlwaysOnSampler.
+	alwaysOffSamplerClass := self samplingClassNamed: #OTAlwaysOffSampler.
+	traceIdRatioSamplerClass := self samplingClassNamed: #OTTraceIdRatioBasedSampler.
+	parentBasedSamplerClass := self samplingClassNamed: #OTParentBasedSampler.
 	samplerName = 'always_on' ifTrue: [
 			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-			^ OTAlwaysOnSampler new ].
+			^ alwaysOnSamplerClass new ].
 	samplerName = 'always_off' ifTrue: [
 			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-			^ OTAlwaysOffSampler new ].
+			^ alwaysOffSamplerClass new ].
 	samplerName = 'traceidratio' ifTrue: [
 			(anotherString notNil and: [ probability isNil ]) ifTrue: [
 				self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-			^ OTTraceIdRatioBasedSampler new
+			^ traceIdRatioSamplerClass new
 				  probability: (probability ifNil: [ 1 ]);
 				  yourself ].
 	samplerName = 'parentbased_always_on' ifTrue: [
 			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-			^ OTParentBasedSampler default
-				  rootSampler: OTAlwaysOnSampler new;
+			^ parentBasedSamplerClass default
+				  rootSampler: alwaysOnSamplerClass new;
 				  yourself ].
 	samplerName = 'parentbased_always_off' ifTrue: [
 			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-			^ OTParentBasedSampler default
-				  rootSampler: OTAlwaysOffSampler new;
+			^ parentBasedSamplerClass default
+				  rootSampler: alwaysOffSamplerClass new;
 				  yourself ].
 	samplerName = 'parentbased_traceidratio' ifTrue: [
 			(anotherString notNil and: [ probability isNil ]) ifTrue: [
 				self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-			rootSampler := OTTraceIdRatioBasedSampler new
+			rootSampler := traceIdRatioSamplerClass new
 				               probability: (probability ifNil: [ 1 ]);
 				               yourself.
-			^ OTParentBasedSampler default
+			^ parentBasedSamplerClass default
 				  rootSampler: rootSampler;
 				  yourself ].
 	samplerName = 'jaeger_remote' ifTrue: [
@@ -862,6 +868,12 @@ OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherS
 	samplerName = 'xray' ifTrue: [ ^ self xrayRemoteSamplerForResource: anOTResource argument: anotherString ].
 	self noteUnknownSamplerName: samplerName.
 	^ self defaultSampler
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> samplingClassNamed: aSymbol [
+
+	^ self environment at: aSymbol ifAbsent: [ self error: 'OpenTelemetry-Sampling must be loaded to configure tracers' ]
 ]
 
 { #category : 'private' }
@@ -908,7 +920,7 @@ OTTracerProvider class >> shutdownByProvider [
 { #category : 'private' }
 OTTracerProvider class >> spanExporterClass [
 
-	^ OpenTelemetry dependencyClassNamed: #OTSpanExporter ifAbsent: [ nil ]
+	^ self environment at: #OTSpanExporter ifAbsent: [ nil ]
 ]
 
 { #category : 'private' }
@@ -920,7 +932,7 @@ OTTracerProvider class >> spanLimitsByProvider [
 { #category : 'private' }
 OTTracerProvider class >> spanProcessorClass [
 
-	^ OpenTelemetry dependencyClassNamed: #OTSpanProcessor ifAbsent: [ nil ]
+	^ self environment at: #OTSpanProcessor ifAbsent: [ nil ]
 ]
 
 { #category : 'private - logging' }
@@ -958,15 +970,16 @@ OTTracerProvider class >> stateDictionaryAt: aSymbol [
 { #category : 'private' }
 OTTracerProvider class >> strictJaegerRemoteSamplerOption: aString into: anOrderedDictionary [
 
-	| key parsedValue separator value |
+	| key parsedValue remoteSamplerClass separator value |
 	aString isEmpty ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
 	separator := aString indexOf: $=.
 	separator <= 1 ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
 	key := (aString copyFrom: 1 to: separator - 1) trimBoth.
 	value := (aString copyFrom: separator + 1 to: aString size) trimBoth.
 	value isEmpty ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
+	remoteSamplerClass := self samplingClassNamed: #OTJaegerRemoteSampler.
 	key = 'endpoint' ifTrue: [
-			parsedValue := OTJaegerRemoteSampler normalizedEndpoint: value.
+			parsedValue := remoteSamplerClass normalizedEndpoint: value.
 			anOrderedDictionary at: key put: parsedValue.
 			^ self ].
 	key = 'pollingIntervalMs' ifTrue: [
@@ -1042,15 +1055,16 @@ OTTracerProvider class >> strictProbabilityFrom: aString [
 { #category : 'private' }
 OTTracerProvider class >> strictXRayRemoteSamplerOption: aString into: anOrderedDictionary [
 
-	| key parsedValue separator value |
+	| key parsedValue remoteSamplerClass separator value |
 	aString isEmpty ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
 	separator := aString indexOf: $=.
 	separator <= 1 ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
 	key := (aString copyFrom: 1 to: separator - 1) trimBoth.
 	value := (aString copyFrom: separator + 1 to: aString size) trimBoth.
 	value isEmpty ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
+	remoteSamplerClass := self samplingClassNamed: #OTXRayRemoteSampler.
 	key = 'endpoint' ifTrue: [
-			parsedValue := OTXRayRemoteSampler normalizedEndpoint: value.
+			parsedValue := remoteSamplerClass normalizedEndpoint: value.
 			anOrderedDictionary at: key put: parsedValue.
 			^ self ].
 	key = 'polling_interval' ifTrue: [
@@ -1163,11 +1177,12 @@ OTTracerProvider class >> writeShellQuotedCommandArgument: anObject on: aStream 
 { #category : 'private' }
 OTTracerProvider class >> xrayRemoteSamplerForResource: anOTResource argument: anotherString [
 
-	| options sampler samplerName |
+	| options remoteSamplerClass sampler samplerName |
 	samplerName := 'xray'.
 	options := self strictXRayRemoteSamplerOptionsFrom: anotherString.
 	(anotherString notNil and: [ options isNil ]) ifTrue: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
-	sampler := OTXRayRemoteSampler
+	remoteSamplerClass := self samplingClassNamed: #OTXRayRemoteSampler.
+	sampler := remoteSamplerClass
 		           serviceName: (self serviceNameForSamplerResource: anOTResource)
 		           serviceType: (self serviceTypeForSamplerResource: anOTResource).
 	options ifNotNil: [ self updateXRayRemoteSampler: sampler withOptions: options ].
@@ -1866,8 +1881,10 @@ OTTracerProvider >> validatedResourceConfiguration: anOTResource forOperation: a
 { #category : 'private - configuration' }
 OTTracerProvider >> validatedSamplerConfiguration: anOTSampler forOperation: anOperationName [
 
+	| samplerClass |
 	anOTSampler ifNil: [ ^ self class defaultSampler ].
-	(anOTSampler isKindOf: OTSampler) ifTrue: [ ^ anOTSampler ].
+	samplerClass := self class samplingClassNamed: #OTSampler.
+	(anOTSampler isKindOf: samplerClass) ifTrue: [ ^ anOTSampler ].
 	self class noteInvalidTracerConfigurationValue: anOTSampler forOperation: anOperationName.
 	^ nil
 ]

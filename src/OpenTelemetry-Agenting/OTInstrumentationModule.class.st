@@ -8,8 +8,8 @@ Class {
 	#classInstVars : [
 		'enabled'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-Agenting',
+	#package : 'OpenTelemetry-Agenting'
 }
 
 { #category : 'enumerating' }

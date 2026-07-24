@@ -75,7 +75,7 @@ OTLoggerProvider class >> batchLogRecordProcessorWithExporter: anExporter [
 { #category : 'private' }
 OTLoggerProvider class >> configurationSourceClass [
 
-	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+	^ self environment at: #OTConfigurationSource ifAbsent: [ nil ]
 ]
 
 { #category : 'private - logging' }

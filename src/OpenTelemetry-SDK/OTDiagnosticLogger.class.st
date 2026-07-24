@@ -13,8 +13,8 @@ Class {
 	#classVars : [
 		'Current'
 	],
-	#category : 'OpenTelemetry-Instrumentation',
-	#package : 'OpenTelemetry-Instrumentation'
+	#category : 'OpenTelemetry-SDK',
+	#package : 'OpenTelemetry-SDK'
 }
 
 { #category : 'severity' }
@@ -39,7 +39,7 @@ OTDiagnosticLogger class >> buildDefaultLogger [
 { #category : 'private - configuration' }
 OTDiagnosticLogger class >> configurationSourceClass [
 
-	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+	^ self environment at: #OTConfigurationSource ifAbsent: [ nil ]
 ]
 
 { #category : 'private - configuration' }
