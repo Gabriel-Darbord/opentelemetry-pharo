@@ -17,11 +17,18 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation'
 }
 
+{ #category : 'private' }
+OTTracerProvider class >> configurationSourceClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+]
+
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredResource [
 
-	| resource |
-	resource := OTConfigurationSource configuredResource.
+	| configurationSourceClass resource |
+	configurationSourceClass := self configurationSourceClass.
+	resource := configurationSourceClass ifNotNil: [ configurationSourceClass configuredResource ].
 	^ resource ifNil: [ self resourceFromDetectors: self configuredResourceDetectors ]
 ]
 
@@ -53,8 +60,9 @@ OTTracerProvider class >> configuredSampler [
 { #category : 'instance creation' }
 OTTracerProvider class >> configuredSamplerForResource: anOTResource [
 
-	| configuredSampler samplerName samplerArgument |
-	configuredSampler := OTConfigurationSource configuredSamplerForResource: anOTResource.
+	| configurationSourceClass configuredSampler samplerArgument samplerName |
+	configurationSourceClass := self configurationSourceClass.
+	configuredSampler := configurationSourceClass ifNotNil: [ configurationSourceClass configuredSamplerForResource: anOTResource ].
 	configuredSampler ifNotNil: [ ^ configuredSampler ].
 	samplerName := self environmentValueAt: 'OTEL_TRACES_SAMPLER'.
 	samplerName ifNil: [ ^ self defaultSampler ].
@@ -336,7 +344,9 @@ OTTracerProvider class >> defaultTracerNameWarningSink [
 { #category : 'private' }
 OTTracerProvider class >> environmentValueAt: aString [
 
-	^ OTConfigurationSource environmentValueAt: aString
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	^ configurationSourceClass ifNotNil: [ configurationSourceClass environmentValueAt: aString ]
 ]
 
 { #category : 'private' }
@@ -643,21 +653,25 @@ OTTracerProvider class >> processCommandLine [
 { #category : 'instance creation' }
 OTTracerProvider class >> readConfiguration [
 
-	| exporter explicitProcessor provider resource processors |
+	| configurationSourceClass explicitProcessor exporter exporterClass noopSpanExporterClass processors provider resource spanProcessorClass |
 	provider := self new.
-	exporter := OTSpanExporter current.
-	explicitProcessor := OTSpanProcessor currentIfSet.
+	exporterClass := self spanExporterClass.
+	exporter := exporterClass ifNotNil: [ exporterClass current ].
+	spanProcessorClass := self spanProcessorClass.
+	explicitProcessor := spanProcessorClass ifNotNil: [ spanProcessorClass currentIfSet ].
 	resource := self configuredResource.
+	configurationSourceClass := self configurationSourceClass.
 	provider
 		resource: resource;
 		sampler: (self configuredSamplerForResource: resource);
 		spanLimits: self configuredSpanLimits;
-		tracerConfigurator: OTConfigurationSource configuredTracerConfigurator.
+		tracerConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredTracerConfigurator ]).
+	noopSpanExporterClass := OpenTelemetry dependencyClassNamed: #OTNoopSpanExporter ifAbsent: [ nil ].
 	processors := explicitProcessor
 		              ifNil: [
-				              (self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
+				              (self sdkDisabled or: [ noopSpanExporterClass notNil and: [ exporter class == noopSpanExporterClass ] ])
 					              ifTrue: [ #(  ) ]
-					              ifFalse: [ OTSpanProcessor current componentProcessors ] ]
+					              ifFalse: [ spanProcessorClass current componentProcessors ] ]
 		              ifNotNil: [ explicitProcessor componentProcessors ].
 	provider spanProcessors: processors.
 	^ provider
@@ -666,8 +680,10 @@ OTTracerProvider class >> readConfiguration [
 { #category : 'class initialization' }
 OTTracerProvider class >> reset [
 
+	| configurationSourceClass |
 	Current ifNotNil: [ Current shutdown ].
-	OTConfigurationSource reset.
+	configurationSourceClass := self configurationSourceClass.
+	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	Current := nil.
 	self resourceDetectors: nil
 ]
@@ -890,9 +906,21 @@ OTTracerProvider class >> shutdownByProvider [
 ]
 
 { #category : 'private' }
+OTTracerProvider class >> spanExporterClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTSpanExporter ifAbsent: [ nil ]
+]
+
+{ #category : 'private' }
 OTTracerProvider class >> spanLimitsByProvider [
 
 	^ self stateDictionaryAt: #otSpanLimitsByProvider
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> spanProcessorClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTSpanProcessor ifAbsent: [ nil ]
 ]
 
 { #category : 'private - logging' }
@@ -1352,12 +1380,14 @@ OTTracerProvider >> normalizedContextFrom: aContext forOperation: anOperationNam
 { #category : 'private - configuration' }
 OTTracerProvider >> normalizedSpanProcessorsFrom: aCollection forOperation: anOperationName [
 
+	| spanProcessorClass |
 	aCollection ifNil: [ ^ OrderedCollection new ].
 	(aCollection isCollection and: [ aCollection isString not ]) ifFalse: [
 			self class noteInvalidSpanProcessorConfiguration: aCollection forOperation: anOperationName.
 			^ nil ].
+	spanProcessorClass := self class spanProcessorClass.
 	^ aCollection inject: OrderedCollection new into: [ :normalized :each |
-			  (each isKindOf: OTSpanProcessor)
+			  (spanProcessorClass notNil and: [ each isKindOf: spanProcessorClass ])
 				  ifTrue: [ normalized add: each ]
 				  ifFalse: [ self class noteInvalidSpanProcessorConfiguration: each forOperation: anOperationName ].
 			  normalized ]
@@ -1854,7 +1884,9 @@ OTTracerProvider >> validatedSpanLimitsConfiguration: anOTSpanLimits forOperatio
 { #category : 'private - configuration' }
 OTTracerProvider >> validatedSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName [
 
-	(aSpanProcessor isKindOf: OTSpanProcessor) ifTrue: [ ^ aSpanProcessor ].
+	| spanProcessorClass |
+	spanProcessorClass := self class spanProcessorClass.
+	(spanProcessorClass notNil and: [ aSpanProcessor isKindOf: spanProcessorClass ]) ifTrue: [ ^ aSpanProcessor ].
 	self class noteInvalidSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName.
 	^ nil
 ]

@@ -21,6 +21,12 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'private' }
+OTMeterProvider class >> configurationSourceClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+]
+
 { #category : 'private - logging' }
 OTMeterProvider class >> configurationWarningSink [
 
@@ -109,7 +115,9 @@ OTMeterProvider class >> defaultMeterNameWarningSink [
 { #category : 'private' }
 OTMeterProvider class >> environmentValueAt: aString [
 
-	^ OTConfigurationSource environmentValueAt: aString
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	^ configurationSourceClass ifNotNil: [ configurationSourceClass environmentValueAt: aString ]
 ]
 
 { #category : 'private - configuration' }
@@ -283,7 +291,7 @@ OTMeterProvider class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 	| rawValue parsed |
 	rawValue := self environmentValueAt: aString.
 	rawValue ifNil: [ ^ aDefaultValue ].
-	parsed := OTSpanExporter strictPositiveIntegerFrom: rawValue.
+	parsed := self strictPositiveIntegerFrom: rawValue.
 	parsed ifNil: [
 			self noteInvalidPeriodicMetricReaderEnvironmentValue: rawValue forVariable: aString.
 			^ aDefaultValue ].
@@ -307,16 +315,17 @@ OTMeterProvider class >> prometheusPort [
 { #category : 'instance creation' }
 OTMeterProvider class >> readConfiguration [
 
-	| exporterNames provider readers views |
+	| configurationSourceClass exporterNames provider readers views |
 	provider := self new.
+	configurationSourceClass := self configurationSourceClass.
 	provider
 		resource: OTTracerProvider configuredResource;
 		exemplarFilter: self configuredExemplarFilter;
-		meterConfigurator: OTConfigurationSource configuredMeterConfigurator.
-	views := OTConfigurationSource configuredMetricViews.
+		meterConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredMeterConfigurator ]).
+	views := configurationSourceClass ifNotNil: [ configurationSourceClass configuredMetricViews ] ifNil: [ #(  ) ].
 	views do: [ :each | provider addView: each ].
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
-	readers := OTConfigurationSource configuredMetricReaders.
+	readers := configurationSourceClass ifNotNil: [ configurationSourceClass configuredMetricReaders ].
 	readers ifNotNil: [
 			readers do: [ :each | provider addMetricReader: each ].
 			^ provider ].
@@ -346,9 +355,25 @@ OTMeterProvider class >> readerForExporter: anExporter [
 { #category : 'class initialization' }
 OTMeterProvider class >> reset [
 
+	| configurationSourceClass |
 	Current ifNotNil: [ Current shutdown ].
-	OTConfigurationSource reset.
+	configurationSourceClass := self configurationSourceClass.
+	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	Current := nil
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> strictPositiveIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value > 0 ifFalse: [ ^ nil ].
+	^ value
 ]
 
 { #category : 'accessing' }

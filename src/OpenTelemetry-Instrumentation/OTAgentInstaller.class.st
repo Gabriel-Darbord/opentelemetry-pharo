@@ -102,8 +102,10 @@ OTAgentInstaller class >> reinstall [
 OTAgentInstaller class >> resetEnvironment [
 
 	<script>
+	| spanProcessorClass |
 	OTSpan reset.
-	OTSpanProcessor flush
+	spanProcessorClass := OpenTelemetry dependencyClassNamed: #OTSpanProcessor ifAbsent: [ ^ self ].
+	spanProcessorClass flush
 ]
 
 { #category : 'actions' }

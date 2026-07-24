@@ -32,11 +32,18 @@ OTSpanExporter class >> beCurrent [
 							  Current ] ]
 ]
 
+{ #category : 'private' }
+OTSpanExporter class >> configurationSourceClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+]
+
 { #category : 'instance creation' }
 OTSpanExporter class >> configuredExporters [
 
-	| configuredExporters configuredValue exporters |
-	configuredExporters := OTConfigurationSource configuredTraceExporters.
+	| configuredExporters configuredValue exporters configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	configuredExporters := configurationSourceClass ifNotNil: [ configurationSourceClass configuredTraceExporters ].
 	configuredExporters ifNotNil: [ ^ configuredExporters ].
 	configuredValue := self environmentValueAt: 'OTEL_TRACES_EXPORTER'.
 	configuredValue ifNil: [ ^ { self defaultExporter } ].
@@ -126,7 +133,9 @@ OTSpanExporter class >> defaultZipkinTimeoutMillis [
 { #category : 'private' }
 OTSpanExporter class >> environmentValueAt: aString [
 
-	^ OTConfigurationSource environmentValueAt: aString
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	^ configurationSourceClass ifNotNil: [ configurationSourceClass environmentValueAt: aString ]
 ]
 
 { #category : 'private - synchronization' }
@@ -309,12 +318,14 @@ OTSpanExporter class >> readConfiguration [
 OTSpanExporter class >> reset [
 
 	<script>
+	| configurationSourceClass |
 	self shutdown.
 	self resetLifecycleState.
 	OTClassStateStore removeValueAt: #otExportLocksByExporter forClass: self ifAbsent: [ ].
 	OTClassStateStore removeValueAt: #otExportLockStateLock forClass: self ifAbsent: [ ].
 	OTClassStateStore removeValueAt: #otLifecycleTimeoutMillisByExporter forClass: self ifAbsent: [ ].
-	OTConfigurationSource reset.
+	configurationSourceClass := self configurationSourceClass.
+	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	Current := nil
 ]
 

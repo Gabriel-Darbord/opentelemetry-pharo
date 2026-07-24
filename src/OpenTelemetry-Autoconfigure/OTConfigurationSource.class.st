@@ -6,8 +6,8 @@ environment-variable surface.
 Class {
 	#name : 'OTConfigurationSource',
 	#superclass : 'Object',
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Autoconfigure',
+	#package : 'OpenTelemetry-Autoconfigure'
 }
 
 { #category : 'private - projection' }

@@ -68,6 +68,12 @@ OTOtlpExporterConfiguration class >> compressionFromEnvironmentForSignalNamed: a
 ]
 
 { #category : 'private' }
+OTOtlpExporterConfiguration class >> configurationSourceClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+]
+
+{ #category : 'private' }
 OTOtlpExporterConfiguration class >> decodedHeaderComponentFrom: aString [
 
 	^ [ aString urlDecoded ]
@@ -157,7 +163,9 @@ OTOtlpExporterConfiguration class >> endpointFromEnvironmentForSignalNamed: aSig
 { #category : 'private' }
 OTOtlpExporterConfiguration class >> environmentValueAt: aString [
 
-	^ OTConfigurationSource environmentValueAt: aString
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	^ configurationSourceClass ifNotNil: [ configurationSourceClass environmentValueAt: aString ]
 ]
 
 { #category : 'private' }

@@ -13,8 +13,8 @@ Class {
 	#classVars : [
 		'Current'
 	],
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Instrumentation',
+	#package : 'OpenTelemetry-Instrumentation'
 }
 
 { #category : 'severity' }
@@ -34,6 +34,12 @@ OTDiagnosticLogger class >> buildDefaultLogger [
 	^ (self onMessageDo: [ :severity :message | logger record: [ self messageForSeverity: severity text: message ] ])
 		  minimumSeverity: self configuredMinimumSeverity;
 		  yourself
+]
+
+{ #category : 'private - configuration' }
+OTDiagnosticLogger class >> configurationSourceClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
 ]
 
 { #category : 'private - configuration' }
@@ -96,7 +102,9 @@ OTDiagnosticLogger class >> defaultWarningSink [
 { #category : 'private - configuration' }
 OTDiagnosticLogger class >> environmentValueAt: aString [
 
-	^ OTConfigurationSource environmentValueAt: aString
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	^ configurationSourceClass ifNotNil: [ configurationSourceClass environmentValueAt: aString ]
 ]
 
 { #category : 'severity' }
@@ -169,7 +177,9 @@ OTDiagnosticLogger class >> onWarningDo: aBlock [
 OTDiagnosticLogger class >> reset [
 
 	<script>
-	OTConfigurationSource reset.
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	self loggerFactory: nil.
 	self tinyLoggerClassResolver: nil.
 	Current := nil

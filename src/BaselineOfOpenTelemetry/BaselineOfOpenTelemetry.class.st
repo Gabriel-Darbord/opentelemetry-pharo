@@ -18,31 +18,38 @@ BaselineOfOpenTelemetry >> baseline: spec [
 BaselineOfOpenTelemetry >> baselineCommon: spec [
 
 	spec
+		package: 'OpenTelemetry-Matchers';
+		package: 'OpenTelemetry-Instrumentation' with: [ spec requires: 'OpenTelemetry-Matchers' ];
+		package: 'OpenTelemetry-Exporters' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Sampling' with: [ spec requires: #( 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' ) ];
+		package: 'OpenTelemetry-Logs' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Metrics' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Autoconfigure' with: [
+				spec requires:
+						#( 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling' 'OpenTelemetry-Logs'
+						   'OpenTelemetry-Metrics' ) ];
 		package: 'OpenTelemetry-Instrumentation-MetaLink' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Instrumentation'
-		with: [ spec requires: #( 'OpenTelemetry-Exporters' 'OpenTelemetry-Matchers' 'OpenTelemetry-Sampling' ) ];
+		package: 'OpenTelemetry-Instrumentation-Tests' with: [
+				spec requires:
+						#( 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling' 'OpenTelemetry-Autoconfigure' ) ];
 		package: 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Instrumentation-MetaLink' ) ];
-		package: 'OpenTelemetry-Instrumentation-Tests' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
-		package: 'OpenTelemetry-Logs' with: [ spec requires: #( 'OpenTelemetry-Exporters' 'OpenTelemetry-Instrumentation' ) ];
-		package: 'OpenTelemetry-Logs-Tests' with: [ spec requires: #( 'OpenTelemetry-Logs' 'OpenTelemetry-Instrumentation-Tests' ) ];
-		package: 'OpenTelemetry-Metrics' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
+		package: 'OpenTelemetry-Logs-Tests'
+		with: [ spec requires: #( 'OpenTelemetry-Logs' 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Autoconfigure' ) ];
 		package: 'OpenTelemetry-Metrics-Tests'
-		with: [ spec requires: #( 'OpenTelemetry-Metrics' 'OpenTelemetry-Instrumentation-Tests' ) ];
-		package: 'OpenTelemetry-Exporters';
-		package: 'OpenTelemetry-Matchers';
-		package: 'OpenTelemetry-Sampling' with: [ spec requires: 'OpenTelemetry-Exporters' ].
+		with: [ spec requires: #( 'OpenTelemetry-Metrics' 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Autoconfigure' ) ].
 
 	spec
-		group: 'traces' with: #( 'OpenTelemetry-Instrumentation' );
+		group: 'traces' with: #( 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling' );
 		group: 'instrumentation' with: #( 'traces' 'OpenTelemetry-Instrumentation-MetaLink' );
 		group: 'logs' with: #( 'OpenTelemetry-Logs' );
 		group: 'metrics' with: #( 'OpenTelemetry-Metrics' );
+		group: 'autoconfigure' with: #( 'OpenTelemetry-Autoconfigure' );
 		group: 'traces-tests' with: #( 'OpenTelemetry-Instrumentation-Tests' );
 		group: 'instrumentation-tests' with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' );
 		group: 'logs-tests' with: #( 'OpenTelemetry-Logs-Tests' );
 		group: 'metrics-tests' with: #( 'OpenTelemetry-Metrics-Tests' );
-		group: 'core' with: #( 'instrumentation' 'logs' 'metrics' );
+		group: 'core' with: #( 'instrumentation' 'logs' 'metrics' 'autoconfigure' );
 		group: 'tests' with: #( 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
 		group: 'default' with: #( 'core' 'tests' );
 		group: 'all' with: #( 'default' )

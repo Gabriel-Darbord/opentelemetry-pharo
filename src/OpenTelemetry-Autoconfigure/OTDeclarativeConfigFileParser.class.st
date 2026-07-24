@@ -10,8 +10,8 @@ Class {
 		'position',
 		'environmentLookupBlock'
 	],
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Autoconfigure',
+	#package : 'OpenTelemetry-Autoconfigure'
 }
 
 { #category : 'private' }

@@ -97,6 +97,12 @@ OpenTelemetry class >> defaultTextMapPropagator [
 	^ self w3cTextMapPropagator
 ]
 
+{ #category : 'private' }
+OpenTelemetry class >> dependencyClassNamed: aSymbol ifAbsent: aBlock [
+
+	^ self environment at: aSymbol ifAbsent: aBlock
+]
+
 { #category : 'actions' }
 OpenTelemetry class >> detachContext: aContextToken [
 
@@ -111,7 +117,9 @@ OpenTelemetry class >> detachContext: aContextToken [
 { #category : 'private' }
 OpenTelemetry class >> environmentValueAt: aString [
 
-	^ OTConfigurationSource environmentValueAt: aString
+	| configurationSourceClass |
+	configurationSourceClass := self dependencyClassNamed: #OTConfigurationSource ifAbsent: [ ^ nil ].
+	^ configurationSourceClass environmentValueAt: aString
 ]
 
 { #category : 'accessing' }

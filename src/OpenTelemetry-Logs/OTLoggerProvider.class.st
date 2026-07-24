@@ -72,6 +72,12 @@ OTLoggerProvider class >> batchLogRecordProcessorWithExporter: anExporter [
 	^ processor
 ]
 
+{ #category : 'private' }
+OTLoggerProvider class >> configurationSourceClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+]
+
 { #category : 'private - logging' }
 OTLoggerProvider class >> configurationWarningSink [
 
@@ -164,7 +170,9 @@ OTLoggerProvider class >> defaultLoggerConfig [
 { #category : 'private' }
 OTLoggerProvider class >> environmentValueAt: aString [
 
-	^ OTConfigurationSource environmentValueAt: aString
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	^ configurationSourceClass ifNotNil: [ configurationSourceClass environmentValueAt: aString ]
 ]
 
 { #category : 'private' }
@@ -300,14 +308,15 @@ OTLoggerProvider class >> processorForExporter: anExporter [
 { #category : 'instance creation' }
 OTLoggerProvider class >> readConfiguration [
 
-	| exporterNames processors provider |
+	| configurationSourceClass exporterNames processors provider |
 	provider := self new.
+	configurationSourceClass := self configurationSourceClass.
 	provider
 		resource: OTTracerProvider configuredResource;
 		logRecordLimits: self configuredLogRecordLimits;
-		loggerConfigurator: OTConfigurationSource configuredLoggerConfigurator.
+		loggerConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredLoggerConfigurator ]).
 	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
-	processors := OTConfigurationSource configuredLogRecordProcessors.
+	processors := configurationSourceClass ifNotNil: [ configurationSourceClass configuredLogRecordProcessors ].
 	processors ifNotNil: [
 			provider logRecordProcessors: processors.
 			^ provider ].
@@ -323,8 +332,10 @@ OTLoggerProvider class >> readConfiguration [
 { #category : 'class initialization' }
 OTLoggerProvider class >> reset [
 
+	| configurationSourceClass |
 	Current ifNotNil: [ Current shutdown ].
-	OTConfigurationSource reset.
+	configurationSourceClass := self configurationSourceClass.
+	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	Current := nil
 ]
 

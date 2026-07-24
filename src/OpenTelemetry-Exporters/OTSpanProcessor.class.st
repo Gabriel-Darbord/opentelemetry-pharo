@@ -95,6 +95,12 @@ OTSpanProcessor class >> beginShutdown: aProcessor [
 						  true ] ]
 ]
 
+{ #category : 'private' }
+OTSpanProcessor class >> configurationSourceClass [
+
+	^ OpenTelemetry dependencyClassNamed: #OTConfigurationSource ifAbsent: [ nil ]
+]
+
 { #category : 'private - logging' }
 OTSpanProcessor class >> configurationWarningOwner [
 
@@ -120,7 +126,10 @@ OTSpanProcessor class >> configurationWarningSink: aBlock [
 { #category : 'instance creation' }
 OTSpanProcessor class >> configuredProcessors [
 
-	OTConfigurationSource configuredTraceProcessors ifNotNil: [ :processors | ^ processors ].
+	| configurationSourceClass processors |
+	configurationSourceClass := self configurationSourceClass.
+	processors := configurationSourceClass ifNotNil: [ configurationSourceClass configuredTraceProcessors ].
+	processors ifNotNil: [ ^ processors ].
 	^ OTSpanExporter current componentExporters collect: [ :each | self processorForExporter: each ]
 ]
 
@@ -176,7 +185,9 @@ OTSpanProcessor class >> defaultConfigurationWarningSink [
 { #category : 'private' }
 OTSpanProcessor class >> environmentValueAt: aString [
 
-	^ OTConfigurationSource environmentValueAt: aString
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	^ configurationSourceClass ifNotNil: [ configurationSourceClass environmentValueAt: aString ]
 ]
 
 { #category : 'processing' }
@@ -305,9 +316,11 @@ OTSpanProcessor class >> readConfiguration [
 { #category : 'class initialization' }
 OTSpanProcessor class >> reset [
 
+	| configurationSourceClass |
 	self shutdown.
 	self resetLifecycleState.
-	OTConfigurationSource reset.
+	configurationSourceClass := self configurationSourceClass.
+	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	Current := nil
 ]
 

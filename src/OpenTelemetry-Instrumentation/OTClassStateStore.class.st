@@ -8,8 +8,8 @@ Class {
 		'stateByClass',
 		'stateLock'
 	],
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Instrumentation',
+	#package : 'OpenTelemetry-Instrumentation'
 }
 
 { #category : 'class initialization' }

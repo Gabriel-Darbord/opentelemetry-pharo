@@ -97,15 +97,24 @@ OTOtlpHttpJsonMetricExporter class >> maxExportAttempts [
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter class >> noteInvalidHistogramAggregationPreference: aString [
 
-	OTMeterProvider configurationWarningSink value:
+	| meterProviderClass warningSink |
+	meterProviderClass := OpenTelemetry dependencyClassNamed: #OTMeterProvider ifAbsent: [ nil ].
+	warningSink := meterProviderClass
+		               ifNil: [ OTDiagnosticLogger defaultWarningSink ]
+		               ifNotNil: [ meterProviderClass configurationWarningSink ].
+	warningSink value:
 		'OpenTelemetry OTLP metrics default histogram aggregation was invalid and has been ignored: ' , aString printString
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter class >> noteInvalidTemporalityPreference: aString [
 
-	OTMeterProvider configurationWarningSink value:
-		'OpenTelemetry OTLP metrics temporality preference was invalid and has been ignored: ' , aString printString
+	| meterProviderClass warningSink |
+	meterProviderClass := OpenTelemetry dependencyClassNamed: #OTMeterProvider ifAbsent: [ nil ].
+	warningSink := meterProviderClass
+		               ifNil: [ OTDiagnosticLogger defaultWarningSink ]
+		               ifNotNil: [ meterProviderClass configurationWarningSink ].
+	warningSink value: 'OpenTelemetry OTLP metrics temporality preference was invalid and has been ignored: ' , aString printString
 ]
 
 { #category : 'private - retry' }
