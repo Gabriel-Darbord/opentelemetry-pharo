@@ -29,7 +29,11 @@ OTProbabilisticSampler >> compatibilityWarningMessage [
 { #category : 'accessing' }
 OTProbabilisticSampler >> description [
 
-	^ 'ProbabilitySampler{' , self probability printString , '}'
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'ProbabilitySampler{';
+				  print: self probability;
+				  nextPutAll: '}' ]
 ]
 
 { #category : 'initialization' }

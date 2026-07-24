@@ -88,7 +88,12 @@ OTInstrumenter class >> forInstrumentationNamed: aString [
 OTInstrumenter class >> noteConfigurationFailedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry instrumenter callback failed during ' , anOperationName , ': ' , anError messageText.
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry instrumenter callback failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message

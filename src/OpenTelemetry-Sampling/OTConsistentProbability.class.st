@@ -86,8 +86,7 @@ OTConsistentProbability class >> thresholdForProbability: aNumber [
 OTConsistentProbability class >> thresholdFromString: aString [
 
 	(self isLowercaseHexString: aString maxSize: 14) ifFalse: [ ^ nil ].
-	^ (aString inject: 0 into: [ :threshold :each |
-			   (threshold bitShift: 4) + each digitValue ]) bitShift: ((14 - aString size) * 4)
+	^ (aString inject: 0 into: [ :threshold :each | (threshold bitShift: 4) + each digitValue ]) bitShift: 14 - aString size * 4
 ]
 
 { #category : 'private' }

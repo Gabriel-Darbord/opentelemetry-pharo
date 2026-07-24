@@ -40,16 +40,6 @@ OTFakeGRPCRequest class >> timeoutHeaderValueForNanos: aPositiveInteger [
 	^ (timeout // 3600000000000) asString , 'H'
 ]
 
-{ #category : 'initialization' }
-OTFakeGRPCRequest >> initialize [
-
-	super initialize.
-	payload := #[ ].
-	metadata := OTFakeGRPCMetadata new.
-	acceptedMessageEncodings := #( 'identity' 'gzip' ).
-	contentType := 'application/grpc+proto'
-]
-
 { #category : 'accessing' }
 OTFakeGRPCRequest >> contentType [
 
@@ -61,6 +51,16 @@ OTFakeGRPCRequest >> grpcTimeoutHeaderValue [
 
 	timeoutNanos ifNil: [ ^ nil ].
 	^ self class timeoutHeaderValueForNanos: timeoutNanos
+]
+
+{ #category : 'initialization' }
+OTFakeGRPCRequest >> initialize [
+
+	super initialize.
+	payload := #[  ].
+	metadata := OTFakeGRPCMetadata new.
+	acceptedMessageEncodings := #( 'identity' 'gzip' ).
+	contentType := 'application/grpc+proto'
 ]
 
 { #category : 'accessing' }

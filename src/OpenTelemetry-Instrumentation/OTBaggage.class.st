@@ -144,7 +144,8 @@ OTBaggage class >> normalizedEntryValueFrom: anObject [
 OTBaggage class >> noteBuilderCallbackFailedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry baggage callback failed during ' , anOperationName , ': ' , anError messageText.
+	message := String streamContents: [ :stream |
+		           stream << 'OpenTelemetry baggage callback failed during ' << anOperationName << ': ' << anError messageText ].
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message

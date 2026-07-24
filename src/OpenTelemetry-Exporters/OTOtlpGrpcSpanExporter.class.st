@@ -13,18 +13,6 @@ Class {
 	#package : 'OpenTelemetry-Exporters'
 }
 
-{ #category : 'private - retry' }
-OTOtlpGrpcSpanExporter class >> retryableStatusCodes [
-
-	^ #( 1 4 8 10 11 14 15 ) asSet
-]
-
-{ #category : 'accessing' }
-OTOtlpGrpcSpanExporter class >> supportedProtocol [
-
-	^ 'grpc'
-]
-
 { #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter class >> grpcDependencyResolver [
 
@@ -41,6 +29,18 @@ OTOtlpGrpcSpanExporter class >> grpcDependencyResolver: aBlockOrNil [
 		ifNil: [ OTClassStateStore removeValueAt: #otGrpcDependencyResolver forClass: OTOtlpGrpcSpanExporter ifAbsent: [ ] ]
 		ifNotNil: [ OTClassStateStore valueAt: #otGrpcDependencyResolver forClass: OTOtlpGrpcSpanExporter put: aBlockOrNil ].
 	^ self grpcDependencyResolver
+]
+
+{ #category : 'private - retry' }
+OTOtlpGrpcSpanExporter class >> retryableStatusCodes [
+
+	^ #( 1 4 8 10 11 14 15 ) asSet
+]
+
+{ #category : 'accessing' }
+OTOtlpGrpcSpanExporter class >> supportedProtocol [
+
+	^ 'grpc'
 ]
 
 { #category : 'private - grpc' }
@@ -101,7 +101,12 @@ OTOtlpGrpcSpanExporter >> grpcDependencyNamed: aSymbol [
 	| dependency |
 	dependency := self class grpcDependencyResolver value: aSymbol.
 	^ dependency
-		  ifNil: [ Error signal: 'OTOtlpGrpcSpanExporter requires grpc-pharo to be loaded (missing ' , aSymbol asString , ')' ]
+		  ifNil: [
+				  Error signal: (String streamContents: [ :stream |
+							   stream
+								   nextPutAll: 'OTOtlpGrpcSpanExporter requires grpc-pharo to be loaded (missing ';
+								   nextPutAll: aSymbol asString;
+								   nextPut: $) ]) ]
 		  ifNotNil: [ dependency ]
 ]
 
@@ -222,8 +227,13 @@ OTOtlpGrpcSpanExporter >> noteInvalidGrpcSuccessResponse: anError [
 { #category : 'private - logging' }
 OTOtlpGrpcSpanExporter >> noteRetryExhaustedForStatus: aStatus [
 
-	self warningSink value:
-		'OpenTelemetry OTLP trace export exhausted retries after gRPC status ' , aStatus codeName , ' (' , aStatus code asString , ')'
+	self warningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry OTLP trace export exhausted retries after gRPC status ';
+					 nextPutAll: aStatus codeName;
+					 nextPutAll: ' (';
+					 print: aStatus code;
+					 nextPut: $) ])
 ]
 
 { #category : 'private - grpc' }

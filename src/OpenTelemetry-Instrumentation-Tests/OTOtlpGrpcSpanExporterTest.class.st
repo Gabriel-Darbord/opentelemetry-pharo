@@ -87,12 +87,6 @@ OTOtlpGrpcSpanExporterTest >> setUp [
 	exporter := OTOtlpGrpcSpanExporter configuration: configuration
 ]
 
-{ #category : 'running' }
-OTOtlpGrpcSpanExporterTest >> tearDown [
-
-	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
-]
-
 { #category : 'private' }
 OTOtlpGrpcSpanExporterTest >> successResponseWithRejectedSpans: aCount message: aString [
 
@@ -109,6 +103,12 @@ OTOtlpGrpcSpanExporterTest >> successResponseWithRejectedSpans: aCount message: 
 							writeTag: 2 wireType: 2;
 							writeString: aString ] ].
 	^ writer contents
+]
+
+{ #category : 'running' }
+OTOtlpGrpcSpanExporterTest >> tearDown [
+
+	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -221,23 +221,21 @@ OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
 		mockStreamClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2MockStream.
 		transportClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2Transport.
 		serverBytes := self serverBytesWithFrames: [ :writer :stream |
-				writer
-					writeFrame: (headersFrameClass
-						streamId: 1
-						headers: {
-								(':status' -> '200').
-								('content-type' -> 'application/grpc+proto') }
-						endStream: false)
-					on: stream.
-				writer
-					writeFrame: (dataFrameClass
-						streamId: 1
-						payload: (framerClass frameMessage: #[ ] compressed: false)
-						endStream: false)
-					on: stream.
-				writer
-					writeFrame: (headersFrameClass streamId: 1 headers: { ('grpc-status' -> '0') } endStream: true)
-					on: stream ].
+				               writer
+					               writeFrame: (headersFrameClass
+							                streamId: 1
+							                headers: {
+									                (':status' -> '200').
+									                ('content-type' -> 'application/grpc+proto') }
+							                endStream: false)
+					               on: stream.
+				               writer
+					               writeFrame:
+					               (dataFrameClass streamId: 1 payload: (framerClass frameMessage: #[  ] compressed: false) endStream: false)
+					               on: stream.
+				               writer
+					               writeFrame: (headersFrameClass streamId: 1 headers: { ('grpc-status' -> '0') } endStream: true)
+					               on: stream ].
 		mockStream := mockStreamClass readingBytes: serverBytes.
 		transport := transportClass new.
 		transport streamFactory: [ :ignoredEndpoint | mockStream ].
@@ -258,8 +256,7 @@ OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
 		resourceSpans := reader readBytes.
 		self assert: resourceSpans notEmpty.
 		self assert: reader atEnd.
-		self assert: mockStream closed ]
-		ensure: [ OTGrpcTestSupport installFakeGrpcResolvers ]
+		self assert: mockStream closed ] ensure: [ OTGrpcTestSupport installFakeGrpcResolvers ]
 ]
 
 { #category : 'tests' }

@@ -32,7 +32,11 @@ OTRateLimitingSampler >> currentTimeMillis [
 { #category : 'accessing' }
 OTRateLimitingSampler >> description [
 
-	^ 'RateLimitingSampler{' , (self maxTracesPerSecond printShowingDecimalPlaces: 2) , '}'
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'RateLimitingSampler{';
+				  print: (self maxTracesPerSecond printShowingDecimalPlaces: 2);
+				  nextPutAll: '}' ]
 ]
 
 { #category : 'initialization' }

@@ -1,3 +1,6 @@
+"
+I produce composable sampling intents from a fixed probability by translating that probability into a consistent-sampling threshold.
+"
 Class {
 	#name : 'OTComposableProbabilitySampler',
 	#superclass : 'OTComposableSampler',
@@ -12,7 +15,11 @@ Class {
 { #category : 'accessing' }
 OTComposableProbabilitySampler >> description [
 
-	^ 'ComposableProbability{' , self probability printString , '}'
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'ComposableProbability{';
+				  print: self probability;
+				  nextPutAll: '}' ]
 ]
 
 { #category : 'initialization' }

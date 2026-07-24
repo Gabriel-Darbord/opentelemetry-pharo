@@ -25,9 +25,9 @@ OTGrpcTestSupport class >> fakeGrpcDependencyNamed: aSymbol [
 { #category : 'testing' }
 OTGrpcTestSupport class >> hasActualGrpcTransportStack [
 
-	^ #( GRPCHTTP2DataFrame GRPCHTTP2FrameReader GRPCHTTP2FrameWriter GRPCHTTP2HeadersFrame
-	     GRPCHTTP2MockStream GRPCHTTP2Settings GRPCHTTP2SettingsFrame GRPCHTTP2Transport GRPCMessageFramer )
-		  allSatisfy: [ :each | (self actualGrpcClassNamed: each) notNil ]
+	^ #( GRPCHTTP2DataFrame GRPCHTTP2FrameReader GRPCHTTP2FrameWriter GRPCHTTP2HeadersFrame GRPCHTTP2MockStream GRPCHTTP2Settings
+	     GRPCHTTP2SettingsFrame GRPCHTTP2Transport GRPCMessageFramer ) allSatisfy: [ :each |
+		  (self actualGrpcClassNamed: each) notNil ]
 ]
 
 { #category : 'running' }

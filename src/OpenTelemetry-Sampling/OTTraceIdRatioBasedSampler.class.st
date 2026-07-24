@@ -1,3 +1,6 @@
+"
+I implement the traceidratio sampler configuration by making probability decisions from the trace identifier while preserving compatibility with the OpenTelemetry sampler surface.
+"
 Class {
 	#name : 'OTTraceIdRatioBasedSampler',
 	#superclass : 'OTSampler',
@@ -28,7 +31,11 @@ OTTraceIdRatioBasedSampler >> decisionValueFromTraceId: aTraceId [
 { #category : 'accessing' }
 OTTraceIdRatioBasedSampler >> description [
 
-	^ 'TraceIdRatioBased{' , self probability printString , '}'
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'TraceIdRatioBased{';
+				  print: self probability;
+				  nextPutAll: '}' ]
 ]
 
 { #category : 'initialization' }

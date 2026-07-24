@@ -22,7 +22,11 @@ Class {
 { #category : 'accessing' }
 OTTimeIntervalSampler >> description [
 
-	^ 'TimeIntervalSampler{' , self interval asString , 'ms}'
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'TimeIntervalSampler{';
+				  print: self interval;
+				  nextPutAll: 'ms}' ]
 ]
 
 { #category : 'initialization' }

@@ -130,17 +130,14 @@ OTXRayTextMapPropagator >> inject: aContext into: aCarrier setter: aSetter [
 	sampleValue := spanContext isSampled
 		               ifTrue: [ '1' ]
 		               ifFalse: [ '0' ].
-	aSetter
-		setIn: aCarrier
-		key: self class propagationHeaderName
-		value: (String streamContents: [ :stream |
-					 stream
-						 nextPutAll: 'Root=';
-						 nextPutAll: root;
-						 nextPutAll: ';Parent=';
-						 nextPutAll: spanContext spanId;
-						 nextPutAll: ';Sampled=';
-						 nextPutAll: sampleValue ])
+	aSetter setIn: aCarrier key: self class propagationHeaderName value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'Root=';
+					 nextPutAll: root;
+					 nextPutAll: ';Parent=';
+					 nextPutAll: spanContext spanId;
+					 nextPutAll: ';Sampled=';
+					 nextPutAll: sampleValue ])
 ]
 
 { #category : 'private' }
@@ -186,23 +183,18 @@ OTXRayTextMapPropagator >> normalizedParentSpanId: aString [
 { #category : 'private' }
 OTXRayTextMapPropagator >> normalizedTraceIdFromRoot: aString [
 
-	| root stream timestamp random |
+	| separatorPositions timestamp random |
 	aString ifNil: [ ^ nil ].
-	root := aString asLowercase.
-	stream := root readStream.
-	(stream next: self class traceIdVersion size) = self class traceIdVersion ifFalse: [ ^ nil ].
-	(stream atEnd or: [ stream next ~= $- ]) ifTrue: [ ^ nil ].
-	timestamp := stream next: 8.
-	(stream atEnd or: [ stream next ~= $- ]) ifTrue: [ ^ nil ].
-	random := stream upToEnd.
+	separatorPositions := OrderedCollection new.
+	1 to: aString size do: [ :index | (aString at: index) = $- ifTrue: [ separatorPositions add: index ] ].
+	separatorPositions asArray = #( 2 11 ) ifFalse: [ ^ nil ].
+	timestamp := aString copyFrom: 3 to: 10.
+	random := aString copyFrom: 12 to: aString size.
 	(self isLowercaseHexString: timestamp size: 8) ifFalse: [ ^ nil ].
 	(self isLowercaseHexString: random size: 24) ifFalse: [ ^ nil ].
 	^ (OTSpanContext isZeroHexIdentifier: timestamp , random)
 		  ifTrue: [ nil ]
-		  ifFalse: [ String streamContents: [ :result |
-					  result
-						  nextPutAll: timestamp;
-						  nextPutAll: random ] ]
+		  ifFalse: [ timestamp , random ]
 ]
 
 { #category : 'private' }

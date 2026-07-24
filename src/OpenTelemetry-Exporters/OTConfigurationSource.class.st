@@ -751,7 +751,7 @@ OTConfigurationSource class >> explicitBucketHistogramAggregationParametersFrom:
 { #category : 'private - projection' }
 OTConfigurationSource class >> exportEnvironmentNameForSignalNamed: aString [
 
-	^ 'OTEL_' , aString , '_EXPORTER'
+	^ String streamContents: [ :stream | stream << 'OTEL_' << aString << '_EXPORTER' ]
 ]
 
 { #category : 'private - projection' }
@@ -836,8 +836,14 @@ OTConfigurationSource class >> integerValueAt: aKey in: aDictionary [
 { #category : 'private - configuration file' }
 OTConfigurationSource class >> invalidDeclarativeOtlpExporterConfigurationAt: aKey value: aValue expected: aDescription [
 
-	Error signal:
-		'Invalid OTLP declarative configuration for ' , aKey printString , ': ' , aValue printString , '. Expected ' , aDescription
+	Error signal: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'Invalid OTLP declarative configuration for ';
+					 print: aKey;
+					 nextPutAll: ': ';
+					 print: aValue printString;
+					 nextPutAll: '. Expected ';
+					 nextPutAll: aDescription ])
 ]
 
 { #category : 'private - projection' }
@@ -1436,8 +1442,7 @@ OTConfigurationSource class >> projectBatchProcessorEnvironmentSettings: aDictio
 		put: aString , '_MAX_EXPORT_BATCH_SIZE'
 		from: 'max_export_batch_size'
 		in: aDictionary
-		into: anEnvironment.
-	^ self
+		into: anEnvironment
 ]
 
 { #category : 'private - projection' }
@@ -2333,8 +2338,7 @@ OTConfigurationSource class >> validateParentBasedDelegateNamed: aString expecte
 	delegate ifNil: [ ^ self ].
 	(self normalizedSamplerKind: (self samplerAssociationFrom: delegate) key) = anotherString ifFalse: [
 			Error signal:
-				'Declarative parent_based sampler delegate is not representable via SDK environment variables: ' , aString printString ].
-	^ self
+				'Declarative parent_based sampler delegate is not representable via SDK environment variables: ' , aString printString ]
 ]
 
 { #category : 'private - projection' }

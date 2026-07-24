@@ -1,3 +1,6 @@
+"
+I evaluate predicate-to-sampler rules in order and delegate to the first matching composable sampler.
+"
 Class {
 	#name : 'OTComposableRuleBasedSampler',
 	#superclass : 'OTComposableSampler',
@@ -11,7 +14,11 @@ Class {
 { #category : 'accessing' }
 OTComposableRuleBasedSampler >> description [
 
-	^ 'ComposableRuleBased{' , rules size asString , ' rules}'
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'ComposableRuleBased{';
+				  print: rules size;
+				  nextPutAll: ' rules}' ]
 ]
 
 { #category : 'initialization' }

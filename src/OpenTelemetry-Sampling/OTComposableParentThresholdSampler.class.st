@@ -1,3 +1,6 @@
+"
+I preserve consistent sampling thresholds from a valid parent span and fall back to a root composable sampler when no parent threshold can be reused.
+"
 Class {
 	#name : 'OTComposableParentThresholdSampler',
 	#superclass : 'OTComposableSampler',
@@ -11,7 +14,7 @@ Class {
 { #category : 'accessing' }
 OTComposableParentThresholdSampler >> description [
 
-	^ 'ComposableParentThreshold{' , rootSampler description , '}'
+	^ String streamContents: [ :s | s << 'ComposableParentThreshold{' << rootSampler description << '}' ]
 ]
 
 { #category : 'private' }

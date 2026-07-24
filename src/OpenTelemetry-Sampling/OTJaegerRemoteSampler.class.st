@@ -66,8 +66,7 @@ OTJaegerRemoteSampler class >> grpcDependenciesAvailable [
 
 	| resolver |
 	resolver := self grpcDependencyResolver.
-	^ #( GRPCChannel GRPCEndpoint GRPCRequest GRPCHTTP2Transport ) allSatisfy: [ :each |
-		  (resolver value: each) notNil ]
+	^ #( GRPCChannel GRPCEndpoint GRPCRequest GRPCHTTP2Transport ) allSatisfy: [ :each | (resolver value: each) notNil ]
 ]
 
 { #category : 'private - grpc' }
@@ -148,7 +147,7 @@ OTJaegerRemoteSampler >> currentTimeMillis [
 { #category : 'accessing' }
 OTJaegerRemoteSampler >> description [
 
-	^ 'JaegerRemoteSampler{' , self currentSampler description , '}'
+	^ String streamContents: [ :stream | stream << 'JaegerRemoteSampler{' << self currentSampler description << '}' ]
 ]
 
 { #category : 'private - grpc' }
@@ -212,7 +211,12 @@ OTJaegerRemoteSampler >> grpcDependencyNamed: aSymbol [
 	| dependency |
 	dependency := self class grpcDependencyResolver value: aSymbol.
 	^ dependency
-		  ifNil: [ Error signal: 'OTJaegerRemoteSampler requires grpc-pharo to be loaded (missing ' , aSymbol asString , ')' ]
+		  ifNil: [
+				  Error signal: (String streamContents: [ :stream |
+							   stream
+								   nextPutAll: 'OTJaegerRemoteSampler requires grpc-pharo to be loaded (missing ';
+								   nextPutAll: aSymbol asString;
+								   nextPut: $) ]) ]
 		  ifNotNil: [ dependency ]
 ]
 
@@ -324,9 +328,19 @@ OTJaegerRemoteSampler >> noteRefreshError: anError [
 OTJaegerRemoteSampler >> noteStatus: aStatus [
 
 	| message |
-	message := 'OpenTelemetry Jaeger remote sampler refresh failed with gRPC status ' , aStatus codeName , ' ('
-	           , aStatus code asString , ')'.
-	aStatus message ifNotNil: [ message := message , ': ' , aStatus message ].
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry Jaeger remote sampler refresh failed with gRPC status ';
+				           nextPutAll: aStatus codeName;
+				           nextPutAll: ' (';
+				           print: aStatus code;
+				           nextPut: $) ].
+	aStatus message ifNotNil: [
+			message := String streamContents: [ :stream |
+					           stream
+						           nextPutAll: message;
+						           nextPutAll: ': ';
+						           nextPutAll: aStatus message ] ].
 	self warningSink value: message
 ]
 

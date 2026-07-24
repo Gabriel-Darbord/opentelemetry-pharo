@@ -19,10 +19,7 @@ OTFakeGRPCEndpoint class >> fromString: aString [
 { #category : 'instance creation' }
 OTFakeGRPCEndpoint class >> fromZnUrl: aZnUrl [
 
-	^ self
-		  scheme: aZnUrl scheme
-		  host: aZnUrl host
-		  port: aZnUrl port
+	^ self scheme: aZnUrl scheme host: aZnUrl host port: aZnUrl port
 ]
 
 { #category : 'instance creation' }
@@ -40,10 +37,10 @@ OTFakeGRPCEndpoint >> authority [
 
 	(self port isNil or: [ self port = self defaultPort ]) ifTrue: [ ^ self host ].
 	^ String streamContents: [ :stream |
-		  stream
-			  nextPutAll: self host;
-			  nextPut: $:;
-			  print: self port ]
+			  stream
+				  nextPutAll: self host;
+				  nextPut: $:;
+				  print: self port ]
 ]
 
 { #category : 'private' }

@@ -129,7 +129,12 @@ OTDiagnosticLogger class >> loggerFactory: aBlockOrNil [
 { #category : 'private - logging' }
 OTDiagnosticLogger class >> messageForSeverity: aSeverity text: aString [
 
-	^ 'OpenTelemetry ' , (self severityNameFor: aSeverity) , ': ' , aString
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'OpenTelemetry ';
+				  nextPutAll: (self severityNameFor: aSeverity);
+				  nextPutAll: ': ';
+				  nextPutAll: aString ]
 ]
 
 { #category : 'severity' }

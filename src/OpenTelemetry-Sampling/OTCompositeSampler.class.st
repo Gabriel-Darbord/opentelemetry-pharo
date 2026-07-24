@@ -28,7 +28,7 @@ OTCompositeSampler >> delegate: aComposableSampler [
 { #category : 'accessing' }
 OTCompositeSampler >> description [
 
-	^ 'CompositeSampler{' , delegate description , '}'
+	^ String streamContents: [ :s | s << 'CompositeSampler{' << delegate description << '}' ]
 ]
 
 { #category : 'private' }

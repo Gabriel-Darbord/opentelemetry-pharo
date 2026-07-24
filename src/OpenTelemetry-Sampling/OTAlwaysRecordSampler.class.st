@@ -1,3 +1,6 @@
+"
+I wrap another sampler and upgrade drop decisions into record-only results while preserving the delegate's other sampling behavior.
+"
 Class {
 	#name : 'OTAlwaysRecordSampler',
 	#superclass : 'OTSampler',
@@ -11,7 +14,7 @@ Class {
 { #category : 'accessing' }
 OTAlwaysRecordSampler >> description [
 
-	^ 'AlwaysRecordSampler{' , rootSampler description , '}'
+	^ String streamContents: [ :s | s << 'AlwaysRecordSampler{' << rootSampler description << '}' ]
 ]
 
 { #category : 'accessing' }

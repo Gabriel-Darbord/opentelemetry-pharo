@@ -254,8 +254,14 @@ OTSpanExporter class >> noteInvalidZipkinTimeoutEnvironmentValue: aString [
 OTSpanExporter class >> noteSpanExporter: anExporter failedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry span exporter operation failed during ' , anOperationName , ' for ' , anExporter class name , ': '
-	           , anError messageText.
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry span exporter operation failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ' for ';
+				           nextPutAll: anExporter class name;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
 	OTDiagnosticLogger current handleSuppressedError: anError message: message fallback: [ self warningSink value: message ]
 ]
 

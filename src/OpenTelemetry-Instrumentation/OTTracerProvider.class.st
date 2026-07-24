@@ -447,55 +447,76 @@ OTTracerProvider class >> noteDuplicateResourceDetectorName: aString [
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidResourceAttributes: aValue error: anError [
 
-	self resourceConfigurationWarningSink value:
-		'OpenTelemetry resource attributes configuration was invalid and has been ignored: ' , aValue printString , ' ('
-		, anError messageText , ')'
+	self resourceConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry resource attributes configuration was invalid and has been ignored: ';
+					 print: aValue;
+					 nextPutAll: ' (';
+					 nextPutAll: anError messageText;
+					 nextPut: $) ])
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidResourceConfigurationValue: aValue forOperation: anOperationName [
 
-	self resourceConfigurationWarningSink value:
-		'OpenTelemetry tracer provider resource configuration was invalid and has been ignored for '
-		, anOperationName asString printString , ': ' , aValue printString
+	self resourceConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry tracer provider resource configuration was invalid and has been ignored for ';
+					 print: anOperationName asString;
+					 nextPutAll: ': ';
+					 print: aValue ])
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSamplerName [
 
-	self samplerConfigurationWarningSink value:
-		'OpenTelemetry sampler argument was invalid and has been ignored for ' , aSamplerName printString , ': ' , aValue printString
+	self samplerConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry sampler argument was invalid and has been ignored for ';
+					 print: aSamplerName;
+					 nextPutAll: ': ';
+					 print: aValue ])
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidSpanProcessorConfiguration: aValue forOperation: anOperationName [
 
-	self spanProcessorWarningSink value:
-		'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for '
-		, anOperationName asString printString , ': ' , aValue printString
+	self spanProcessorWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ';
+					 print: anOperationName asString;
+					 nextPutAll: ': ';
+					 print: aValue ])
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidTracerConfigurationValue: aValue forOperation: anOperationName [
 
-	self tracerConfigurationWarningSink value:
-		'OpenTelemetry tracer provider configuration was invalid and has been ignored for ' , anOperationName asString printString
-		, ': ' , aValue printString
+	self tracerConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry tracer provider configuration was invalid and has been ignored for ';
+					 print: anOperationName asString;
+					 nextPutAll: ': ';
+					 print: aValue ])
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidTracerName: aValue [
 
-	self tracerNameWarningSink value: 'OpenTelemetry tracer name was invalid and has been normalized to an empty string: '
-		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self tracerNameWarningSink value:
+		'OpenTelemetry tracer name was invalid and has been normalized to an empty string: ' , aValue printString
 ]
 
 { #category : 'private - logging' }
 OTTracerProvider class >> noteInvalidTracerScopeAttributes: aValue error: anError [
 
-	self tracerConfigurationWarningSink value:
-		'OpenTelemetry tracer scope attributes were invalid and have been ignored: ' , aValue printString , ' (' , anError messageText
-		, ')'
+	self tracerConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry tracer scope attributes were invalid and have been ignored: ';
+					 print: aValue;
+					 nextPutAll: ' (';
+					 nextPutAll: anError messageText;
+					 nextPut: $) ])
 ]
 
 { #category : 'private - logging' }
@@ -509,8 +530,16 @@ OTTracerProvider class >> noteMissingGrpcDependencyForSampler: aSamplerName [
 OTTracerProvider class >> noteResourceDetector: aDetector failedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry resource detector failed during ' , anOperationName , ' for ' , aDetector class name , ' ('
-	           , aDetector detectorName printString , '): ' , anError messageText.
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry resource detector failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ' for ';
+				           nextPutAll: aDetector class name;
+				           nextPutAll: ' (';
+				           print: aDetector detectorName;
+				           nextPutAll: '): ';
+				           nextPutAll: anError messageText ].
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message
@@ -521,8 +550,14 @@ OTTracerProvider class >> noteResourceDetector: aDetector failedDuring: anOperat
 OTTracerProvider class >> noteSampler: aSampler failedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry sampler callback failed during ' , anOperationName , ' for ' , aSampler class name , ': '
-	           , anError messageText.
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry sampler callback failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ' for ';
+				           nextPutAll: aSampler class name;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message
@@ -533,8 +568,14 @@ OTTracerProvider class >> noteSampler: aSampler failedDuring: anOperationName er
 OTTracerProvider class >> noteSpanProcessor: aProcessor failedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry span processor callback failed during ' , anOperationName , ' for ' , aProcessor class name , ': '
-	           , anError messageText.
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry span processor callback failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ' for ';
+				           nextPutAll: aProcessor class name;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message
@@ -545,7 +586,12 @@ OTTracerProvider class >> noteSpanProcessor: aProcessor failedDuring: anOperatio
 OTTracerProvider class >> noteTracerConfigurationFailedDuring: anOperationName error: anError [
 
 	| message |
-	message := 'OpenTelemetry tracer configuration callback failed during ' , anOperationName , ': ' , anError messageText.
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry tracer configuration callback failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
 	OTDiagnosticLogger current
 		handleSuppressedError: anError
 		message: message

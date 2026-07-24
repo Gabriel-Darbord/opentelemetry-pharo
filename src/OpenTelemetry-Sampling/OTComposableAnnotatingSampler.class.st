@@ -1,3 +1,6 @@
+"
+I decorate a composable sampler by appending attributes to the sampling intent produced by a delegate sampler.
+"
 Class {
 	#name : 'OTComposableAnnotatingSampler',
 	#superclass : 'OTComposableSampler',
@@ -37,7 +40,7 @@ OTComposableAnnotatingSampler >> delegate: aComposableSampler [
 { #category : 'accessing' }
 OTComposableAnnotatingSampler >> description [
 
-	^ 'ComposableAnnotating{' , delegate description , '}'
+	^ String streamContents: [ :s | s << 'ComposableAnnotating{' << delegate description << '}' ]
 ]
 
 { #category : 'sampling' }
