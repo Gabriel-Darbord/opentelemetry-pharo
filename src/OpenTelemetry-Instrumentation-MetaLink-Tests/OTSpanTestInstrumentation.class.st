@@ -23,6 +23,14 @@ OTSpanTestInstrumentation class >> defineInstrumenter [
 	instrumenter spanSuppressionStrategy: [ :span :kind | span isNotNil and: [ span isRecording ] ]
 ]
 
+{ #category : 'private' }
+OTSpanTestInstrumentation class >> finishCapturedSpanMarkingSuccess: aBoolean [
+
+	capturedSpan attributeAt: 'exit' put: #OK.
+	(aBoolean and: [ capturedSpan status = OTSpan unset ]) ifTrue: [ capturedSpan setStatus: OTSpan ok ].
+	instrumenter end: capturedSpan
+]
+
 { #category : 'evaluating' }
 OTSpanTestInstrumentation class >> onMethodEnter: event [
 
@@ -37,14 +45,20 @@ OTSpanTestInstrumentation class >> onMethodEnter: event [
 ]
 
 { #category : 'evaluating' }
+OTSpanTestInstrumentation class >> onMethodException: event error: anException [
+
+	suppressed ifTrue: [ ^ self ].
+	capturedSpan setStatus: OTSpan error description: anException description.
+	capturedSpan recordException: anException
+]
+
+{ #category : 'evaluating' }
 OTSpanTestInstrumentation class >> onMethodExit: event withValue: returnValue [
 
 	suppressed ifTrue: [ "suppress only once" ^ suppressed := false ].
-	capturedSpan attributeAt: 'exit' put: #OK.
-	capturedSpan status = OTSpan unset ifTrue: [ capturedSpan setStatus: OTSpan ok ].
 	OpenTelemetry detachContext: currentContextToken.
 	currentContextToken := nil.
-	instrumenter end: capturedSpan
+	self finishCapturedSpanMarkingSuccess: true
 ]
 
 { #category : 'class initialization' }

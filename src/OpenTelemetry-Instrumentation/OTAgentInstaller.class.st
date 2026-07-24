@@ -13,8 +13,8 @@ Class {
 	#classInstVars : [
 		'permission'
 	],
-	#category : 'OpenTelemetry-Agenting',
-	#package : 'OpenTelemetry-Agenting'
+	#category : 'OpenTelemetry-Instrumentation',
+	#package : 'OpenTelemetry-Instrumentation'
 }
 
 { #category : 'class initialization' }
@@ -102,11 +102,8 @@ OTAgentInstaller class >> reinstall [
 OTAgentInstaller class >> resetEnvironment [
 
 	<script>
-	| spanClass spanProcessorClass |
-	spanClass := self environment at: #OTSpan ifAbsent: [ nil ].
-	spanClass ifNotNil: [ spanClass reset ].
-	spanProcessorClass := self environment at: #OTSpanProcessor ifAbsent: [ nil ].
-	spanProcessorClass ifNotNil: [ spanProcessorClass flush ]
+	OTSpan reset.
+	OTSpanProcessor flush
 ]
 
 { #category : 'actions' }

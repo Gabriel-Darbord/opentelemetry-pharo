@@ -29,8 +29,8 @@ OTMetaLinkInstaller >> configureWith: anInstrumentation [
 	Configure the MetaLink to make it run the method instrumentation defined in an OTInstrumentation subclass."
 
 	super configureWith: anInstrumentation.
-	metalink control: #instead.
-	metalink selector: #run:.
+	metalink control: anInstrumentation metalinkControl.
+	metalink selector: anInstrumentation metalinkSelector.
 	metalink arguments: arguments keys.
 	metalink metaObject: anInstrumentation
 ]

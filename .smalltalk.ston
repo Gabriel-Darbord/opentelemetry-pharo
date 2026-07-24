@@ -10,7 +10,6 @@ SmalltalkCISpec {
   #testing : {
     #coverage : {
       #packages : [
-        'OpenTelemetry-Agenting',
         'OpenTelemetry-Exporters',
         'OpenTelemetry-Instrumentation',
         'OpenTelemetry-Instrumentation-MetaLink',

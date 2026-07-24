@@ -46,6 +46,16 @@ OTSpanInstrumentationTest >> testDefaultSpanName [
 ]
 
 { #category : 'tests' }
+OTSpanInstrumentationTest >> testInstallsExceptionAwareAroundHook [
+
+	| links |
+	links := (OTTestTarget >> #answer) ast links select: [ :link | link metaObject == self instrumentation ].
+	self assert: links size equals: 1.
+	self assert: links first control equals: #instead.
+	self assert: links first selector equals: #runWithEnterExitAndExceptionHandling:
+]
+
+{ #category : 'tests' }
 OTSpanInstrumentationTest >> testRecordException [
 
 	[

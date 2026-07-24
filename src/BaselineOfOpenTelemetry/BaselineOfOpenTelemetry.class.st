@@ -19,9 +19,8 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 
 	spec
 		package: 'OpenTelemetry-Matchers';
-		package: 'OpenTelemetry-Agenting' with: [ spec requires: 'OpenTelemetry-Matchers' ];
 		package: 'OpenTelemetry-SDK';
-		package: 'OpenTelemetry-Instrumentation' with: [ spec requires: 'OpenTelemetry-SDK' ];
+		package: 'OpenTelemetry-Instrumentation' with: [ spec requires: #( 'OpenTelemetry-Matchers' 'OpenTelemetry-SDK' ) ];
 		package: 'OpenTelemetry-Exporters' with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' ) ];
 		package: 'OpenTelemetry-Sampling'
 		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' ) ];
@@ -32,10 +31,11 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 				spec requires:
 						#( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling'
 						   'OpenTelemetry-Logs' 'OpenTelemetry-Metrics' ) ];
-		package: 'OpenTelemetry-Instrumentation-MetaLink' with: [ spec requires: 'OpenTelemetry-Agenting' ];
+		package: 'OpenTelemetry-Instrumentation-MetaLink' with: [ spec requires: 'OpenTelemetry-Instrumentation' ];
 		package: 'OpenTelemetry-Instrumentation-Tests' with: [
-				spec requires: #( 'OpenTelemetry-Agenting' 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters'
-						   'OpenTelemetry-Sampling' 'OpenTelemetry-Autoconfigure' ) ];
+				spec requires:
+						#( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling'
+						   'OpenTelemetry-Autoconfigure' ) ];
 		package: 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Instrumentation-MetaLink' ) ];
 		package: 'OpenTelemetry-Logs-Tests'
@@ -46,7 +46,7 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 	spec
 		group: 'traces'
 		with: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Sampling' );
-		group: 'instrumentation' with: #( 'OpenTelemetry-Agenting' 'OpenTelemetry-Instrumentation-MetaLink' );
+		group: 'instrumentation' with: #( 'OpenTelemetry-Instrumentation-MetaLink' );
 		group: 'logs' with: #( 'OpenTelemetry-Logs' );
 		group: 'metrics' with: #( 'OpenTelemetry-Metrics' );
 		group: 'autoconfigure' with: #( 'OpenTelemetry-Autoconfigure' );
@@ -68,13 +68,13 @@ BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
 
 	spec
 		package: 'OpenTelemetry-Compatibility-Pharo12Plus';
-		package: 'OpenTelemetry-Instrumentation-MethodProxy' with: [ spec requires: #( 'MethodProxies' 'OpenTelemetry-Agenting' ) ];
+		package: 'OpenTelemetry-Instrumentation-MethodProxy'
+		with: [ spec requires: #( 'MethodProxies' 'OpenTelemetry-Instrumentation' ) ];
 		package: 'OpenTelemetry-Instrumentation-MethodProxy-Tests'
 		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Instrumentation-MethodProxy' ) ].
 
 	spec
-		group: 'instrumentation'
-		with: #( 'OpenTelemetry-Agenting' 'OpenTelemetry-Instrumentation-MetaLink' 'OpenTelemetry-Instrumentation-MethodProxy'
+		group: 'instrumentation' with: #( 'OpenTelemetry-Instrumentation-MetaLink' 'OpenTelemetry-Instrumentation-MethodProxy'
 			   'OpenTelemetry-Compatibility-Pharo12Plus' );
 		group: 'instrumentation-tests'
 		with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' 'OpenTelemetry-Instrumentation-MethodProxy-Tests' )
