@@ -489,7 +489,7 @@ OTOtlpHttpJsonSpanExporter >> withConfiguredTlsEnvironmentDuring: aBlock [
 			  environment at: 'SSL_CERT_FILE' put: self configuration certificateFile.
 			  [ ^ aBlock value ] ensure: [
 					  originalValue == absent
-						  ifTrue: [ environment removeKey: 'SSL_CERT_FILE' ifAbsent: [ ] ]
+						  ifTrue: [ (environment includesKey: 'SSL_CERT_FILE') ifTrue: [ environment removeKey: 'SSL_CERT_FILE' ] ]
 						  ifFalse: [ environment at: 'SSL_CERT_FILE' put: originalValue ] ] ]
 ]
 
