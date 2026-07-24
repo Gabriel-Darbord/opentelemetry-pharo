@@ -9,7 +9,7 @@ TestCase
 			((self class package name beginsWith: ''OpenTelemetry-'')
 				and: [ self class ~= OTDiagnosticLoggerTest ])
 				ifTrue: [
-					previousDiagnosticLogger := OTDiagnosticLogger current.
+					previousDiagnosticLogger := OTDiagnosticLogger classVarNamed: #Current.
 					OTDiagnosticLogger current: (OTDiagnosticLogger onMessageDo: [ :severity :message | ]) ].
 			self setUp.
 			previousDiagnosticLogger ifNotNil: [
@@ -17,6 +17,6 @@ TestCase
 			self performTest
 		] ensure: [
 			self tearDown.
-			previousDiagnosticLogger ifNotNil: [ OTDiagnosticLogger current: previousDiagnosticLogger ] ]
+			OTDiagnosticLogger classVarNamed: #Current put: previousDiagnosticLogger ]
 	] ensure: [ self cleanUpInstanceVariables ]'
 	classified: 'running'
