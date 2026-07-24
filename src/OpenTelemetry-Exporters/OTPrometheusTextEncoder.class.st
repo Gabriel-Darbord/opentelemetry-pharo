@@ -552,8 +552,11 @@ OTPrometheusTextEncoder >> sampleSpecificationsForGauge: anOTGaugeMetricData typ
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> sampleSpecificationsForHistogram: anOTHistogramMetricData [
 
-	| metricName sampleSpecifications |
+	| bucketMetricName countMetricName metricName sampleSpecifications sumMetricName |
 	metricName := self prometheusMetricNameFor: anOTHistogramMetricData type: #histogram.
+	bucketMetricName := metricName , '_bucket'.
+	sumMetricName := metricName , '_sum'.
+	countMetricName := metricName , '_count'.
 	sampleSpecifications := OrderedCollection new.
 	anOTHistogramMetricData points do: [ :eachPoint |
 			| baseLabels bucketExemplars cumulative |
@@ -563,7 +566,7 @@ OTPrometheusTextEncoder >> sampleSpecificationsForHistogram: anOTHistogramMetric
 			1 to: eachPoint explicitBounds size do: [ :index |
 					cumulative := cumulative + (eachPoint bucketCounts at: index ifAbsent: [ 0 ]).
 					sampleSpecifications add: (self
-							 sampleSpecificationNamed: metricName , '_bucket'
+							 sampleSpecificationNamed: bucketMetricName
 							 labels:
 							 (self labelsByAdding: 'le' value: (self prometheusBoundaryStringFor: (eachPoint explicitBounds at: index)) to: baseLabels)
 							 value: cumulative
@@ -571,12 +574,12 @@ OTPrometheusTextEncoder >> sampleSpecificationsForHistogram: anOTHistogramMetric
 			cumulative := cumulative + (eachPoint bucketCounts at: eachPoint explicitBounds size + 1 ifAbsent: [ 0 ]).
 			sampleSpecifications
 				add: (self
-						 sampleSpecificationNamed: metricName , '_bucket'
+						 sampleSpecificationNamed: bucketMetricName
 						 labels: (self labelsByAdding: 'le' value: '+Inf' to: baseLabels)
 						 value: cumulative
 						 exemplar: (bucketExemplars at: eachPoint explicitBounds size + 1 ifAbsent: [ nil ]));
-				add: (self sampleSpecificationNamed: metricName , '_sum' labels: baseLabels value: eachPoint sum);
-				add: (self sampleSpecificationNamed: metricName , '_count' labels: baseLabels value: eachPoint count) ].
+				add: (self sampleSpecificationNamed: sumMetricName labels: baseLabels value: eachPoint sum);
+				add: (self sampleSpecificationNamed: countMetricName labels: baseLabels value: eachPoint count) ].
 	^ sampleSpecifications
 ]
 
@@ -606,8 +609,10 @@ OTPrometheusTextEncoder >> sampleSpecificationsForSum: anOTSumMetricData type: a
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> sampleSpecificationsForSummary: anOTSummaryMetricData [
 
-	| metricName sampleSpecifications |
+	| countMetricName metricName sampleSpecifications sumMetricName |
 	metricName := self prometheusMetricNameFor: anOTSummaryMetricData type: #summary.
+	sumMetricName := metricName , '_sum'.
+	countMetricName := metricName , '_count'.
 	sampleSpecifications := OrderedCollection new.
 	anOTSummaryMetricData points do: [ :eachPoint |
 			| baseLabels |
@@ -618,8 +623,8 @@ OTPrometheusTextEncoder >> sampleSpecificationsForSummary: anOTSummaryMetricData
 							 labels: (self labelsByAdding: 'quantile' value: (self prometheusValueStringFor: eachQuantile quantile) to: baseLabels)
 							 value: eachQuantile value) ].
 			sampleSpecifications
-				add: (self sampleSpecificationNamed: metricName , '_sum' labels: baseLabels value: eachPoint sum);
-				add: (self sampleSpecificationNamed: metricName , '_count' labels: baseLabels value: eachPoint count) ].
+				add: (self sampleSpecificationNamed: sumMetricName labels: baseLabels value: eachPoint sum);
+				add: (self sampleSpecificationNamed: countMetricName labels: baseLabels value: eachPoint count) ].
 	^ sampleSpecifications
 ]
 

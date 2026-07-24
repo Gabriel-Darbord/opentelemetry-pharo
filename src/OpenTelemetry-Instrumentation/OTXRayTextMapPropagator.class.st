@@ -133,8 +133,14 @@ OTXRayTextMapPropagator >> inject: aContext into: aCarrier setter: aSetter [
 	aSetter
 		setIn: aCarrier
 		key: self class propagationHeaderName
-		value: 'Root=' , root , ';Parent=' , spanContext spanId , ';Sampled=' , sampleValue.
-	^ self
+		value: (String streamContents: [ :stream |
+					 stream
+						 nextPutAll: 'Root=';
+						 nextPutAll: root;
+						 nextPutAll: ';Parent=';
+						 nextPutAll: spanContext spanId;
+						 nextPutAll: ';Sampled=';
+						 nextPutAll: sampleValue ])
 ]
 
 { #category : 'private' }
@@ -180,19 +186,23 @@ OTXRayTextMapPropagator >> normalizedParentSpanId: aString [
 { #category : 'private' }
 OTXRayTextMapPropagator >> normalizedTraceIdFromRoot: aString [
 
-	| root parts timestamp random |
+	| root stream timestamp random |
 	aString ifNil: [ ^ nil ].
 	root := aString asLowercase.
-	parts := root substrings: '-'.
-	parts size = 3 ifFalse: [ ^ nil ].
-	parts first = self class traceIdVersion ifFalse: [ ^ nil ].
-	timestamp := parts second.
-	random := parts third.
+	stream := root readStream.
+	(stream next: self class traceIdVersion size) = self class traceIdVersion ifFalse: [ ^ nil ].
+	(stream atEnd or: [ stream next ~= $- ]) ifTrue: [ ^ nil ].
+	timestamp := stream next: 8.
+	(stream atEnd or: [ stream next ~= $- ]) ifTrue: [ ^ nil ].
+	random := stream upToEnd.
 	(self isLowercaseHexString: timestamp size: 8) ifFalse: [ ^ nil ].
 	(self isLowercaseHexString: random size: 24) ifFalse: [ ^ nil ].
 	^ (OTSpanContext isZeroHexIdentifier: timestamp , random)
 		  ifTrue: [ nil ]
-		  ifFalse: [ timestamp , random ]
+		  ifFalse: [ String streamContents: [ :result |
+					  result
+						  nextPutAll: timestamp;
+						  nextPutAll: random ] ]
 ]
 
 { #category : 'private' }
@@ -214,5 +224,11 @@ OTXRayTextMapPropagator >> xrayRootFromTraceId: aString [
 	(OTSpanContext isZeroHexIdentifier: traceId) ifTrue: [ ^ nil ].
 	timestamp := traceId copyFrom: 1 to: 8.
 	random := traceId copyFrom: 9 to: 32.
-	^ self class traceIdVersion , '-' , timestamp , '-' , random
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: self class traceIdVersion;
+				  nextPut: $-;
+				  nextPutAll: timestamp;
+				  nextPut: $-;
+				  nextPutAll: random ]
 ]
