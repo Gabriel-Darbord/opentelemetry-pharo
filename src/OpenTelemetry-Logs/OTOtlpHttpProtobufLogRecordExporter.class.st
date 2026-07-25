@@ -24,10 +24,16 @@ OTOtlpHttpProtobufLogRecordExporter >> applyConfigurationToHttpClient [
 	self httpClient headerAt: 'Content-Type' put: 'application/x-protobuf'
 ]
 
-{ #category : 'accessing' }
-OTOtlpHttpProtobufLogRecordExporter >> encoder [
+{ #category : 'private - encoding' }
+OTOtlpHttpProtobufLogRecordExporter >> defaultEncoderClass [
 
-	^ encoder ifNil: [ encoder := OTOtlpProtobufLogRecordEncoder new ]
+	^ OTOtlpProtobufLogRecordEncoder
+]
+
+{ #category : 'accessing' }
+OTOtlpHttpProtobufLogRecordExporter >> defaultResponseDecoderClass [
+
+	^ OTOtlpProtobufLogRecordResponseDecoder
 ]
 
 { #category : 'private - encoding' }
@@ -60,7 +66,7 @@ OTOtlpHttpProtobufLogRecordExporter >> payloadStringFrom: logRecords [
 { #category : 'accessing' }
 OTOtlpHttpProtobufLogRecordExporter >> responseDecoder [
 
-	^ responseDecoder ifNil: [ responseDecoder := OTOtlpProtobufLogRecordResponseDecoder new ]
+	^ responseDecoder ifNil: [ responseDecoder := self defaultResponseDecoderClass new ]
 ]
 
 { #category : 'accessing' }

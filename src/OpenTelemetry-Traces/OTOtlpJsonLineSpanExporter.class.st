@@ -14,7 +14,7 @@ Class {
 { #category : 'accessing' }
 OTOtlpJsonLineSpanExporter >> encoder [
 
-	^ encoder ifNil: [ encoder := OTOtlpJsonTraceEncoder new ]
+	^ encoder ifNil: [ encoder := self defaultEncoderClass new ]
 ]
 
 { #category : 'accessing' }
@@ -34,9 +34,31 @@ OTOtlpJsonLineSpanExporter >> export: spans [
 ]
 
 { #category : 'private' }
+OTOtlpJsonLineSpanExporter >> defaultEncoderClass [
+
+	^ OTOtlpJsonTraceEncoder
+]
+
+{ #category : 'private' }
 OTOtlpJsonLineSpanExporter >> jsonLineFrom: spans [
 
-	^ (ZnUtils defaultJSONWriter toString: (self encoder encodeSpans: spans asArray)) , String lf
+	^ (ZnUtils defaultJSONWriter
+		   toString:
+		   (self encoder
+			    perform: self payloadEncodingSelector
+			    with: (self normalizedPayloadForEncoding: spans))) , String lf
+]
+
+{ #category : 'private' }
+OTOtlpJsonLineSpanExporter >> normalizedPayloadForEncoding: anObject [
+
+	^ anObject asArray
+]
+
+{ #category : 'private' }
+OTOtlpJsonLineSpanExporter >> payloadEncodingSelector [
+
+	^ #encodeSpans:
 ]
 
 { #category : 'private' }

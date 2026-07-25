@@ -138,9 +138,10 @@ OTOtlpHttpJsonMetricExporter class >> warningSink [
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter class >> warningSink: aBlock [
 
-	aBlock
-		ifNil: [ OTClassStateStore removeValueAt: #otWarningSink forClass: self ifAbsent: [ ] ]
-		ifNotNil: [ OTClassStateStore valueAt: #otWarningSink forClass: self put: aBlock ].
+	OTClassStateStore
+		valueAt: #otWarningSink
+		forClass: self
+		putOrRemoveIfNil: aBlock.
 	^ self warningSink
 ]
 

@@ -73,15 +73,6 @@ OTOtlpHttpJsonSpanExporter class >> warningSink [
 	^ OTClassStateStore valueAt: #otWarningSink forClass: self ifAbsent: [ self defaultWarningSink ]
 ]
 
-{ #category : 'private - logging' }
-OTOtlpHttpJsonSpanExporter class >> warningSink: aBlock [
-
-	aBlock
-		ifNil: [ OTClassStateStore removeValueAt: #otWarningSink forClass: self ifAbsent: [ ] ]
-		ifNotNil: [ OTClassStateStore valueAt: #otWarningSink forClass: self put: aBlock ].
-	^ self warningSink
-]
-
 { #category : 'private - configuration' }
 OTOtlpHttpJsonSpanExporter >> applyConfigurationToHttpClient [
 
@@ -132,7 +123,7 @@ OTOtlpHttpJsonSpanExporter >> decodedResponseContentsFrom: aResponse [
 { #category : 'accessing' }
 OTOtlpHttpJsonSpanExporter >> encoder [
 
-	^ encoder ifNil: [ encoder := OTOtlpJsonTraceEncoder new ]
+	^ encoder ifNil: [ encoder := self defaultEncoderClass new ]
 ]
 
 { #category : 'accessing' }
@@ -217,6 +208,12 @@ OTOtlpHttpJsonSpanExporter >> handleSuccessResponse: aResponse [
 	^ true
 ]
 
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonSpanExporter >> defaultEncoderClass [
+
+	^ OTOtlpJsonTraceEncoder
+]
+
 { #category : 'testing' }
 OTOtlpHttpJsonSpanExporter >> hasUserAgentHeaderConfigured: aDictionary [
 
@@ -267,27 +264,33 @@ OTOtlpHttpJsonSpanExporter >> nonNegativeIntegerFrom: anObject default: aDefault
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteInvalidSuccessResponse: anError [
 
-	self warningSink value: 'OpenTelemetry OTLP trace export returned an invalid success response: ' , anError messageText
+	self warningSink value:
+		(OTOtlpExportSupport
+			invalidSuccessResponseMessageForSignal: self otlpSignalName
+			transport: 'HTTP'
+			error: anError)
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> notePartialSuccess: aDictionary [
 
-	self warningSink value: 'OpenTelemetry OTLP trace export reported partial success: ' , aDictionary printString
+	self warningSink value: (OTOtlpExportSupport partialSuccessMessageForSignal: self otlpSignalName details: aDictionary)
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForError: anError [
 
 	self warningSink value:
-		'OpenTelemetry OTLP trace export exhausted retries after a retryable transport failure: ' , anError messageText
+		(OTOtlpExportSupport retryExhaustedForTransportErrorMessageForSignal: self otlpSignalName error: anError)
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForResponse: aResponse [
 
 	self warningSink value:
-		'OpenTelemetry OTLP trace export exhausted retries after HTTP status ' , (self responseCodeFrom: aResponse) asString
+		(OTOtlpExportSupport
+			retryExhaustedForHttpStatusMessageForSignal: self otlpSignalName
+			code: (self responseCodeFrom: aResponse))
 ]
 
 { #category : 'private - tls' }
@@ -311,7 +314,7 @@ OTOtlpHttpJsonSpanExporter >> partialSuccessFrom: aDictionary [
 	| partialSuccess |
 	partialSuccess := aDictionary at: 'partialSuccess' ifAbsent: [ aDictionary at: 'partial_success' ifAbsent: [ nil ] ].
 	partialSuccess ifNil: [ ^ nil ].
-	((self rejectedSpanCountFromPartialSuccess: partialSuccess) <= 0 and: [
+	((self rejectedCountFromPartialSuccess: partialSuccess) <= 0 and: [
 		 (partialSuccess at: 'errorMessage' ifAbsent: [ partialSuccess at: 'error_message' ifAbsent: [ '' ] ]) asString trimBoth isEmpty ])
 		ifTrue: [ ^ nil ].
 	^ partialSuccess
@@ -320,7 +323,29 @@ OTOtlpHttpJsonSpanExporter >> partialSuccessFrom: aDictionary [
 { #category : 'private - encoding' }
 OTOtlpHttpJsonSpanExporter >> payloadStringFrom: spans [
 
-	^ ZnUtils defaultJSONWriter toString: (self encoder encodeSpans: spans asArray)
+	^ ZnUtils defaultJSONWriter
+		  toString:
+		  (self encoder
+			   perform: self payloadEncodingSelector
+			   with: (self normalizedPayloadForEncoding: spans))
+]
+
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonSpanExporter >> normalizedPayloadForEncoding: anObject [
+
+	^ anObject asArray
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> otlpSignalName [
+
+	^ 'trace'
+]
+
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonSpanExporter >> payloadEncodingSelector [
+
+	^ #encodeSpans:
 ]
 
 { #category : 'private - tls' }
@@ -333,7 +358,7 @@ OTOtlpHttpJsonSpanExporter >> platformSupportsPemFileBasedTlsOverrides [
 ]
 
 { #category : 'private - success handling' }
-OTOtlpHttpJsonSpanExporter >> rejectedSpanCountFromPartialSuccess: aDictionary [
+OTOtlpHttpJsonSpanExporter >> rejectedCountFromPartialSuccess: aDictionary [
 
 	^ self
 		  nonNegativeIntegerFrom: (aDictionary at: 'rejectedSpans' ifAbsent: [ aDictionary at: 'rejected_spans' ifAbsent: [ 0 ] ])

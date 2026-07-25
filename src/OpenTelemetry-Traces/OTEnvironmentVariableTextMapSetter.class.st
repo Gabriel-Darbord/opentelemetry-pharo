@@ -14,7 +14,7 @@ Class {
 { #category : 'accessing' }
 OTEnvironmentVariableTextMapSetter class >> current [
 
-	^ Current ifNil: [ Current := self new ]
+	^ OTClassStateStore currentValueForClass: self ifAbsentPut: [ self new ]
 ]
 
 { #category : 'normalizing' }
@@ -65,7 +65,7 @@ OTEnvironmentVariableTextMapSetter class >> normalizedCharacterFor: aCharacter [
 { #category : 'class initialization' }
 OTEnvironmentVariableTextMapSetter class >> reset [
 
-	Current := nil
+	OTClassStateStore removeCurrentValueForClass: self ifAbsent: [ ]
 ]
 
 { #category : 'accessing' }

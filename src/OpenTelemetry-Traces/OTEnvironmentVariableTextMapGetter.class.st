@@ -14,13 +14,13 @@ Class {
 { #category : 'accessing' }
 OTEnvironmentVariableTextMapGetter class >> current [
 
-	^ Current ifNil: [ Current := self new ]
+	^ OTClassStateStore currentValueForClass: self ifAbsentPut: [ self new ]
 ]
 
 { #category : 'class initialization' }
 OTEnvironmentVariableTextMapGetter class >> reset [
 
-	Current := nil
+	OTClassStateStore removeCurrentValueForClass: self ifAbsent: [ ]
 ]
 
 { #category : 'accessing' }

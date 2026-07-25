@@ -20,19 +20,19 @@ OTTextMapPropagator class >> compositeAll: aCollection [
 { #category : 'accessing' }
 OTTextMapPropagator class >> current [
 
-	^ Current ifNil: [ Current := OTNoopTextMapPropagator new ]
+	^ OTClassStateStore currentValueForClass: self ifAbsentPut: [ OTNoopTextMapPropagator new ]
 ]
 
 { #category : 'accessing' }
 OTTextMapPropagator class >> current: aPropagator [
 
-	^ Current := aPropagator
+	^ OTClassStateStore currentValueForClass: self put: aPropagator
 ]
 
 { #category : 'accessing' }
 OTTextMapPropagator class >> currentOrNil [
 
-	^ Current
+	^ OTClassStateStore currentValueForClass: self ifAbsent: [ nil ]
 ]
 
 { #category : 'instance creation' }
@@ -44,7 +44,7 @@ OTTextMapPropagator class >> noop [
 { #category : 'class initialization' }
 OTTextMapPropagator class >> reset [
 
-	Current := nil
+	OTClassStateStore removeCurrentValueForClass: self ifAbsent: [ ]
 ]
 
 { #category : 'accessing' }

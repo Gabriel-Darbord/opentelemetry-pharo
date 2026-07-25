@@ -90,9 +90,10 @@ OTLoggerProvider class >> configurationWarningSink [
 { #category : 'private - logging' }
 OTLoggerProvider class >> configurationWarningSink: aBlock [
 
-	aBlock
-		ifNil: [ OTClassStateStore removeValueAt: #otLoggerProviderConfigurationWarningSink forClass: self ifAbsent: [ ] ]
-		ifNotNil: [ OTClassStateStore valueAt: #otLoggerProviderConfigurationWarningSink forClass: self put: aBlock ].
+	OTClassStateStore
+		valueAt: #otLoggerProviderConfigurationWarningSink
+		forClass: self
+		putOrRemoveIfNil: aBlock.
 	^ self configurationWarningSink
 ]
 
@@ -146,13 +147,19 @@ OTLoggerProvider class >> configuredOtlpExporter [
 { #category : 'accessing' }
 OTLoggerProvider class >> current [
 
-	^ Current ifNil: [ Current := self readConfiguration ]
+	^ OTClassStateStore currentValueForClass: self ifAbsentPut: [ self readConfiguration ]
 ]
 
 { #category : 'accessing' }
 OTLoggerProvider class >> current: anOTLoggerProvider [
 
-	Current := anOTLoggerProvider
+	OTClassStateStore currentValueForClass: self put: anOTLoggerProvider
+]
+
+{ #category : 'accessing' }
+OTLoggerProvider class >> currentOrNil [
+
+	^ OTClassStateStore currentValueForClass: self ifAbsent: [ nil ]
 ]
 
 { #category : 'private - logging' }
@@ -333,10 +340,10 @@ OTLoggerProvider class >> readConfiguration [
 OTLoggerProvider class >> reset [
 
 	| configurationSourceClass |
-	Current ifNotNil: [ Current shutdown ].
+	self currentOrNil ifNotNil: [ :provider | provider shutdown ].
 	configurationSourceClass := self configurationSourceClass.
 	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
-	Current := nil
+	OTClassStateStore removeCurrentValueForClass: self ifAbsent: [ ]
 ]
 
 { #category : 'private' }

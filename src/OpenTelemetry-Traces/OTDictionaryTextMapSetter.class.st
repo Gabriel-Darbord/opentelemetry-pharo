@@ -14,13 +14,13 @@ Class {
 { #category : 'accessing' }
 OTDictionaryTextMapSetter class >> current [
 
-	^ Current ifNil: [ Current := self new ]
+	^ OTClassStateStore currentValueForClass: self ifAbsentPut: [ self new ]
 ]
 
 { #category : 'class initialization' }
 OTDictionaryTextMapSetter class >> reset [
 
-	Current := nil
+	OTClassStateStore removeCurrentValueForClass: self ifAbsent: [ ]
 ]
 
 { #category : 'accessing' }

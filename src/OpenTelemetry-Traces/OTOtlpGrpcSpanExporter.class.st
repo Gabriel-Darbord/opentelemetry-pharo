@@ -50,11 +50,11 @@ OTOtlpGrpcSpanExporter >> executeGrpcRequest: aRequest [
 ]
 
 { #category : 'exporting' }
-OTOtlpGrpcSpanExporter >> export: spans [
+OTOtlpGrpcSpanExporter >> export: anObject [
 
 	^ self withExportLockDo: [
 			  self isShutdown ifTrue: [ ^ false ].
-			  self exportAttemptNumber: 1 payloadBytes: (self payloadBytesFrom: spans) ]
+			  self exportAttemptNumber: 1 payloadBytes: (self payloadBytesFrom: anObject) ]
 ]
 
 { #category : 'exporting' }
@@ -144,7 +144,10 @@ OTOtlpGrpcSpanExporter >> grpcRequestForPayloadBytes: payloadBytes [
 	requestPayload := self configuration usesGzipCompression
 		                  ifTrue: [ self gzipCompressedBytesFor: payloadBytes ]
 		                  ifFalse: [ payloadBytes ].
-	request := self grpcRequestClass service: self traceServiceName method: self traceServiceMethodName payload: requestPayload.
+	request := self grpcRequestClass
+		           service: self grpcServiceName
+		           method: self grpcServiceMethodName
+		           payload: requestPayload.
 	timeoutMillis := self configuration timeoutMillisOrNil.
 	timeoutMillis ifNotNil: [ request timeoutNanos: timeoutMillis * 1000000 ].
 	request metadata: self grpcMetadataFromConfigurationHeaders.
@@ -221,19 +224,20 @@ OTOtlpGrpcSpanExporter >> isRetryableStatus: aStatus [
 { #category : 'private - logging' }
 OTOtlpGrpcSpanExporter >> noteInvalidGrpcSuccessResponse: anError [
 
-	self warningSink value: 'OpenTelemetry OTLP trace export returned an invalid gRPC success response: ' , anError messageText
+	self warningSink value:
+		(OTOtlpExportSupport
+			invalidSuccessResponseMessageForSignal: self otlpSignalName
+			transport: 'gRPC'
+			error: anError)
 ]
 
 { #category : 'private - logging' }
 OTOtlpGrpcSpanExporter >> noteRetryExhaustedForStatus: aStatus [
 
-	self warningSink value: (String streamContents: [ :stream |
-				 stream
-					 nextPutAll: 'OpenTelemetry OTLP trace export exhausted retries after gRPC status ';
-					 nextPutAll: aStatus codeName;
-					 nextPutAll: ' (';
-					 print: aStatus code;
-					 nextPut: $) ])
+	self warningSink value:
+		(OTOtlpExportSupport
+			retryExhaustedForGrpcStatusMessageForSignal: self otlpSignalName
+			status: aStatus)
 ]
 
 { #category : 'private - grpc' }
@@ -261,9 +265,11 @@ OTOtlpGrpcSpanExporter >> openConfiguredGrpcStreamTo: aGRPCEndpoint [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpGrpcSpanExporter >> payloadBytesFrom: spans [
+OTOtlpGrpcSpanExporter >> payloadBytesFrom: anObject [
 
-	^ self encoder encodeSpans: spans asArray
+	^ self encoder
+		  perform: self payloadEncodingSelector
+		  with: (self normalizedPayloadForEncoding: anObject)
 ]
 
 { #category : 'private - grpc' }
@@ -282,13 +288,13 @@ OTOtlpGrpcSpanExporter >> successfulResponseRepresentationFromGrpcResponse: aRes
 ]
 
 { #category : 'private - grpc' }
-OTOtlpGrpcSpanExporter >> traceServiceMethodName [
+OTOtlpGrpcSpanExporter >> grpcServiceMethodName [
 
 	^ 'Export'
 ]
 
 { #category : 'private - grpc' }
-OTOtlpGrpcSpanExporter >> traceServiceName [
+OTOtlpGrpcSpanExporter >> grpcServiceName [
 
 	^ 'opentelemetry.proto.collector.trace.v1.TraceService'
 ]

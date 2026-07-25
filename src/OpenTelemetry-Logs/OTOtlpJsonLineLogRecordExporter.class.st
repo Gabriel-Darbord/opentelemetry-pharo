@@ -8,14 +8,14 @@ Class {
 	#package : 'OpenTelemetry-Logs'
 }
 
-{ #category : 'accessing' }
-OTOtlpJsonLineLogRecordExporter >> encoder [
+{ #category : 'private' }
+OTOtlpJsonLineLogRecordExporter >> defaultEncoderClass [
 
-	^ encoder ifNil: [ encoder := OTOtlpJsonLogRecordEncoder new ]
+	^ OTOtlpJsonLogRecordEncoder
 ]
 
 { #category : 'private' }
-OTOtlpJsonLineLogRecordExporter >> jsonLineFrom: logRecords [
+OTOtlpJsonLineLogRecordExporter >> payloadEncodingSelector [
 
-	^ (ZnUtils defaultJSONWriter toString: (self encoder encodeLogRecords: logRecords asArray)) , String lf
+	^ #encodeLogRecords:
 ]

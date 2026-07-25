@@ -36,9 +36,10 @@ OTMeterProvider class >> configurationWarningSink [
 { #category : 'private - logging' }
 OTMeterProvider class >> configurationWarningSink: aBlock [
 
-	aBlock
-		ifNil: [ OTClassStateStore removeValueAt: #otMetricConfigurationWarningSink forClass: self ifAbsent: [ ] ]
-		ifNotNil: [ OTClassStateStore valueAt: #otMetricConfigurationWarningSink forClass: self put: aBlock ].
+	OTClassStateStore
+		valueAt: #otMetricConfigurationWarningSink
+		forClass: self
+		putOrRemoveIfNil: aBlock.
 	^ self configurationWarningSink
 ]
 
@@ -91,13 +92,19 @@ OTMeterProvider class >> configuredPrometheusReader [
 { #category : 'accessing' }
 OTMeterProvider class >> current [
 
-	^ Current ifNil: [ Current := self readConfiguration ]
+	^ OTClassStateStore currentValueForClass: self ifAbsentPut: [ self readConfiguration ]
 ]
 
 { #category : 'accessing' }
 OTMeterProvider class >> current: anOTMeterProvider [
 
-	Current := anOTMeterProvider
+	OTClassStateStore currentValueForClass: self put: anOTMeterProvider
+]
+
+{ #category : 'accessing' }
+OTMeterProvider class >> currentOrNil [
+
+	^ OTClassStateStore currentValueForClass: self ifAbsent: [ nil ]
 ]
 
 { #category : 'private - logging' }
@@ -165,9 +172,10 @@ OTMeterProvider class >> meterNameWarningSink [
 { #category : 'private' }
 OTMeterProvider class >> meterNameWarningSink: aBlock [
 
-	aBlock
-		ifNil: [ OTClassStateStore removeValueAt: #otMeterNameWarningSink forClass: self ifAbsent: [ ] ]
-		ifNotNil: [ OTClassStateStore valueAt: #otMeterNameWarningSink forClass: self put: aBlock ].
+	OTClassStateStore
+		valueAt: #otMeterNameWarningSink
+		forClass: self
+		putOrRemoveIfNil: aBlock.
 	^ self meterNameWarningSink
 ]
 
@@ -356,10 +364,10 @@ OTMeterProvider class >> readerForExporter: anExporter [
 OTMeterProvider class >> reset [
 
 	| configurationSourceClass |
-	Current ifNotNil: [ Current shutdown ].
+	self currentOrNil ifNotNil: [ :provider | provider shutdown ].
 	configurationSourceClass := self configurationSourceClass.
 	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
-	Current := nil
+	OTClassStateStore removeCurrentValueForClass: self ifAbsent: [ ]
 ]
 
 { #category : 'private' }

@@ -20,6 +20,24 @@ OTClassStateStore class >> initialize [
 ]
 
 { #category : 'accessing' }
+OTClassStateStore class >> currentValueForClass: aBehavior ifAbsent: aBlock [
+
+	^ self valueAt: #otCurrent forClass: aBehavior ifAbsent: aBlock
+]
+
+{ #category : 'accessing' }
+OTClassStateStore class >> currentValueForClass: aBehavior ifAbsentPut: aBlock [
+
+	^ self valueAt: #otCurrent forClass: aBehavior ifAbsentPut: aBlock
+]
+
+{ #category : 'accessing' }
+OTClassStateStore class >> currentValueForClass: aBehavior put: anObject [
+
+	^ self valueAt: #otCurrent forClass: aBehavior put: anObject
+]
+
+{ #category : 'accessing' }
 OTClassStateStore class >> removeValueAt: aKey forClass: aBehavior ifAbsent: aBlock [
 
 	| answer found |
@@ -33,6 +51,12 @@ OTClassStateStore class >> removeValueAt: aKey forClass: aBehavior ifAbsent: aBl
 					found := true ] ].
 	found ifTrue: [ ^ answer ].
 	^ aBlock value
+]
+
+{ #category : 'accessing' }
+OTClassStateStore class >> removeCurrentValueForClass: aBehavior ifAbsent: aBlock [
+
+	^ self removeValueAt: #otCurrent forClass: aBehavior ifAbsent: aBlock
 ]
 
 { #category : 'class initialization' }
@@ -100,4 +124,13 @@ OTClassStateStore class >> valueAt: aKey forClass: aBehavior ifAbsentPut: aBlock
 OTClassStateStore class >> valueAt: aKey forClass: aBehavior put: anObject [
 
 	^ self stateLock critical: [ (self stateByClassUnlocked at: aBehavior ifAbsentPut: [ Dictionary new ]) at: aKey put: anObject ]
+]
+
+{ #category : 'accessing' }
+OTClassStateStore class >> valueAt: aKey forClass: aBehavior putOrRemoveIfNil: anObject [
+
+	anObject
+		ifNil: [ self removeValueAt: aKey forClass: aBehavior ifAbsent: [ ] ]
+		ifNotNil: [ self valueAt: aKey forClass: aBehavior put: anObject ].
+	^ anObject
 ]

@@ -8,53 +8,26 @@ Class {
 	#package : 'OpenTelemetry-Logs'
 }
 
-{ #category : 'accessing' }
-OTOtlpHttpJsonLogRecordExporter >> encoder [
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonLogRecordExporter >> defaultEncoderClass [
 
-	^ encoder ifNil: [ encoder := OTOtlpJsonLogRecordEncoder new ]
-]
-
-{ #category : 'exporting' }
-OTOtlpHttpJsonLogRecordExporter >> export: logRecords [
-
-	self isShutdown ifTrue: [ ^ false ].
-	^ self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: logRecords)
+	^ OTOtlpJsonLogRecordEncoder
 ]
 
 { #category : 'private - logging' }
-OTOtlpHttpJsonLogRecordExporter >> noteInvalidSuccessResponse: anError [
+OTOtlpHttpJsonLogRecordExporter >> otlpSignalName [
 
-	self warningSink value: 'OpenTelemetry OTLP log export returned an invalid success response: ' , anError messageText
-]
-
-{ #category : 'private - logging' }
-OTOtlpHttpJsonLogRecordExporter >> notePartialSuccess: aDictionary [
-
-	self warningSink value: 'OpenTelemetry OTLP log export reported partial success: ' , aDictionary printString
-]
-
-{ #category : 'private - logging' }
-OTOtlpHttpJsonLogRecordExporter >> noteRetryExhaustedForError: anError [
-
-	self warningSink value:
-		'OpenTelemetry OTLP log export exhausted retries after a retryable transport failure: ' , anError messageText
-]
-
-{ #category : 'private - logging' }
-OTOtlpHttpJsonLogRecordExporter >> noteRetryExhaustedForResponse: aResponse [
-
-	self warningSink value:
-		'OpenTelemetry OTLP log export exhausted retries after HTTP status ' , (self responseCodeFrom: aResponse) asString
+	^ 'log'
 ]
 
 { #category : 'private - encoding' }
-OTOtlpHttpJsonLogRecordExporter >> payloadStringFrom: logRecords [
+OTOtlpHttpJsonLogRecordExporter >> payloadEncodingSelector [
 
-	^ ZnUtils defaultJSONWriter toString: (self encoder encodeLogRecords: logRecords asArray)
+	^ #encodeLogRecords:
 ]
 
 { #category : 'private - success handling' }
-OTOtlpHttpJsonLogRecordExporter >> rejectedSpanCountFromPartialSuccess: aDictionary [
+OTOtlpHttpJsonLogRecordExporter >> rejectedCountFromPartialSuccess: aDictionary [
 
 	^ self
 		  nonNegativeIntegerFrom:

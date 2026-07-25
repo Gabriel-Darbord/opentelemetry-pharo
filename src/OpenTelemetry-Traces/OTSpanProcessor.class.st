@@ -117,9 +117,10 @@ OTSpanProcessor class >> configurationWarningSink [
 { #category : 'private - logging' }
 OTSpanProcessor class >> configurationWarningSink: aBlock [
 
-	aBlock
-		ifNil: [ OTClassStateStore removeValueAt: #otConfigurationWarningSink forClass: self ifAbsent: [ ] ]
-		ifNotNil: [ OTClassStateStore valueAt: #otConfigurationWarningSink forClass: self put: aBlock ].
+	OTClassStateStore
+		valueAt: #otConfigurationWarningSink
+		forClass: self
+		putOrRemoveIfNil: aBlock.
 	^ self configurationWarningSink
 ]
 
