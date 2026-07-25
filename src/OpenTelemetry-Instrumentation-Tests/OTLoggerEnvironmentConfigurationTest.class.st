@@ -124,6 +124,22 @@ OTLoggerEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpHttpProtobufEx
 ]
 
 { #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentUsesNoopProviderWhenSdkIsDisabled [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_SDK_DISABLED' put: 'true';
+				 yourself)
+		during: [
+				| logger provider |
+				provider := OTLoggerProvider current.
+				self assert: provider class identicalTo: OTNoopLoggerProvider.
+				logger := provider loggerNamed: 'spec.logs'.
+				self assert: logger class identicalTo: OTNoopLogger.
+				self deny: logger enabled ]
+]
+
+{ #category : 'tests' }
 OTLoggerEnvironmentConfigurationTest >> testCurrentUsesMultipleConfiguredLogExportersWithExporterSpecificProcessors [
 
 	self

@@ -26,6 +26,22 @@ OTLogRecordTest >> testAttributeLimitsDropAndWarnOnce [
 ]
 
 { #category : 'tests' }
+OTLogRecordTest >> testBodyIsNotTruncatedByAttributeValueLengthLimit [
+
+	| limits logRecord |
+	limits := OTLogRecordLimits default.
+	limits attributeValueLengthLimit: 3.
+	logRecord := OTLogRecord new
+		             limits: limits;
+		             yourself.
+	logRecord
+		body: 'abcdef';
+		attributeNamed: 'shortened' put: 'abcdef'.
+	self assert: logRecord body equals: 'abcdef'.
+	self assert: (logRecord attributeNamed: 'shortened') equals: 'abc'
+]
+
+{ #category : 'tests' }
 OTLogRecordTest >> testSeverityShortNameMapping [
 
 	self assert: (OTSeverity shortNameFor: OTSeverity trace) equals: 'TRACE'.

@@ -104,6 +104,24 @@ OTLoggerProviderTest >> testLoggerEnabledIsFalseWithoutProcessors [
 ]
 
 { #category : 'tests' }
+OTLoggerProviderTest >> testNoopProviderReturnsDisabledNoopLogger [
+
+	| logger noopProvider |
+	noopProvider := OTNoopLoggerProvider new.
+	logger := noopProvider loggerNamed: 'spec.logs'.
+	self assert: logger class identicalTo: OTNoopLogger.
+	self deny: logger enabled.
+	self deny: (logger emitBody: 'hello')
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testNoopTypesDoNotDeclareInstanceState [
+
+	self assert: OTNoopLogger allInstVarNames isEmpty.
+	self assert: OTNoopLoggerProvider allInstVarNames isEmpty
+]
+
+{ #category : 'tests' }
 OTLoggerProviderTest >> testMinimumSeverityFilteringDropsBelowThreshold [
 
 	| config logger |
@@ -134,6 +152,7 @@ OTLoggerProviderTest >> testShutdownReturnsNoopLogger [
 	provider addLogRecordProcessor: processor.
 	self assert: provider shutdown.
 	logger := provider loggerNamed: 'spec.logs'.
+	self assert: logger class identicalTo: OTNoopLogger.
 	self deny: logger enabled.
 	self deny: (logger emitBody: 'after shutdown')
 ]

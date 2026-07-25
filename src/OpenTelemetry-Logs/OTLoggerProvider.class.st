@@ -319,13 +319,13 @@ OTLoggerProvider class >> processorForExporter: anExporter [
 OTLoggerProvider class >> readConfiguration [
 
 	| configurationSourceClass exporterNames processors provider |
+	OTTracerProvider sdkDisabled ifTrue: [ ^ OTNoopLoggerProvider new ].
 	provider := self new.
 	configurationSourceClass := self configurationSourceClass.
 	provider
 		resource: OTTracerProvider configuredResource;
 		logRecordLimits: self configuredLogRecordLimits;
 		loggerConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredLoggerConfigurator ]).
-	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	processors := configurationSourceClass ifNotNil: [ configurationSourceClass configuredLogRecordProcessors ].
 	processors ifNotNil: [
 			provider logRecordProcessors: processors.
@@ -549,13 +549,7 @@ OTLoggerProvider >> loggerNamed: aString [
 OTLoggerProvider >> loggerNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
 	| scope |
-	self isShutdown ifTrue: [
-			scope := OTInstrumentationScope
-				         named: (self class normalizedLoggerNameFrom: aString)
-				         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
-				         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
-				         attributes: aCollection.
-			^ OTLogger forProvider: nil instrumentationScope: scope ].
+	self isShutdown ifTrue: [ ^ OTNoopLogger new ].
 	scope := OTInstrumentationScope
 		         named: (self class normalizedLoggerNameFrom: aString)
 		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
