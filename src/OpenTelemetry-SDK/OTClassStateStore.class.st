@@ -116,8 +116,21 @@ OTClassStateStore class >> valueAt: aKey forClass: aBehavior ifAbsent: aBlock [
 { #category : 'accessing' }
 OTClassStateStore class >> valueAt: aKey forClass: aBehavior ifAbsentPut: aBlock [
 
+	| answer found |
+	found := false.
+	self stateLock critical: [
+			| classState |
+			classState := self stateByClassUnlocked at: aBehavior ifAbsent: [ nil ].
+			classState ifNotNil: [
+					(classState includesKey: aKey) ifTrue: [
+							answer := classState at: aKey.
+							found := true ] ] ].
+	found ifTrue: [ ^ answer ].
+	answer := aBlock value.
 	^ self stateLock critical: [
-		  (self stateByClassUnlocked at: aBehavior ifAbsentPut: [ Dictionary new ]) at: aKey ifAbsentPut: aBlock ]
+			  | classState |
+			  classState := self stateByClassUnlocked at: aBehavior ifAbsentPut: [ Dictionary new ].
+			  classState at: aKey ifAbsentPut: [ answer ] ]
 ]
 
 { #category : 'accessing' }
