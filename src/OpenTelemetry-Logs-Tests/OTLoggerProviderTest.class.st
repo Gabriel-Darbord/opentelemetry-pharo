@@ -33,6 +33,50 @@ OTLoggerProviderTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTLoggerProviderTest >> testConcurrentLoggerCreationReturnsIdenticalLogger [
+
+	| done gate lock results workerCount |
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: (provider loggerNamed: 'spec.logs') ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: results notEmpty.
+	self assert: results asSet size equals: 1.
+	self assert: results first class identicalTo: OTLogger
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testConcurrentShutdownReturnsTrueOnce [
+
+	| done gate lock results workerCount |
+	provider addLogRecordProcessor: processor.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: provider shutdown ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: (results count: [ :each | each = true ]) equals: 1.
+	self assert: (results count: [ :each | each = false ]) equals: workerCount - 1.
+	self assert: provider isShutdown.
+	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTLoggerProviderTest >> testEmitAddsExceptionAttributesWithoutOverwritingUserAttributes [
 
 	| logger |
@@ -92,6 +136,19 @@ OTLoggerProviderTest >> testExistingLoggerSeesUpdatedConfigurator [
 	config enabled: false.
 	provider loggerConfigurator: [ :scope | config ].
 	self deny: logger enabled
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testForceFlushReturnsFalseAfterShutdown [
+
+	self assert: provider shutdown.
+	self deny: provider forceFlush
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testForceFlushSucceedsWithoutProcessors [
+
+	self assert: provider forceFlush
 ]
 
 { #category : 'tests' }
