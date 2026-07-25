@@ -107,6 +107,41 @@ OTOtlpHttpProtobufLogRecordExporterTest >> testExportAppliesHttpProtobufConfigur
 ]
 
 { #category : 'tests' }
+OTOtlpHttpProtobufLogRecordExporterTest >> testExportSucceedsAgainstLocalHttpServer [
+
+	| reader receivedBody receivedContentEncoding receivedContentType receivedMethod receivedPath |
+	ZnServer withOSAssignedPortDo: [ :server |
+			server onRequestRespond: [ :request |
+					| response |
+					receivedMethod := request method.
+					receivedPath := request uri pathSegments asArray.
+					receivedContentType := request contentType asString.
+					receivedContentEncoding := request headers at: 'Content-Encoding' ifAbsent: [ nil ].
+					receivedBody := request entity contents.
+					response := ZnResponse ok:
+						            (ZnEntity bytes: (self successResponseWithRejectedLogRecords: 0 message: '')).
+					response entity contentType: 'application/x-protobuf' asZnMimeType.
+					response ].
+			configuration endpoint: ((server localUrl
+					  addPathSegment: 'v1';
+					  addPathSegment: 'logs';
+					  yourself) asString).
+			exporter := OTOtlpHttpProtobufLogRecordExporter configuration: configuration.
+			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+					self assert: (exporter export: { self sampleLogRecord }).
+					self assert: retrySleeps isEmpty.
+					self assert: warnings isEmpty ] ].
+	self assert: receivedMethod equals: #POST.
+	self assert: receivedPath equals: #( 'v1' 'logs' ).
+	self assert: receivedContentType equals: 'application/x-protobuf'.
+	self assert: receivedContentEncoding isNil.
+	reader := OTProtobufReader on: receivedBody.
+	self assertReader: reader readsField: 1 wireType: 2.
+	self assert: reader readBytes notEmpty.
+	self assert: reader atEnd
+]
+
+{ #category : 'tests' }
 OTOtlpHttpProtobufLogRecordExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
 	client responseContents: (self successResponseWithRejectedLogRecords: 2 message: 'collector dropped logs').

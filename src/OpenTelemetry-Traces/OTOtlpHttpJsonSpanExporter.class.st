@@ -358,7 +358,7 @@ OTOtlpHttpJsonSpanExporter >> rejectedCountFromPartialSuccess: aDictionary [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonSpanExporter >> removeRequestHeaderNamed: aString [
 
-	self httpClient headers removeKey: aString ifAbsent: [ ]
+	self httpClient removeHeaderNamed: aString
 ]
 
 { #category : 'private - retry' }

@@ -104,6 +104,12 @@ OTRecordingHttpClient >> method: aSymbol [
 	method := aSymbol
 ]
 
+{ #category : 'accessing' }
+OTRecordingHttpClient >> removeHeaderNamed: aKey [
+
+	self headers removeKey: aKey ifAbsent: [ ]
+]
+
 { #category : 'private' }
 OTRecordingHttpClient >> nextPlannedExecution [
 
