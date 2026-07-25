@@ -6,7 +6,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'provider',
-		'instrumentationScope'
+		'instrumentationScope',
+		'instrumentationNameState'
 	],
 	#category : 'OpenTelemetry-Logs',
 	#package : 'OpenTelemetry-Logs'
@@ -15,11 +16,21 @@ Class {
 { #category : 'instance creation' }
 OTLogger class >> forProvider: anOTLoggerProvider instrumentationScope: anInstrumentationScope [
 
+	^ self
+		  forProvider: anOTLoggerProvider
+		  instrumentationScope: anInstrumentationScope
+		  rawInstrumentationName: anInstrumentationScope name
+]
+
+{ #category : 'instance creation' }
+OTLogger class >> forProvider: anOTLoggerProvider instrumentationScope: anInstrumentationScope rawInstrumentationName: aValue [
+
 	| logger |
 	logger := self new.
 	logger
 		provider: anOTLoggerProvider;
-		instrumentationScope: anInstrumentationScope.
+		instrumentationScope: anInstrumentationScope;
+		rawInstrumentationName: aValue.
 	^ logger
 ]
 
@@ -87,7 +98,7 @@ OTLogger >> enabledIn: anOTContext severityNumber: aSeverityNumber eventName: aS
 { #category : 'accessing' }
 OTLogger >> instrumentationName [
 
-	^ self instrumentationScope name
+	^ instrumentationNameState ifNil: [ self instrumentationScope name ] ifNotNil: [ instrumentationNameState first ]
 ]
 
 { #category : 'accessing' }
@@ -100,6 +111,7 @@ OTLogger >> instrumentationScope [
 OTLogger >> instrumentationScope: anInstrumentationScope [
 
 	instrumentationScope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ anInstrumentationScope ].
+	instrumentationNameState ifNil: [ instrumentationNameState := { instrumentationScope name } ].
 	^ instrumentationScope
 ]
 
@@ -125,6 +137,13 @@ OTLogger >> provider [
 OTLogger >> provider: anOTLoggerProvider [
 
 	provider := anOTLoggerProvider
+]
+
+{ #category : 'accessing' }
+OTLogger >> rawInstrumentationName: aValue [
+
+	instrumentationNameState := { aValue }.
+	^ aValue
 ]
 
 { #category : 'accessing' }

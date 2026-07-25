@@ -198,6 +198,27 @@ OTLoggerProviderTest >> testForceFlushSucceedsWithoutProcessors [
 ]
 
 { #category : 'tests' }
+OTLoggerProviderTest >> testNilAndEmptyLoggerNamesReturnDistinctLoggers [
+
+	| emptyLogger nilLogger |
+	nilLogger := provider loggerNamed: nil.
+	emptyLogger := provider loggerNamed: ''.
+	self deny: nilLogger identicalTo: emptyLogger.
+	self assert: nilLogger instrumentationName isNil.
+	self assert: emptyLogger instrumentationName equals: ''
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testNilLoggerNameReturnsFallbackLoggerAndWarns [
+
+	self withWarningsDo: [ :warnings |
+			| logger |
+			logger := provider loggerNamed: nil.
+			self assert: logger instrumentationName isNil.
+			self assert: warnings asArray equals: #( 'OpenTelemetry logger name was invalid: nil' ) ]
+]
+
+{ #category : 'tests' }
 OTLoggerProviderTest >> testLoggerEnabledIsFalseWithoutProcessors [
 
 	| logger |
@@ -336,4 +357,23 @@ OTLoggerProviderTest >> testTraceBasedFilteringDropsUnsampledTrace [
 			 eventName: nil
 			 exception: nil).
 	self assert: exporter exportedRecords isEmpty
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testWhitespaceLoggerNameIsPreservedWithoutWarning [
+
+	self withWarningsDo: [ :warnings |
+			| logger |
+			logger := provider loggerNamed: '  spaced  '.
+			self assert: logger instrumentationName equals: '  spaced  '.
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'private' }
+OTLoggerProviderTest >> withWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTLoggerProvider configurationWarningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTLoggerProvider configurationWarningSink: nil ]
 ]

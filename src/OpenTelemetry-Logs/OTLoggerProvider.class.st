@@ -246,9 +246,9 @@ OTLoggerProvider class >> normalizedLoggerNameFrom: aValue [
 			self noteInvalidLoggerName: aValue.
 			^ '' ].
 	loggerName := aValue asString.
-	loggerName trimBoth isEmpty ifTrue: [
+	loggerName isEmpty ifTrue: [
 			self noteInvalidLoggerName: aValue.
-			^ '' ].
+			^ loggerName ].
 	^ loggerName
 ]
 
@@ -270,8 +270,7 @@ OTLoggerProvider class >> noteInvalidBatchProcessorEnvironmentValue: aValue forV
 { #category : 'private - logging' }
 OTLoggerProvider class >> noteInvalidLoggerName: aValue [
 
-	self configurationWarningSink value: 'OpenTelemetry logger name was invalid and has been normalized to an empty string: '
-		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self configurationWarningSink value: 'OpenTelemetry logger name was invalid: ' , aValue printString
 ]
 
 { #category : 'private - logging' }
@@ -317,6 +316,12 @@ OTLoggerProvider class >> processorForExporter: anExporter [
 				  exporter: anExporter;
 				  yourself ].
 	^ self batchLogRecordProcessorWithExporter: anExporter
+]
+
+{ #category : 'private' }
+OTLoggerProvider class >> requestedLoggerNameFrom: aValue [
+
+	^ aValue ifNotNil: [ aValue asString ]
 ]
 
 { #category : 'instance creation' }
@@ -573,15 +578,28 @@ OTLoggerProvider >> loggerNamed: aString [
 { #category : 'logging' }
 OTLoggerProvider >> loggerNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
-	| scope |
+	| requestedName scope |
+	requestedName := self class requestedLoggerNameFrom: aString.
 	scope := OTInstrumentationScope
 		         named: (self class normalizedLoggerNameFrom: aString)
 		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
 		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
 		         attributes: aCollection.
 	^ stateLock critical: [
+			  | registrationKey |
 			  (shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ ^ OTNoopLogger new ].
-			  loggers at: scope ifAbsentPut: [ OTLogger forProvider: self instrumentationScope: scope ] ]
+			  registrationKey := self loggerRegistrationKeyForRequestedName: requestedName instrumentationScope: scope.
+			  loggers
+				  at: registrationKey
+				  ifAbsentPut: [ OTLogger forProvider: self instrumentationScope: scope rawInstrumentationName: requestedName ] ]
+]
+
+{ #category : 'private' }
+OTLoggerProvider >> loggerRegistrationKeyForRequestedName: aRequestedName instrumentationScope: anInstrumentationScope [
+
+	^ {
+		  aRequestedName.
+		  anInstrumentationScope }
 ]
 
 { #category : 'private' }
