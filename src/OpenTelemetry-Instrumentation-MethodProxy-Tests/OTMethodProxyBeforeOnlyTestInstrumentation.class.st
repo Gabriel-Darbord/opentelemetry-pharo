@@ -1,6 +1,6 @@
 Class {
 	#name : 'OTMethodProxyBeforeOnlyTestInstrumentation',
-	#superclass : 'OTLeanMethodProxyInstrumentation',
+	#superclass : 'OTMethodProxyInstrumentation',
 	#category : 'OpenTelemetry-Instrumentation-MethodProxy-Tests',
 	#package : 'OpenTelemetry-Instrumentation-MethodProxy-Tests'
 }

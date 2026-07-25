@@ -1,18 +1,18 @@
 Class {
-	#name : 'OTMethodProxyAfterProxy',
+	#name : 'OTMethodProxyBefore',
 	#superclass : 'MpMethodProxy',
 	#category : 'OpenTelemetry-Instrumentation-MethodProxy',
 	#package : 'OpenTelemetry-Instrumentation-MethodProxy'
 }
 
 { #category : 'class initialization' }
-OTMethodProxyAfterProxy class >> initialize [
+OTMethodProxyBefore class >> initialize [
 
 	self buildPrototypesUpToArguments: 15
 ]
 
 { #category : 'evaluating' }
-OTMethodProxyAfterProxy class >> prototypeTrap [
+OTMethodProxyBefore class >> prototypeTrap [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -25,18 +25,18 @@ OTMethodProxyAfterProxy class >> prototypeTrap [
 	process := Processor activeProcess.
 	process isMeta ifTrue: [ ^ self originalMessage ].
 	deactivator := #slowdeactivator.
-	result := self originalMessage.
 	process shiftLevelUp.
 	wasMeta := true.
-	result := #handler afterExecutionWithReceiver: self arguments: #argumentList returnValue: result.
+	#handler beforeExecutionWithReceiver: self arguments: #argumentList.
 	process shiftLevelDown.
 	wasMeta := false.
+	result := self originalMessage.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethod [
+OTMethodProxyBefore class >> trapMethod [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -49,18 +49,18 @@ OTMethodProxyAfterProxy class >> trapMethod [
 	process := Processor activeProcess.
 	process isMeta ifTrue: [ ^ self trapMethod ].
 	deactivator := #slowdeactivator.
-	result := self trapMethod.
 	process shiftLevelUp.
 	wasMeta := true.
-	result := #handler afterExecutionWithReceiver: self arguments: {  } returnValue: result.
+	#handler beforeExecutionWithReceiver: self arguments: {  }.
 	process shiftLevelDown.
 	wasMeta := false.
+	result := self trapMethod.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -73,18 +73,18 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 [
 	process := Processor activeProcess.
 	process isMeta ifTrue: [ ^ self trapMethodwith: arg1 ].
 	deactivator := #slowdeactivator.
-	result := self trapMethodwith: arg1.
 	process shiftLevelUp.
 	wasMeta := true.
-	result := #handler afterExecutionWithReceiver: self arguments: { arg1 } returnValue: result.
+	#handler beforeExecutionWithReceiver: self arguments: { arg1 }.
 	process shiftLevelDown.
 	wasMeta := false.
+	result := self trapMethodwith: arg1.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -97,23 +97,20 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 [
 	process := Processor activeProcess.
 	process isMeta ifTrue: [ ^ self trapMethodwith: arg1 with: arg2 ].
 	deactivator := #slowdeactivator.
-	result := self trapMethodwith: arg1 with: arg2.
 	process shiftLevelUp.
 	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2 }
-		          returnValue: result.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2 }.
 	process shiftLevelDown.
 	wasMeta := false.
+	result := self trapMethodwith: arg1 with: arg2.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -126,24 +123,21 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 [
 	process := Processor activeProcess.
 	process isMeta ifTrue: [ ^ self trapMethodwith: arg1 with: arg2 with: arg3 ].
 	deactivator := #slowdeactivator.
-	result := self trapMethodwith: arg1 with: arg2 with: arg3.
 	process shiftLevelUp.
 	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3 }
-		          returnValue: result.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3 }.
 	process shiftLevelDown.
 	wasMeta := false.
+	result := self trapMethodwith: arg1 with: arg2 with: arg3.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -166,29 +160,26 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg3
 				  with: arg4 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
 		          with: arg3
 		          with: arg4.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -213,31 +204,28 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg4
 				  with: arg5 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
 		          with: arg3
 		          with: arg4
 		          with: arg5.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -264,6 +252,17 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg5
 				  with: arg6 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -271,26 +270,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg4
 		          with: arg5
 		          with: arg6.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -319,6 +304,18 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg6
 				  with: arg7 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -327,27 +324,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg5
 		          with: arg6
 		          with: arg7.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -378,6 +360,19 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg7
 				  with: arg8 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7.
+			arg8 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -387,28 +382,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg6
 		          with: arg7
 		          with: arg8.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7.
-				          arg8 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -441,6 +420,20 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg8
 				  with: arg9 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7.
+			arg8.
+			arg9 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -451,29 +444,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg7
 		          with: arg8
 		          with: arg9.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7.
-				          arg8.
-				          arg9 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -508,6 +484,21 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg9
 				  with: arg10 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7.
+			arg8.
+			arg9.
+			arg10 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -519,30 +510,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg8
 		          with: arg9
 		          with: arg10.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7.
-				          arg8.
-				          arg9.
-				          arg10 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -579,6 +552,22 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg10
 				  with: arg11 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7.
+			arg8.
+			arg9.
+			arg10.
+			arg11 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -591,31 +580,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg9
 		          with: arg10
 		          with: arg11.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7.
-				          arg8.
-				          arg9.
-				          arg10.
-				          arg11 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -654,6 +624,23 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg11
 				  with: arg12 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7.
+			arg8.
+			arg9.
+			arg10.
+			arg11.
+			arg12 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -667,32 +654,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg10
 		          with: arg11
 		          with: arg12.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7.
-				          arg8.
-				          arg9.
-				          arg10.
-				          arg11.
-				          arg12 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -733,6 +700,24 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg12
 				  with: arg13 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7.
+			arg8.
+			arg9.
+			arg10.
+			arg11.
+			arg12.
+			arg13 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -747,33 +732,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg11
 		          with: arg12
 		          with: arg13.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7.
-				          arg8.
-				          arg9.
-				          arg10.
-				          arg11.
-				          arg12.
-				          arg13 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 with: arg14 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 with: arg14 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -816,6 +780,25 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg13
 				  with: arg14 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7.
+			arg8.
+			arg9.
+			arg10.
+			arg11.
+			arg12.
+			arg13.
+			arg14 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -831,34 +814,12 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg12
 		          with: arg13
 		          with: arg14.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7.
-				          arg8.
-				          arg9.
-				          arg10.
-				          arg11.
-				          arg12.
-				          arg13.
-				          arg14 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]
 
 { #category : 'as yet unclassified' }
-OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 with: arg14 with: arg15 [
+OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 with: arg14 with: arg15 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
 	The last temp variable should be the wasMeta flag."
@@ -903,6 +864,26 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 				  with: arg14
 				  with: arg15 ].
 	deactivator := #slowdeactivator.
+	process shiftLevelUp.
+	wasMeta := true.
+	#handler beforeExecutionWithReceiver: self arguments: {
+			arg1.
+			arg2.
+			arg3.
+			arg4.
+			arg5.
+			arg6.
+			arg7.
+			arg8.
+			arg9.
+			arg10.
+			arg11.
+			arg12.
+			arg13.
+			arg14.
+			arg15 }.
+	process shiftLevelDown.
+	wasMeta := false.
 	result := self
 		          trapMethodwith: arg1
 		          with: arg2
@@ -919,29 +900,6 @@ OTMethodProxyAfterProxy class >> trapMethodwith: arg1 with: arg2 with: arg3 with
 		          with: arg13
 		          with: arg14
 		          with: arg15.
-	process shiftLevelUp.
-	wasMeta := true.
-	result := #handler
-		          afterExecutionWithReceiver: self
-		          arguments: {
-				          arg1.
-				          arg2.
-				          arg3.
-				          arg4.
-				          arg5.
-				          arg6.
-				          arg7.
-				          arg8.
-				          arg9.
-				          arg10.
-				          arg11.
-				          arg12.
-				          arg13.
-				          arg14.
-				          arg15 }
-		          returnValue: result.
-	process shiftLevelDown.
-	wasMeta := false.
 	complete := true.
 	^ result
 ]

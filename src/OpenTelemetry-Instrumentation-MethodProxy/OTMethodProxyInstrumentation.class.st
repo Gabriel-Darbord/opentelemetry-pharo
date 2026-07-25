@@ -37,6 +37,32 @@ OTMethodProxyInstrumentation class >> beforeExecutionWithReceiver: receiver argu
 	
 ]
 
+{ #category : 'testing' }
+OTMethodProxyInstrumentation class >> hasAbortedHook [
+
+	| abortedImplementor unwindImplementor |
+	abortedImplementor := self classSide whichClassIncludesSelector: #afterAbortedExecutionWithReceiver:arguments:.
+	(abortedImplementor notNil and: [ abortedImplementor ~= OTMethodProxyInstrumentation class ]) ifTrue: [ ^ true ].
+	unwindImplementor := self classSide whichClassIncludesSelector: #aboutToReturnWithReceiver:arguments:.
+	^ unwindImplementor notNil and: [ unwindImplementor ~= OTMethodProxyInstrumentation class ]
+]
+
+{ #category : 'testing' }
+OTMethodProxyInstrumentation class >> hasAfterHook [
+
+	| implementor |
+	implementor := self classSide whichClassIncludesSelector: #afterExecutionWithReceiver:arguments:returnValue:.
+	^ implementor notNil and: [ implementor ~= OTMethodProxyInstrumentation class ]
+]
+
+{ #category : 'testing' }
+OTMethodProxyInstrumentation class >> hasBeforeHook [
+
+	| implementor |
+	implementor := self classSide whichClassIncludesSelector: #beforeExecutionWithReceiver:arguments:.
+	^ implementor notNil and: [ implementor ~= OTMethodProxyInstrumentation class ]
+]
+
 { #category : 'configuring' }
 OTMethodProxyInstrumentation class >> installer [
 
@@ -47,4 +73,34 @@ OTMethodProxyInstrumentation class >> installer [
 OTMethodProxyInstrumentation class >> isAbstract [
 
 	^ self == OTMethodProxyInstrumentation
+]
+
+{ #category : 'configuring' }
+OTMethodProxyInstrumentation class >> methodProxyClass [
+
+	self usesAfterHook ifTrue: [
+			^ self usesBeforeHook
+				  ifTrue: [ MpMethodProxy ]
+				  ifFalse: [ OTMethodProxyAfter ] ].
+	^ self usesBeforeHook
+		  ifTrue: [ OTMethodProxyBefore ]
+		  ifFalse: [ OTMethodProxyPassThrough ]
+]
+
+{ #category : 'configuring' }
+OTMethodProxyInstrumentation class >> usesAbortedHook [
+
+	^ self hasAbortedHook
+]
+
+{ #category : 'configuring' }
+OTMethodProxyInstrumentation class >> usesAfterHook [
+
+	^ self hasAfterHook
+]
+
+{ #category : 'configuring' }
+OTMethodProxyInstrumentation class >> usesBeforeHook [
+
+	^ self hasBeforeHook
 ]

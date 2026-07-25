@@ -26,9 +26,9 @@ OTMethodProxyHookSelectionTest >> setUp [
 ]
 
 { #category : 'tests' }
-OTMethodProxyHookSelectionTest >> testAbortedOnlyInstrumentationUsesPassThroughProxy [
+OTMethodProxyHookSelectionTest >> testAbortedOnlyInstrumentationUsesPassThrough [
 
-	self assert: OTMethodProxyAbortedOnlyTestInstrumentation methodProxyClass identicalTo: OTMethodProxyPassThroughProxy.
+	self assert: OTMethodProxyAbortedOnlyTestInstrumentation methodProxyClass identicalTo: OTMethodProxyPassThrough.
 	self
 		assertTrapFor: OTMethodProxyAbortedOnlyTestInstrumentation
 		selector: #fail
@@ -40,9 +40,9 @@ OTMethodProxyHookSelectionTest >> testAbortedOnlyInstrumentationUsesPassThroughP
 ]
 
 { #category : 'tests' }
-OTMethodProxyHookSelectionTest >> testAfterOnlyInstrumentationUsesAfterProxy [
+OTMethodProxyHookSelectionTest >> testAfterOnlyInstrumentationUsesAfter [
 
-	self assert: OTMethodProxyAfterOnlyTestInstrumentation methodProxyClass identicalTo: OTMethodProxyAfterProxy.
+	self assert: OTMethodProxyAfterOnlyTestInstrumentation methodProxyClass identicalTo: OTMethodProxyAfter.
 	self
 		assertTrapFor: OTMethodProxyAfterOnlyTestInstrumentation
 		selector: #answer
@@ -54,9 +54,9 @@ OTMethodProxyHookSelectionTest >> testAfterOnlyInstrumentationUsesAfterProxy [
 ]
 
 { #category : 'tests' }
-OTMethodProxyHookSelectionTest >> testBeforeOnlyInstrumentationUsesBeforeProxy [
+OTMethodProxyHookSelectionTest >> testBeforeOnlyInstrumentationUsesBefore [
 
-	self assert: OTMethodProxyBeforeOnlyTestInstrumentation methodProxyClass identicalTo: OTMethodProxyBeforeProxy.
+	self assert: OTMethodProxyBeforeOnlyTestInstrumentation methodProxyClass identicalTo: OTMethodProxyBefore.
 	self
 		assertTrapFor: OTMethodProxyBeforeOnlyTestInstrumentation
 		selector: #answer
@@ -71,17 +71,17 @@ OTMethodProxyHookSelectionTest >> testBeforeOnlyInstrumentationUsesBeforeProxy [
 { #category : 'tests' }
 OTMethodProxyHookSelectionTest >> testCombinedInstrumentationKeepsOriginalMethodProxy [
 
-	self assert: OTLeanMethodProxyCombinedTestInstrumentation methodProxyClass identicalTo: MpMethodProxy.
+	self assert: OTMethodProxyTestInstrumentation methodProxyClass identicalTo: MpMethodProxy.
 	self
-		assertTrapFor: OTLeanMethodProxyCombinedTestInstrumentation
+		assertTrapFor: OTMethodProxyTestInstrumentation
 		selector: #answer
 		includesBefore: true
 		includesAfter: true.
-	self withInstrumentation: OTLeanMethodProxyCombinedTestInstrumentation do: [
+	self withInstrumentation: OTMethodProxyTestInstrumentation do: [
 			self assert: target answer equals: 42.
-			self assert: OTLeanMethodProxyCombinedTestInstrumentation capturedReceiver identicalTo: target.
-			self assert: OTLeanMethodProxyCombinedTestInstrumentation capturedArguments equals: #(  ).
-			self assert: OTLeanMethodProxyCombinedTestInstrumentation capturedValue equals: 42 ]
+			self assert: OTMethodProxyTestInstrumentation capturedReceiver identicalTo: target.
+			self assert: OTMethodProxyTestInstrumentation capturedArguments equals: #(  ).
+			self assert: OTMethodProxyTestInstrumentation capturedValue equals: 42 ]
 ]
 
 { #category : 'private' }

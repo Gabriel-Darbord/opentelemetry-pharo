@@ -88,6 +88,6 @@ OTMethodProxyInstaller >> shouldInstrument: aMethod with: anInstrumentation [
 	"A bit weird but this is when the proxy is created"
 
 	(self class isMethodProxyArtifact: aMethod) ifTrue: [ ^ false ].
-	proxy := MpMethodProxy onMethod: aMethod handler: anInstrumentation.
-	^ true "proxy used to have a `shouldWrap:` method"
+	proxy := anInstrumentation methodProxyClass onMethod: aMethod handler: anInstrumentation.
+	^ true
 ]
