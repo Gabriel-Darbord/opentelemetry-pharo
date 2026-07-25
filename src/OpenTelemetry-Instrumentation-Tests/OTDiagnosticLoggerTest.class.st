@@ -15,6 +15,15 @@ OTDiagnosticLoggerTest >> setEnvironmentValue: aValue forKey: aKey [
 ]
 
 { #category : 'running' }
+OTDiagnosticLoggerTest >> setUp [
+
+	super setUp.
+	self setEnvironmentValue: nil forKey: 'OTEL_LOG_LEVEL'.
+	OTFakeTinyLogger reset.
+	OTDiagnosticLogger reset
+]
+
+{ #category : 'running' }
 OTDiagnosticLoggerTest >> tearDown [
 
 	[

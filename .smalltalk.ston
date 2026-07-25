@@ -6,7 +6,6 @@ SmalltalkCISpec {
       #platforms : [ #pharo ]
     }
   ],
-  #preTesting : 'ci/preTesting.st',
   #testing : {
     #coverage : {
       #packages : [

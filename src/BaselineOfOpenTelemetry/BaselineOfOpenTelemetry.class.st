@@ -24,7 +24,8 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Traces'
 		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' ) ];
-		package: 'OpenTelemetry-Logs' with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Traces' ) ];
+		package: 'OpenTelemetry-Logs'
+		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Traces' 'OpenTelemetry-Exporters' ) ];
 		package: 'OpenTelemetry-Metrics'
 		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Traces' 'OpenTelemetry-Exporters' ) ];
 		package: 'OpenTelemetry-Autoconfigure' with: [
@@ -55,9 +56,9 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'metrics-tests' with: #( 'OpenTelemetry-Metrics-Tests' );
 		group: 'core' with: #( 'traces' 'instrumentation' 'logs' 'metrics' 'autoconfigure' );
 		group: 'tests' with: #( 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
-		group: 'default' with: #( 'core' 'tests' );
-		group: 'all' with: #( 'default' )
-]
+		group: 'default' with: #( 'core' );
+		group: 'all' with: #( 'core' 'tests' )
+	]
 
 { #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
