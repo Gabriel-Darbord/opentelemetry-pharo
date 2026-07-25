@@ -18,8 +18,8 @@ Class {
 		'clientKeyFile',
 		'clientCertificateFile'
 	],
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Traces',
+	#package : 'OpenTelemetry-Traces'
 }
 
 { #category : 'private' }

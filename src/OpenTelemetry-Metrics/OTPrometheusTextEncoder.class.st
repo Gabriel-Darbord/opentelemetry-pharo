@@ -8,8 +8,8 @@ Class {
 	#instVars : [
 		'warningSink'
 	],
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'private - logging' }

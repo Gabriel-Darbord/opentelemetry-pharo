@@ -4,8 +4,8 @@ An OTLP metric encoder that emits protobuf-encoded ExportMetricsServiceRequest p
 Class {
 	#name : 'OTOtlpProtobufMetricEncoder',
 	#superclass : 'OTOtlpProtobufTraceEncoder',
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'private' }

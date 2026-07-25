@@ -4,8 +4,8 @@ An OTLP metrics exporter that writes JSON-line OTLP payloads to standard output.
 Class {
 	#name : 'OTOtlpStdoutMetricExporter',
 	#superclass : 'OTOtlpJsonLineMetricExporter',
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'private' }

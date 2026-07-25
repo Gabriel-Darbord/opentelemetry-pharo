@@ -7,8 +7,8 @@ Class {
 	#instVars : [
 		'encoder'
 	],
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'accessing' }

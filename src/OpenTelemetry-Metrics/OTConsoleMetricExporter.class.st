@@ -8,8 +8,8 @@ Class {
 	#instVars : [
 		'outputStreamBlock'
 	],
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'exporting' }

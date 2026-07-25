@@ -4,8 +4,8 @@ An OTLP metric encoder that emits the OpenTelemetry JSON protobuf shape for Expo
 Class {
 	#name : 'OTOtlpJsonMetricEncoder',
 	#superclass : 'OTOtlpJsonTraceEncoder',
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'encoding' }

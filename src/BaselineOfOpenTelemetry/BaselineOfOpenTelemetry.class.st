@@ -21,7 +21,7 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		package: 'OpenTelemetry-Matchers';
 		package: 'OpenTelemetry-SDK';
 		package: 'OpenTelemetry-Instrumentation' with: [ spec requires: #( 'OpenTelemetry-Matchers' ) ];
-		package: 'OpenTelemetry-Exporters' with: [ spec requires: #( 'OpenTelemetry-SDK' ) ];
+		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Traces'
 		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' ) ];
 		package: 'OpenTelemetry-Logs' with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Traces' ) ];

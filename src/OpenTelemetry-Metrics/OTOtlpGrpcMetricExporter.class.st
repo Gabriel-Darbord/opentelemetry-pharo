@@ -4,8 +4,8 @@ An OTLP metrics exporter that sends protobuf-encoded ExportMetricsServiceRequest
 Class {
 	#name : 'OTOtlpGrpcMetricExporter',
 	#superclass : 'OTOtlpGrpcSpanExporter',
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'accessing' }

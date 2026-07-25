@@ -4,8 +4,8 @@ A minimal protobuf response decoder for OTLP metrics ExportMetricsServiceRespons
 Class {
 	#name : 'OTOtlpProtobufMetricResponseDecoder',
 	#superclass : 'OTOtlpProtobufTraceResponseDecoder',
-	#category : 'OpenTelemetry-Exporters',
-	#package : 'OpenTelemetry-Exporters'
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
 }
 
 { #category : 'decoding' }
