@@ -39,7 +39,7 @@ OTOtlpGrpcMetricExporter >> otlpSignalName [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpGrpcMetricExporter >> payloadEncodingSelector [
+OTOtlpGrpcMetricExporter >> encodedPayloadFrom: anOTMetricSnapshot [
 
-	^ #encodeSnapshot:
+	^ self encoder encodeSnapshot: anOTMetricSnapshot
 ]

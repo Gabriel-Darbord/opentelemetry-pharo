@@ -21,9 +21,9 @@ OTOtlpHttpJsonLogRecordExporter >> otlpSignalName [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpHttpJsonLogRecordExporter >> payloadEncodingSelector [
+OTOtlpHttpJsonLogRecordExporter >> encodedPayloadFrom: logRecords [
 
-	^ #encodeLogRecords:
+	^ self encoder encodeLogRecords: logRecords
 ]
 
 { #category : 'private - success handling' }

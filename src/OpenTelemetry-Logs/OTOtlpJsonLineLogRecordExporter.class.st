@@ -15,7 +15,7 @@ OTOtlpJsonLineLogRecordExporter >> defaultEncoderClass [
 ]
 
 { #category : 'private' }
-OTOtlpJsonLineLogRecordExporter >> payloadEncodingSelector [
+OTOtlpJsonLineLogRecordExporter >> encodedPayloadFrom: logRecords [
 
-	^ #encodeLogRecords:
+	^ self encoder encodeLogRecords: logRecords
 ]

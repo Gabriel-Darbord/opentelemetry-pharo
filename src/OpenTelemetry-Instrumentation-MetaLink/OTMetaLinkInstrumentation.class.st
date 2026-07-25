@@ -100,7 +100,16 @@ OTMetaLinkInstrumentation class >> onMethodExit: event withValue: returnValue [
 OTMetaLinkInstrumentation class >> run: arguments [
 	"Compatibility entry point. Installed MetaLinks should use the more specific selectors."
 
-	^ self perform: self metalinkSelector with: arguments
+	| selector |
+	selector := self metalinkSelector.
+	selector = #runBefore: ifTrue: [ ^ self runBefore: arguments ].
+	selector = #runWithEnterAndExceptionHandling: ifTrue: [ ^ self runWithEnterAndExceptionHandling: arguments ].
+	selector = #runWithExceptionHandling: ifTrue: [ ^ self runWithExceptionHandling: arguments ].
+	selector = #runWithEnterAndExit: ifTrue: [ ^ self runWithEnterAndExit: arguments ].
+	selector = #runWithExit: ifTrue: [ ^ self runWithExit: arguments ].
+	selector = #runWithEnterExitAndExceptionHandling: ifTrue: [ ^ self runWithEnterExitAndExceptionHandling: arguments ].
+	selector = #runWithExitAndExceptionHandling: ifTrue: [ ^ self runWithExitAndExceptionHandling: arguments ].
+	Error signal: 'Unsupported MetaLink selector: ' , selector printString
 ]
 
 { #category : 'private' }

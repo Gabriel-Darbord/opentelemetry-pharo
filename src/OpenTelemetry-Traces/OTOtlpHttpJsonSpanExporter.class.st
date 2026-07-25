@@ -327,16 +327,15 @@ OTOtlpHttpJsonSpanExporter >> partialSuccessFrom: aDictionary [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpHttpJsonSpanExporter >> payloadEncodingSelector [
+OTOtlpHttpJsonSpanExporter >> encodedPayloadFrom: spans [
 
-	^ #encodeSpans:
+	^ self encoder encodeSpans: spans
 ]
 
 { #category : 'private - encoding' }
 OTOtlpHttpJsonSpanExporter >> payloadStringFrom: spans [
 
-	^ ZnUtils defaultJSONWriter toString:
-		  (self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: spans))
+	^ ZnUtils defaultJSONWriter toString: (self encodedPayloadFrom: (self normalizedPayloadForEncoding: spans))
 ]
 
 { #category : 'private - tls' }

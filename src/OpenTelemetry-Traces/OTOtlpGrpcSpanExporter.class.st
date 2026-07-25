@@ -270,7 +270,7 @@ OTOtlpGrpcSpanExporter >> openConfiguredGrpcStreamTo: aGRPCEndpoint [
 { #category : 'private - encoding' }
 OTOtlpGrpcSpanExporter >> payloadBytesFrom: anObject [
 
-	^ self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: anObject)
+	^ self encodedPayloadFrom: (self normalizedPayloadForEncoding: anObject)
 ]
 
 { #category : 'private - grpc' }

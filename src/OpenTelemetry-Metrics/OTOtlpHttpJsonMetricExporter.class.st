@@ -383,16 +383,15 @@ OTOtlpHttpJsonMetricExporter >> partialSuccessFrom: aDictionary [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpHttpJsonMetricExporter >> payloadEncodingSelector [
+OTOtlpHttpJsonMetricExporter >> encodedPayloadFrom: anOTMetricSnapshot [
 
-	^ #encodeSnapshot:
+	^ self encoder encodeSnapshot: anOTMetricSnapshot
 ]
 
 { #category : 'private - encoding' }
 OTOtlpHttpJsonMetricExporter >> payloadStringFrom: anOTMetricSnapshot [
 
-	^ ZnUtils defaultJSONWriter toString:
-		  (self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: anOTMetricSnapshot))
+	^ ZnUtils defaultJSONWriter toString: (self encodedPayloadFrom: (self normalizedPayloadForEncoding: anOTMetricSnapshot))
 ]
 
 { #category : 'private - success handling' }

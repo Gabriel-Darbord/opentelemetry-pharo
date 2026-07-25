@@ -153,7 +153,10 @@ OTLoggerProvider class >> current [
 { #category : 'accessing' }
 OTLoggerProvider class >> current: anOTLoggerProvider [
 
-	OTClassStateStore currentValueForClass: self put: anOTLoggerProvider
+	OTClassStateStore
+		valueAt: #otCurrent
+		forClass: self
+		putOrRemoveIfNil: anOTLoggerProvider
 ]
 
 { #category : 'accessing' }

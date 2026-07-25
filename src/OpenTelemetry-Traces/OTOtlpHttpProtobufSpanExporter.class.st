@@ -68,7 +68,7 @@ OTOtlpHttpProtobufSpanExporter >> gzipCompressedBytesFor: aByteArray [
 { #category : 'private - encoding' }
 OTOtlpHttpProtobufSpanExporter >> payloadStringFrom: anObject [
 
-	^ self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: anObject)
+	^ self encodedPayloadFrom: (self normalizedPayloadForEncoding: anObject)
 ]
 
 { #category : 'accessing' }

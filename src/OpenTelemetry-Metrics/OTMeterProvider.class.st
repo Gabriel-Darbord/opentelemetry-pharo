@@ -98,7 +98,10 @@ OTMeterProvider class >> current [
 { #category : 'accessing' }
 OTMeterProvider class >> current: anOTMeterProvider [
 
-	OTClassStateStore currentValueForClass: self put: anOTMeterProvider
+	OTClassStateStore
+		valueAt: #otCurrent
+		forClass: self
+		putOrRemoveIfNil: anOTMeterProvider
 ]
 
 { #category : 'accessing' }

@@ -40,10 +40,9 @@ OTOtlpJsonLineSpanExporter >> export: spans [
 ]
 
 { #category : 'private' }
-OTOtlpJsonLineSpanExporter >> jsonLineFrom: spans [
+OTOtlpJsonLineSpanExporter >> encodedPayloadFrom: spans [
 
-	^ (ZnUtils defaultJSONWriter toString:
-		   (self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: spans))) , String lf
+	^ self encoder encodeSpans: spans
 ]
 
 { #category : 'private' }
@@ -53,9 +52,9 @@ OTOtlpJsonLineSpanExporter >> normalizedPayloadForEncoding: anObject [
 ]
 
 { #category : 'private' }
-OTOtlpJsonLineSpanExporter >> payloadEncodingSelector [
+OTOtlpJsonLineSpanExporter >> jsonLineFrom: spans [
 
-	^ #encodeSpans:
+	^ (ZnUtils defaultJSONWriter toString: (self encodedPayloadFrom: (self normalizedPayloadForEncoding: spans))) , String lf
 ]
 
 { #category : 'private' }

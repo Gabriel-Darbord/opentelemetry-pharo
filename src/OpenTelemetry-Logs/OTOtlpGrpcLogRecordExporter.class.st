@@ -33,7 +33,7 @@ OTOtlpGrpcLogRecordExporter >> otlpSignalName [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpGrpcLogRecordExporter >> payloadEncodingSelector [
+OTOtlpGrpcLogRecordExporter >> encodedPayloadFrom: logRecords [
 
-	^ #encodeLogRecords:
+	^ self encoder encodeLogRecords: logRecords
 ]
