@@ -1,3 +1,7 @@
+"
+I am a metric exporter used for tests and local inspection.
+I keep exported snapshots in memory and count forceFlush requests.
+"
 Class {
 	#name : 'OTInMemoryMetricExporter',
 	#superclass : 'OTMetricExporter',

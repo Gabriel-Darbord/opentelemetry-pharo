@@ -1,3 +1,7 @@
+"
+I am an exemplar reservoir that never retains measurements.
+I satisfy the exemplar reservoir protocol without producing exemplars.
+"
 Class {
 	#name : 'OTNoopMetricExemplarReservoir',
 	#superclass : 'OTMetricExemplarReservoir',

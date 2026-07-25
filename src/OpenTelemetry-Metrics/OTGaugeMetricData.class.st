@@ -1,3 +1,7 @@
+"
+I hold gauge metric points ready for export.
+I also provide OTLP and Prometheus encoding hooks for gauge streams.
+"
 Class {
 	#name : 'OTGaugeMetricData',
 	#superclass : 'OTMetricData',

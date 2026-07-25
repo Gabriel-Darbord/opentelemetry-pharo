@@ -1,3 +1,7 @@
+"
+I represent one summary point in the metrics data model.
+I carry count, sum, quantile values, attributes, and timestamps.
+"
 Class {
 	#name : 'OTSummaryDataPoint',
 	#superclass : 'Object',

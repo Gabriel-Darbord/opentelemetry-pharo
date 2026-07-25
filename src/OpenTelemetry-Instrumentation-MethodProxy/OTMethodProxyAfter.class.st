@@ -1,3 +1,8 @@
+"
+I am the specialized MethodProxy trap used when an instrumentation only needs an after hook.
+
+I execute the original method first, then run the handler on normal completion while preserving MethodProxy unwind behavior.
+"
 Class {
 	#name : 'OTMethodProxyAfter',
 	#superclass : 'MpMethodProxy',

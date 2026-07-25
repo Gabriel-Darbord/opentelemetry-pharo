@@ -1,3 +1,7 @@
+"
+I represent one attachment of an OTContext to a process.
+I remember the previous context so detach can restore it safely.
+"
 Class {
 	#name : 'OTContextToken',
 	#superclass : 'Object',

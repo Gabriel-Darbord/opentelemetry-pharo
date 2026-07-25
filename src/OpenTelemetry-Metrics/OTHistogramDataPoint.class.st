@@ -1,3 +1,7 @@
+"
+I represent one explicit-bucket histogram point in the metrics data model.
+I carry bounds, counts, summary fields, timestamps, and exemplars.
+"
 Class {
 	#name : 'OTHistogramDataPoint',
 	#superclass : 'Object',

@@ -1,3 +1,7 @@
+"
+I represent the current OpenTelemetry execution context.
+I carry the current span, baggage, and arbitrary keyed properties that propagate through attachment.
+"
 Class {
 	#name : 'OTContext',
 	#superclass : 'Object',

@@ -1,3 +1,7 @@
+"
+I am the abstract base class for metric exporters.
+I define lifecycle, shutdown, temporality selection, and aggregation selection for metric export.
+"
 Class {
 	#name : 'OTMetricExporter',
 	#superclass : 'Object',

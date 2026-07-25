@@ -1,3 +1,7 @@
+"
+I hold sum metric points ready for export.
+I also keep monotonicity and temporality metadata needed by OTLP and Prometheus encoders.
+"
 Class {
 	#name : 'OTSumMetricData',
 	#superclass : 'OTMetricData',

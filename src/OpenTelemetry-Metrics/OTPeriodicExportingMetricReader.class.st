@@ -1,3 +1,7 @@
+"
+I am a metric reader that periodically collects and exports snapshots through an OTMetricExporter.
+I manage the export loop, timing, and shutdown coordination.
+"
 Class {
 	#name : 'OTPeriodicExportingMetricReader',
 	#superclass : 'OTMetricReader',

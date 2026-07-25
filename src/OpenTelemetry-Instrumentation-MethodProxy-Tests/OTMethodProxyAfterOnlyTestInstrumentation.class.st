@@ -1,3 +1,8 @@
+"
+I am a test instrumentation that only implements the after hook.
+
+I am used to verify that MethodProxy hook selection chooses the dedicated after-only proxy shape.
+"
 Class {
 	#name : 'OTMethodProxyAfterOnlyTestInstrumentation',
 	#superclass : 'OTMethodProxyInstrumentation',

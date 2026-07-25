@@ -1,3 +1,8 @@
+"
+I am the slow-path unwind handler used by OTMethodProxyPassThrough.
+
+When an instrumented execution aborts or performs a non-local return, I locate the trap context, run the abnormal-exit hook, and mark the trap as complete.
+"
 Class {
 	#name : 'OTMethodProxyPassThroughDeactivator',
 	#superclass : 'MpDeactivator',

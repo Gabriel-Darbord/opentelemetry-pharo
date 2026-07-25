@@ -1,3 +1,8 @@
+"
+I am the specialized MethodProxy trap used when an instrumentation only cares about abnormal completion.
+
+I keep successful executions close to the original method path and delegate unwind handling to a dedicated slow-path deactivator.
+"
 Class {
 	#name : 'OTMethodProxyPassThrough',
 	#superclass : 'MpMethodProxy',

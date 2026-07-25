@@ -1,3 +1,7 @@
+"
+I select which attributes survive into an aggregated metric stream.
+I can keep only named keys, drop named keys, or pass everything through.
+"
 Class {
 	#name : 'OTMetricAttributeFilter',
 	#superclass : 'Object',

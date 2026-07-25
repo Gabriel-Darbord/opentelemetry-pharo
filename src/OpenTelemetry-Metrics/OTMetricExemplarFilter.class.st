@@ -1,3 +1,7 @@
+"
+I decide whether a measurement is eligible to become an exemplar.
+Concrete subclasses provide the actual eligibility policy.
+"
 Class {
 	#name : 'OTMetricExemplarFilter',
 	#superclass : 'Object',

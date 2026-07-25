@@ -1,3 +1,7 @@
+"
+I keep at most one exemplar candidate per explicit histogram bucket.
+I align exemplar storage with bucket boundaries so collection can emit bucket-local exemplars.
+"
 Class {
 	#name : 'OTAlignedHistogramBucketMetricExemplarReservoir',
 	#superclass : 'OTMetricExemplarReservoir',

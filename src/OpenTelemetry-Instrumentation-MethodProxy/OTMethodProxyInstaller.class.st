@@ -1,3 +1,8 @@
+"
+I install and uninstall MethodProxy-backed instrumentations.
+
+I create the proxy selected by the instrumentation class and I clean up MethodProxy artifacts such as hidden selectors and trap methods when instrumentation is refreshed or removed.
+"
 Class {
 	#name : 'OTMethodProxyInstaller',
 	#superclass : 'OTAgentInstaller',

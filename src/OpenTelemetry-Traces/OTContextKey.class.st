@@ -1,3 +1,7 @@
+"
+I am a key object used to store and retrieve custom values in an OTContext.
+I keep a printable name for diagnostics while my object identity distinguishes one key from another.
+"
 Class {
 	#name : 'OTContextKey',
 	#superclass : 'Object',

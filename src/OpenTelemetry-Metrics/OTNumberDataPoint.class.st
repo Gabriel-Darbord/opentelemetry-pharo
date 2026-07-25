@@ -1,3 +1,7 @@
+"
+I represent one numeric gauge or sum point in the metrics data model.
+I carry attributes, value, timestamps, and any attached exemplars.
+"
 Class {
 	#name : 'OTNumberDataPoint',
 	#superclass : 'Object',

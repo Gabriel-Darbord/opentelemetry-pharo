@@ -1,3 +1,7 @@
+"
+I describe a metrics view that rewrites or filters instrument streams at collection time.
+I can match instruments and choose stream identity, attribute retention, aggregation, cardinality, and exemplar behavior.
+"
 Class {
 	#name : 'OTMetricView',
 	#superclass : 'Object',

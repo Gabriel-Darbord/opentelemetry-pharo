@@ -1,3 +1,7 @@
+"
+I represent one exponential histogram point in the metrics data model.
+I carry attributes, bucket ranges, summary fields, timestamps, and exemplars.
+"
 Class {
 	#name : 'OTExponentialHistogramDataPoint',
 	#superclass : 'Object',

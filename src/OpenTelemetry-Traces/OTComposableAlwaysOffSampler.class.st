@@ -1,3 +1,7 @@
+"
+I am a composable sampler that always drops spans.
+I contribute a drop intent to composed sampling decisions.
+"
 Class {
 	#name : 'OTComposableAlwaysOffSampler',
 	#superclass : 'OTComposableSampler',

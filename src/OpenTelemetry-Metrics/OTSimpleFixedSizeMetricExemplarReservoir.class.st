@@ -1,3 +1,7 @@
+"
+I keep a fixed-size sample of exemplar candidates using reservoir sampling.
+Collection drains the stored measurements into exemplars and resets the reservoir.
+"
 Class {
 	#name : 'OTSimpleFixedSizeMetricExemplarReservoir',
 	#superclass : 'OTMetricExemplarReservoir',

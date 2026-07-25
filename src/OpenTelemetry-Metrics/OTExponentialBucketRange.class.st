@@ -1,3 +1,7 @@
+"
+I represent one positive or negative bucket range in an exponential histogram data point.
+I store the offset and bucket counts for that range.
+"
 Class {
 	#name : 'OTExponentialBucketRange',
 	#superclass : 'Object',

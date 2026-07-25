@@ -1,3 +1,7 @@
+"
+I represent the outcome of a lifecycle operation such as flush or shutdown.
+I distinguish success, failure, and timeout, and I can be combined across multiple components.
+"
 Class {
 	#name : 'OTLifecycleResult',
 	#superclass : 'Object',

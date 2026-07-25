@@ -1,3 +1,7 @@
+"
+I bridge TinyLogger-style logging calls into an OTLogger.
+I let a TinyLogger frontend choose severity, body, attributes, and event names for exported log records.
+"
 Class {
 	#name : 'OTTinyLoggerBridge',
 	#superclass : 'Object',

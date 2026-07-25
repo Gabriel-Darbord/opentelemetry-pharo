@@ -1,3 +1,7 @@
+"
+I am the base class for MetaLink-backed instrumentations.
+I derive the MetaLink control flow from the hooks implemented by a concrete instrumentation and provide the runtime entry points for those hooks.
+"
 Class {
 	#name : 'OTMetaLinkInstrumentation',
 	#superclass : 'OTInstrumentation',

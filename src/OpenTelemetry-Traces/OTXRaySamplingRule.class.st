@@ -1,3 +1,7 @@
+"
+I represent one AWS X-Ray sampling rule together with its local runtime state.
+I match requests, track reservoir usage, and produce sampling decisions.
+"
 Class {
 	#name : 'OTXRaySamplingRule',
 	#superclass : 'Object',

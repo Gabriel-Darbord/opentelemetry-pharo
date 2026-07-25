@@ -1,3 +1,7 @@
+"
+I install and uninstall MetaLink-backed instrumentations.
+I configure the MetaLink reifications and control mode required by an OTMetaLinkInstrumentation subclass.
+"
 Class {
 	#name : 'OTMetaLinkInstaller',
 	#superclass : 'OTAgentInstaller',

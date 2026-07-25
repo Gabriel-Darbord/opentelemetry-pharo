@@ -1,3 +1,7 @@
+"
+I hold summary metric points ready for export.
+I also provide OTLP and Prometheus encoding hooks for summary streams.
+"
 Class {
 	#name : 'OTSummaryMetricData',
 	#superclass : 'OTMetricData',

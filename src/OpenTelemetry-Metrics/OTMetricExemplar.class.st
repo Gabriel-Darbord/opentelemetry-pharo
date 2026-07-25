@@ -1,3 +1,7 @@
+"
+I represent a sampled measurement attached to an aggregated metric point.
+I keep the exemplar value, timestamp, filtered attributes, and optional trace and span identifiers.
+"
 Class {
 	#name : 'OTMetricExemplar',
 	#superclass : 'Object',

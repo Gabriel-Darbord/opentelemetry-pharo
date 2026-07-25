@@ -1,3 +1,7 @@
+"
+I hold exponential histogram metric points ready for export.
+I also know how to encode that stream for OTLP.
+"
 Class {
 	#name : 'OTExponentialHistogramMetricData',
 	#superclass : 'OTMetricData',

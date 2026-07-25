@@ -1,3 +1,7 @@
+"
+I am the abstract base class for metric readers.
+I collect measurements from a provider, apply per-stream aggregation policy, and manage reader lifecycle state.
+"
 Class {
 	#name : 'OTMetricReader',
 	#superclass : 'Object',

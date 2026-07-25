@@ -1,3 +1,7 @@
+"
+I represent one quantile entry inside a summary data point.
+I store the quantile rank and its observed value.
+"
 Class {
 	#name : 'OTSummaryQuantileValue',
 	#superclass : 'Object',

@@ -1,3 +1,7 @@
+"
+I expose collected metrics through a small Prometheus scraping endpoint.
+I use OTPrometheusTextEncoder to serve snapshots in Prometheus text formats.
+"
 Class {
 	#name : 'OTPrometheusMetricReader',
 	#superclass : 'OTMetricReader',

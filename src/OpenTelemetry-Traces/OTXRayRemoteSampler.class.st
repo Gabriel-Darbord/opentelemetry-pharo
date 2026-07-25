@@ -1,3 +1,7 @@
+"
+I poll AWS X-Ray remote sampling rules and apply them locally.
+I manage rule refresh, background polling, and conversion from remote rules to OpenTelemetry sampling decisions.
+"
 Class {
 	#name : 'OTXRayRemoteSampler',
 	#superclass : 'OTSampler',

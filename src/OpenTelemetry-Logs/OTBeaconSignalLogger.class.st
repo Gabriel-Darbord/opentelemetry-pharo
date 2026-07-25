@@ -1,3 +1,7 @@
+"
+I bridge Beacon signals into OpenTelemetry logs.
+I map each emitted signal to severity, body, attributes, and an optional event name.
+"
 Class {
 	#name : 'OTBeaconSignalLogger',
 	#superclass : 'SignalLogger',

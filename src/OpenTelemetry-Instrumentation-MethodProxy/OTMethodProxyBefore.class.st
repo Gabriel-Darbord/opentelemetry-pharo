@@ -1,3 +1,8 @@
+"
+I am the specialized MethodProxy trap used when an instrumentation only needs a before hook.
+
+I run the handler before the original method while preserving the unwind behavior expected by MethodProxy.
+"
 Class {
 	#name : 'OTMethodProxyBefore',
 	#superclass : 'MpMethodProxy',

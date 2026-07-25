@@ -1,3 +1,7 @@
+"
+I am the abstract storage policy for metric exemplars.
+Concrete subclasses decide which eligible measurements are retained and later emitted.
+"
 Class {
 	#name : 'OTMetricExemplarReservoir',
 	#superclass : 'Object',

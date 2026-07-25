@@ -1,3 +1,7 @@
+"
+I represent one collection snapshot of the metrics pipeline.
+I keep the resource, raw measurements, aggregated metrics, and collection timestamp together.
+"
 Class {
 	#name : 'OTMetricSnapshot',
 	#superclass : 'Object',

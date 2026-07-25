@@ -1,3 +1,7 @@
+"
+I describe how one reader should aggregate a metric stream during collection.
+I carry timestamps, temporality, aggregation choice, attribute filtering, cardinality limits, and exemplar settings.
+"
 Class {
 	#name : 'OTMetricAggregationContext',
 	#superclass : 'Object',

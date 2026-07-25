@@ -1,3 +1,7 @@
+"
+I hold explicit-bucket histogram metric points ready for export.
+I also provide OTLP and Prometheus encoding hooks for histogram streams.
+"
 Class {
 	#name : 'OTHistogramMetricData',
 	#superclass : 'OTMetricData',

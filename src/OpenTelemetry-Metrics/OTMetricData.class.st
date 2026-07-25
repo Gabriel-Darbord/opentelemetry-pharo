@@ -1,3 +1,7 @@
+"
+I am the abstract base class for exported metric streams.
+I store metric identity and aggregated points, while concrete subclasses define the concrete data type and encodings.
+"
 Class {
 	#name : 'OTMetricData',
 	#superclass : 'Object',

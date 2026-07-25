@@ -1,3 +1,8 @@
+"
+I am a test instrumentation that creates spans around instrumented executions.
+
+The MethodProxy span tests use me to assert span naming, kind, status, suppression, and context propagation behavior.
+"
 Class {
 	#name : 'OTMethodProxySpanTestInstrumentation',
 	#superclass : 'OTMethodProxyInstrumentation',

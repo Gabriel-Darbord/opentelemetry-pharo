@@ -1,3 +1,7 @@
+"
+I disable exemplar capture for metric streams.
+No measurement is eligible when I am active.
+"
 Class {
 	#name : 'OTAlwaysOffMetricExemplarFilter',
 	#superclass : 'OTMetricExemplarFilter',

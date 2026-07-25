@@ -1,3 +1,8 @@
+"
+I cover the core behavior of the MethodProxy backend.
+
+My tests check installation, execution of hooks, cleanup of proxy artifacts, and behavior on exceptional exits.
+"
 Class {
 	#name : 'OTMethodProxyInstrumentationTest',
 	#superclass : 'OTAbstractInstrumentationTest',

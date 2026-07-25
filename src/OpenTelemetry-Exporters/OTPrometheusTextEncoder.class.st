@@ -1,3 +1,7 @@
+"
+I encode aggregated metric snapshots into Prometheus text exposition formats.
+I also normalize Prometheus names, types, labels, and warning paths.
+"
 Class {
 	#name : 'OTPrometheusTextEncoder',
 	#superclass : 'Object',

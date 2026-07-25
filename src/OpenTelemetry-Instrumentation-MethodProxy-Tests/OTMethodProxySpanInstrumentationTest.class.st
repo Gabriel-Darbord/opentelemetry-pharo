@@ -1,3 +1,8 @@
+"
+I exercise span-producing instrumentations through the MethodProxy backend.
+
+My tests verify that instrumented executions create and finish spans with the expected OpenTelemetry-facing behavior.
+"
 Class {
 	#name : 'OTMethodProxySpanInstrumentationTest',
 	#superclass : 'OTAbstractInstrumentationTest',

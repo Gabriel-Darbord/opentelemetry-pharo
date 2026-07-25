@@ -1,3 +1,8 @@
+"
+I verify that MethodProxy-backed instrumentations pick the lightest proxy implementation that can satisfy their hooks.
+
+I also check that the selected proxy shape still preserves the expected observable behavior.
+"
 Class {
 	#name : 'OTMethodProxyHookSelectionTest',
 	#superclass : 'TestCase',

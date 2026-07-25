@@ -1,3 +1,7 @@
+"
+I am a metric exporter that accepts snapshots and drops them.
+I satisfy the exporter protocol without producing side effects.
+"
 Class {
 	#name : 'OTNoopMetricExporter',
 	#superclass : 'OTMetricExporter',

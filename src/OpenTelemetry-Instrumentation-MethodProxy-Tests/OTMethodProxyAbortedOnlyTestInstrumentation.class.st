@@ -1,3 +1,8 @@
+"
+I am a test instrumentation that only implements the abnormal-exit hook.
+
+I am used to verify that MethodProxy hook selection chooses the pass-through proxy shape while still reporting aborted executions.
+"
 Class {
 	#name : 'OTMethodProxyAbortedOnlyTestInstrumentation',
 	#superclass : 'OTMethodProxyInstrumentation',

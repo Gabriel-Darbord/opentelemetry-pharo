@@ -1,3 +1,7 @@
+"
+I am the observer object passed to asynchronous metric callbacks.
+Callbacks record observations through me and I accumulate the resulting measurements.
+"
 Class {
 	#name : 'OTAsynchronousMetricObserver',
 	#superclass : 'Object',

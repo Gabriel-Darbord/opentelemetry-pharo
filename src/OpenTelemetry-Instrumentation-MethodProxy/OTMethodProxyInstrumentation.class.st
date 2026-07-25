@@ -1,3 +1,8 @@
+"
+I am the base class for MethodProxy-backed instrumentations.
+
+I decide which proxy shape is needed from the hooks implemented by a concrete instrumentation, and I define the default before, after, and abnormal-exit lifecycle hooks used by that backend.
+"
 Class {
 	#name : 'OTMethodProxyInstrumentation',
 	#superclass : 'OTInstrumentation',

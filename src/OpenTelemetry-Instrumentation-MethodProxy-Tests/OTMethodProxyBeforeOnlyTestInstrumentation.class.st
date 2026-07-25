@@ -1,3 +1,8 @@
+"
+I am a test instrumentation that only implements the before hook.
+
+I am used to verify that MethodProxy hook selection chooses the dedicated before-only proxy shape.
+"
 Class {
 	#name : 'OTMethodProxyBeforeOnlyTestInstrumentation',
 	#superclass : 'OTMethodProxyInstrumentation',

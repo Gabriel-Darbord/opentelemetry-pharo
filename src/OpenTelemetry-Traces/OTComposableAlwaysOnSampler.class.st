@@ -1,3 +1,7 @@
+"
+I am a composable sampler that always samples spans.
+I contribute a zero-threshold sampling intent to composed sampling decisions.
+"
 Class {
 	#name : 'OTComposableAlwaysOnSampler',
 	#superclass : 'OTComposableSampler',
