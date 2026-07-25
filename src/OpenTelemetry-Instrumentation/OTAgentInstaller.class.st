@@ -102,8 +102,7 @@ OTAgentInstaller class >> reinstall [
 OTAgentInstaller class >> resetEnvironment [
 
 	<script>
-	OTSpan reset.
-	OTSpanProcessor flush
+	
 ]
 
 { #category : 'actions' }

@@ -8,6 +8,18 @@ Class {
 	#package : 'OpenTelemetry-Exporters'
 }
 
+{ #category : 'private' }
+OTOtlpProtobufMetricEncoder class >> byteArrayFromHex: aString size: anInteger [
+
+	| bytes |
+	bytes := ByteArray new: anInteger.
+	1 to: anInteger do: [ :index |
+			| start |
+			start := index - 1 * 2 + 1.
+			bytes at: index put: (Integer readFrom: (aString copyFrom: start to: start + 1) readStream base: 16) ].
+	^ bytes
+]
+
 { #category : 'private - encoding' }
 OTOtlpProtobufMetricEncoder >> encodeMetric: anOTMetricData on: aWriter [
 
@@ -110,11 +122,11 @@ OTOtlpProtobufMetricEncoder >> writeExemplar: anOTMetricExemplar on: aWriter [
 	anOTMetricExemplar spanId ifNotNil: [
 			aWriter
 				writeTag: 4 wireType: 2;
-				writeBytes: (OTSpanContext byteArrayFromHex: anOTMetricExemplar spanId size: 8) ].
+				writeBytes: (self class byteArrayFromHex: anOTMetricExemplar spanId size: 8) ].
 	anOTMetricExemplar traceId ifNotNil: [
 			aWriter
 				writeTag: 5 wireType: 2;
-				writeBytes: (OTSpanContext byteArrayFromHex: anOTMetricExemplar traceId size: 16) ].
+				writeBytes: (self class byteArrayFromHex: anOTMetricExemplar traceId size: 16) ].
 	self writeAttributes: anOTMetricExemplar filteredAttributes fieldNumber: 7 on: aWriter
 ]
 

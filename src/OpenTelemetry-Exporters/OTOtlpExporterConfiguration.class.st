@@ -350,7 +350,7 @@ OTOtlpExporterConfiguration class >> signalEnvironmentNameFor: aSignalName suffi
 OTOtlpExporterConfiguration class >> strictBooleanFrom: aBooleanOrString [
 
 	| value |
-	(OTAttributeNormalizer isBoolean: aBooleanOrString) ifTrue: [ ^ aBooleanOrString ].
+	(aBooleanOrString == true or: [ aBooleanOrString == false ]) ifTrue: [ ^ aBooleanOrString ].
 	(aBooleanOrString isString or: [ aBooleanOrString isSymbol ]) ifFalse: [ ^ nil ].
 	value := aBooleanOrString asString trimBoth asLowercase.
 	value = 'true' ifTrue: [ ^ true ].

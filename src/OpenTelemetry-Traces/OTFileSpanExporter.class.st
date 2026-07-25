@@ -1,0 +1,31 @@
+"
+I am used for exporting spans to local files.
+By default, spans are exported to the `pharo-local/OpenTelemetry/traces` folder of the image.
+"
+Class {
+	#name : 'OTFileSpanExporter',
+	#superclass : 'OTSpanExporter',
+	#instVars : [
+		'directory'
+	],
+	#category : 'OpenTelemetry-Traces',
+	#package : 'OpenTelemetry-Traces'
+}
+
+{ #category : 'testing' }
+OTFileSpanExporter class >> isAbstract [
+
+	^ self == OTFileSpanExporter
+]
+
+{ #category : 'accessing' }
+OTFileSpanExporter >> directory [
+
+	^ directory ifNil: [ directory := FileLocator imageDirectory / 'pharo-local' / 'OpenTelemetry' / 'traces' ]
+]
+
+{ #category : 'accessing' }
+OTFileSpanExporter >> directory: aFileReference [
+
+	directory := aFileReference
+]

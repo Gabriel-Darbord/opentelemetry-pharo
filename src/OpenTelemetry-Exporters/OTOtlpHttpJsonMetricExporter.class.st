@@ -312,7 +312,7 @@ OTOtlpHttpJsonMetricExporter >> nonNegativeIntegerFrom: anObject default: aDefau
 	| parsed |
 	anObject ifNil: [ ^ aDefaultValue ].
 	(anObject isInteger and: [ anObject >= 0 ]) ifTrue: [ ^ anObject ].
-	parsed := OTSpanExporter strictPositiveIntegerFrom: anObject asString.
+	parsed := self strictPositiveIntegerFrom: anObject asString.
 	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
 ]
 
@@ -347,8 +347,8 @@ OTOtlpHttpJsonMetricExporter >> parseRetryAfterMillisFrom: aValue [
 
 	| parsed |
 	aValue ifNil: [ ^ nil ].
-	parsed := OTSpanExporter strictPositiveIntegerFrom: aValue asString.
-	^ parsed ifNil: [ nil ] ifNotNil: [ parsed * 1000 ]
+	parsed := self strictPositiveIntegerFrom: aValue asString.
+	^ parsed ifNotNil: [ parsed * 1000 ]
 ]
 
 { #category : 'private - success handling' }
@@ -453,6 +453,20 @@ OTOtlpHttpJsonMetricExporter >> sleepStrategy: aBlock [
 
 	sleepStrategy := aBlock.
 	^ self sleepStrategy
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonMetricExporter >> strictPositiveIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value > 0 ifFalse: [ ^ nil ].
+	^ value
 ]
 
 { #category : 'private - success handling' }
