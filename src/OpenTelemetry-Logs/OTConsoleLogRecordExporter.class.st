@@ -1,6 +1,8 @@
 "
 A standard-output exporter intended for debugging and learning purposes.
 Its output format is intentionally unspecified.
+
+The SDK serializes Export calls per exporter instance. Before shutdown, export writes formatted log lines to the configured stream. After shutdown, export and lifecycle operations fail according to the OTLogRecordExporter contract.
 "
 Class {
 	#name : 'OTConsoleLogRecordExporter',
@@ -16,6 +18,7 @@ Class {
 OTConsoleLogRecordExporter >> export: someLogRecords [
 
 	| stream |
+	self isShutdown ifTrue: [ ^ false ].
 	stream := self outputStream.
 	someLogRecords do: [ :each |
 			stream
