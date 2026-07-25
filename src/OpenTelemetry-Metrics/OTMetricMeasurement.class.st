@@ -45,18 +45,6 @@ OTMetricMeasurement >> attributes: aCollection [
 ]
 
 { #category : 'accessing' }
-OTMetricMeasurement >> exemplarEligible [
-
-	^ exemplarEligible = true
-]
-
-{ #category : 'accessing' }
-OTMetricMeasurement >> exemplarEligible: aBoolean [
-
-	exemplarEligible := aBoolean = true
-]
-
-{ #category : 'accessing' }
 OTMetricMeasurement >> exemplarAttributes [
 
 	^ exemplarAttributes ifNil: [ self attributes ]
@@ -66,6 +54,18 @@ OTMetricMeasurement >> exemplarAttributes [
 OTMetricMeasurement >> exemplarAttributes: aCollection [
 
 	exemplarAttributes := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarEligible [
+
+	^ exemplarEligible = true
+]
+
+{ #category : 'accessing' }
+OTMetricMeasurement >> exemplarEligible: aBoolean [
+
+	exemplarEligible := aBoolean = true
 ]
 
 { #category : 'accessing' }

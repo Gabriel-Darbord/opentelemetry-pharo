@@ -25,6 +25,18 @@ OTOtlpHttpProtobufMetricExporter >> applyConfigurationToHttpClient [
 ]
 
 { #category : 'private - encoding' }
+OTOtlpHttpProtobufMetricExporter >> defaultEncoderClass [
+
+	^ OTOtlpProtobufMetricEncoder
+]
+
+{ #category : 'accessing' }
+OTOtlpHttpProtobufMetricExporter >> defaultResponseDecoderClass [
+
+	^ OTOtlpProtobufMetricResponseDecoder
+]
+
+{ #category : 'private - encoding' }
 OTOtlpHttpProtobufMetricExporter >> entityForPayload: aByteArray [
 
 	| entity |
@@ -48,9 +60,7 @@ OTOtlpHttpProtobufMetricExporter >> gzipCompressedBytesFor: aByteArray [
 { #category : 'private - encoding' }
 OTOtlpHttpProtobufMetricExporter >> payloadStringFrom: anObject [
 
-	^ self encoder
-		  perform: self payloadEncodingSelector
-		  with: (self normalizedPayloadForEncoding: anObject)
+	^ self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: anObject)
 ]
 
 { #category : 'accessing' }
@@ -72,16 +82,4 @@ OTOtlpHttpProtobufMetricExporter >> successfulResponseRepresentationFrom: aRespo
 	contents := self decodedResponseContentsFrom: aResponse.
 	contents ifNil: [ Error signal: 'Missing OTLP success response body' ].
 	^ self responseDecoder decodeResponse: contents
-]
-
-{ #category : 'private - encoding' }
-OTOtlpHttpProtobufMetricExporter >> defaultEncoderClass [
-
-	^ OTOtlpProtobufMetricEncoder
-]
-
-{ #category : 'accessing' }
-OTOtlpHttpProtobufMetricExporter >> defaultResponseDecoderClass [
-
-	^ OTOtlpProtobufMetricResponseDecoder
 ]

@@ -185,6 +185,12 @@ OTOtlpHttpJsonMetricExporter >> decodedResponseContentsFrom: aResponse [
 	^ (GZipReadStream on: contents readStream) upToEnd
 ]
 
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonMetricExporter >> defaultEncoderClass [
+
+	^ OTOtlpJsonMetricEncoder
+]
+
 { #category : 'accessing' }
 OTOtlpHttpJsonMetricExporter >> encoder [
 
@@ -270,12 +276,6 @@ OTOtlpHttpJsonMetricExporter >> handleSuccessResponse: aResponse [
 	^ true
 ]
 
-{ #category : 'private - encoding' }
-OTOtlpHttpJsonMetricExporter >> defaultEncoderClass [
-
-	^ OTOtlpJsonMetricEncoder
-]
-
 { #category : 'testing' }
 OTOtlpHttpJsonMetricExporter >> hasUserAgentHeaderConfigured: aDictionary [
 
@@ -323,14 +323,17 @@ OTOtlpHttpJsonMetricExporter >> nonNegativeIntegerFrom: anObject default: aDefau
 	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
 ]
 
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonMetricExporter >> normalizedPayloadForEncoding: anOTMetricSnapshot [
+
+	^ anOTMetricSnapshot
+]
+
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter >> noteInvalidSuccessResponse: anError [
 
 	self warningSink value:
-		(OTOtlpExportSupport
-			invalidSuccessResponseMessageForSignal: self otlpSignalName
-			transport: 'HTTP'
-			error: anError)
+		(OTOtlpExportSupport invalidSuccessResponseMessageForSignal: self otlpSignalName transport: 'HTTP' error: anError)
 ]
 
 { #category : 'private - logging' }
@@ -342,17 +345,20 @@ OTOtlpHttpJsonMetricExporter >> notePartialSuccess: aDictionary [
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter >> noteRetryExhaustedForError: anError [
 
-	self warningSink value:
-		(OTOtlpExportSupport retryExhaustedForTransportErrorMessageForSignal: self otlpSignalName error: anError)
+	self warningSink value: (OTOtlpExportSupport retryExhaustedForTransportErrorMessageForSignal: self otlpSignalName error: anError)
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter >> noteRetryExhaustedForResponse: aResponse [
 
 	self warningSink value:
-		(OTOtlpExportSupport
-			retryExhaustedForHttpStatusMessageForSignal: self otlpSignalName
-			code: (self responseCodeFrom: aResponse))
+		(OTOtlpExportSupport retryExhaustedForHttpStatusMessageForSignal: self otlpSignalName code: (self responseCodeFrom: aResponse))
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonMetricExporter >> otlpSignalName [
+
+	^ 'metric'
 ]
 
 { #category : 'private - retry' }
@@ -377,31 +383,16 @@ OTOtlpHttpJsonMetricExporter >> partialSuccessFrom: aDictionary [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpHttpJsonMetricExporter >> payloadStringFrom: anOTMetricSnapshot [
-
-	^ ZnUtils defaultJSONWriter
-		  toString:
-		  (self encoder
-			   perform: self payloadEncodingSelector
-			   with: (self normalizedPayloadForEncoding: anOTMetricSnapshot))
-]
-
-{ #category : 'private - encoding' }
-OTOtlpHttpJsonMetricExporter >> normalizedPayloadForEncoding: anOTMetricSnapshot [
-
-	^ anOTMetricSnapshot
-]
-
-{ #category : 'private - logging' }
-OTOtlpHttpJsonMetricExporter >> otlpSignalName [
-
-	^ 'metric'
-]
-
-{ #category : 'private - encoding' }
 OTOtlpHttpJsonMetricExporter >> payloadEncodingSelector [
 
 	^ #encodeSnapshot:
+]
+
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonMetricExporter >> payloadStringFrom: anOTMetricSnapshot [
+
+	^ ZnUtils defaultJSONWriter toString:
+		  (self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: anOTMetricSnapshot))
 ]
 
 { #category : 'private - success handling' }

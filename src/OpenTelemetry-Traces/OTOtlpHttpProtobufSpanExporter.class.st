@@ -33,6 +33,18 @@ OTOtlpHttpProtobufSpanExporter >> applyConfigurationToHttpClient [
 ]
 
 { #category : 'private - encoding' }
+OTOtlpHttpProtobufSpanExporter >> defaultEncoderClass [
+
+	^ OTOtlpProtobufTraceEncoder
+]
+
+{ #category : 'accessing' }
+OTOtlpHttpProtobufSpanExporter >> defaultResponseDecoderClass [
+
+	^ OTOtlpProtobufTraceResponseDecoder
+]
+
+{ #category : 'private - encoding' }
 OTOtlpHttpProtobufSpanExporter >> entityForPayload: aByteArray [
 
 	| entity |
@@ -56,9 +68,7 @@ OTOtlpHttpProtobufSpanExporter >> gzipCompressedBytesFor: aByteArray [
 { #category : 'private - encoding' }
 OTOtlpHttpProtobufSpanExporter >> payloadStringFrom: anObject [
 
-	^ self encoder
-		  perform: self payloadEncodingSelector
-		  with: (self normalizedPayloadForEncoding: anObject)
+	^ self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: anObject)
 ]
 
 { #category : 'accessing' }
@@ -80,16 +90,4 @@ OTOtlpHttpProtobufSpanExporter >> successfulResponseRepresentationFrom: aRespons
 	contents := self decodedResponseContentsFrom: aResponse.
 	contents ifNil: [ Error signal: 'Missing OTLP success response body' ].
 	^ self responseDecoder decodeResponse: contents
-]
-
-{ #category : 'private - encoding' }
-OTOtlpHttpProtobufSpanExporter >> defaultEncoderClass [
-
-	^ OTOtlpProtobufTraceEncoder
-]
-
-{ #category : 'accessing' }
-OTOtlpHttpProtobufSpanExporter >> defaultResponseDecoderClass [
-
-	^ OTOtlpProtobufTraceResponseDecoder
 ]

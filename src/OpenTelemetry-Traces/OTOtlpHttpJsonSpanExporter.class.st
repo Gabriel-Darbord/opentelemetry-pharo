@@ -120,6 +120,12 @@ OTOtlpHttpJsonSpanExporter >> decodedResponseContentsFrom: aResponse [
 	^ (GZipReadStream on: contents readStream) upToEnd
 ]
 
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonSpanExporter >> defaultEncoderClass [
+
+	^ OTOtlpJsonTraceEncoder
+]
+
 { #category : 'accessing' }
 OTOtlpHttpJsonSpanExporter >> encoder [
 
@@ -208,12 +214,6 @@ OTOtlpHttpJsonSpanExporter >> handleSuccessResponse: aResponse [
 	^ true
 ]
 
-{ #category : 'private - encoding' }
-OTOtlpHttpJsonSpanExporter >> defaultEncoderClass [
-
-	^ OTOtlpJsonTraceEncoder
-]
-
 { #category : 'testing' }
 OTOtlpHttpJsonSpanExporter >> hasUserAgentHeaderConfigured: aDictionary [
 
@@ -261,14 +261,17 @@ OTOtlpHttpJsonSpanExporter >> nonNegativeIntegerFrom: anObject default: aDefault
 	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
 ]
 
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonSpanExporter >> normalizedPayloadForEncoding: anObject [
+
+	^ anObject asArray
+]
+
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteInvalidSuccessResponse: anError [
 
 	self warningSink value:
-		(OTOtlpExportSupport
-			invalidSuccessResponseMessageForSignal: self otlpSignalName
-			transport: 'HTTP'
-			error: anError)
+		(OTOtlpExportSupport invalidSuccessResponseMessageForSignal: self otlpSignalName transport: 'HTTP' error: anError)
 ]
 
 { #category : 'private - logging' }
@@ -280,23 +283,26 @@ OTOtlpHttpJsonSpanExporter >> notePartialSuccess: aDictionary [
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForError: anError [
 
-	self warningSink value:
-		(OTOtlpExportSupport retryExhaustedForTransportErrorMessageForSignal: self otlpSignalName error: anError)
+	self warningSink value: (OTOtlpExportSupport retryExhaustedForTransportErrorMessageForSignal: self otlpSignalName error: anError)
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter >> noteRetryExhaustedForResponse: aResponse [
 
 	self warningSink value:
-		(OTOtlpExportSupport
-			retryExhaustedForHttpStatusMessageForSignal: self otlpSignalName
-			code: (self responseCodeFrom: aResponse))
+		(OTOtlpExportSupport retryExhaustedForHttpStatusMessageForSignal: self otlpSignalName code: (self responseCodeFrom: aResponse))
 ]
 
 { #category : 'private - tls' }
 OTOtlpHttpJsonSpanExporter >> operatingSystemName [
 
 	^ Smalltalk vm operatingSystemName
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> otlpSignalName [
+
+	^ 'trace'
 ]
 
 { #category : 'private - retry' }
@@ -321,31 +327,16 @@ OTOtlpHttpJsonSpanExporter >> partialSuccessFrom: aDictionary [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpHttpJsonSpanExporter >> payloadStringFrom: spans [
-
-	^ ZnUtils defaultJSONWriter
-		  toString:
-		  (self encoder
-			   perform: self payloadEncodingSelector
-			   with: (self normalizedPayloadForEncoding: spans))
-]
-
-{ #category : 'private - encoding' }
-OTOtlpHttpJsonSpanExporter >> normalizedPayloadForEncoding: anObject [
-
-	^ anObject asArray
-]
-
-{ #category : 'private - logging' }
-OTOtlpHttpJsonSpanExporter >> otlpSignalName [
-
-	^ 'trace'
-]
-
-{ #category : 'private - encoding' }
 OTOtlpHttpJsonSpanExporter >> payloadEncodingSelector [
 
 	^ #encodeSpans:
+]
+
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonSpanExporter >> payloadStringFrom: spans [
+
+	^ ZnUtils defaultJSONWriter toString:
+		  (self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: spans))
 ]
 
 { #category : 'private - tls' }

@@ -11,6 +11,12 @@ Class {
 	#package : 'OpenTelemetry-Traces'
 }
 
+{ #category : 'private' }
+OTOtlpJsonLineSpanExporter >> defaultEncoderClass [
+
+	^ OTOtlpJsonTraceEncoder
+]
+
 { #category : 'accessing' }
 OTOtlpJsonLineSpanExporter >> encoder [
 
@@ -34,19 +40,10 @@ OTOtlpJsonLineSpanExporter >> export: spans [
 ]
 
 { #category : 'private' }
-OTOtlpJsonLineSpanExporter >> defaultEncoderClass [
-
-	^ OTOtlpJsonTraceEncoder
-]
-
-{ #category : 'private' }
 OTOtlpJsonLineSpanExporter >> jsonLineFrom: spans [
 
-	^ (ZnUtils defaultJSONWriter
-		   toString:
-		   (self encoder
-			    perform: self payloadEncodingSelector
-			    with: (self normalizedPayloadForEncoding: spans))) , String lf
+	^ (ZnUtils defaultJSONWriter toString:
+		   (self encoder perform: self payloadEncodingSelector with: (self normalizedPayloadForEncoding: spans))) , String lf
 ]
 
 { #category : 'private' }
