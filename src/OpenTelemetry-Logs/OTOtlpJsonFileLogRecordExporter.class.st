@@ -1,5 +1,8 @@
 "
 An OTLP logs exporter that appends JSON-line OTLP payloads to a local file.
+
+It inherits per-instance export serialization from the JSON-line exporter so
+file appends are not performed concurrently by the SDK on the same exporter.
 "
 Class {
 	#name : 'OTOtlpJsonFileLogRecordExporter',

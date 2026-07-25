@@ -1,7 +1,9 @@
 "
 A backend-agnostic entry point to the OpenTelemetry logs API and SDK.
 
-Instances are safe for concurrent logger lookup, force flush, and shutdown. Returned loggers keep delegating through their provider so later provider configuration changes become visible without reacquiring the logger.
+Instances are safe for concurrent logger creation and lookup, force flush, and
+shutdown. Returned loggers keep delegating through their provider so later
+provider configuration changes become visible without reacquiring the logger.
 "
 Class {
 	#name : 'OTLoggerProvider',

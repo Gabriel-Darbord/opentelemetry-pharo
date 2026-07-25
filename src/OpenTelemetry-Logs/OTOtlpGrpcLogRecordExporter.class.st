@@ -1,5 +1,10 @@
 "
 An OTLP logs exporter that sends protobuf-encoded ExportLogsServiceRequest payloads over gRPC.
+
+Per exporter instance, exports run through the shared OTLP gRPC export lock so
+the SDK never invokes transport sends concurrently. ForceFlush and Shutdown may
+still race with exporter-managed work and therefore follow the lifecycle
+contract documented on the exporter base classes.
 "
 Class {
 	#name : 'OTOtlpGrpcLogRecordExporter',

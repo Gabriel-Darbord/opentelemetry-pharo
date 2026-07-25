@@ -1,5 +1,10 @@
 "
 An OTLP logs exporter that sends protobuf-encoded ExportLogsServiceRequest payloads over HTTP.
+
+It inherits the same per-instance HTTP export serialization as the JSON OTLP
+HTTP exporter. ForceFlush and Shutdown may still race with exporter-managed
+work and therefore follow the lifecycle contract documented on the exporter
+base classes.
 "
 Class {
 	#name : 'OTOtlpHttpProtobufLogRecordExporter',
