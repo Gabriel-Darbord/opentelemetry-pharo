@@ -405,11 +405,6 @@ OTLoggerProvider >> emitForLogger: anOTLogger timestamp: aTimestamp observedTime
 	context := self effectiveContextFrom: anOTContext.
 	config := self loggerConfigFor: anOTLogger instrumentationScope.
 	(self shouldEmitInContext: context severityNumber: aSeverityNumber loggerConfig: config) ifFalse: [ ^ false ].
-	(self
-		 processorsAllowInContext: context
-		 instrumentationScope: anOTLogger instrumentationScope
-		 severityNumber: aSeverityNumber
-		 eventName: anEventName) ifFalse: [ ^ false ].
 	logRecord := self
 		             newLogRecordForLogger: anOTLogger
 		             timestamp: aTimestamp
