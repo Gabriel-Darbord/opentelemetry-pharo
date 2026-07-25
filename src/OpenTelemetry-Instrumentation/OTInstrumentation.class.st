@@ -26,6 +26,8 @@ OTInstrumentation class >> classMatcher [
 OTInstrumentation class >> configure: installer [
 	"Redefine this method to configure the arguments given to the instrumentation method.
 	Use the instance-side API of a subclass of OTAgentInstaller."
+
+	
 ]
 
 { #category : 'configuring' }
@@ -41,6 +43,8 @@ OTInstrumentation class >> defineInstrumenter [
 		spanKindExtractor: [ :request | ... ];
 		spanSuppressionStrategy: [ :span :kind | ... ];
 		contextProducer: [ ... ]"
+
+	
 ]
 
 { #category : 'configuring' }
@@ -50,6 +54,8 @@ OTInstrumentation class >> defineSampler [
 	This is useful to limit the number of traces generated."
 
 	"sampler := OTSampler with..."
+
+	
 ]
 
 { #category : 'accessing' }
@@ -92,9 +98,9 @@ OTInstrumentation class >> matchingMethodsDo: aBlock [
 	classMatcher := self classMatcher.
 	methodMatcher := self methodMatcher.
 	self packageMatcher matchingPackagesDo: [ :package |
-		classMatcher matching: package classes do: [ :class |
-			methodMatcher matching: class methods do: aBlock.
-			methodMatcher matching: class class methods do: aBlock ] ]
+			classMatcher matching: package classes do: [ :class |
+					methodMatcher matching: class methods do: aBlock.
+					methodMatcher matching: class class methods do: aBlock ] ]
 ]
 
 { #category : 'matching' }

@@ -1,3 +1,8 @@
+"
+I install and uninstall MethodProxy-backed instrumentations.
+
+I create the proxy selected by the instrumentation class and I clean up MethodProxy artifacts such as hidden selectors and trap methods when instrumentation is refreshed or removed.
+"
 Class {
 	#name : 'OTMethodProxyInstaller',
 	#superclass : 'OTAgentInstaller',
@@ -14,9 +19,9 @@ OTMethodProxyInstaller class >> cleanupInstrumentation: anInstrumentation [
 	| classMatcher |
 	classMatcher := anInstrumentation classMatcher.
 	anInstrumentation packageMatcher matchingPackagesDo: [ :package |
-		classMatcher matching: package classes do: [ :class |
-			self restoreMethodProxyArtifactsIn: class.
-			self restoreMethodProxyArtifactsIn: class class ] ]
+			classMatcher matching: package classes do: [ :class |
+					self restoreMethodProxyArtifactsIn: class.
+					self restoreMethodProxyArtifactsIn: class class ] ]
 ]
 
 { #category : 'actions' }
@@ -29,49 +34,40 @@ OTMethodProxyInstaller class >> installInstrumentation: anInstrumentation [
 { #category : 'testing' }
 OTMethodProxyInstaller class >> isMethodProxyArtifact: aMethod [
 
-	^ (aMethod selector isKindOf: MpHiddenSelector)
-		or: [ self isMethodProxyTrap: aMethod ]
+	^ (aMethod selector isKindOf: MpHiddenSelector) or: [ self isMethodProxyTrap: aMethod ]
 ]
 
 { #category : 'testing' }
 OTMethodProxyInstaller class >> isMethodProxyTrap: aMethod [
 
-	^ (aMethod hasPragmaNamed: #trap)
-		or: [ aMethod sourceCode beginsWith: 'trapMethod' ]
+	^ (aMethod hasPragmaNamed: #trap) or: [ aMethod sourceCode beginsWith: 'trapMethod' ]
 ]
 
 { #category : 'private' }
 OTMethodProxyInstaller class >> originalMethodFrom: methods [
 
-	^ methods
-		  detect: [ :method | (self isMethodProxyTrap: method) not ]
-		  ifNone: [ methods first ]
+	^ methods detect: [ :method | (self isMethodProxyTrap: method) not ] ifNone: [ methods first ]
 ]
 
 { #category : 'actions' }
 OTMethodProxyInstaller class >> restoreMethodProxyArtifactsIn: aBehavior [
 
-	| dictionary hiddenSelectors groupedMethods |
-	dictionary := aBehavior methodDict.
-	hiddenSelectors := dictionary keys select: [ :selector |
-		                   selector isKindOf: MpHiddenSelector ].
+	| hiddenSelectors groupedMethods |
+	hiddenSelectors := aBehavior localSelectors select: [ :selector | selector isKindOf: MpHiddenSelector ].
 	hiddenSelectors ifEmpty: [ ^ self ].
 
 	groupedMethods := Dictionary new.
 	hiddenSelectors do: [ :hiddenSelector |
-		(groupedMethods
-			 at: hiddenSelector proxifiedSelector
-			 ifAbsentPut: [ OrderedCollection new ])
-			add: (dictionary at: hiddenSelector) ].
+			(groupedMethods at: hiddenSelector proxifiedSelector ifAbsentPut: [ OrderedCollection new ]) add:
+				(aBehavior compiledMethodAt: hiddenSelector) ].
 
 	groupedMethods keysAndValuesDo: [ :selector :methods |
-		| method |
-		method := self originalMethodFrom: methods.
-		method selector: selector.
-		dictionary at: selector put: method ].
+			| method |
+			method := self originalMethodFrom: methods.
+			method selector: selector.
+			aBehavior addSelectorSilently: selector withMethod: method ].
 
-	hiddenSelectors do: [ :hiddenSelector |
-		dictionary removeKey: hiddenSelector ifAbsent: [  ] ].
+	hiddenSelectors do: [ :hiddenSelector | aBehavior removeSelectorSilently: hiddenSelector ].
 	aBehavior flushCache
 ]
 
@@ -79,8 +75,7 @@ OTMethodProxyInstaller class >> restoreMethodProxyArtifactsIn: aBehavior [
 OTMethodProxyInstaller class >> uninstallInstrumentation: anInstrumentation [
 
 	anInstrumentation reset.
-	MpMethodProxy allSubInstancesDo: [ :proxy |
-		proxy handler == anInstrumentation ifTrue: [ proxy uninstall ] ].
+	MpMethodProxy allSubInstancesDo: [ :proxy | proxy handler == anInstrumentation ifTrue: [ proxy uninstall ] ].
 	self cleanupInstrumentation: anInstrumentation.
 	MpMethodProxy enableInstrumentation "keep proxies enabled"
 ]
@@ -98,6 +93,6 @@ OTMethodProxyInstaller >> shouldInstrument: aMethod with: anInstrumentation [
 	"A bit weird but this is when the proxy is created"
 
 	(self class isMethodProxyArtifact: aMethod) ifTrue: [ ^ false ].
-	proxy := MpMethodProxy onMethod: aMethod handler: anInstrumentation.
-	^ true "proxy used to have a `shouldWrap:` method"
+	proxy := anInstrumentation methodProxyClass onMethod: aMethod handler: anInstrumentation.
+	^ true
 ]

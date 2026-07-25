@@ -12,11 +12,32 @@ Class {
 		'plannedExecutions',
 		'executionCount',
 		'responseHeaders',
-		'responseContents'
+		'responseContents',
+		'certificate',
+		'certificateDuringExecute',
+		'sslCertFileDuringExecute'
 	],
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> certificate [
+
+	^ certificate
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> certificate: aStringOrNil [
+
+	certificate := aStringOrNil
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> certificateDuringExecute [
+
+	^ certificateDuringExecute
+]
 
 { #category : 'accessing' }
 OTRecordingHttpClient >> code [
@@ -25,9 +46,9 @@ OTRecordingHttpClient >> code [
 ]
 
 { #category : 'accessing' }
-OTRecordingHttpClient >> executionCount [
+OTRecordingHttpClient >> contents: anObject [
 
-	^ executionCount ifNil: [ 0 ]
+	entity := anObject
 ]
 
 { #category : 'accessing' }
@@ -46,10 +67,17 @@ OTRecordingHttpClient >> entity: aZnEntity [
 OTRecordingHttpClient >> execute [
 
 	executionCount := self executionCount + 1.
+	certificateDuringExecute := certificate.
+	sslCertFileDuringExecute := Smalltalk os environment at: 'SSL_CERT_FILE' ifAbsent: [ nil ].
 	self playNextPlannedExecution.
-	self shouldRaiseOnExecute ifTrue: [
-		Error signal: 'simulated HTTP failure' ].
-	^ self
+	self shouldRaiseOnExecute ifTrue: [ Error signal: 'simulated HTTP failure' ].
+	self
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> executionCount [
+
+	^ executionCount ifNil: [ 0 ]
 ]
 
 { #category : 'accessing' }
@@ -64,16 +92,6 @@ OTRecordingHttpClient >> headers [
 	^ headers ifNil: [ headers := OrderedDictionary new ]
 ]
 
-{ #category : 'private' }
-OTRecordingHttpClient >> nextPlannedExecution [
-
-	| executions |
-	executions := self plannedExecutions.
-	^ executions isEmpty
-		ifTrue: [ nil ]
-		ifFalse: [ executions removeFirst ]
-]
-
 { #category : 'accessing' }
 OTRecordingHttpClient >> method [
 
@@ -84,6 +102,16 @@ OTRecordingHttpClient >> method [
 OTRecordingHttpClient >> method: aSymbol [
 
 	method := aSymbol
+]
+
+{ #category : 'private' }
+OTRecordingHttpClient >> nextPlannedExecution [
+
+	| executions |
+	executions := self plannedExecutions.
+	^ executions isEmpty
+		  ifTrue: [ nil ]
+		  ifFalse: [ executions removeFirst ]
 ]
 
 { #category : 'private' }
@@ -112,11 +140,11 @@ OTRecordingHttpClient >> queueExecutionFailure [
 OTRecordingHttpClient >> queueResponseCode: anInteger headers: aDictionary contents: anObject [
 
 	self plannedExecutions add: [ :client |
-		client
-			shouldRaiseOnExecute: false;
-			responseCode: anInteger;
-			responseHeaders: aDictionary;
-			responseContents: anObject ].
+			client
+				shouldRaiseOnExecute: false;
+				responseCode: anInteger;
+				responseHeaders: aDictionary;
+				responseContents: anObject ].
 	^ self
 ]
 
@@ -154,9 +182,9 @@ OTRecordingHttpClient >> responseHeaderAt: aKey ifAbsent: aBlock [
 OTRecordingHttpClient >> responseHeaders [
 
 	^ responseHeaders ifNil: [
-		  OrderedDictionary new
-			  at: 'Content-Type' put: 'application/json';
-			  yourself ]
+			  OrderedDictionary new
+				  at: 'Content-Type' put: 'application/json';
+				  yourself ]
 ]
 
 { #category : 'accessing' }
@@ -175,6 +203,12 @@ OTRecordingHttpClient >> shouldRaiseOnExecute [
 OTRecordingHttpClient >> shouldRaiseOnExecute: aBoolean [
 
 	shouldRaiseOnExecute := aBoolean = true
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> sslCertFileDuringExecute [
+
+	^ sslCertFileDuringExecute
 ]
 
 { #category : 'accessing' }

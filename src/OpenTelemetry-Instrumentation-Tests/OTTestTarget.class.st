@@ -5,19 +5,19 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
-{ #category : 'evaluating' }
+{ #category : 'as yet unclassified' }
 OTTestTarget >> answer [
 
 	^ 42
 ]
 
-{ #category : 'evaluating' }
+{ #category : 'as yet unclassified' }
 OTTestTarget >> fail [
 
 	Error signal
 ]
 
-{ #category : 'evaluating' }
+{ #category : 'as yet unclassified' }
 OTTestTarget >> handledFail [
 
 	[ self error ]
@@ -25,13 +25,13 @@ OTTestTarget >> handledFail [
 		do: [ :e |  ]
 ]
 
-{ #category : 'evaluating' }
+{ #category : 'as yet unclassified' }
 OTTestTarget >> indirectAnswer [
 
 	^ self answer
 ]
 
-{ #category : 'evaluating' }
+{ #category : 'as yet unclassified' }
 OTTestTarget >> suppressedAnswer [
 
 	^ self answer

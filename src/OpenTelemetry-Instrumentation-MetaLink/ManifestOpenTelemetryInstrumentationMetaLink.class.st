@@ -13,5 +13,6 @@ Class {
 ManifestOpenTelemetryInstrumentationMetaLink class >> ruleTempsReadBeforeWrittenRuleV1FalsePositive [
 
 	<ignoreForCoverage>
-	^ #(#(#(#RGMethodDefinition #(#'OTMetaLinkInstrumentation class' #run: #true)) #'2023-11-27T00:00:00.000000+01:00') )
+	^ #( #( #( #RGMethodDefinition #( #'OTMetaLinkInstrumentation class' #run: #true ) )
+	        #'2023-11-27T00:00:00.000000+01:00' ) )
 ]

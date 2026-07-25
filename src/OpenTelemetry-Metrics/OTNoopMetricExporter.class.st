@@ -1,0 +1,17 @@
+"
+I am a metric exporter that accepts snapshots and drops them.
+I satisfy the exporter protocol without producing side effects.
+"
+Class {
+	#name : 'OTNoopMetricExporter',
+	#superclass : 'OTMetricExporter',
+	#category : 'OpenTelemetry-Metrics',
+	#package : 'OpenTelemetry-Metrics'
+}
+
+{ #category : 'exporting' }
+OTNoopMetricExporter >> export: anOTMetricSnapshot [
+
+	self isShutdown ifTrue: [ ^ false ].
+	^ true
+]

@@ -153,7 +153,9 @@ OTMatcher class >> superclassesOf: aClass [
 { #category : 'controlling' }
 OTMatcher >> and: matcher [
 
-	^ OTConjunctionMatcher withAll: { self. matcher }
+	^ OTConjunctionMatcher withAll: {
+			  self.
+			  matcher }
 ]
 
 { #category : 'testing' }
@@ -165,15 +167,13 @@ OTMatcher >> matches: target [
 { #category : 'enumerating' }
 OTMatcher >> matching: aCollection do: aBlock [
 
-	aCollection do: [ :element |
-		(self matches: element) ifTrue: [ aBlock value: element ] ]
+	aCollection do: [ :element | (self matches: element) ifTrue: [ aBlock value: element ] ]
 ]
 
 { #category : 'enumerating' }
 OTMatcher >> matchingPackagesDo: aBlock [
 
-	self class packageOrganizer packages do: [ :package |
-		(self matches: package) ifTrue: [ aBlock value: package ] ]
+	self class packageOrganizer packages do: [ :package | (self matches: package) ifTrue: [ aBlock value: package ] ]
 ]
 
 { #category : 'testing' }
@@ -185,5 +185,7 @@ OTMatcher >> not [
 { #category : 'controlling' }
 OTMatcher >> or: matcher [
 
-	^ OTDisjunctionMatcher withAll: { self. matcher }
+	^ OTDisjunctionMatcher withAll: {
+			  self.
+			  matcher }
 ]

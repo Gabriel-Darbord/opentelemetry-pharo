@@ -36,11 +36,126 @@ OTTraceStateTest >> testInvalidMutationLeavesTraceStateUnchanged [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testMutationAllowsThirtySecondEntryButRejectsThirtyThird [
+
+	| full traceState updated |
+	traceState := self traceStateWithEntryCount: 31.
+	updated := traceState withKey: 'newkey' value: 'value'.
+	full := updated withKey: 'otherkey' value: 'value'.
+	self deny: updated identicalTo: traceState.
+	self assert: updated allEntries size equals: 32.
+	self assert: full identicalTo: updated
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testMutationThatWouldExceedHeaderLengthLeavesTraceStateUnchanged [
+
+	| traceState updated |
+	traceState := OTTraceState fromHeader: 'rojo=' , (String new: 250 withAll: $a) , ',congo=' , (String new: 250 withAll: $b).
+	updated := traceState withKey: 'tenant@system' value: 'x'.
+	self assert: traceState asHeaderValue size equals: 512.
+	self assert: updated identicalTo: traceState
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testOpenTelemetrySubkeyUpdatesPreserveExistingValues [
+
+	| traceState updated |
+	traceState := OTTraceState fromHeader: 'vendor=one,ot=rv:7fffffffffffff'.
+	updated := traceState withOtelValueAt: 'th' put: '8'.
+	self assert: (updated valueAt: 'vendor') equals: 'one'.
+	self assert: (updated otelValueAt: 'rv') equals: '7fffffffffffff'.
+	self assert: (updated otelValueAt: 'th') equals: '8'
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testOpenTelemetrySubkeyUpdatesSupportPublishedProbabilitySamplingExamples [
+
+	| traceState updated |
+	traceState := OTTraceState fromHeader: 'ot=rv:6e6d1a75832a2f'.
+	updated := traceState withOtelValueAt: 'th' put: 'c'.
+	self assert: (updated otelValueAt: 'rv') equals: '6e6d1a75832a2f'.
+	self assert: (updated otelValueAt: 'th') equals: 'c'.
+	self assert: updated asHeaderValue equals: 'ot=rv:6e6d1a75832a2f;th:c'
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testParsingAcceptsHeaderAtMaximumLength [
+
+	| header traceState |
+	header := 'rojo=' , (String new: 250 withAll: $a) , ',congo=' , (String new: 250 withAll: $b).
+	traceState := OTTraceState fromHeader: header.
+	self assert: header size equals: OTTraceState maximumHeaderLength.
+	self assert: traceState notNil.
+	self assert: traceState asHeaderValue size equals: OTTraceState maximumHeaderLength
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testParsingCanonicalizesOpenTelemetryThresholdSubvalues [
+
+	| examples |
+	examples := {
+		            ('ot=th:10000000000000' -> 'ot=th:1').
+		            ('ot=th:1234500000000' -> 'ot=th:12345').
+		            ('ot=th:0' -> 'ot=th:0').
+		            ('ot=th:10000000000010' -> 'ot=th:1000000000001') }.
+	examples do: [ :each |
+			| traceState |
+			traceState := OTTraceState fromHeader: each key.
+			self assert: traceState notNil.
+			self assert: traceState asHeaderValue equals: each value ]
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testParsingDropsInvalidOpenTelemetryConcernButPreservesOtherEntries [
+
+	| onlyInvalid mixedInvalid |
+	onlyInvalid := OTTraceState fromHeader: 'ot=rv:1000000000000'.
+	mixedInvalid := OTTraceState fromHeader: 'vendor=one,ot=th:x,congo=two'.
+	self assert: onlyInvalid notNil.
+	self assert: onlyInvalid isEmpty.
+	self assert: mixedInvalid notNil.
+	self assert: mixedInvalid asHeaderValue equals: 'vendor=one,congo=two'
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testParsingRejectsDuplicateOrMalformedEntries [
 
 	self assert: (OTTraceState fromHeader: 'rojo=one,rojo=two') equals: nil.
 	self assert: (OTTraceState fromHeader: 'bad key=value') equals: nil.
 	self assert: (OTTraceState fromHeader: 'rojo=') equals: nil
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testParsingRejectsHeaderLongerThanMaximumLength [
+
+	| header |
+	header := 'rojo=' , (String new: 251 withAll: $a) , ',congo=' , (String new: 251 withAll: $b).
+	self assert: header size equals: OTTraceState maximumHeaderLength + 2.
+	self assert: (OTTraceState fromHeader: header) equals: nil
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testParsingRejectsHeaderWithMoreThanThirtyTwoMembers [
+
+	self assert: (self traceStateWithEntryCount: 33) equals: nil
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testParsingRoundTripsLongJavaScriptReferenceOtelConcernVector [
+
+	| longMember roundTripped traceState |
+	longMember := 'a:' , (String new: 214 withAll: $X) , ';rv:1234567890abcd;th:1234567890abcd;x:3'.
+	traceState := OTTraceState fromHeader: 'ot=' , longMember.
+	self assert: traceState notNil.
+	self assert: (traceState valueAt: 'ot') size equals: 256.
+	self assert: (traceState otelValueAt: 'rv') equals: '1234567890abcd'.
+	self assert: (traceState otelValueAt: 'th') equals: '1234567890abcd'.
+	self assert: (traceState otelEntries at: 'a') equals: (String new: 214 withAll: $X).
+	self assert: (traceState otelEntries at: 'x') equals: '3'.
+	roundTripped := OTTraceState fromHeader: traceState asHeaderValue.
+	self assert: roundTripped notNil.
+	self assert: roundTripped otelEntries equals: traceState otelEntries
 ]
 
 { #category : 'tests' }
@@ -54,10 +169,92 @@ OTTraceStateTest >> testParsingSkipsEmptyMembersAndAcceptsWhitespaceOnlyHeader [
 ]
 
 { #category : 'tests' }
+OTTraceStateTest >> testTenantAndSystemKeyLengthBoundaries [
+
+	| invalidSystemKey invalidTenantKey traceState updated validKey |
+	traceState := OTTraceState empty.
+	validKey := (String new: 241 withAll: $a) , '@' , (String new: 14 withAll: $b).
+	invalidTenantKey := (String new: 242 withAll: $a) , '@' , (String new: 14 withAll: $b).
+	invalidSystemKey := (String new: 241 withAll: $a) , '@' , (String new: 15 withAll: $b).
+	updated := traceState withKey: validKey value: 'value'.
+	self deny: updated identicalTo: traceState.
+	self assert: (updated valueAt: validKey) equals: 'value'.
+	self assert: (traceState withKey: invalidTenantKey value: 'value') identicalTo: traceState.
+	self assert: (traceState withKey: invalidSystemKey value: 'value') identicalTo: traceState
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testTraceStateClassCannotBeInstantiatedDirectlyOrMutated [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'rojo=one'.
+	self should: [ OTTraceState new ] raise: Error.
+	self should: [ traceState perform: #entriesByKey: with: OrderedDictionary new ] raise: MessageNotUnderstood.
+	self assert: (traceState valueAt: 'rojo') equals: 'one'
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testTraceStateMutationsIgnoreNonStringInputsWithoutError [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'vendor=one,ot=rv:7fffffffffffff'.
+	self shouldnt: [ traceState withKey: 'vendor' value: 42 ] raise: Error.
+	self shouldnt: [ traceState withKey: 42 value: 'value' ] raise: Error.
+	self shouldnt: [ traceState withOtelValueAt: 42 put: 7 ] raise: Error.
+	self assert: (traceState withKey: 'vendor' value: 42) identicalTo: traceState.
+	self assert: (traceState withKey: 42 value: 'value') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 42 put: 7) identicalTo: traceState
+]
+
+{ #category : 'tests' }
 OTTraceStateTest >> testUpdateMovesExistingEntryToFront [
 
 	| traceState updated |
 	traceState := OTTraceState fromHeader: 'rojo=one,congo=two,tenant@system=three'.
 	updated := traceState withKey: 'congo' value: 'updated'.
 	self assert: updated asHeaderValue equals: 'congo=updated,rojo=one,tenant@system=three'
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testWithOtelValueCanonicalizesThresholdSubvalues [
+
+	| traceState updated |
+	traceState := OTTraceState fromHeader: 'ot=rv:6e6d1a75832a2f'.
+	updated := traceState withOtelValueAt: 'th' put: '10000000000010'.
+	self assert: (updated otelValueAt: 'rv') equals: '6e6d1a75832a2f'.
+	self assert: (updated otelValueAt: 'th') equals: '1000000000001'.
+	self assert: updated asHeaderValue equals: 'ot=rv:6e6d1a75832a2f;th:1000000000001'
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testWithOtelValueRejectsEmptyOrMalformedSubkeysAndSubvalues [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'vendor=one,ot=rv:7fffffffffffff'.
+	self assert: (traceState withOtelValueAt: '1th' put: '8') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 'th-' put: '8') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 'th' put: '') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 'th' put: 'bad:value') identicalTo: traceState
+]
+
+{ #category : 'tests' }
+OTTraceStateTest >> testWithOtelValueRejectsMalformedExplicitRandomnessLengths [
+
+	| traceState |
+	traceState := OTTraceState fromHeader: 'vendor=one,ot=rv:7fffffffffffff'.
+	self assert: (traceState withOtelValueAt: 'rv' put: '1000000000000') identicalTo: traceState.
+	self assert: (traceState withOtelValueAt: 'rv' put: '100000000000000') identicalTo: traceState
+]
+
+{ #category : 'private' }
+OTTraceStateTest >> traceStateWithEntryCount: anInteger [
+
+	^ OTTraceState fromHeader: (String streamContents: [ :stream |
+				   (1 to: anInteger) do: [ :index |
+						   index > 1 ifTrue: [ stream nextPut: $, ].
+						   stream
+							   nextPutAll: 'k';
+							   nextPutAll: index asString;
+							   nextPut: $=;
+							   nextPutAll: 'v' ] ])
 ]

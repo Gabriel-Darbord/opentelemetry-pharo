@@ -1,0 +1,1924 @@
+"
+A backend-agnostic entry point to the tracing API. It owns Tracer instances and their shared configuration surface.
+"
+Class {
+	#name : 'OTTracerProvider',
+	#superclass : 'Object',
+	#instVars : [
+		'tracers',
+		'stateLock',
+		'shutdownRequested',
+		'shutdownCompleted'
+	],
+	#classVars : [
+		'Current'
+	],
+	#category : 'OpenTelemetry-Traces',
+	#package : 'OpenTelemetry-Traces'
+}
+
+{ #category : 'private' }
+OTTracerProvider class >> configurationSourceClass [
+
+	^ self environment at: #OTConfigurationSource ifAbsent: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> configuredResource [
+
+	| configurationSourceClass resource |
+	configurationSourceClass := self configurationSourceClass.
+	resource := configurationSourceClass ifNotNil: [ configurationSourceClass configuredResource ].
+	^ resource ifNil: [ self resourceFromDetectors: self configuredResourceDetectors ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> configuredResourceAttributes [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_RESOURCE_ATTRIBUTES'.
+	rawValue ifNil: [ ^ OrderedDictionary new ].
+	^ [ self resourceAttributesFromEnvironment: rawValue ]
+		  on: Error
+		  do: [ :error |
+				  self noteInvalidResourceAttributes: rawValue error: error.
+				  OrderedDictionary new ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> configuredResourceDetectors [
+
+	^ OTClassStateStore valueAt: #otResourceDetectors forClass: self ifAbsent: [ self defaultResourceDetectors ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> configuredSampler [
+
+	^ self configuredSamplerForResource: self configuredResource
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> configuredSamplerForResource: anOTResource [
+
+	| configurationSourceClass configuredSampler samplerArgument samplerName |
+	configurationSourceClass := self configurationSourceClass.
+	configuredSampler := configurationSourceClass ifNotNil: [ configurationSourceClass configuredSamplerForResource: anOTResource ].
+	configuredSampler ifNotNil: [ ^ configuredSampler ].
+	samplerName := self environmentValueAt: 'OTEL_TRACES_SAMPLER'.
+	samplerName ifNil: [ ^ self defaultSampler ].
+	samplerArgument := self environmentValueAt: 'OTEL_TRACES_SAMPLER_ARG'.
+	^ self samplerFromEnvironmentName: samplerName argument: samplerArgument resource: anOTResource
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> configuredServiceName [
+
+	^ self environmentValueAt: 'OTEL_SERVICE_NAME'
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> configuredSpanLimits [
+
+	| defaultLimits generalAttributeCountLimit generalValueLengthLimit limits |
+	defaultLimits := OTSpanLimits default.
+	generalAttributeCountLimit := self
+		                              nonNegativeIntegerEnvironmentValueAt: 'OTEL_ATTRIBUTE_COUNT_LIMIT'
+		                              default: defaultLimits attributeCountLimit.
+	generalValueLengthLimit := self
+		                           nonNegativeIntegerEnvironmentValueAt: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT'
+		                           default: defaultLimits attributeValueLengthLimit.
+	limits := OTSpanLimits default.
+	limits
+		attributeCountLimit:
+			(self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT' default: generalAttributeCountLimit);
+		attributeValueLengthLimit:
+			(self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT' default: generalValueLengthLimit);
+		eventCountLimit:
+			(self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_EVENT_COUNT_LIMIT' default: defaultLimits eventCountLimit);
+		linkCountLimit: (self nonNegativeIntegerEnvironmentValueAt: 'OTEL_SPAN_LINK_COUNT_LIMIT' default: defaultLimits linkCountLimit);
+		attributePerEventCountLimit:
+			(self
+				 nonNegativeIntegerEnvironmentValueAt: 'OTEL_EVENT_ATTRIBUTE_COUNT_LIMIT'
+				 default: defaultLimits attributePerEventCountLimit);
+		attributePerLinkCountLimit:
+			(self nonNegativeIntegerEnvironmentValueAt: 'OTEL_LINK_ATTRIBUTE_COUNT_LIMIT' default: defaultLimits attributePerLinkCountLimit).
+	^ limits
+]
+
+{ #category : 'accessing' }
+OTTracerProvider class >> current [
+
+	^ self currentLock critical: [ Current ifNil: [ Current := self readConfiguration ] ]
+]
+
+{ #category : 'accessing' }
+OTTracerProvider class >> current: aTracerProvider [
+
+	self currentLock critical: [ Current := aTracerProvider ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> currentImagePath [
+
+	^ self systemAttributeAt: 1
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> currentLock [
+
+	^ OTClassStateStore valueAt: #otCurrentLock forClass: self ifAbsentPut: [ Semaphore forMutualExclusion ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> currentProcessId [
+
+	| libc |
+	libc := Smalltalk at: #LibC ifAbsent: [ ^ nil ].
+	^ [ libc uniqueInstance currentProcessId ]
+		  on: Error
+		  do: [ nil ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> decodePercentEncoded: aString [
+
+	^ String streamContents: [ :decoded |
+			  | index |
+			  index := 1.
+			  [ index <= aString size ] whileTrue: [
+					  | character |
+					  character := aString at: index.
+					  character = $%
+						  ifTrue: [
+								  index + 2 <= aString size ifFalse: [ Error signal: 'Malformed percent encoding' ].
+								  decoded nextPut: (Character value: (self hexadecimalValueFrom: (aString copyFrom: index + 1 to: index + 2))).
+								  index := index + 3 ]
+						  ifFalse: [
+								  decoded nextPut: character.
+								  index := index + 1 ] ] ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultHostArchitecture [
+
+	^ [
+		  | architecture |
+		  architecture := Smalltalk os current processorArchitecture asString trimBoth asLowercase.
+		  architecture isEmpty
+			  ifTrue: [ nil ]
+			  ifFalse: [ architecture ] ]
+		  on: Error
+		  do: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultHostName [
+
+	^ [
+		  | hostName |
+		  hostName := NetNameResolver localHostName asString trimBoth.
+		  hostName isEmpty
+			  ifTrue: [ nil ]
+			  ifFalse: [ hostName ] ]
+		  on: Error
+		  do: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultIdGenerator [
+
+	^ OTIdGenerator default
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultOsDescription [
+
+	| osSubtype osVersion parts |
+	parts := OrderedCollection new.
+	self defaultOsName ifNotNil: [ :value | parts add: value ].
+	osVersion := [ Smalltalk os version asString trimBoth ]
+		             on: Error
+		             do: [ nil ].
+	(osVersion notNil and: [ osVersion isNotEmpty ]) ifTrue: [ parts add: osVersion ].
+	osSubtype := [ Smalltalk os subtype asString trimBoth ]
+		             on: Error
+		             do: [ nil ].
+	(osSubtype notNil and: [ osSubtype isNotEmpty ]) ifTrue: [ parts add: osSubtype ].
+	parts isEmpty ifTrue: [ ^ nil ].
+	^ String streamContents: [ :stream | parts do: [ :each | stream nextPutAll: each ] separatedBy: [ stream space ] ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultOsName [
+
+	^ [
+		  | osName |
+		  osName := Smalltalk os name asString trimBoth.
+		  osName isEmpty
+			  ifTrue: [ nil ]
+			  ifFalse: [ osName ] ]
+		  on: Error
+		  do: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultOsType [
+
+	| detectedOs detectedName |
+	detectedOs := [ Smalltalk os current ]
+		              on: Error
+		              do: [ nil ].
+	detectedOs ifNil: [ ^ nil ].
+	detectedOs isLinux ifTrue: [ ^ 'linux' ].
+	detectedOs isWindows ifTrue: [ ^ 'windows' ].
+	(detectedOs isMacOS or: [ detectedOs isMacOSX ]) ifTrue: [ ^ 'darwin' ].
+	detectedName := [ detectedOs name asString trimBoth asLowercase ]
+		                on: Error
+		                do: [ '' ].
+	(detectedName includesSubstring: 'freebsd') ifTrue: [ ^ 'freebsd' ].
+	(detectedName includesSubstring: 'netbsd') ifTrue: [ ^ 'netbsd' ].
+	(detectedName includesSubstring: 'openbsd') ifTrue: [ ^ 'openbsd' ].
+	((detectedName includesSubstring: 'sunos') or: [ detectedName includesSubstring: 'solaris' ]) ifTrue: [ ^ 'solaris' ].
+	(detectedName includesSubstring: 'aix') ifTrue: [ ^ 'aix' ].
+	((detectedName includesSubstring: 'hp-ux') or: [ detectedName includesSubstring: 'hpux' ]) ifTrue: [ ^ 'hpux' ].
+	^ nil
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultProcessExecutableName [
+
+	| path |
+	path := self defaultProcessExecutablePath.
+	path ifNil: [ ^ nil ].
+	^ [ path asFileReference basename ]
+		  on: Error
+		  do: [ nil ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultProcessExecutablePath [
+
+	^ self systemAttributeAt: 0
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultResource [
+
+	^ OTResource
+		  attributes: (OrderedDictionary new
+				   at: 'service.name' put: self defaultServiceName;
+				   at: 'telemetry.sdk.name' put: 'opentelemetry';
+				   at: 'telemetry.sdk.language' put: 'pharo';
+				   at: 'telemetry.sdk.version' put: self sdkVersion;
+				   yourself)
+		  schemaUrl: self semanticConventionsSchemaUrl
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultResourceConfigurationWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultResourceDetectors [
+
+	^ OrderedCollection new
+		  add: (OTStaticResourceDetector named: 'sdk' resource: self defaultResource);
+		  add: OTHostResourceDetector new;
+		  add: OTProcessResourceDetector new;
+		  add: OTEnvironmentResourceDetector new;
+		  add: OTServiceNameResourceDetector new;
+		  yourself
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultSampler [
+
+	^ OTParentBasedSampler default
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultSamplerConfigurationWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultServiceInstanceId [
+
+	| identifier |
+	identifier := OTClassStateStore valueAt: #otDefaultServiceInstanceId forClass: self ifAbsent: [ nil ].
+	identifier ifNil: [
+			identifier := UUID new asString36.
+			OTClassStateStore valueAt: #otDefaultServiceInstanceId forClass: self put: identifier ].
+	^ identifier
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> defaultServiceName [
+
+	| executableName |
+	executableName := self defaultProcessExecutableName.
+	^ executableName ifNil: [ 'unknown_service' ] ifNotNil: [ 'unknown_service:' , executableName ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultSpanProcessorWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultTracerConfigurationWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> defaultTracerNameWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> environmentValueAt: aString [
+
+	| configurationSourceClass |
+	configurationSourceClass := self configurationSourceClass.
+	^ configurationSourceClass ifNotNil: [ configurationSourceClass environmentValueAt: aString ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> hexadecimalValueFrom: aString [
+
+	| stream value |
+	stream := aString readStream.
+	value := [ Integer readFrom: stream base: 16 ]
+		         on: Error
+		         do: [ Error signal: 'Malformed percent encoding' ].
+	stream atEnd ifFalse: [ Error signal: 'Malformed percent encoding' ].
+	^ value
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> idGeneratorByProvider [
+
+	^ self stateDictionaryAt: #otIdGeneratorByProvider
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> integerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := self strictPositiveIntegerFrom: rawValue.
+	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> invalidateCurrent [
+
+	| previous |
+	previous := self currentLock critical: [
+			            | captured |
+			            captured := Current.
+			            Current := nil.
+			            captured ].
+	previous ifNotNil: [ previous shutdown ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> jaegerRemoteSamplerForResource: anOTResource argument: anotherString parentBased: aBoolean [
+
+	| configuredSampler sampler samplerName |
+	samplerName := aBoolean
+		               ifTrue: [ 'parentbased_jaeger_remote' ]
+		               ifFalse: [ 'jaeger_remote' ].
+	OTJaegerRemoteSampler grpcDependenciesAvailable ifFalse: [
+			self noteMissingGrpcDependencyForSampler: samplerName.
+			^ self defaultSampler ].
+	sampler := OTJaegerRemoteSampler serviceName: (self serviceNameForSamplerResource: anOTResource).
+	anotherString ifNotNil: [
+			| options |
+			options := self strictJaegerRemoteSamplerOptionsFrom: anotherString.
+			options
+				ifNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ]
+				ifNotNil: [ self updateJaegerRemoteSampler: sampler withOptions: options ] ].
+	configuredSampler := aBoolean
+		                     ifTrue: [
+				                     OTParentBasedSampler default
+					                     rootSampler: sampler;
+					                     yourself ]
+		                     ifFalse: [ sampler ].
+	^ configuredSampler
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default: aDefaultValue [
+
+	| rawValue parsed |
+	rawValue := self environmentValueAt: aString.
+	rawValue ifNil: [ ^ aDefaultValue ].
+	parsed := self strictNonNegativeIntegerFrom: rawValue.
+	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> normalizedTracerNameFrom: aValue [
+
+	| normalizedName |
+	aValue ifNil: [
+			self noteInvalidTracerName: aValue.
+			^ '' ].
+	normalizedName := aValue asString.
+	normalizedName trimBoth isEmpty ifTrue: [
+			self noteInvalidTracerName: aValue.
+			^ '' ].
+	^ normalizedName
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> normalizedTracerScopeAttributesFrom: aCollection [
+
+	aCollection ifNil: [ ^ #(  ) ].
+	^ [ OTAttributeNormalizer normalizeAttributes: aCollection ]
+		  on: Error
+		  do: [ :error |
+				  self noteInvalidTracerScopeAttributes: aCollection error: error.
+				  OrderedDictionary new ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteDuplicateResourceDetectorName: aString [
+
+	self resourceConfigurationWarningSink value:
+		'OpenTelemetry resource detector name was registered more than once: ' , aString printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidResourceAttributes: aValue error: anError [
+
+	self resourceConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry resource attributes configuration was invalid and has been ignored: ';
+					 print: aValue;
+					 nextPutAll: ' (';
+					 nextPutAll: anError messageText;
+					 nextPut: $) ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidResourceConfigurationValue: aValue forOperation: anOperationName [
+
+	self resourceConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry tracer provider resource configuration was invalid and has been ignored for ';
+					 print: anOperationName asString;
+					 nextPutAll: ': ';
+					 print: aValue ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidSamplerArgument: aValue forSampler: aSamplerName [
+
+	self samplerConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry sampler argument was invalid and has been ignored for ';
+					 print: aSamplerName;
+					 nextPutAll: ': ';
+					 print: aValue ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidSpanProcessorConfiguration: aValue forOperation: anOperationName [
+
+	self spanProcessorWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry tracer provider span processor configuration was invalid and has been ignored for ';
+					 print: anOperationName asString;
+					 nextPutAll: ': ';
+					 print: aValue ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidTracerConfigurationValue: aValue forOperation: anOperationName [
+
+	self tracerConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry tracer provider configuration was invalid and has been ignored for ';
+					 print: anOperationName asString;
+					 nextPutAll: ': ';
+					 print: aValue ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidTracerName: aValue [
+
+	self tracerNameWarningSink value:
+		'OpenTelemetry tracer name was invalid and has been normalized to an empty string: ' , aValue printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteInvalidTracerScopeAttributes: aValue error: anError [
+
+	self tracerConfigurationWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry tracer scope attributes were invalid and have been ignored: ';
+					 print: aValue;
+					 nextPutAll: ' (';
+					 nextPutAll: anError messageText;
+					 nextPut: $) ])
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteMissingGrpcDependencyForSampler: aSamplerName [
+
+	self samplerConfigurationWarningSink value:
+		'OpenTelemetry sampler requires grpc-pharo to be loaded and has been ignored for ' , aSamplerName printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteResourceDetector: aDetector failedDuring: anOperationName error: anError [
+
+	| message |
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry resource detector failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ' for ';
+				           nextPutAll: aDetector class name;
+				           nextPutAll: ' (';
+				           print: aDetector detectorName;
+				           nextPutAll: '): ';
+				           nextPutAll: anError messageText ].
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self resourceConfigurationWarningSink value: message ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteSampler: aSampler failedDuring: anOperationName error: anError [
+
+	| message |
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry sampler callback failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ' for ';
+				           nextPutAll: aSampler class name;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self samplerConfigurationWarningSink value: message ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteSpanProcessor: aProcessor failedDuring: anOperationName error: anError [
+
+	| message |
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry span processor callback failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ' for ';
+				           nextPutAll: aProcessor class name;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self spanProcessorWarningSink value: message ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteTracerConfigurationFailedDuring: anOperationName error: anError [
+
+	| message |
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry tracer configuration callback failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self tracerConfigurationWarningSink value: message ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteUnknownSamplerName: aValue [
+
+	self samplerConfigurationWarningSink value:
+		'OpenTelemetry sampler name was unrecognized and has been ignored: ' , aValue printString
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> noteUnsupportedSamplerName: aValue [
+
+	self samplerConfigurationWarningSink value:
+		'OpenTelemetry sampler name is recognized but not supported by this SDK yet: ' , aValue printString
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> processCommandArguments [
+
+	| arguments imagePath |
+	arguments := OrderedCollection new.
+	self defaultProcessExecutablePath ifNotNil: [ :value | arguments add: value ].
+	imagePath := self currentImagePath.
+	imagePath ifNotNil: [ arguments add: imagePath ].
+	2 to: 32 do: [ :index |
+			| value |
+			value := self systemAttributeAt: index.
+			value ifNil: [ ^ arguments asArray ].
+			arguments add: value ].
+	^ arguments asArray
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> processCommandLine [
+
+	| arguments |
+	arguments := self processCommandArguments.
+	arguments ifEmpty: [ ^ nil ].
+	^ String streamContents: [ :stream |
+			  arguments doWithIndex: [ :each :index |
+					  index > 1 ifTrue: [ stream space ].
+					  self writeShellQuotedCommandArgument: each on: stream ] ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> readConfiguration [
+
+	| configurationSourceClass explicitProcessor exporter processors provider resource |
+	provider := self new.
+	exporter := OTSpanExporter current.
+	explicitProcessor := OTSpanProcessor currentIfSet.
+	resource := self configuredResource.
+	configurationSourceClass := self configurationSourceClass.
+	provider
+		resource: resource;
+		sampler: (self configuredSamplerForResource: resource);
+		spanLimits: self configuredSpanLimits;
+		tracerConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredTracerConfigurator ]).
+	processors := explicitProcessor
+		              ifNil: [
+				              (self sdkDisabled or: [ exporter class == OTNoopSpanExporter ])
+					              ifTrue: [ #(  ) ]
+					              ifFalse: [ OTSpanProcessor current componentProcessors ] ]
+		              ifNotNil: [ explicitProcessor componentProcessors ].
+	provider spanProcessors: processors.
+	^ provider
+]
+
+{ #category : 'class initialization' }
+OTTracerProvider class >> reset [
+
+	| configurationSourceClass |
+	Current ifNotNil: [ Current shutdown ].
+	configurationSourceClass := self configurationSourceClass.
+	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
+	Current := nil.
+	self resourceDetectors: nil
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> resourceAttributesFromEnvironment: aString [
+
+	| attributes start |
+	aString ifEmpty: [ ^ OrderedDictionary new ].
+	attributes := OrderedDictionary new.
+	start := 1.
+	1 to: aString size do: [ :index |
+			(aString at: index) = $, ifTrue: [
+					self resourceEnvironmentEntry: (aString copyFrom: start to: index - 1) into: attributes.
+					start := index + 1 ] ].
+	self resourceEnvironmentEntry: (aString copyFrom: start to: aString size) into: attributes.
+	^ attributes
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> resourceByProvider [
+
+	^ self stateDictionaryAt: #otResourceByProvider
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> resourceConfigurationWarningSink [
+
+	^ OTClassStateStore
+		  valueAt: #otResourceConfigurationWarningSink
+		  forClass: self
+		  ifAbsent: [ self defaultResourceConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> resourceConfigurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ OTClassStateStore removeValueAt: #otResourceConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otResourceConfigurationWarningSink forClass: self put: aBlock ].
+	^ self resourceConfigurationWarningSink
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> resourceDetectors: aCollection [
+
+	aCollection
+		ifNil: [ OTClassStateStore removeValueAt: #otResourceDetectors forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otResourceDetectors forClass: self put: aCollection ].
+	^ self configuredResourceDetectors
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> resourceEnvironmentEntry: aString into: anOrderedDictionary [
+
+	| separator key value |
+	aString isEmpty ifTrue: [ Error signal: 'Malformed resource attribute entry' ].
+	separator := aString indexOf: $=.
+	separator = 0 ifTrue: [ Error signal: 'Malformed resource attribute entry' ].
+	key := self decodePercentEncoded: (aString copyFrom: 1 to: separator - 1).
+	value := self decodePercentEncoded: (aString copyFrom: separator + 1 to: aString size).
+	key isEmpty ifTrue: [ Error signal: 'Resource attribute keys must not be empty' ].
+	anOrderedDictionary at: key put: value
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> resourceFromDetectors: aCollection [
+
+	| detectorNames resource |
+	detectorNames := Set new.
+	resource := OTResource empty.
+	aCollection do: [ :detector |
+			(detectorNames includes: detector detectorName) ifTrue: [ self noteDuplicateResourceDetectorName: detector detectorName ].
+			detectorNames add: detector detectorName.
+			resource := [ resource merge: detector detectResource ]
+				            on: Error
+				            do: [ :error |
+						            self noteResourceDetector: detector failedDuring: 'resource detection' error: error.
+						            resource ] ].
+	^ resource
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> runtimeDescription [
+
+	^ [ Smalltalk vm version trimBoth ]
+		  on: Error
+		  do: [ self runtimeName ]
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> runtimeName [
+
+	^ 'pharo'
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> runtimeVersion [
+
+	^ [ SystemVersion current dottedMajorMinor ]
+		  on: Error
+		  do: [ 'unknown' ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> samplerByProvider [
+
+	^ self stateDictionaryAt: #otSamplerByProvider
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> samplerConfigurationWarningSink [
+
+	^ OTClassStateStore
+		  valueAt: #otSamplerConfigurationWarningSink
+		  forClass: self
+		  ifAbsent: [ self defaultSamplerConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> samplerConfigurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ OTClassStateStore removeValueAt: #otSamplerConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otSamplerConfigurationWarningSink forClass: self put: aBlock ].
+	^ self samplerConfigurationWarningSink
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherString [
+
+	^ self samplerFromEnvironmentName: aString argument: anotherString resource: self configuredResource
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> samplerFromEnvironmentName: aString argument: anotherString resource: anOTResource [
+
+	| probability rootSampler samplerName |
+	samplerName := aString asString trimBoth asLowercase.
+	probability := self strictProbabilityFrom: anotherString.
+	samplerName = 'always_on' ifTrue: [
+			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			^ OTAlwaysOnSampler new ].
+	samplerName = 'always_off' ifTrue: [
+			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			^ OTAlwaysOffSampler new ].
+	samplerName = 'traceidratio' ifTrue: [
+			(anotherString notNil and: [ probability isNil ]) ifTrue: [
+				self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			^ OTTraceIdRatioBasedSampler new
+				  probability: (probability ifNil: [ 1 ]);
+				  yourself ].
+	samplerName = 'parentbased_always_on' ifTrue: [
+			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			^ OTParentBasedSampler default
+				  rootSampler: OTAlwaysOnSampler new;
+				  yourself ].
+	samplerName = 'parentbased_always_off' ifTrue: [
+			anotherString ifNotNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			^ OTParentBasedSampler default
+				  rootSampler: OTAlwaysOffSampler new;
+				  yourself ].
+	samplerName = 'parentbased_traceidratio' ifTrue: [
+			(anotherString notNil and: [ probability isNil ]) ifTrue: [
+				self noteInvalidSamplerArgument: anotherString forSampler: samplerName ].
+			rootSampler := OTTraceIdRatioBasedSampler new
+				               probability: (probability ifNil: [ 1 ]);
+				               yourself.
+			^ OTParentBasedSampler default
+				  rootSampler: rootSampler;
+				  yourself ].
+	samplerName = 'jaeger_remote' ifTrue: [
+		^ self jaegerRemoteSamplerForResource: anOTResource argument: anotherString parentBased: false ].
+	samplerName = 'parentbased_jaeger_remote' ifTrue: [
+		^ self jaegerRemoteSamplerForResource: anOTResource argument: anotherString parentBased: true ].
+	samplerName = 'xray' ifTrue: [ ^ self xrayRemoteSamplerForResource: anOTResource argument: anotherString ].
+	self noteUnknownSamplerName: samplerName.
+	^ self defaultSampler
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> sdkDisabled [
+
+	| value |
+	value := self environmentValueAt: 'OTEL_SDK_DISABLED'.
+	value ifNil: [ ^ false ].
+	^ value asLowercase = 'true'
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> sdkVersion [
+
+	^ 'dev'
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> semanticConventionsSchemaUrl [
+
+	^ 'https://opentelemetry.io/schemas/1.21.0'
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> serviceNameForSamplerResource: anOTResource [
+
+	anOTResource ifNil: [ ^ self defaultServiceName ].
+	^ anOTResource serviceName ifNil: [ self defaultServiceName ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> serviceTypeForSamplerResource: anOTResource [
+
+	anOTResource ifNil: [ ^ '' ].
+	^ anOTResource attributeAt: 'cloud.platform' ifAbsent: [ '' ]
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider class >> shutdownByProvider [
+
+	^ self stateDictionaryAt: #otShutdownByProvider
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> spanLimitsByProvider [
+
+	^ self stateDictionaryAt: #otSpanLimitsByProvider
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> spanProcessorWarningSink [
+
+	^ OTClassStateStore valueAt: #otSpanProcessorWarningSink forClass: self ifAbsent: [ self defaultSpanProcessorWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> spanProcessorWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ OTClassStateStore removeValueAt: #otSpanProcessorWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otSpanProcessorWarningSink forClass: self put: aBlock ].
+	^ self spanProcessorWarningSink
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> spanProcessorsByProvider [
+
+	^ self stateDictionaryAt: #otSpanProcessorsByProvider
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> stateDictionaryAt: aSymbol [
+
+	| dictionary |
+	dictionary := OTClassStateStore valueAt: aSymbol forClass: self ifAbsent: [ nil ].
+	dictionary ifNil: [
+			dictionary := WeakIdentityKeyDictionary new.
+			OTClassStateStore valueAt: aSymbol forClass: self put: dictionary ].
+	^ dictionary
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictJaegerRemoteSamplerOption: aString into: anOrderedDictionary [
+
+	| key parsedValue separator value |
+	aString isEmpty ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
+	separator := aString indexOf: $=.
+	separator <= 1 ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
+	key := (aString copyFrom: 1 to: separator - 1) trimBoth.
+	value := (aString copyFrom: separator + 1 to: aString size) trimBoth.
+	value isEmpty ifTrue: [ Error signal: 'Malformed Jaeger remote sampler option' ].
+	key = 'endpoint' ifTrue: [
+			parsedValue := OTJaegerRemoteSampler normalizedEndpoint: value.
+			anOrderedDictionary at: key put: parsedValue.
+			^ self ].
+	key = 'pollingIntervalMs' ifTrue: [
+			parsedValue := self strictPositiveIntegerFrom: value.
+			parsedValue ifNil: [ Error signal: 'Invalid Jaeger remote polling interval' ].
+			anOrderedDictionary at: key put: parsedValue.
+			^ self ].
+	key = 'initialSamplingRate' ifTrue: [
+			parsedValue := self strictProbabilityFrom: value.
+			parsedValue ifNil: [ Error signal: 'Invalid Jaeger remote initial sampling rate' ].
+			anOrderedDictionary at: key put: parsedValue.
+			^ self ].
+	Error signal: 'Unrecognized Jaeger remote sampler option'
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictJaegerRemoteSamplerOptionsFrom: aString [
+
+	| options rawValue |
+	aString ifNil: [ ^ OrderedDictionary new ].
+	rawValue := aString asString trimBoth.
+	rawValue isEmpty ifTrue: [ ^ OrderedDictionary new ].
+	options := OrderedDictionary new.
+	[ (rawValue substrings: ',') do: [ :each | self strictJaegerRemoteSamplerOption: each trimBoth into: options ] ]
+		on: Error
+		do: [ ^ nil ].
+	^ options
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictNonNegativeIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value >= 0 ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictPositiveIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value > 0 ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictProbabilityFrom: aString [
+
+	| stream value |
+	aString ifNil: [ ^ nil ].
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Number readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	(value isNumber and: [ value >= 0 and: [ value <= 1 ] ]) ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictXRayRemoteSamplerOption: aString into: anOrderedDictionary [
+
+	| key parsedValue separator value |
+	aString isEmpty ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
+	separator := aString indexOf: $=.
+	separator <= 1 ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
+	key := (aString copyFrom: 1 to: separator - 1) trimBoth.
+	value := (aString copyFrom: separator + 1 to: aString size) trimBoth.
+	value isEmpty ifTrue: [ Error signal: 'Malformed X-Ray remote sampler option' ].
+	key = 'endpoint' ifTrue: [
+			parsedValue := OTXRayRemoteSampler normalizedEndpoint: value.
+			anOrderedDictionary at: key put: parsedValue.
+			^ self ].
+	key = 'polling_interval' ifTrue: [
+			parsedValue := self strictPositiveIntegerFrom: value.
+			parsedValue ifNil: [ Error signal: 'Invalid X-Ray remote polling interval' ].
+			anOrderedDictionary at: 'pollingIntervalMillis' put: parsedValue * 1000.
+			^ self ].
+	Error signal: 'Unrecognized X-Ray remote sampler option'
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> strictXRayRemoteSamplerOptionsFrom: aString [
+
+	| options rawValue |
+	aString ifNil: [ ^ OrderedDictionary new ].
+	rawValue := aString asString trimBoth.
+	rawValue isEmpty ifTrue: [ ^ OrderedDictionary new ].
+	options := OrderedDictionary new.
+	[ (rawValue substrings: ',') do: [ :each | self strictXRayRemoteSamplerOption: each trimBoth into: options ] ]
+		on: Error
+		do: [ ^ nil ].
+	^ options
+]
+
+{ #category : 'instance creation' }
+OTTracerProvider class >> systemAttributeAt: anInteger [
+
+	| value |
+	value := [ Smalltalk getSystemAttribute: anInteger ]
+		         on: Error
+		         do: [ nil ].
+	value ifNil: [ ^ nil ].
+	value := value asString trimBoth.
+	^ value isEmpty
+		  ifTrue: [ nil ]
+		  ifFalse: [ value ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> tracerConfigurationWarningSink [
+
+	^ OTClassStateStore
+		  valueAt: #otTracerConfigurationWarningSink
+		  forClass: self
+		  ifAbsent: [ self defaultTracerConfigurationWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> tracerConfigurationWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ OTClassStateStore removeValueAt: #otTracerConfigurationWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otTracerConfigurationWarningSink forClass: self put: aBlock ].
+	^ self tracerConfigurationWarningSink
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> tracerConfiguratorByProvider [
+
+	^ self stateDictionaryAt: #otTracerConfiguratorByProvider
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> tracerNameWarningSink [
+
+	^ OTClassStateStore valueAt: #otTracerNameWarningSink forClass: self ifAbsent: [ self defaultTracerNameWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTTracerProvider class >> tracerNameWarningSink: aBlock [
+
+	aBlock
+		ifNil: [ OTClassStateStore removeValueAt: #otTracerNameWarningSink forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otTracerNameWarningSink forClass: self put: aBlock ].
+	^ self tracerNameWarningSink
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> updateJaegerRemoteSampler: aSampler withOptions: options [
+
+	options at: 'endpoint' ifPresent: [ :value | aSampler endpoint: value ].
+	options at: 'pollingIntervalMs' ifPresent: [ :value | aSampler pollingIntervalMillis: value ].
+	options at: 'initialSamplingRate' ifPresent: [ :value | aSampler initialSampler: (OTSampler probabilityOrAlwaysOff: value) ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> updateXRayRemoteSampler: aSampler withOptions: options [
+
+	options at: 'endpoint' ifPresent: [ :value | aSampler endpoint: value ].
+	options at: 'pollingIntervalMillis' ifPresent: [ :value | aSampler pollingIntervalMillis: value ]
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> writeShellQuotedCommandArgument: anObject on: aStream [
+
+	| argument escapeCharacter needsQuoting quoteCharacter |
+	argument := anObject asString.
+	escapeCharacter := Character value: 92.
+	quoteCharacter := Character value: 34.
+	argument isEmpty ifTrue: [ ^ aStream nextPutAll: '""' ].
+	needsQuoting := argument anySatisfy: [ :each | each isSeparator or: [ each = quoteCharacter or: [ each = escapeCharacter ] ] ].
+	needsQuoting ifFalse: [ ^ aStream nextPutAll: argument ].
+	aStream nextPut: quoteCharacter.
+	argument do: [ :each |
+			(each = quoteCharacter or: [ each = escapeCharacter ]) ifTrue: [ aStream nextPut: escapeCharacter ].
+			aStream nextPut: each ].
+	aStream nextPut: quoteCharacter
+]
+
+{ #category : 'private' }
+OTTracerProvider class >> xrayRemoteSamplerForResource: anOTResource argument: anotherString [
+
+	| sampler samplerName |
+	samplerName := 'xray'.
+	sampler := OTXRayRemoteSampler
+		           serviceName: (self serviceNameForSamplerResource: anOTResource)
+		           serviceType: (self serviceTypeForSamplerResource: anOTResource).
+	anotherString ifNotNil: [
+			| options |
+			options := self strictXRayRemoteSamplerOptionsFrom: anotherString.
+			options
+				ifNil: [ self noteInvalidSamplerArgument: anotherString forSampler: samplerName ]
+				ifNotNil: [ self updateXRayRemoteSampler: sampler withOptions: options ] ].
+	^ sampler
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> addSpanProcessor: aSpanProcessor [
+
+	(self validatedSpanProcessorConfiguration: aSpanProcessor forOperation: 'addSpanProcessor:') ifNil: [ ^ self spanProcessors ].
+	stateLock critical: [
+			self ensureOpenLocked.
+			(self class spanProcessorsByProvider at: self ifAbsentPut: [ OrderedCollection new ]) add: aSpanProcessor ].
+	^ aSpanProcessor
+]
+
+{ #category : 'private' }
+OTTracerProvider >> asTwoDigitLowercaseHex: anInteger [
+
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPut: ('0123456789abcdef' at: ((anInteger bitShift: -4) bitAnd: 16rF) + 1);
+				  nextPut: ('0123456789abcdef' at: (anInteger bitAnd: 16rF) + 1) ]
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> configuredTracerForInstrumentationScope: anInstrumentationScope withConfigurator: aBlock [
+
+	| tracer |
+	tracer := self tracerForInstrumentationScope: anInstrumentationScope.
+	tracer tracerConfig: (self tracerConfigurationForInstrumentationScope: anInstrumentationScope withConfigurator: aBlock).
+	^ tracer
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> ensureOpen [
+
+	stateLock critical: [ self ensureOpenLocked ].
+	self
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> ensureOpenLocked [
+
+	(shutdownRequested = true or: [ shutdownCompleted = true ]) ifTrue: [ Error signal: 'This tracer provider has been shut down' ].
+	self
+]
+
+{ #category : 'processing' }
+OTTracerProvider >> forceFlush [
+
+	| processors allFlushed stopping |
+	processors := stateLock critical: [
+			              stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
+			              (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy ].
+	stopping ifTrue: [ ^ false ].
+	processors isEmpty ifTrue: [ ^ true ].
+	allFlushed := true.
+	processors do: [ :each |
+			allFlushed := (self
+				               withSpanProcessor: each
+				               operationNamed: 'forceFlush'
+				               default: false
+				               do: [ each forceFlush ]) & allFlushed ].
+	^ allFlushed
+]
+
+{ #category : 'processing' }
+OTTracerProvider >> forceFlushResult [
+
+	| allFlushed processors stopping |
+	processors := stateLock critical: [
+			              stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
+			              (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy ].
+	stopping ifTrue: [ ^ OTLifecycleResult failure ].
+	processors isEmpty ifTrue: [ ^ OTLifecycleResult success ].
+	allFlushed := OTLifecycleResult success.
+	processors do: [ :each |
+			allFlushed := allFlushed combinedWith: (self
+					               withSpanProcessor: each
+					               operationNamed: 'forceFlush'
+					               default: OTLifecycleResult failure
+					               do: [ each forceFlushResult ]) ].
+	^ allFlushed
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> idGenerator [
+
+	^ stateLock critical: [ self class idGeneratorByProvider at: self ifAbsentPut: [ self class defaultIdGenerator ] ]
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> idGenerator: anIdGenerator [
+
+	| effectiveIdGenerator |
+	effectiveIdGenerator := self validatedIdGeneratorConfiguration: anIdGenerator forOperation: 'idGenerator:'.
+	effectiveIdGenerator ifNil: [ ^ self idGenerator ].
+	stateLock critical: [
+			self ensureOpenLocked.
+			self class idGeneratorByProvider at: self put: effectiveIdGenerator ].
+	^ self idGenerator
+]
+
+{ #category : 'initialization' }
+OTTracerProvider >> initialize [
+
+	super initialize.
+	tracers := Dictionary new.
+	stateLock := Semaphore forMutualExclusion.
+	shutdownRequested := false.
+	shutdownCompleted := false
+]
+
+{ #category : 'private' }
+OTTracerProvider >> installRegisteredTracer: aTracer forScope: anInstrumentationScope configurator: aBlock [
+
+	^ stateLock critical: [
+			  | currentConfigurator currentTracer |
+			  (shutdownRequested = true or: [ shutdownCompleted = true ]) ifTrue: [
+				  ^ OTNoopTracer forProvider: self instrumentationScope: anInstrumentationScope ].
+			  currentTracer := tracers at: anInstrumentationScope ifAbsent: [ nil ].
+			  currentTracer ifNotNil: [ ^ currentTracer ].
+			  currentConfigurator := self class tracerConfiguratorByProvider at: self ifAbsentPut: [ [ :tracerScope | nil ] ].
+			  currentConfigurator == aBlock ifTrue: [
+					  tracers at: anInstrumentationScope put: aTracer.
+					  ^ aTracer ].
+			  nil ]
+]
+
+{ #category : 'testing' }
+OTTracerProvider >> isShutdown [
+
+	^ stateLock critical: [ shutdownCompleted = true ]
+]
+
+{ #category : 'testing' }
+OTTracerProvider >> isStopping [
+
+	^ stateLock critical: [ shutdownRequested = true ]
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> nonRecordingSpanContext: aSpanContext context: aContext parent: aSpan instrumentationScope: anInstrumentationScope [
+
+	^ OTNonRecordingSpan
+		  spanContext: aSpanContext
+		  context: aContext
+		  parent: aSpan
+		  instrumentationScope: anInstrumentationScope
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> nonRecordingSpanIn: aContext [
+
+	^ self nonRecordingSpanIn: aContext instrumentationScope: (OTInstrumentationScope named: '')
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> nonRecordingSpanIn: aContext instrumentationScope: anInstrumentationScope [
+
+	| baseContext parentSpan span |
+	baseContext := self normalizedContextFrom: aContext forOperation: 'OTTracerProvider>>nonRecordingSpanIn:instrumentationScope:'.
+	parentSpan := baseContext span.
+	span := parentSpan ifNil: [ OTSpan wrapping: OTSpanContext invalid ] ifNotNil: [
+			        parentSpan isRecording
+				        ifFalse: [ ^ parentSpan ]
+				        ifTrue: [ OTSpan wrapping: parentSpan spanContext ] ].
+	span
+		restoreContext: (baseContext withSpan: span);
+		restoreInstrumentationScope: anInstrumentationScope;
+		restoreResource: self resource.
+	^ span
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> nonRecordingSpanIn: aContext parent: aSpan traceId: aTraceId samplingResult: aSamplingResult instrumentationScope: anInstrumentationScope [
+
+	| baseContext traceState spanContext span |
+	baseContext := self
+		               normalizedContextFrom: aContext
+		               forOperation: 'OTTracerProvider>>nonRecordingSpanIn:parent:traceId:samplingResult:instrumentationScope:'.
+	traceState := aSamplingResult traceState ifNil: [ aSpan ifNotNil: [ aSpan spanContext traceState ] ].
+	spanContext := OTSpanContext
+		               traceId: aTraceId
+		               spanId: self idGenerator generateSpanIdHex
+		               traceFlags: (self traceFlagsForSamplingResult: aSamplingResult parentSpan: aSpan)
+		               traceState: traceState
+		               remote: false.
+	span := self
+		        nonRecordingSpanContext: spanContext
+		        context: baseContext
+		        parent: aSpan
+		        instrumentationScope: anInstrumentationScope.
+	span
+		restoreContext: (baseContext withSpan: span);
+		restoreResource: self resource.
+	^ span
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> normalizedContextFrom: aContext forOperation: anOperationName [
+
+	aContext ifNil: [ ^ OTContext new ].
+	(aContext isKindOf: OTContext) ifTrue: [ ^ aContext ].
+	OTSpan noteIgnoredInvalidArgument: aContext forOperation: anOperationName.
+	^ OTContext new
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> normalizedSpanProcessorsFrom: aCollection forOperation: anOperationName [
+
+	aCollection ifNil: [ ^ OrderedCollection new ].
+	(aCollection isCollection and: [ aCollection isString not ]) ifFalse: [
+			self class noteInvalidSpanProcessorConfiguration: aCollection forOperation: anOperationName.
+			^ nil ].
+	^ aCollection inject: OrderedCollection new into: [ :normalized :each |
+			  (each isKindOf: OTSpanProcessor)
+				  ifTrue: [ normalized add: each ]
+				  ifFalse: [ self class noteInvalidSpanProcessorConfiguration: each forOperation: anOperationName ].
+			  normalized ]
+]
+
+{ #category : 'private' }
+OTTracerProvider >> normalizedTracerScopeNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
+
+	^ OTInstrumentationScope
+		  named: (self class normalizedTracerNameFrom: aString)
+		  version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
+		  schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
+		  attributes: (self class normalizedTracerScopeAttributesFrom: aCollection)
+]
+
+{ #category : 'processing' }
+OTTracerProvider >> processEndedSpan: aSpan [
+
+	| processors allProcessed |
+	self isStopping ifTrue: [ ^ false ].
+	processors := self spanProcessors.
+	processors isEmpty ifTrue: [ ^ false ].
+	allProcessed := true.
+	processors do: [ :each |
+			allProcessed := (self
+				                 withSpanProcessor: each
+				                 operationNamed: 'onEnd'
+				                 default: false
+				                 do: [ each onEnd: aSpan ]) & allProcessed ].
+	^ allProcessed
+]
+
+{ #category : 'processing' }
+OTTracerProvider >> processEndingSpan: aSpan [
+
+	| processors allProcessed |
+	self isStopping ifTrue: [ ^ false ].
+	processors := self spanProcessors.
+	processors isEmpty ifTrue: [ ^ false ].
+	allProcessed := true.
+	processors do: [ :each |
+			allProcessed := (self
+				                 withSpanProcessor: each
+				                 operationNamed: 'onEnding'
+				                 default: false
+				                 do: [
+						                 each onEnding: aSpan.
+						                 true ]) & allProcessed ].
+	^ allProcessed
+]
+
+{ #category : 'processing' }
+OTTracerProvider >> processStartedSpan: aSpan parentContext: aContext [
+
+	| processors allProcessed |
+	self isStopping ifTrue: [ ^ false ].
+	processors := self spanProcessors.
+	processors isEmpty ifTrue: [ ^ false ].
+	allProcessed := true.
+	processors do: [ :each |
+			allProcessed := (self
+				                 withSpanProcessor: each
+				                 operationNamed: 'onStart'
+				                 default: false
+				                 do: [
+						                 each onStart: aSpan parentContext: aContext.
+						                 true ]) & allProcessed ].
+	^ allProcessed
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> recordingSpanIn: aContext parent: aSpan instrumentationScope: anInstrumentationScope [
+
+	| effectiveContext span |
+	effectiveContext := aContext
+		                    ifNil: [ aSpan ifNil: [ OTContext new ] ifNotNil: [ aSpan effectiveContext ] ]
+		                    ifNotNil: [
+		                    self
+			                    normalizedContextFrom: aContext
+			                    forOperation: 'OTTracerProvider>>recordingSpanIn:parent:instrumentationScope:' ].
+	span := OTSpan newInternal.
+	span restoreContext: effectiveContext.
+	aSpan ifNotNil: [ span restoreParent: aSpan ].
+	span restoreInstrumentationScope: anInstrumentationScope.
+	^ span
+]
+
+{ #category : 'private' }
+OTTracerProvider >> registeredTracerForScope: anInstrumentationScope [
+
+	[
+		| configurator installedTracer snapshot tracer |
+		snapshot := self tracerRegistrationSnapshotForScope: anInstrumentationScope.
+		(snapshot at: 1) = #shutdown ifTrue: [ ^ snapshot at: 2 ].
+		(snapshot at: 1) = #existing ifTrue: [ ^ snapshot at: 2 ].
+		configurator := snapshot at: 2.
+		tracer := self configuredTracerForInstrumentationScope: anInstrumentationScope withConfigurator: configurator.
+		installedTracer := self installRegisteredTracer: tracer forScope: anInstrumentationScope configurator: configurator.
+		installedTracer ifNotNil: [ ^ installedTracer ] ] repeat
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> resource [
+
+	^ stateLock critical: [ self class resourceByProvider at: self ifAbsentPut: [ OTResource empty ] ]
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> resource: anOTResource [
+
+	| effectiveResource |
+	effectiveResource := self validatedResourceConfiguration: anOTResource forOperation: 'resource:'.
+	effectiveResource ifNil: [ ^ self resource ].
+	stateLock critical: [
+			self ensureOpenLocked.
+			self class resourceByProvider at: self put: effectiveResource ].
+	^ self resource
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> sampler [
+
+	^ stateLock critical: [ self class samplerByProvider at: self ifAbsentPut: [ self class defaultSampler ] ]
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> sampler: anOTSampler [
+
+	| effectiveSampler previousSampler |
+	effectiveSampler := self validatedSamplerConfiguration: anOTSampler forOperation: 'sampler:'.
+	effectiveSampler ifNil: [ ^ self sampler ].
+	previousSampler := stateLock critical: [
+			                   | previous |
+			                   self ensureOpenLocked.
+			                   previous := self class samplerByProvider at: self ifAbsent: [ nil ].
+			                   previous == effectiveSampler ifFalse: [ self class samplerByProvider at: self put: effectiveSampler ].
+			                   previous ].
+	(previousSampler notNil and: [ previousSampler ~~ effectiveSampler ]) ifTrue: [ self shutdownSampler: previousSampler ].
+	previousSampler == effectiveSampler ifFalse: [ self startSampler: effectiveSampler ].
+	^ self sampler
+]
+
+{ #category : 'sampling' }
+OTTracerProvider >> samplingResultIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
+
+	^ self sampler
+		  shouldSampleIn: aContext
+		  traceId: aTraceId
+		  name: aString
+		  kind: aSpanKind
+		  attributes: someAttributes
+		  links: someLinks
+]
+
+{ #category : 'processing' }
+OTTracerProvider >> shutdown [
+
+	| allShutdown alreadyStopping processors sampler |
+	processors := #(  ).
+	sampler := nil.
+	alreadyStopping := stateLock critical: [
+			                   | stopping |
+			                   stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
+			                   stopping ifFalse: [
+					                   shutdownRequested := true.
+					                   processors := (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy.
+					                   sampler := self class samplerByProvider at: self ifAbsent: [ nil ] ].
+			                   stopping ].
+	alreadyStopping ifTrue: [ ^ false ].
+	allShutdown := self shutdownSampler: sampler.
+	processors do: [ :each |
+			allShutdown := (self
+				                withSpanProcessor: each
+				                operationNamed: 'shutdown'
+				                default: false
+				                do: [ each shutdown ]) & allShutdown ].
+	stateLock critical: [ shutdownCompleted := true ].
+	^ allShutdown
+]
+
+{ #category : 'processing' }
+OTTracerProvider >> shutdownResult [
+
+	| allShutdown alreadyStopping processors sampler |
+	processors := #(  ).
+	sampler := nil.
+	alreadyStopping := stateLock critical: [
+			                   | stopping |
+			                   stopping := shutdownRequested = true or: [ shutdownCompleted = true ].
+			                   stopping ifFalse: [
+					                   shutdownRequested := true.
+					                   processors := (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy.
+					                   sampler := self class samplerByProvider at: self ifAbsent: [ nil ] ].
+			                   stopping ].
+	alreadyStopping ifTrue: [ ^ OTLifecycleResult failure ].
+	allShutdown := self shutdownSamplerResult: sampler.
+	processors do: [ :each |
+			allShutdown := allShutdown combinedWith: (self
+					                withSpanProcessor: each
+					                operationNamed: 'shutdown'
+					                default: OTLifecycleResult failure
+					                do: [ each shutdownResult ]) ].
+	stateLock critical: [ shutdownCompleted := true ].
+	^ allShutdown
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> shutdownSampler: aSampler [
+
+	aSampler ifNil: [ ^ true ].
+	^ [ aSampler shutdown ]
+		  on: Error
+		  do: [ :error |
+				  self class noteSampler: aSampler failedDuring: 'shutdown' error: error.
+				  false ]
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> shutdownSamplerResult: aSampler [
+
+	aSampler ifNil: [ ^ OTLifecycleResult success ].
+	^ OTLifecycleResult fromBoolean: ([ aSampler shutdown ]
+			   on: Error
+			   do: [ :error |
+					   self class noteSampler: aSampler failedDuring: 'shutdown' error: error.
+					   false ])
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> spanLimits [
+
+	^ stateLock critical: [ (self class spanLimitsByProvider at: self ifAbsentPut: [ OTSpanLimits default ]) copy ]
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> spanLimits: anOTSpanLimits [
+
+	| effectiveSpanLimits |
+	effectiveSpanLimits := self validatedSpanLimitsConfiguration: anOTSpanLimits forOperation: 'spanLimits:'.
+	effectiveSpanLimits ifNil: [ ^ self spanLimits ].
+	stateLock critical: [
+			self ensureOpenLocked.
+			self class spanLimitsByProvider at: self put: effectiveSpanLimits ].
+	^ self spanLimits
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> spanProcessor: aSpanProcessor [
+
+	(self validatedSpanProcessorConfiguration: aSpanProcessor forOperation: 'spanProcessor:') ifNil: [ ^ self spanProcessors ].
+	self spanProcessors: { aSpanProcessor }.
+	^ aSpanProcessor
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> spanProcessors [
+
+	| processors |
+	processors := stateLock critical: [ (self class spanProcessorsByProvider at: self ifAbsentPut: [ OrderedCollection new ]) copy ].
+	^ processors
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> spanProcessors: aCollection [
+
+	| nextProcessors previousProcessors removedProcessors |
+	nextProcessors := self normalizedSpanProcessorsFrom: aCollection forOperation: 'spanProcessors:'.
+	nextProcessors ifNil: [ ^ self spanProcessors ].
+	previousProcessors := stateLock critical: [
+			                      | previous |
+			                      self ensureOpenLocked.
+			                      previous := (self class spanProcessorsByProvider at: self ifAbsent: [ OrderedCollection new ]) copy.
+			                      self class spanProcessorsByProvider at: self put: nextProcessors.
+			                      previous ].
+	removedProcessors := previousProcessors reject: [ :each | nextProcessors anySatisfy: [ :retained | retained == each ] ].
+	removedProcessors do: [ :each |
+			self
+				withSpanProcessor: each
+				operationNamed: 'shutdown'
+				default: false
+				do: [ each shutdown ] ].
+	^ self spanProcessors
+]
+
+{ #category : 'private - lifecycle' }
+OTTracerProvider >> startSampler: aSampler [
+
+	aSampler ifNil: [ ^ true ].
+	^ [
+		  aSampler start.
+		  true ]
+		  on: Error
+		  do: [ :error |
+				  self class noteSampler: aSampler failedDuring: 'start' error: error.
+				  false ]
+]
+
+{ #category : 'sampling' }
+OTTracerProvider >> traceFlagsForSamplingResult: aSamplingResult parentSpan: aSpan [
+
+	| parentFlags |
+	parentFlags := aSpan
+		               ifNil: [
+				               self idGenerator isRandom
+					               ifTrue: [ 16r02 ]
+					               ifFalse: [ 0 ] ]
+		               ifNotNil: [ Integer readFrom: aSpan spanContext traceFlags readStream base: 16 ].
+	parentFlags := (parentFlags bitAnd: 16rFE) bitOr: (aSamplingResult isRecordAndSample
+			                ifTrue: [ 1 ]
+			                ifFalse: [ 0 ]).
+	^ self asTwoDigitLowercaseHex: parentFlags
+]
+
+{ #category : 'private' }
+OTTracerProvider >> tracerConfigurationEnables: aTracer forSpanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
+
+	self isStopping ifTrue: [ ^ false ].
+	^ (self
+		   tracerConfigurationValueFor: aTracer
+		   spanNamed: aString
+		   kind: aSpanKind
+		   inContext: aContext
+		   attributes: someAttributes
+		   links: someLinks) enabled
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> tracerConfigurationForInstrumentationScope: anInstrumentationScope [
+
+	^ self tracerConfigurationForInstrumentationScope: anInstrumentationScope withConfigurator: self tracerConfigurator
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> tracerConfigurationForInstrumentationScope: anInstrumentationScope withConfigurator: aBlock [
+
+	| arguments configuredValue |
+	arguments := aBlock numArgs = 0
+		             ifTrue: [ #(  ) ]
+		             ifFalse: [
+				             | blockArguments |
+				             blockArguments := Array new: aBlock numArgs withAll: nil.
+				             blockArguments at: 1 put: anInstrumentationScope.
+				             blockArguments ].
+	configuredValue := self withTracerConfigurationDefault: nil operationNamed: 'tracerConfig' do: [
+			                   aBlock numArgs = 0
+				                   ifTrue: [ aBlock value ]
+				                   ifFalse: [ aBlock valueWithArguments: arguments ] ].
+	^ self validatedTracerConfigurationResult: configuredValue instrumentationScope: anInstrumentationScope
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> tracerConfigurationValueFor: aTracer spanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
+
+	^ aTracer tracerConfig
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> tracerConfigurator [
+
+	^ stateLock critical: [ self class tracerConfiguratorByProvider at: self ifAbsentPut: [ [ :scope | nil ] ] ]
+]
+
+{ #category : 'accessing' }
+OTTracerProvider >> tracerConfigurator: aBlock [
+
+	| computedConfigurations effectiveConfigurator tracerSnapshot |
+	effectiveConfigurator := self validatedTracerConfigurator: aBlock forOperation: 'tracerConfigurator:'.
+	effectiveConfigurator ifNil: [ ^ self tracerConfigurator ].
+	tracerSnapshot := stateLock critical: [
+			                  self ensureOpenLocked.
+			                  self class tracerConfiguratorByProvider at: self put: effectiveConfigurator.
+			                  tracers values asArray ].
+	computedConfigurations := tracerSnapshot collect: [ :each |
+		                          each
+		                          ->
+		                          (self
+			                           tracerConfigurationForInstrumentationScope: each instrumentationScope
+			                           withConfigurator: effectiveConfigurator) ].
+	stateLock critical: [
+			(self class tracerConfiguratorByProvider at: self ifAbsent: [ nil ]) == effectiveConfigurator ifTrue: [
+				computedConfigurations do: [ :each | each key tracerConfig: each value ] ] ].
+	^ self tracerConfigurator
+]
+
+{ #category : 'testing' }
+OTTracerProvider >> tracerEnabled: aTracer [
+
+	^ self
+		  tracerEnabled: aTracer
+		  forSpanNamed: nil
+		  kind: nil
+		  inContext: nil
+		  attributes: #(  )
+		  links: #(  )
+]
+
+{ #category : 'testing' }
+OTTracerProvider >> tracerEnabled: aTracer forSpanNamed: aString kind: aSpanKind inContext: aContext attributes: someAttributes links: someLinks [
+
+	(self
+		 tracerConfigurationEnables: aTracer
+		 forSpanNamed: aString
+		 kind: aSpanKind
+		 inContext: aContext
+		 attributes: someAttributes
+		 links: someLinks) ifFalse: [ ^ false ].
+	^ self spanProcessors isNotEmpty
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> tracerForInstrumentationScope: anInstrumentationScope [
+
+	^ OTTracer forProvider: self instrumentationScope: anInstrumentationScope
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> tracerNamed: aString [
+
+	^ self
+		  tracerNamed: aString
+		  version: ''
+		  schemaUrl: ''
+		  attributes: #(  )
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> tracerNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
+
+	| scope |
+	scope := self
+		         normalizedTracerScopeNamed: aString
+		         version: aVersionString
+		         schemaUrl: aSchemaUrlString
+		         attributes: aCollection.
+	^ self registeredTracerForScope: scope
+]
+
+{ #category : 'private' }
+OTTracerProvider >> tracerRegistrationSnapshotForScope: anInstrumentationScope [
+
+	^ stateLock critical: [
+			  | configurator existingTracer |
+			  (shutdownRequested = true or: [ shutdownCompleted = true ]) ifTrue: [
+					  ^ {
+						    #shutdown.
+						    (OTNoopTracer forProvider: self instrumentationScope: anInstrumentationScope) } ].
+			  existingTracer := tracers at: anInstrumentationScope ifAbsent: [ nil ].
+			  existingTracer ifNotNil: [
+					  ^ {
+						    #existing.
+						    existingTracer } ].
+			  configurator := self class tracerConfiguratorByProvider at: self ifAbsentPut: [ [ :tracerScope | nil ] ].
+			  {
+				  #configure.
+				  configurator } ]
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedIdGeneratorConfiguration: anIdGenerator forOperation: anOperationName [
+
+	anIdGenerator ifNil: [ ^ self class defaultIdGenerator ].
+	(anIdGenerator isKindOf: OTIdGenerator) ifTrue: [ ^ anIdGenerator ].
+	self class noteInvalidTracerConfigurationValue: anIdGenerator forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedResourceConfiguration: anOTResource forOperation: anOperationName [
+
+	anOTResource ifNil: [ ^ OTResource empty ].
+	(anOTResource isKindOf: OTResource) ifTrue: [ ^ anOTResource ].
+	self class noteInvalidResourceConfigurationValue: anOTResource forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedSamplerConfiguration: anOTSampler forOperation: anOperationName [
+
+	anOTSampler ifNil: [ ^ self class defaultSampler ].
+	(anOTSampler isKindOf: OTSampler) ifTrue: [ ^ anOTSampler ].
+	self class noteInvalidTracerConfigurationValue: anOTSampler forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedSpanLimitsConfiguration: anOTSpanLimits forOperation: anOperationName [
+
+	anOTSpanLimits ifNil: [ ^ OTSpanLimits default ].
+	(anOTSpanLimits isKindOf: OTSpanLimits) ifTrue: [ ^ anOTSpanLimits ].
+	self class noteInvalidTracerConfigurationValue: anOTSpanLimits forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName [
+
+	(aSpanProcessor isKindOf: OTSpanProcessor) ifTrue: [ ^ aSpanProcessor ].
+	self class noteInvalidSpanProcessorConfiguration: aSpanProcessor forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedTracerConfigurationResult: aValue instrumentationScope: anInstrumentationScope [
+
+	aValue ifNil: [ ^ OTTracerConfig default ].
+	(aValue == true or: [ aValue == false ]) ifTrue: [ ^ OTTracerConfig enabled: aValue ].
+	(aValue isKindOf: OTTracerConfig) ifTrue: [ ^ aValue ].
+	self class noteInvalidTracerConfigurationValue: aValue forOperation: 'tracerConfigurator value'.
+	^ OTTracerConfig default
+]
+
+{ #category : 'private - configuration' }
+OTTracerProvider >> validatedTracerConfigurator: aBlock forOperation: anOperationName [
+
+	aBlock ifNil: [ ^ [ :scope | nil ] ].
+	aBlock isBlock ifTrue: [ ^ aBlock ].
+	self class noteInvalidTracerConfigurationValue: aBlock forOperation: anOperationName.
+	^ nil
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> withSpanProcessor: aProcessor operationNamed: anOperationName default: aDefaultValue do: aBlock [
+
+	^ [ aBlock value ]
+		  on: Error
+		  do: [ :error |
+				  self class noteSpanProcessor: aProcessor failedDuring: anOperationName error: error.
+				  aDefaultValue ]
+]
+
+{ #category : 'private - error handling' }
+OTTracerProvider >> withTracerConfigurationDefault: aDefaultValue operationNamed: anOperationName do: aBlock [
+
+	^ [ aBlock value ]
+		  on: Error
+		  do: [ :error |
+				  self class noteTracerConfigurationFailedDuring: anOperationName error: error.
+				  aDefaultValue ]
+]
+
+{ #category : 'tracing' }
+OTTracerProvider >> wrapSpanContext: aSpanContext [
+
+	^ OTSpan wrapping: aSpanContext
+]

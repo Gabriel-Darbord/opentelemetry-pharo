@@ -16,8 +16,8 @@ Class {
 OTProtobufReader class >> on: aByteArray [
 
 	^ self new
-		bytes: aByteArray;
-		yourself
+		  bytes: aByteArray;
+		  yourself
 ]
 
 { #category : 'testing' }
@@ -29,7 +29,7 @@ OTProtobufReader >> atEnd [
 { #category : 'accessing' }
 OTProtobufReader >> bytes: aByteArray [
 
-	bytes := aByteArray ifNil: [ #[] ] ifNotNil: [ aByteArray ].
+	bytes := aByteArray ifNil: [ #[  ] ] ifNotNil: [ aByteArray ].
 	position := 1
 ]
 
@@ -50,10 +50,16 @@ OTProtobufReader >> readBytes [
 	start := position.
 	end := start + length - 1.
 	result := length = 0
-		ifTrue: [ #[] ]
-		ifFalse: [ bytes copyFrom: start to: end ].
+		          ifTrue: [ #[  ] ]
+		          ifFalse: [ bytes copyFrom: start to: end ].
 	position := end + 1.
 	^ result
+]
+
+{ #category : 'private - reading' }
+OTProtobufReader >> readDouble [
+
+	^ Float fromIEEE64Bit: self readFixed64
 ]
 
 { #category : 'private - reading' }
@@ -63,8 +69,8 @@ OTProtobufReader >> readFixed32 [
 	value := 0.
 	shift := 0.
 	4 timesRepeat: [
-		value := value bitOr: ((self nextByte) bitShift: shift).
-		shift := shift + 8 ].
+			value := value bitOr: (self nextByte bitShift: shift).
+			shift := shift + 8 ].
 	^ value
 ]
 
@@ -75,8 +81,8 @@ OTProtobufReader >> readFixed64 [
 	value := 0.
 	shift := 0.
 	8 timesRepeat: [
-		value := value bitOr: ((self nextByte) bitShift: shift).
-		shift := shift + 8 ].
+			value := value bitOr: (self nextByte bitShift: shift).
+			shift := shift + 8 ].
 	^ value
 ]
 
@@ -91,7 +97,9 @@ OTProtobufReader >> readTag [
 
 	| tag |
 	tag := self readVarint.
-	^ { tag bitShift: -3. tag bitAnd: 7 }
+	^ {
+		  (tag bitShift: -3).
+		  (tag bitAnd: 7) }
 ]
 
 { #category : 'private - reading' }
@@ -103,17 +111,24 @@ OTProtobufReader >> readVarint [
 	[
 		byte := self nextByte.
 		result := result bitOr: ((byte bitAnd: 16r7F) bitShift: shift).
-		(byte bitAnd: 16r80) = 0 ] whileFalse: [
-			shift := shift + 7 ].
+		(byte bitAnd: 16r80) = 0 ] whileFalse: [ shift := shift + 7 ].
 	^ result
 ]
 
 { #category : 'private - reading' }
 OTProtobufReader >> skipWireType: aWireTypeInteger [
 
-	aWireTypeInteger = 0 ifTrue: [ self readVarint. ^ self ].
-	aWireTypeInteger = 1 ifTrue: [ position := position + 8. ^ self ].
-	aWireTypeInteger = 2 ifTrue: [ position := position + self readVarint. ^ self ].
-	aWireTypeInteger = 5 ifTrue: [ position := position + 4. ^ self ].
+	aWireTypeInteger = 0 ifTrue: [
+			self readVarint.
+			^ self ].
+	aWireTypeInteger = 1 ifTrue: [
+			position := position + 8.
+			^ self ].
+	aWireTypeInteger = 2 ifTrue: [
+			position := position + self readVarint.
+			^ self ].
+	aWireTypeInteger = 5 ifTrue: [
+			position := position + 4.
+			^ self ].
 	Error signal: 'Unsupported protobuf wire type: ' , aWireTypeInteger asString
 ]

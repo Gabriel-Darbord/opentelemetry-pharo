@@ -12,8 +12,8 @@ Class {
 OTSamplingResultSampler class >> result: aSamplingResult [
 
 	^ self new
-		samplingResult: aSamplingResult;
-		yourself
+		  samplingResult: aSamplingResult;
+		  yourself
 ]
 
 { #category : 'accessing' }

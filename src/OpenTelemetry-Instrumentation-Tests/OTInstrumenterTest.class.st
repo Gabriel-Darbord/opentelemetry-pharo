@@ -21,31 +21,41 @@ OTInstrumenterTest >> setUp [
 OTInstrumenterTest >> tearDown [
 
 	[
+		OTDiagnosticLogger reset.
 		OTTracerProvider current: nil.
 		OTSpanProcessor current: nil.
 		OTSpanExporter current: nil.
 		OTInstrumenter configurationWarningSink: nil.
 		OTTracerProvider tracerConfigurationWarningSink: nil.
-		OTSpan reset ]
-		ensure: [ super tearDown ]
+		OTSpan reset ] ensure: [ super tearDown ]
 ]
 
-{ #category : 'private' }
-OTInstrumenterTest >> withInstrumenterWarningsDo: aBlock [
+{ #category : 'tests' }
+OTInstrumenterTest >> testCurrentContextFailureInvokesDiagnosticErrorHandler [
 
-	| warnings |
-	warnings := OrderedCollection new.
-	OTInstrumenter configurationWarningSink: [ :message | warnings add: message ].
-	[
-		^ aBlock value: warnings ]
-		ensure: [ OTInstrumenter configurationWarningSink: nil ]
+	| handled instrumenter provider span |
+	handled := OrderedCollection new.
+	OTDiagnosticLogger current: (OTDiagnosticLogger new
+			 errorHandler: [ :error :message |
+					 handled add: {
+								 error messageText.
+								 message } ];
+			 yourself).
+	provider := OTTracerProvider new.
+	provider spanProcessor: OTSimpleSpanProcessor new.
+	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
+	instrumenter
+		tracerProvider: provider;
+		contextProducer: [ Error signal: 'boom' ].
+	span := instrumenter startRequest: 'request'.
+	self deny: (span asExportRecord includesKey: #parentSpanContext).
+	self assert: handled asArray equals: { { 'boom'. 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } }
 ]
 
 { #category : 'tests' }
 OTInstrumenterTest >> testCurrentContextFallsBackToEmptyContextWhenContextProducerFails [
 
-	self
-		withInstrumenterWarningsDo: [ :warnings |
+	self withInstrumenterWarningsDo: [ :warnings |
 			| instrumenter provider span |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
@@ -54,16 +64,14 @@ OTInstrumenterTest >> testCurrentContextFallsBackToEmptyContextWhenContextProduc
 				tracerProvider: provider;
 				contextProducer: [ Error signal: 'boom' ].
 			span := instrumenter startRequest: 'request'.
-			self assert: span parent isNil.
-			self assert: warnings asArray equals:
-				{ 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } ]
+			self deny: (span asExportRecord includesKey: #parentSpanContext).
+			self assert: warnings asArray equals: { 'OpenTelemetry instrumenter callback failed during contextProducer: boom' } ]
 ]
 
 { #category : 'tests' }
 OTInstrumenterTest >> testShouldStartUnderFallsBackToTrueWhenSuppressionStrategyFails [
 
-	self
-		withInstrumenterWarningsDo: [ :warnings |
+	self withInstrumenterWarningsDo: [ :warnings |
 			| instrumenter provider |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
@@ -72,32 +80,32 @@ OTInstrumenterTest >> testShouldStartUnderFallsBackToTrueWhenSuppressionStrategy
 				tracerProvider: provider;
 				spanSuppressionStrategy: [ :span :kind | Error signal: 'boom' ].
 			self assert: (instrumenter shouldStartUnder: nil request: 'request').
-			self assert: warnings asArray equals:
-				{ 'OpenTelemetry instrumenter callback failed during spanSuppressionStrategy: boom' } ]
+			self assert: warnings asArray equals: { 'OpenTelemetry instrumenter callback failed during spanSuppressionStrategy: boom' } ]
 ]
 
 { #category : 'tests' }
-OTInstrumenterTest >> testShouldStartUnderUsesTracerEnablementForDerivedSpanName [
+OTInstrumenterTest >> testShouldStartUnderUsesTracerEnablementForInstrumentationScope [
 
 	| instrumenter provider |
 	provider := OTTracerProvider new.
 	provider spanProcessor: OTSimpleSpanProcessor new.
-	provider tracerConfigurator: [ :scope :spanName :kind :context :attributes :links |
-		spanName = 'blocked' ifTrue: [ false ] ifFalse: [ nil ] ].
+	provider tracerConfigurator: [ :scope |
+			scope name = 'demo.scope'
+				ifTrue: [ OTTracerConfig disabled ]
+				ifFalse: [ OTTracerConfig default ] ].
 	instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
 	instrumenter
 		tracerProvider: provider;
 		spanNameExtractor: [ :request | request ].
 	self deny: (instrumenter shouldStartUnder: nil request: 'blocked').
-	self assert: (instrumenter shouldStartUnder: nil request: 'allowed')
+	self deny: (instrumenter shouldStartUnder: nil request: 'allowed')
 ]
 
 { #category : 'tests' }
 OTInstrumenterTest >> testStartInFallsBackToDefaultSpanKindWhenExtractorFails [
 
-	self
-		withInstrumenterWarningsDo: [ :warnings |
-			| instrumenter provider span |
+	self withInstrumenterWarningsDo: [ :warnings |
+			| exportRecord instrumenter provider span |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
 			instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
@@ -105,17 +113,16 @@ OTInstrumenterTest >> testStartInFallsBackToDefaultSpanKindWhenExtractorFails [
 				tracerProvider: provider;
 				spanKindExtractor: [ :request | Error signal: 'boom' ].
 			span := instrumenter startRequest: 'request'.
-			self assert: span kind equals: OTSpan internal.
-			self assert: warnings asArray equals:
-				{ 'OpenTelemetry instrumenter callback failed during spanKindExtractor: boom' } ]
+			exportRecord := span asExportRecord.
+			self assert: (exportRecord at: #kind) equals: OTSpan internal.
+			self assert: warnings asArray equals: { 'OpenTelemetry instrumenter callback failed during spanKindExtractor: boom' } ]
 ]
 
 { #category : 'tests' }
 OTInstrumenterTest >> testStartInFallsBackToDefaultSpanNameWhenExtractorFails [
 
-	self
-		withInstrumenterWarningsDo: [ :warnings |
-			| instrumenter provider span |
+	self withInstrumenterWarningsDo: [ :warnings |
+			| exportRecord instrumenter provider span |
 			provider := OTTracerProvider new.
 			provider spanProcessor: OTSimpleSpanProcessor new.
 			instrumenter := OTInstrumenter forInstrumentationNamed: 'demo.scope'.
@@ -123,7 +130,16 @@ OTInstrumenterTest >> testStartInFallsBackToDefaultSpanNameWhenExtractorFails [
 				tracerProvider: provider;
 				spanNameExtractor: [ :request | Error signal: 'boom' ].
 			span := instrumenter startRequest: 'request'.
-			self assert: span name equals: (OTInstrumenter defaultSpanNameExtractor value: 'request').
-			self assert: warnings asArray equals:
-				{ 'OpenTelemetry instrumenter callback failed during spanNameExtractor: boom' } ]
+			exportRecord := span asExportRecord.
+			self assert: (exportRecord at: #name) equals: (OTInstrumenter defaultSpanNameExtractor value: 'request').
+			self assert: warnings asArray equals: { 'OpenTelemetry instrumenter callback failed during spanNameExtractor: boom' } ]
+]
+
+{ #category : 'private' }
+OTInstrumenterTest >> withInstrumenterWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTInstrumenter configurationWarningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTInstrumenter configurationWarningSink: nil ]
 ]

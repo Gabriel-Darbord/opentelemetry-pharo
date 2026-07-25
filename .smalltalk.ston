@@ -3,6 +3,7 @@ SmalltalkCISpec {
     SCIMetacelloLoadSpec {
       #baseline : 'OpenTelemetry',
       #directory : 'src',
+      #load : [ 'all' ],
       #platforms : [ #pharo ]
     }
   ],
@@ -14,7 +15,8 @@ SmalltalkCISpec {
         'OpenTelemetry-Instrumentation-MetaLink',
         'OpenTelemetry-Instrumentation-MethodProxy',
         'OpenTelemetry-Matchers',
-        'OpenTelemetry-Sampling'
+        'OpenTelemetry-SDK',
+        'OpenTelemetry-Traces'
       ],
       #format : #lcov
     }

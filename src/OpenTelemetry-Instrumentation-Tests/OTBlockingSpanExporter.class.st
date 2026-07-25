@@ -27,11 +27,12 @@ OTBlockingSpanExporter >> blockNextExport [
 { #category : 'accessing' }
 OTBlockingSpanExporter >> export: spans [
 
-	blockNextExport = true ifTrue: [
-		blockNextExport := false.
-		exportEntered signal.
-		exportRelease wait ].
-	^ super export: spans
+	^ self withExportLockDo: [
+			  blockNextExport = true ifTrue: [
+					  blockNextExport := false.
+					  exportEntered signal.
+					  exportRelease wait ].
+			  self exportUnchecked: spans ]
 ]
 
 { #category : 'initialization' }

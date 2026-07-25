@@ -1,3 +1,8 @@
+"
+I cover the core behavior of the MethodProxy backend.
+
+My tests check installation, execution of hooks, cleanup of proxy artifacts, and behavior on exceptional exits.
+"
 Class {
 	#name : 'OTMethodProxyInstrumentationTest',
 	#superclass : 'OTAbstractInstrumentationTest',
@@ -5,23 +10,21 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-MethodProxy-Tests'
 }
 
+{ #category : 'asserting' }
+OTMethodProxyInstrumentationTest >> assertTargetHasNoMethodProxyArtifacts [
+
+	self deny: (OTTestTarget methods anySatisfy: [ :method | method selector isKindOf: MpHiddenSelector ]).
+	#( answer suppressedAnswer indirectAnswer fail handledFail ) do: [ :selector |
+			| method |
+			method := OTTestTarget >> selector.
+			self deny: (OTMethodProxyInstaller isMethodProxyTrap: method) ].
+	self assert: target answer equals: 42
+]
+
 { #category : 'accessing' }
 OTMethodProxyInstrumentationTest >> instrumentation [
 
 	^ OTMethodProxyTestInstrumentation
-]
-
-{ #category : 'asserting' }
-OTMethodProxyInstrumentationTest >> assertTargetHasNoMethodProxyArtifacts [
-
-	self deny: (OTTestTarget methods anySatisfy: [ :method |
-			 method selector isKindOf: MpHiddenSelector ]).
-	#( answer suppressedAnswer indirectAnswer fail handledFail ) do: [
-		:selector |
-		| method |
-		method := OTTestTarget >> selector.
-		self deny: (OTMethodProxyInstaller isMethodProxyTrap: method) ].
-	self assert: target answer equals: 42
 ]
 
 { #category : 'tests' }
@@ -71,6 +74,8 @@ OTMethodProxyInstrumentationTest >> testRepeatedInstallDoesNotAccumulateProxyArt
 { #category : 'tests' }
 OTMethodProxyInstrumentationTest >> testSmoke [
 	"Instrumentation is successfully installed and uninstalled."
+
+	
 ]
 
 { #category : 'tests' }

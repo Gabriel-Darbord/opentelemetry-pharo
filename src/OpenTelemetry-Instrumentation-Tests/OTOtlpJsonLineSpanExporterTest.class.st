@@ -12,20 +12,23 @@ Class {
 { #category : 'private' }
 OTOtlpJsonLineSpanExporterTest >> sampleSpan [
 
-	| span |
-	span := OTSpan new.
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
+	tracer := provider tracerNamed: 'exporter.test'.
+	span := (tracer spanBuilderNamed: 'operation')
+		        kind: OTSpan internal;
+		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		        startSpan.
 	span
-		traceId: '12345678876543211234567887654321';
-		spanId: '8765432112345678';
-		name: 'operation';
-		kind: OTSpan internal;
-		startTime: (DateAndTime unixEpoch + (Duration milliSeconds: 1));
-		endTime: (DateAndTime unixEpoch + (Duration milliSeconds: 2));
-		traceFlags: '01';
-		traceState: nil;
-		attributes: (Dictionary new at: 'service.name' put: 'demo'; yourself);
-		events: #();
-		links: #().
+		restoreAttributes: (Dictionary new
+				 at: 'service.name' put: 'demo';
+				 yourself);
+		restoreEvents: #(  );
+		restoreLinks: #(  );
+		end: DateAndTime unixEpoch + (Duration milliSeconds: 2).
 	^ span
 ]
 
@@ -34,14 +37,13 @@ OTOtlpJsonLineSpanExporterTest >> setUp [
 
 	super setUp.
 	exporter := OTRecordingOtlpJsonLineSpanExporter new.
-	outputFile := FileLocator temp / ('otlp-json-lines-', UUID new asString36, '.jsonl')
+	outputFile := FileLocator temp / ('otlp-json-lines-' , UUID new asString36 , '.jsonl')
 ]
 
 { #category : 'running' }
 OTOtlpJsonLineSpanExporterTest >> tearDown [
 
-	[ outputFile ifNotNil: [ outputFile ensureDelete ] ]
-		ensure: [ super tearDown ]
+	[ outputFile ifNotNil: [ outputFile ensureDelete ] ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -51,12 +53,10 @@ OTOtlpJsonLineSpanExporterTest >> testEnvironmentConfigurationSupportsOtlpStdout
 	OTSpanExporter current: nil.
 	OTSpanProcessor current: nil.
 	[
-		Smalltalk os environment
-			at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout'.
+		Smalltalk os environment at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout'.
 		self assert: OTSpanExporter current class identicalTo: OTOtlpStdoutSpanExporter.
 		processor := OTSpanProcessor current.
-		self assert: processor class identicalTo: OTBatchSpanProcessor ]
-		ensure: [
+		self assert: processor class identicalTo: OTSimpleSpanProcessor ] ensure: [
 			(Smalltalk os environment includesKey: 'OTEL_TRACES_EXPORTER') ifTrue: [
 				Smalltalk os environment removeKey: 'OTEL_TRACES_EXPORTER' ].
 			OTSpanExporter current: nil.
@@ -77,6 +77,18 @@ OTOtlpJsonLineSpanExporterTest >> testFileExporterAppendsOneJsonLinePerExport [
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineSpanExporterTest >> testJsonLineExporterReturnsFalseWhenWriteFailsAndWarns [
+
+	exporter := OTFailingOtlpJsonLineSpanExporter new.
+	self withExporterWarningsDo: [ :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'during export').
+			self assert: (warnings first includesSubstring: 'OTFailingOtlpJsonLineSpanExporter').
+			self assert: (warnings first includesSubstring: 'json-line write failure') ]
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineSpanExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerExport [
 
 	| line payload |
@@ -86,4 +98,17 @@ OTOtlpJsonLineSpanExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerE
 	self assert: line last equals: Character lf.
 	payload := STONJSON fromString: line allButLast.
 	self assert: (payload at: 'resourceSpans') size equals: 1
+]
+
+{ #category : 'private' }
+OTOtlpJsonLineSpanExporterTest >> withExporterWarningsDo: aBlock [
+
+	| logger warnings |
+	logger := OTDiagnosticLogger current.
+	warnings := OrderedCollection new.
+	OTDiagnosticLogger current: OTDiagnosticLogger new.
+	OTSpanExporter warningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [
+			OTSpanExporter warningSink: nil.
+			OTDiagnosticLogger current: logger ]
 ]

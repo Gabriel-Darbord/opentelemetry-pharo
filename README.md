@@ -27,13 +27,13 @@ Start with:
 
 - [`docs/tracing.md`](docs/tracing.md) for the tracing, baggage, propagation,
   exporter, and processor APIs
+- [`docs/metrics.md`](docs/metrics.md) for meters, instruments, views, OTLP
+  export, and the Prometheus scrape endpoint
+- [`docs/logging.md`](docs/logging.md) for logger providers, builders,
+  processors, and OTLP log export
 - [`docs/instrumentation.md`](docs/instrumentation.md) for defining and
   installing Pharo instrumentations, including MetaLink and MethodProxy
   backends
-
-### Examples
-
-See an [example instrumentation](https://github.com/Gabriel-Darbord/opentelemetry-pharo/tree/main/src/OpenTelemetry-Agents-Shout) that generates traces for [Shout](https://github.com/pharo-project/pharo/tree/1270cd5a5617ceb1d2bbc2c72c5d3ad1f44921d1/src/Shout).
 
 ## Contributing
 

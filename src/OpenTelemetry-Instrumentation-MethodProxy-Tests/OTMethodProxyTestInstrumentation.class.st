@@ -1,3 +1,8 @@
+"
+I am a test instrumentation that implements both before and after hooks.
+
+The MethodProxy tests use me to capture the receiver, arguments, and return value observed by the backend.
+"
 Class {
 	#name : 'OTMethodProxyTestInstrumentation',
 	#superclass : 'OTMethodProxyInstrumentation',

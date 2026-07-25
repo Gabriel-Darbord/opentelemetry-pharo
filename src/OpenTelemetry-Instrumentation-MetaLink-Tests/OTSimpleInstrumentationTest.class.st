@@ -68,18 +68,14 @@ OTSimpleInstrumentationTest >> testIgnoreHandledException [
 { #category : 'tests' }
 OTSimpleInstrumentationTest >> testIsInstalled [
 
-	self assert:
-		((OTTestTarget >> #answer) ast links anySatisfy: [ :link |
-			 link metaObject == self instrumentation ])
+	self assert: ((OTTestTarget >> #answer) ast links anySatisfy: [ :link | link metaObject == self instrumentation ])
 ]
 
 { #category : 'tests' }
 OTSimpleInstrumentationTest >> testIsOneShot [
 
 	target answer.
-	self assert:
-		((OTTestTarget >> #answer) ast links noneSatisfy: [ :link |
-			 link metaObject == self instrumentation ])
+	self assert: ((OTTestTarget >> #answer) ast links noneSatisfy: [ :link | link metaObject == self instrumentation ])
 ]
 
 { #category : 'tests' }
@@ -92,4 +88,6 @@ OTSimpleInstrumentationTest >> testPassException [
 { #category : 'tests' }
 OTSimpleInstrumentationTest >> testSmoke [
 	"Instrumentation is successfully installed and uninstalled."
+
+	
 ]

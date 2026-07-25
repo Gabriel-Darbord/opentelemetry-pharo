@@ -15,8 +15,8 @@ Class {
 OTProtobufWriter class >> on: aWriteStream [
 
 	^ self new
-		stream: aWriteStream;
-		yourself
+		  stream: aWriteStream;
+		  yourself
 ]
 
 { #category : 'instance creation' }
@@ -51,6 +51,12 @@ OTProtobufWriter >> writeBytes: aByteArray [
 ]
 
 { #category : 'private - writing' }
+OTProtobufWriter >> writeDouble: aNumber [
+
+	self writeFixed64: aNumber asFloat asIEEE64BitWord
+]
+
+{ #category : 'private - writing' }
 OTProtobufWriter >> writeEmbedded: aBlock [
 
 	| embedded |
@@ -65,8 +71,8 @@ OTProtobufWriter >> writeFixed32: anInteger [
 	| value |
 	value := anInteger.
 	4 timesRepeat: [
-		self nextPutByte: (value bitAnd: 16rFF).
-		value := value bitShift: -8 ]
+			self nextPutByte: (value bitAnd: 16rFF).
+			value := value bitShift: -8 ]
 ]
 
 { #category : 'private - writing' }
@@ -75,8 +81,16 @@ OTProtobufWriter >> writeFixed64: anInteger [
 	| value |
 	value := anInteger.
 	8 timesRepeat: [
-		self nextPutByte: (value bitAnd: 16rFF).
-		value := value bitShift: -8 ]
+			self nextPutByte: (value bitAnd: 16rFF).
+			value := value bitShift: -8 ]
+]
+
+{ #category : 'private - writing' }
+OTProtobufWriter >> writeSInt32: anInteger [
+
+	^ self writeVarint: (anInteger >= 0
+			   ifTrue: [ anInteger * 2 ]
+			   ifFalse: [ anInteger negated * 2 - 1 ])
 ]
 
 { #category : 'private - writing' }
@@ -98,7 +112,7 @@ OTProtobufWriter >> writeVarint: anInteger [
 	value := anInteger.
 	value < 0 ifTrue: [ value := (1 bitShift: 64) + value ].
 	[ value >= 16r80 ] whileTrue: [
-		self nextPutByte: ((value bitAnd: 16r7F) bitOr: 16r80).
-		value := value bitShift: -7 ].
+			self nextPutByte: ((value bitAnd: 16r7F) bitOr: 16r80).
+			value := value bitShift: -7 ].
 	self nextPutByte: value
 ]

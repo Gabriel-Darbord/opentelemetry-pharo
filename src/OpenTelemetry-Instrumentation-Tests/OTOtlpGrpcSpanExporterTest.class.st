@@ -1,0 +1,365 @@
+Class {
+	#name : 'OTOtlpGrpcSpanExporterTest',
+	#superclass : 'TestCase',
+	#instVars : [
+		'configuration',
+		'exporter'
+	],
+	#category : 'OpenTelemetry-Instrumentation-Tests',
+	#package : 'OpenTelemetry-Instrumentation-Tests'
+}
+
+{ #category : 'private' }
+OTOtlpGrpcSpanExporterTest >> assertReader: aReader readsField: aFieldNumber wireType: aWireType [
+
+	| tag |
+	tag := aReader readTag.
+	self assert: tag first equals: aFieldNumber.
+	self assert: tag second equals: aWireType
+]
+
+{ #category : 'private' }
+OTOtlpGrpcSpanExporterTest >> clientFramesWrittenTo: aStream [
+
+	| frames reader readerClass stream |
+	frames := OrderedCollection new.
+	readerClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2FrameReader.
+	reader := readerClass new.
+	stream := aStream writtenBytes readStream.
+	reader readClientConnectionPrefaceFrom: stream.
+	[ stream atEnd ] whileFalse: [ frames add: (reader readNextFrameFrom: stream) ].
+	^ frames asArray
+]
+
+{ #category : 'private' }
+OTOtlpGrpcSpanExporterTest >> sampleSpan [
+
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
+	tracer := provider tracerNamed: 'exporter.test'.
+	span := (tracer spanBuilderNamed: 'operation')
+		        kind: OTSpan client;
+		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		        startSpan.
+	span
+		restoreAttributes: (Dictionary new
+				 at: 'service.name' put: 'demo';
+				 yourself);
+		restoreEvents: #(  );
+		restoreLinks: #(  );
+		end: DateAndTime unixEpoch + (Duration milliSeconds: 2).
+	^ span
+]
+
+{ #category : 'private' }
+OTOtlpGrpcSpanExporterTest >> serverBytesWithFrames: aBlock [
+
+	| writer writerClass settings settingsFrame settingsFrameClass settingsClass |
+	writerClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2FrameWriter.
+	settingsFrameClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2SettingsFrame.
+	settingsClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2Settings.
+	writer := writerClass new.
+	settings := settingsClass withAssociation: 5 -> 32768.
+	settingsFrame := settingsFrameClass settings: settings.
+	^ ByteArray streamContents: [ :stream |
+			  writer writeFrame: settingsFrame on: stream.
+			  aBlock value: writer value: stream ]
+]
+
+{ #category : 'running' }
+OTOtlpGrpcSpanExporterTest >> setUp [
+
+	super setUp.
+	OTGrpcTestSupport installFakeGrpcResolvers.
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES' relativePath: 'v1/traces'.
+	configuration
+		endpoint: 'http://collector:4317';
+		protocol: 'grpc';
+		timeoutMillis: 1234;
+		headers: (OrderedDictionary new
+				 at: 'authorization' put: 'Bearer 123';
+				 yourself);
+		compression: 'none';
+		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
+	exporter := OTOtlpGrpcSpanExporter configuration: configuration
+]
+
+{ #category : 'private' }
+OTOtlpGrpcSpanExporterTest >> successResponseWithRejectedSpans: aCount message: aString [
+
+	| writer |
+	writer := OTProtobufWriter withBytes.
+	writer
+		writeTag: 1 wireType: 2;
+		writeEmbedded: [ :partialSuccess |
+				partialSuccess
+					writeTag: 1 wireType: 0;
+					writeVarint: aCount.
+				aString ifNotEmpty: [
+						partialSuccess
+							writeTag: 2 wireType: 2;
+							writeString: aString ] ].
+	^ writer contents
+]
+
+{ #category : 'running' }
+OTOtlpGrpcSpanExporterTest >> tearDown [
+
+	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportBuildsGrpcRequestFromConfiguration [
+
+	| capturedRequest reader resourceSpans |
+	exporter requestExecutor: [ :request |
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: capturedRequest serviceName equals: 'opentelemetry.proto.collector.trace.v1.TraceService'.
+	self assert: capturedRequest methodName equals: 'Export'.
+	self assert: capturedRequest timeoutNanos equals: 1234000000.
+	self assert: (capturedRequest metadata valueAt: 'authorization' ifAbsent: [ nil ]) equals: 'Bearer 123'.
+	self assert: capturedRequest userAgent equals: 'OTel-OTLP-Exporter-Pharo/test'.
+	reader := OTProtobufReader on: capturedRequest payload.
+	self assertReader: reader readsField: 1 wireType: 2.
+	resourceSpans := reader readBytes.
+	self assert: resourceSpans notEmpty.
+	self assert: reader atEnd
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportCompressesPayloadWhenConfigured [
+
+	| capturedRequest reader |
+	configuration compression: 'gzip'.
+	exporter requestExecutor: [ :request |
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: capturedRequest messageEncoding equals: 'gzip'.
+	reader := OTProtobufReader on: (GZipReadStream on: capturedRequest payload readStream) upToEnd.
+	self assertReader: reader readsField: 1 wireType: 2
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHeader [
+
+	| capturedRequest |
+	configuration headers: (OrderedDictionary new
+			 at: 'User-Agent' put: 'CustomAgent/1.0';
+			 yourself).
+	exporter requestExecutor: [ :request |
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: capturedRequest userAgent isNil.
+	self assert: (capturedRequest metadata valueAt: 'user-agent' ifAbsent: [ nil ]) equals: 'CustomAgent/1.0'
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportOmitsGrpcTimeoutForNoLimit [
+
+	| capturedRequest |
+	configuration timeoutMillis: OTOtlpExporterConfiguration noTimeoutMillis.
+	exporter requestExecutor: [ :request |
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: capturedRequest timeoutNanos isNil.
+	self assert: capturedRequest grpcTimeoutHeaderValue isNil
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportRetriesRetryableGrpcStatusesUntilSuccess [
+
+	| executionCount |
+	executionCount := 0.
+	exporter
+		sleepStrategy: [ :delayMillis | self assert: delayMillis equals: 1000 ];
+		retryJitterBlock: [ :delayMillis | delayMillis ];
+		warningSink: [ :message | self fail: message ];
+		requestExecutor: [ :request |
+				executionCount := executionCount + 1.
+				executionCount = 1
+					ifTrue: [ OTFakeGRPCResponse status: (OTFakeGRPCStatus code: 14 message: 'busy') payload: nil ]
+					ifFalse: [ OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ] ].
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: executionCount equals: 2
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportReturnsFalseOnNonRetryableGrpcStatus [
+
+	| executionCount |
+	executionCount := 0.
+	exporter
+		maxExportAttempts: 3;
+		sleepStrategy: [ :delayMillis | self fail ];
+		retryJitterBlock: [ :delayMillis | delayMillis ];
+		warningSink: [ :message | self fail: message ];
+		requestExecutor: [ :request |
+				executionCount := executionCount + 1.
+				OTFakeGRPCResponse status: (OTFakeGRPCStatus code: 3 message: 'bad request') payload: nil ].
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: executionCount equals: 1
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportUsesGrpcTransportStackEndToEnd [
+
+	| dataFrameClass frames framerClass headersFrameClass mockStream mockStreamClass reader requestDataFrame requestHeadersFrame responseBytes resourceSpans serverBytes transport transportClass |
+	OTGrpcTestSupport hasActualGrpcTransportStack ifFalse: [ self skip ].
+	OTOtlpGrpcSpanExporter grpcDependencyResolver: [ :symbol | OTGrpcTestSupport actualGrpcClassNamed: symbol ].
+	[
+		headersFrameClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2HeadersFrame.
+		dataFrameClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2DataFrame.
+		framerClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCMessageFramer.
+		mockStreamClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2MockStream.
+		transportClass := OTGrpcTestSupport actualGrpcClassNamed: #GRPCHTTP2Transport.
+		serverBytes := self serverBytesWithFrames: [ :writer :stream |
+				               writer
+					               writeFrame: (headersFrameClass
+							                streamId: 1
+							                headers: {
+									                (':status' -> '200').
+									                ('content-type' -> 'application/grpc+proto') }
+							                endStream: false)
+					               on: stream.
+				               writer
+					               writeFrame:
+					               (dataFrameClass streamId: 1 payload: (framerClass frameMessage: #[  ] compressed: false) endStream: false)
+					               on: stream.
+				               writer
+					               writeFrame: (headersFrameClass streamId: 1 headers: { ('grpc-status' -> '0') } endStream: true)
+					               on: stream ].
+		mockStream := mockStreamClass readingBytes: serverBytes.
+		transport := transportClass new.
+		transport streamFactory: [ :ignoredEndpoint | mockStream ].
+		exporter grpcTransport: transport.
+		self assert: (exporter export: { self sampleSpan }).
+		frames := self clientFramesWrittenTo: mockStream.
+		self assert: frames size equals: 4.
+		requestHeadersFrame := frames third.
+		requestDataFrame := frames fourth.
+		self assert: requestHeadersFrame class equals: headersFrameClass.
+		self assert: (requestHeadersFrame headers anySatisfy: [ :each |
+				 each = (':path' -> '/opentelemetry.proto.collector.trace.v1.TraceService/Export') ]).
+		self assert: (requestHeadersFrame headers anySatisfy: [ :each | each = ('content-type' -> 'application/grpc+proto') ]).
+		self assert: requestDataFrame class equals: dataFrameClass.
+		responseBytes := (framerClass readSingleFrameFrom: requestDataFrame payload readStream) payload.
+		reader := OTProtobufReader on: responseBytes.
+		self assertReader: reader readsField: 1 wireType: 2.
+		resourceSpans := reader readBytes.
+		self assert: resourceSpans notEmpty.
+		self assert: reader atEnd.
+		self assert: mockStream closed ] ensure: [ OTGrpcTestSupport installFakeGrpcResolvers ]
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	exporter
+		warningSink: [ :message | warnings add: message ];
+		requestExecutor: [ :request |
+				OTFakeGRPCResponse
+					status: OTFakeGRPCStatus ok
+					payload: (self successResponseWithRejectedSpans: 2 message: 'collector dropped spans') ].
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: warnings size equals: 1.
+	self assert: (warnings first includesSubstring: 'partial success')
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testGrpcChannelNormalizesAuthorityEndpointFromConfiguration [
+
+	| channel |
+	configuration
+		endpoint: 'collector:4317';
+		insecure: true.
+	channel := exporter grpcChannel.
+	self assert: channel endpoint scheme equals: 'http'.
+	self assert: channel endpoint host equals: 'collector'.
+	self assert: channel endpoint port equals: 4317
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testOpenConfiguredGrpcStreamToAppliesTlsFilesOnUnixLikeRuntime [
+
+	self withTemporaryTlsFilesDo: [ :caPath :certificatePath :keyPath |
+			| endpoint stream tlsExporter |
+			configuration
+				endpoint: 'https://collector:4317';
+				certificateFile: caPath;
+				clientCertificateFile: certificatePath;
+				clientKeyFile: keyPath.
+			tlsExporter := OTTestableOtlpGrpcSpanExporter configuration: configuration.
+			tlsExporter
+				operatingSystemName: 'linux';
+				grpcSecureSocketStreamClass: OTFakeSecureSocketStream.
+			endpoint := tlsExporter grpcEndpointClass fromString: configuration resolvedGrpcEndpoint.
+			stream := tlsExporter openConfiguredGrpcStreamTo: endpoint.
+			self assert: stream connected.
+			self assert: stream host equals: 'collector'.
+			self assert: stream port equals: 4317.
+			self assert: stream timeout equals: tlsExporter grpcTimeoutSeconds.
+			self assert: stream sslSession serverName equals: 'collector'.
+			self assert: stream sslSession certificateName notNil.
+			self assert: stream sslCertFileDuringConnect equals: caPath.
+			self deny: stream sslSession certificateName asFileReference exists ]
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testOpenConfiguredGrpcStreamToLeavesSocketTimeoutUnsetForNoLimit [
+
+	| endpoint stream tlsExporter |
+	configuration timeoutMillis: OTOtlpExporterConfiguration noTimeoutMillis.
+	tlsExporter := OTTestableOtlpGrpcSpanExporter configuration: configuration.
+	tlsExporter grpcSecureSocketStreamClass: OTFakeSecureSocketStream.
+	endpoint := tlsExporter grpcEndpointClass fromString: 'https://collector:4317'.
+	stream := tlsExporter openConfiguredGrpcStreamTo: endpoint.
+	self assert: stream connected.
+	self assert: stream timeout isNil
+]
+
+{ #category : 'private' }
+OTOtlpGrpcSpanExporterTest >> withTemporaryTlsFilesDo: aBlock [
+
+	| caFile certificateFile keyFile |
+	caFile := FileReference newTempFilePrefix: 'otel-ca-' suffix: '.pem'.
+	certificateFile := FileReference newTempFilePrefix: 'otel-client-cert-' suffix: '.pem'.
+	keyFile := FileReference newTempFilePrefix: 'otel-client-key-' suffix: '.pem'.
+	caFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN CERTIFICATE-----';
+				lf;
+				nextPutAll: 'CA';
+				lf;
+				nextPutAll: '-----END CERTIFICATE-----';
+				lf ].
+	certificateFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN CERTIFICATE-----';
+				lf;
+				nextPutAll: 'CLIENT';
+				lf;
+				nextPutAll: '-----END CERTIFICATE-----';
+				lf ].
+	keyFile writeStreamDo: [ :stream |
+			stream
+				nextPutAll: '-----BEGIN PRIVATE KEY-----';
+				lf;
+				nextPutAll: 'KEY';
+				lf;
+				nextPutAll: '-----END PRIVATE KEY-----';
+				lf ].
+	[ ^ aBlock value: caFile pathString value: certificateFile pathString value: keyFile pathString ] ensure: [
+			caFile ensureDelete.
+			certificateFile ensureDelete.
+			keyFile ensureDelete ]
+]

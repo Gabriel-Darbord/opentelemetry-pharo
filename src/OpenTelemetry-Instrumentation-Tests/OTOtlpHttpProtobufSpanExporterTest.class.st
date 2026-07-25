@@ -11,22 +11,55 @@ Class {
 }
 
 { #category : 'private' }
+OTOtlpHttpProtobufSpanExporterTest >> assertReader: aReader readsField: aFieldNumber wireType: aWireType [
+
+	| tag |
+	tag := aReader readTag.
+	self assert: tag first equals: aFieldNumber.
+	self assert: tag second equals: aWireType
+]
+
+{ #category : 'private' }
 OTOtlpHttpProtobufSpanExporterTest >> sampleSpan [
 
-	| span |
-	span := OTSpan new.
+	| provider span tracer |
+	provider := OTTracerProvider new.
+	provider
+		spanProcessor: OTSimpleSpanProcessor new;
+		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
+	tracer := provider tracerNamed: 'exporter.test'.
+	span := (tracer spanBuilderNamed: 'operation')
+		        kind: OTSpan client;
+		        startTimestamp: DateAndTime unixEpoch + (Duration milliSeconds: 1);
+		        startSpan.
 	span
-		traceId: '12345678876543211234567887654321';
-		spanId: '8765432112345678';
-		name: 'operation';
-		kind: OTSpan client;
-		startTime: (DateAndTime unixEpoch + (Duration milliSeconds: 1));
-		endTime: (DateAndTime unixEpoch + (Duration milliSeconds: 2));
-		traceFlags: '01';
-		attributes: (Dictionary new at: 'service.name' put: 'demo'; yourself);
-		events: #();
-		links: #().
+		restoreAttributes: (Dictionary new
+				 at: 'service.name' put: 'demo';
+				 yourself);
+		restoreEvents: #(  );
+		restoreLinks: #(  );
+		end: DateAndTime unixEpoch + (Duration milliSeconds: 2).
 	^ span
+]
+
+{ #category : 'running' }
+OTOtlpHttpProtobufSpanExporterTest >> setUp [
+
+	super setUp.
+	client := OTRecordingHttpClient new.
+	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES' relativePath: 'v1/traces'.
+	configuration
+		endpoint: 'http://collector:4318/v1/traces';
+		protocol: 'http/protobuf';
+		timeoutMillis: 1234;
+		headers: (OrderedDictionary new
+				 at: 'authorization' put: 'Bearer 123';
+				 yourself);
+		compression: 'none';
+		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
+	exporter := OTOtlpHttpProtobufSpanExporter configuration: configuration.
+	exporter httpClient: client.
+	client responseContents: #[  ]
 ]
 
 { #category : 'private' }
@@ -37,47 +70,14 @@ OTOtlpHttpProtobufSpanExporterTest >> successResponseWithRejectedSpans: aCount m
 	writer
 		writeTag: 1 wireType: 2;
 		writeEmbedded: [ :partialSuccess |
-			partialSuccess
-				writeTag: 1 wireType: 0;
-				writeVarint: aCount.
-			aString ifNotEmpty: [
 				partialSuccess
-					writeTag: 2 wireType: 2;
-					writeString: aString ] ].
+					writeTag: 1 wireType: 0;
+					writeVarint: aCount.
+				aString ifNotEmpty: [
+						partialSuccess
+							writeTag: 2 wireType: 2;
+							writeString: aString ] ].
 	^ writer contents
-]
-
-{ #category : 'private' }
-OTOtlpHttpProtobufSpanExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
-
-	| retrySleeps warnings |
-	retrySleeps := OrderedCollection new.
-	warnings := OrderedCollection new.
-	exporter
-		sleepStrategy: [ :delayMillis | retrySleeps add: delayMillis ];
-		retryJitterBlock: [ :delayMillis | delayMillis ];
-		warningSink: [ :message | warnings add: message ].
-	^ aBlock value: retrySleeps value: warnings
-]
-
-{ #category : 'running' }
-OTOtlpHttpProtobufSpanExporterTest >> setUp [
-
-	super setUp.
-	client := OTRecordingHttpClient new.
-	configuration := OTOtlpExporterConfiguration
-		forSignalNamed: 'TRACES'
-		relativePath: 'v1/traces'.
-	configuration
-		endpoint: 'http://collector:4318/v1/traces';
-		protocol: 'http/protobuf';
-		timeoutMillis: 1234;
-		headers: (OrderedDictionary new at: 'authorization' put: 'Bearer 123'; yourself);
-		compression: 'none';
-		userAgent: 'OTel-OTLP-Exporter-Pharo/test'.
-	exporter := OTOtlpHttpProtobufSpanExporter configuration: configuration.
-	exporter httpClient: client.
-	client responseContents: #[]
 ]
 
 { #category : 'tests' }
@@ -103,10 +103,8 @@ OTOtlpHttpProtobufSpanExporterTest >> testExportAppliesHttpProtobufConfiguration
 { #category : 'tests' }
 OTOtlpHttpProtobufSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
-	client responseContents:
-		(self successResponseWithRejectedSpans: 2 message: 'collector dropped spans').
-	self
-		withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+	client responseContents: (self successResponseWithRejectedSpans: 2 message: 'collector dropped spans').
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
 			self assert: (exporter export: { self sampleSpan }).
 			self assert: retrySleeps isEmpty.
 			self assert: warnings size equals: 1.
@@ -114,10 +112,14 @@ OTOtlpHttpProtobufSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 ]
 
 { #category : 'private' }
-OTOtlpHttpProtobufSpanExporterTest >> assertReader: aReader readsField: aFieldNumber wireType: aWireType [
+OTOtlpHttpProtobufSpanExporterTest >> withRetrySleepsAndWarningsDo: aBlock [
 
-	| tag |
-	tag := aReader readTag.
-	self assert: tag first equals: aFieldNumber.
-	self assert: tag second equals: aWireType
+	| retrySleeps warnings |
+	retrySleeps := OrderedCollection new.
+	warnings := OrderedCollection new.
+	exporter
+		sleepStrategy: [ :delayMillis | retrySleeps add: delayMillis ];
+		retryJitterBlock: [ :delayMillis | delayMillis ];
+		warningSink: [ :message | warnings add: message ].
+	^ aBlock value: retrySleeps value: warnings
 ]
