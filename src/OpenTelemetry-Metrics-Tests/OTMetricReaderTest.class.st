@@ -46,6 +46,45 @@ OTMetricReaderTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotDropsProducerMetricStreamFilteredByMetricFilter [
+
+	| filter producer reader snapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	filter := OTRecordingMetricFilter new.
+	filter metricResultBlock: [ :scope :name :kind :unit |
+			name = 'external.requests.total'
+				ifTrue: [ OTMetricFilter drop ]
+				ifFalse: [ OTMetricFilter accept ] ].
+	producer := OTRecordingMetricProducer snapshot: (self sampleProducerSnapshotNamed: 'external.requests.total').
+	reader
+		metricFilter: filter;
+		addMetricProducer: producer.
+	provider addMetricReader: reader.
+	snapshot := reader collectSnapshot.
+	self assert: producer produceCount equals: 1.
+	self assert: snapshot metrics isEmpty
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotDropsSdkMetricStreamFilteredByMetricFilter [
+
+	| filter reader snapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	filter := OTRecordingMetricFilter new.
+	filter metricResultBlock: [ :scope :name :kind :unit |
+			name = 'requests.total'
+				ifTrue: [ OTMetricFilter drop ]
+				ifFalse: [ OTMetricFilter accept ] ].
+	reader metricFilter: filter.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 3.
+	snapshot := reader collectSnapshot.
+	self assert: snapshot metrics isEmpty
+]
+
+{ #category : 'tests' }
 OTMetricReaderTest >> testCollectSnapshotIncludesMetricsFromRegisteredMetricProducer [
 
 	| producer providerResource reader snapshot |
@@ -80,6 +119,52 @@ OTMetricReaderTest >> testCollectSnapshotMergesSdkAndMetricProducerMetrics [
 	self assert: snapshot metrics size equals: 2.
 	self assert: (names includes: 'local.requests.total').
 	self assert: (names includes: 'external.requests.total')
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotPartiallyFiltersSdkMetricPoints [
+
+	| filter metric point reader snapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	filter := OTRecordingMetricFilter new.
+	filter
+		metricResultBlock: [ :scope :name :kind :unit |
+				name = 'requests.total'
+					ifTrue: [ OTMetricFilter acceptPartial ]
+					ifFalse: [ OTMetricFilter accept ] ];
+		attributesResultBlock: [ :scope :name :kind :unit :attributes |
+				(attributes at: 'method' ifAbsent: [ nil ]) = 'GET'
+					ifTrue: [ OTMetricFilter accept ]
+					ifFalse: [ OTMetricFilter drop ] ].
+	reader metricFilter: filter.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total')
+		add: 1 attributes: { ('method' -> 'GET') };
+		add: 1 attributes: { ('method' -> 'POST') }.
+	snapshot := reader collectSnapshot.
+	self assert: snapshot metrics size equals: 1.
+	metric := snapshot metrics first.
+	self assert: metric points size equals: 1.
+	point := metric points first.
+	self assert: (point attributes at: 'method') equals: 'GET'
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotPassesMetricFilterToRegisteredMetricProducer [
+
+	| filter producer reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	filter := OTRecordingMetricFilter new.
+	producer := OTRecordingMetricProducer snapshot: (self sampleProducerSnapshotNamed: 'external.requests.total').
+	reader
+		metricFilter: filter;
+		addMetricProducer: producer.
+	provider addMetricReader: reader.
+	reader collectSnapshot.
+	self assert: producer produceCount equals: 1.
+	self assert: producer lastMetricFilter identicalTo: filter
 ]
 
 { #category : 'tests' }

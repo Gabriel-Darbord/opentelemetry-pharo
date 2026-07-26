@@ -22,3 +22,9 @@ OTMetricProducer >> produceForReader: anOTMetricReader [
 
 	^ self produce
 ]
+
+{ #category : 'collecting' }
+OTMetricProducer >> produceForReader: anOTMetricReader metricFilter: anOTMetricFilter [
+
+	^ self produceForReader: anOTMetricReader
+]

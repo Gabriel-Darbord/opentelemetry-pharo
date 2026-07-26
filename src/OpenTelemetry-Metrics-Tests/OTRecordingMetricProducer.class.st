@@ -3,7 +3,8 @@ Class {
 	#superclass : 'OTMetricProducer',
 	#instVars : [
 		'snapshot',
-		'produceCount'
+		'produceCount',
+		'lastMetricFilter'
 	],
 	#category : 'OpenTelemetry-Metrics-Tests',
 	#package : 'OpenTelemetry-Metrics-Tests'
@@ -38,6 +39,12 @@ OTRecordingMetricProducer >> produceCount [
 ]
 
 { #category : 'accessing' }
+OTRecordingMetricProducer >> lastMetricFilter [
+
+	^ lastMetricFilter
+]
+
+{ #category : 'accessing' }
 OTRecordingMetricProducer >> snapshot [
 
 	^ snapshot ifNil: [ OTMetricSnapshot empty ]
@@ -47,4 +54,11 @@ OTRecordingMetricProducer >> snapshot [
 OTRecordingMetricProducer >> snapshot: anOTMetricSnapshot [
 
 	snapshot := anOTMetricSnapshot ifNil: [ OTMetricSnapshot empty ] ifNotNil: [ anOTMetricSnapshot ]
+]
+
+{ #category : 'collecting' }
+OTRecordingMetricProducer >> produceForReader: anOTMetricReader metricFilter: anOTMetricFilter [
+
+	lastMetricFilter := anOTMetricFilter.
+	^ self produce
 ]

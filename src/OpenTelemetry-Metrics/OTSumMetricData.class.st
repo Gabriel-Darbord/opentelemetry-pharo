@@ -41,6 +41,12 @@ OTSumMetricData >> monotonic: aBoolean [
 	monotonic := aBoolean = true
 ]
 
+{ #category : 'accessing' }
+OTSumMetricData >> kind [
+
+	^ #sum
+]
+
 { #category : 'prometheus - encoding' }
 OTSumMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
 

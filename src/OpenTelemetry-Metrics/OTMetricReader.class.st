@@ -1,7 +1,8 @@
 "
 I am the abstract base class for metric readers.
 I collect measurements from a provider and registered metric producers, apply
-per-stream aggregation policy, and manage reader lifecycle state.
+metric filters and per-stream aggregation policy, and manage reader lifecycle
+state.
 "
 Class {
 	#name : 'OTMetricReader',
@@ -19,7 +20,8 @@ Class {
 		'warnedMetricIdentityConflicts',
 		'lastCollectionTimestampByInstrument',
 		'lastAsynchronousValuesByInstrument',
-		'metricProducers'
+		'metricProducers',
+		'metricFilter'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -67,6 +69,16 @@ OTMetricReader class >> metricWarningSink: aBlock [
 	^ self metricWarningSink
 ]
 
+{ #category : 'configuration' }
+OTMetricReader >> addMetricProducer: anOTMetricProducer [
+
+	anOTMetricProducer ifNil: [ ^ self metricProducers ].
+	^ stateLock critical: [
+			  self ensureOpenLocked.
+			  metricProducers add: anOTMetricProducer.
+			  metricProducers copy ]
+]
+
 { #category : 'accessing' }
 OTMetricReader >> aggregationFor: anOTMetricInstrument [
 
@@ -102,16 +114,6 @@ OTMetricReader >> attachToProvider: anOTMeterProvider [
 					  ^ provider ].
 			  provider == anOTMeterProvider ifTrue: [ ^ provider ].
 			  Error signal: 'OpenTelemetry metric readers cannot be registered on multiple meter providers' ]
-]
-
-{ #category : 'configuration' }
-OTMetricReader >> addMetricProducer: anOTMetricProducer [
-
-	anOTMetricProducer ifNil: [ ^ self metricProducers ].
-	^ stateLock critical: [
-			  self ensureOpenLocked.
-			  metricProducers add: anOTMetricProducer.
-			  metricProducers copy ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -230,7 +232,8 @@ OTMetricReader >> collectSnapshot [
 	^ self provider ifNil: [ OTMetricSnapshot empty ] ifNotNil: [ :aProvider |
 			  instruments := aProvider registeredMetricInstruments.
 			  measurements := aProvider collectMeasurementsFor: self.
-			  metrics := self metricDataFromMeasurements: measurements instruments: instruments collectedAt: collectedAt.
+			  metrics := self filteredMetricsFrom:
+				             (self metricDataFromMeasurements: measurements instruments: instruments collectedAt: collectedAt).
 			  producerMetrics := self producerMetrics.
 			  producerMetrics ifNotEmpty: [ metrics := metrics , producerMetrics ].
 			  self markCollectedAt: collectedAt forInstruments: instruments.
@@ -269,6 +272,33 @@ OTMetricReader >> didRegisterWithProvider [
 OTMetricReader >> ensureOpenLocked [
 
 	(shutdownRequested or: [ shutdown ]) ifTrue: [ Error signal: 'OpenTelemetry metric reader is shutdown' ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> filteredMetricsFrom: someMetrics [
+
+	| filter |
+	filter := self metricFilter.
+	filter ifNil: [ ^ someMetrics ].
+	^ Array streamContents: [ :stream |
+			  someMetrics do: [ :each |
+					  | result |
+					  result := filter
+						            testMetricInScope: each instrumentationScope
+						            name: each name
+						            kind: each kind
+						            unit: each unit.
+					  result = OTMetricFilter accept ifTrue: [ stream nextPut: each ].
+					  result = OTMetricFilter acceptPartial ifTrue: [
+							  | filteredPoints |
+							  filteredPoints := each points select: [ :point |
+									                    (filter
+										                     testAttributesInScope: each instrumentationScope
+										                     name: each name
+										                     kind: each kind
+										                     unit: each unit
+										                     attributes: point attributes) = OTMetricFilter accept ].
+							  filteredPoints ifNotEmpty: [ stream nextPut: (each copyWithPoints: filteredPoints) ] ] ] ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -448,6 +478,20 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 	^ metrics asArray
 ]
 
+{ #category : 'configuration' }
+OTMetricReader >> metricFilter [
+
+	^ stateLock critical: [ metricFilter ]
+]
+
+{ #category : 'configuration' }
+OTMetricReader >> metricFilter: anOTMetricFilter [
+
+	^ stateLock critical: [
+			  self ensureOpenLocked.
+			  metricFilter := anOTMetricFilter ]
+]
+
 { #category : 'private - logging' }
 OTMetricReader >> metricIdentityKeyFor: anOTMetricData [
 
@@ -459,6 +503,12 @@ OTMetricReader >> metricIdentityKeyFor: anOTMetricData [
 		  anOTMetricData unit }
 ]
 
+{ #category : 'accessing' }
+OTMetricReader >> metricProducers [
+
+	^ stateLock critical: [ metricProducers copy ]
+]
+
 { #category : 'private - logging' }
 OTMetricReader >> metricWarningSink [
 
@@ -466,9 +516,9 @@ OTMetricReader >> metricWarningSink [
 ]
 
 { #category : 'accessing' }
-OTMetricReader >> metricProducers [
+OTMetricReader >> normalizedAggregationSymbolFrom: anObject [
 
-	^ stateLock critical: [ metricProducers copy ]
+	^ OTMetricView normalizedAggregationFrom: anObject
 ]
 
 { #category : 'collecting' }
@@ -477,12 +527,6 @@ OTMetricReader >> normalizedProducerSnapshotFrom: anObject [
 	anObject ifNil: [ ^ OTMetricSnapshot empty ].
 	(anObject isKindOf: OTMetricSnapshot) ifTrue: [ ^ anObject ].
 	Error signal: 'OpenTelemetry metric producers must answer an OTMetricSnapshot'
-]
-
-{ #category : 'accessing' }
-OTMetricReader >> normalizedAggregationSymbolFrom: anObject [
-
-	^ OTMetricView normalizedAggregationFrom: anObject
 ]
 
 { #category : 'private - logging' }
@@ -554,6 +598,16 @@ OTMetricReader >> overflowAttributes [
 	^ OTAttributeNormalizer normalizeAttributes: { ('otel.metric.overflow' -> true) }
 ]
 
+{ #category : 'collecting' }
+OTMetricReader >> producerMetrics [
+
+	^ Array streamContents: [ :stream |
+			  self metricProducers do: [ :each |
+					  | snapshot |
+					  snapshot := self normalizedProducerSnapshotFrom: (each produceForReader: self metricFilter: self metricFilter).
+					  (self filteredMetricsFrom: snapshot metrics) do: [ :metric | stream nextPut: metric ] ] ]
+]
+
 { #category : 'accessing' }
 OTMetricReader >> provider [
 
@@ -564,16 +618,6 @@ OTMetricReader >> provider [
 OTMetricReader >> provider: anOTMeterProvider [
 
 	stateLock critical: [ provider := anOTMeterProvider ]
-]
-
-{ #category : 'collecting' }
-OTMetricReader >> producerMetrics [
-
-	^ Array streamContents: [ :stream |
-			  self metricProducers do: [ :each |
-					  | snapshot |
-					  snapshot := self normalizedProducerSnapshotFrom: (each produceForReader: self).
-					  snapshot metrics do: [ :metric | stream nextPut: metric ] ] ]
 ]
 
 { #category : 'collecting' }

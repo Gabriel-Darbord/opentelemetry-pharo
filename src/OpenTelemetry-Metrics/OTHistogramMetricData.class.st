@@ -27,6 +27,12 @@ OTHistogramMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
 	aDictionary at: 'histogram' put: (anEncoder histogramDataFor: self)
 ]
 
+{ #category : 'accessing' }
+OTHistogramMetricData >> kind [
+
+	^ #histogram
+]
+
 { #category : 'prometheus - encoding' }
 OTHistogramMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
 

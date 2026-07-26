@@ -177,10 +177,7 @@ OTPeriodicExportingMetricReader >> maxExportBatchSize: anInteger [
 { #category : 'private - exporting' }
 OTPeriodicExportingMetricReader >> metricData: anOTMetricData withPoints: someMetricPoints [
 
-	| metricCopy |
-	metricCopy := anOTMetricData copy.
-	metricCopy points: someMetricPoints.
-	^ metricCopy
+	^ anOTMetricData copyWithPoints: someMetricPoints
 ]
 
 { #category : 'private - lifecycle' }

@@ -28,6 +28,12 @@ OTExponentialHistogramMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEn
 ]
 
 { #category : 'accessing' }
+OTExponentialHistogramMetricData >> kind [
+
+	^ #exponentialHistogram
+]
+
+{ #category : 'accessing' }
 OTExponentialHistogramMetricData >> temporality [
 
 	^ temporality ifNil: [ #cumulative ]
