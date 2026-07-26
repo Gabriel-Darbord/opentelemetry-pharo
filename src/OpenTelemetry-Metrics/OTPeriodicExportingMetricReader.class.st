@@ -1,6 +1,6 @@
 "
 I am a metric reader that periodically collects and exports snapshots through an OTMetricExporter.
-I manage the export loop, timing, and shutdown coordination.
+I manage the export loop, batching, timing, and shutdown coordination.
 "
 Class {
 	#name : 'OTPeriodicExportingMetricReader',
@@ -10,7 +10,8 @@ Class {
 		'exportLock',
 		'exportIntervalMillis',
 		'exportTimeoutMillis',
-		'exportProcess'
+		'exportProcess',
+		'maxExportBatchSize'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -32,7 +33,7 @@ OTPeriodicExportingMetricReader >> collect [
 			  | snapshot |
 			  self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
 			  snapshot := self collectSnapshot.
-			  self runExporterOperation: [ self exporter export: snapshot ].
+			  self exportSnapshot: snapshot.
 			  snapshot ]
 ]
 
@@ -74,6 +75,43 @@ OTPeriodicExportingMetricReader >> exportProcess [
 	^ exportProcess
 ]
 
+{ #category : 'private - exporting' }
+OTPeriodicExportingMetricReader >> exportSnapshot: anOTMetricSnapshot [
+
+	^ (self exportSnapshotsFrom: anOTMetricSnapshot) allSatisfy: [ :each | self runExporterOperation: [ self exporter export: each ] ]
+]
+
+{ #category : 'private - exporting' }
+OTPeriodicExportingMetricReader >> exportSnapshotsFrom: anOTMetricSnapshot [
+
+	| batchSize metrics |
+	batchSize := self maxExportBatchSize.
+	batchSize ifNil: [ ^ { anOTMetricSnapshot } ].
+	metrics := anOTMetricSnapshot metrics.
+	metrics isEmpty ifTrue: [ ^ { anOTMetricSnapshot } ].
+	^ Array streamContents: [ :stream |
+			  | currentBatch currentCount |
+			  currentBatch := OrderedCollection new.
+			  currentCount := 0.
+			  metrics do: [ :eachMetric |
+					  | pointIndex points |
+					  points := eachMetric points.
+					  pointIndex := 1.
+					  [ pointIndex <= points size ] whileTrue: [
+							  | available chunk endIndex |
+							  currentCount = batchSize ifTrue: [
+									  stream nextPut: (self snapshot: anOTMetricSnapshot withMetrics: currentBatch).
+									  currentBatch := OrderedCollection new.
+									  currentCount := 0 ].
+							  available := batchSize - currentCount.
+							  endIndex := pointIndex + available - 1 min: points size.
+							  chunk := points copyFrom: pointIndex to: endIndex.
+							  currentBatch add: (self metricData: eachMetric withPoints: chunk).
+							  currentCount := currentCount + chunk size.
+							  pointIndex := endIndex + 1 ] ].
+			  currentBatch ifNotEmpty: [ stream nextPut: (self snapshot: anOTMetricSnapshot withMetrics: currentBatch) ] ]
+]
+
 { #category : 'accessing' }
 OTPeriodicExportingMetricReader >> exportTimeoutMillis [
 
@@ -108,7 +146,7 @@ OTPeriodicExportingMetricReader >> forceFlush [
 			  | exportResult flushResult snapshot |
 			  self isStopping ifTrue: [ ^ false ].
 			  snapshot := self collectSnapshot.
-			  exportResult := self runExporterOperation: [ self exporter export: snapshot ].
+			  exportResult := self exportSnapshot: snapshot.
 			  exportResult ifFalse: [ ^ false ].
 			  flushResult := self runExporterOperation: [ self exporter forceFlush ].
 			  exportResult & flushResult ]
@@ -121,6 +159,28 @@ OTPeriodicExportingMetricReader >> initialize [
 	exportLock := Semaphore forMutualExclusion.
 	exportIntervalMillis := 60000.
 	exportTimeoutMillis := 30000
+]
+
+{ #category : 'accessing' }
+OTPeriodicExportingMetricReader >> maxExportBatchSize [
+
+	^ maxExportBatchSize
+]
+
+{ #category : 'accessing' }
+OTPeriodicExportingMetricReader >> maxExportBatchSize: anInteger [
+
+	maxExportBatchSize := anInteger ifNotNil: [ anInteger max: 1 ].
+	^ self maxExportBatchSize
+]
+
+{ #category : 'private - exporting' }
+OTPeriodicExportingMetricReader >> metricData: anOTMetricData withPoints: someMetricPoints [
+
+	| metricCopy |
+	metricCopy := anOTMetricData copy.
+	metricCopy points: someMetricPoints.
+	^ metricCopy
 ]
 
 { #category : 'private - lifecycle' }
@@ -147,6 +207,16 @@ OTPeriodicExportingMetricReader >> shutdown [
 	exporterResult := exportLock critical: [ self exporter shutdown ].
 	self finishShutdown.
 	^ exporterResult
+]
+
+{ #category : 'private - exporting' }
+OTPeriodicExportingMetricReader >> snapshot: anOTMetricSnapshot withMetrics: someMetrics [
+
+	^ OTMetricSnapshot
+		  resource: anOTMetricSnapshot resource
+		  measurements: anOTMetricSnapshot measurements
+		  metrics: someMetrics
+		  collectedAt: anOTMetricSnapshot collectedAt
 ]
 
 { #category : 'private - lifecycle' }
