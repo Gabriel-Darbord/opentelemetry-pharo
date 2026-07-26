@@ -8,10 +8,78 @@ Class {
 	#package : 'OpenTelemetry-Metrics-Tests'
 }
 
+{ #category : 'private' }
+OTMetricReaderTest >> sampleProducerSnapshotNamed: aString [
+
+	| point resource scope sumMetric |
+	resource := OTResource attributes: { ('service.name' -> 'producer') } schemaUrl: 'https://producer.example/schema'.
+	scope := OTInstrumentationScope
+		         named: 'external.metrics'
+		         version: '1.0.0'
+		         schemaUrl: 'https://scope.example/schema'
+		         attributes: #(  ).
+	point := OTNumberDataPoint
+		         attributes: { ('source' -> 'external') }
+		         value: 7
+		         startTimestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 1)
+		         timestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 2).
+	sumMetric := OTSumMetricData new.
+	sumMetric
+		instrumentationScope: scope;
+		name: aString;
+		description: 'External count';
+		unit: '1';
+		points: { point };
+		monotonic: true;
+		temporality: #cumulative.
+	^ OTMetricSnapshot
+		  resource: resource
+		  measurements: #(  )
+		  metrics: { sumMetric }
+		  collectedAt: point timestamp
+]
+
 { #category : 'running' }
 OTMetricReaderTest >> tearDown [
 
 	[ provider ifNotNil: [ provider shutdown ] ] ensure: [ super tearDown ]
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotIncludesMetricsFromRegisteredMetricProducer [
+
+	| producer providerResource reader snapshot |
+	provider := OTMeterProvider new.
+	providerResource := OTResource attributes: { ('service.name' -> 'sdk') } schemaUrl: 'https://sdk.example/schema'.
+	provider resource: providerResource.
+	reader := OTInMemoryMetricReader new.
+	producer := OTRecordingMetricProducer snapshot: (self sampleProducerSnapshotNamed: 'external.requests.total').
+	reader addMetricProducer: producer.
+	provider addMetricReader: reader.
+	snapshot := reader collectSnapshot.
+	self assert: producer produceCount equals: 1.
+	self assert: snapshot resource equals: providerResource.
+	self assert: snapshot measurements isEmpty.
+	self assert: snapshot metrics size equals: 1.
+	self assert: snapshot metrics first name equals: 'external.requests.total'
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotMergesSdkAndMetricProducerMetrics [
+
+	| names producer reader snapshot |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	producer := OTRecordingMetricProducer snapshot: (self sampleProducerSnapshotNamed: 'external.requests.total').
+	reader addMetricProducer: producer.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'local.requests.total') add: 3.
+	snapshot := reader collectSnapshot.
+	names := snapshot metrics collect: [ :each | each name ].
+	self assert: producer produceCount equals: 1.
+	self assert: snapshot metrics size equals: 2.
+	self assert: (names includes: 'local.requests.total').
+	self assert: (names includes: 'external.requests.total')
 ]
 
 { #category : 'tests' }

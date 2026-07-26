@@ -1,6 +1,7 @@
 "
 I am the abstract base class for metric readers.
-I collect measurements from a provider, apply per-stream aggregation policy, and manage reader lifecycle state.
+I collect measurements from a provider and registered metric producers, apply
+per-stream aggregation policy, and manage reader lifecycle state.
 "
 Class {
 	#name : 'OTMetricReader',
@@ -17,7 +18,8 @@ Class {
 		'selectedAttributeSetsByStream',
 		'warnedMetricIdentityConflicts',
 		'lastCollectionTimestampByInstrument',
-		'lastAsynchronousValuesByInstrument'
+		'lastAsynchronousValuesByInstrument',
+		'metricProducers'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -100,6 +102,16 @@ OTMetricReader >> attachToProvider: anOTMeterProvider [
 					  ^ provider ].
 			  provider == anOTMeterProvider ifTrue: [ ^ provider ].
 			  Error signal: 'OpenTelemetry metric readers cannot be registered on multiple meter providers' ]
+]
+
+{ #category : 'configuration' }
+OTMetricReader >> addMetricProducer: anOTMetricProducer [
+
+	anOTMetricProducer ifNil: [ ^ self metricProducers ].
+	^ stateLock critical: [
+			  self ensureOpenLocked.
+			  metricProducers add: anOTMetricProducer.
+			  metricProducers copy ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -212,13 +224,15 @@ OTMetricReader >> collectAsynchronousCallback: aBlock for: anOTAsynchronousMetri
 { #category : 'collecting' }
 OTMetricReader >> collectSnapshot [
 
-	| collectedAt instruments measurements metrics |
+	| collectedAt instruments measurements metrics producerMetrics |
 	self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
 	collectedAt := DateAndTime now asUTC.
 	^ self provider ifNil: [ OTMetricSnapshot empty ] ifNotNil: [ :aProvider |
 			  instruments := aProvider registeredMetricInstruments.
 			  measurements := aProvider collectMeasurementsFor: self.
 			  metrics := self metricDataFromMeasurements: measurements instruments: instruments collectedAt: collectedAt.
+			  producerMetrics := self producerMetrics.
+			  producerMetrics ifNotEmpty: [ metrics := metrics , producerMetrics ].
 			  self markCollectedAt: collectedAt forInstruments: instruments.
 			  OTMetricSnapshot
 				  resource: aProvider resource
@@ -279,6 +293,7 @@ OTMetricReader >> initialize [
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.
 	lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new.
 	callbackTimeoutMillis := 30000.
+	metricProducers := OrderedCollection new.
 	selectedAttributeSetsByStream := Dictionary new.
 	warnedMetricIdentityConflicts := Set new
 ]
@@ -451,6 +466,20 @@ OTMetricReader >> metricWarningSink [
 ]
 
 { #category : 'accessing' }
+OTMetricReader >> metricProducers [
+
+	^ stateLock critical: [ metricProducers copy ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> normalizedProducerSnapshotFrom: anObject [
+
+	anObject ifNil: [ ^ OTMetricSnapshot empty ].
+	(anObject isKindOf: OTMetricSnapshot) ifTrue: [ ^ anObject ].
+	Error signal: 'OpenTelemetry metric producers must answer an OTMetricSnapshot'
+]
+
+{ #category : 'accessing' }
 OTMetricReader >> normalizedAggregationSymbolFrom: anObject [
 
 	^ OTMetricView normalizedAggregationFrom: anObject
@@ -535,6 +564,16 @@ OTMetricReader >> provider [
 OTMetricReader >> provider: anOTMeterProvider [
 
 	stateLock critical: [ provider := anOTMeterProvider ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> producerMetrics [
+
+	^ Array streamContents: [ :stream |
+			  self metricProducers do: [ :each |
+					  | snapshot |
+					  snapshot := self normalizedProducerSnapshotFrom: (each produceForReader: self).
+					  snapshot metrics do: [ :metric | stream nextPut: metric ] ] ]
 ]
 
 { #category : 'collecting' }
