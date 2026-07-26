@@ -1,5 +1,7 @@
 "
 An OTLP logs exporter that sends protobuf-encoded ExportLogsServiceRequest payloads over gRPC.
+
+Per exporter instance, exports run through the shared OTLP gRPC export lock so the SDK never invokes transport sends concurrently. ForceFlush and Shutdown may still race with exporter-managed work and therefore follow the lifecycle contract documented on the exporter base classes.
 "
 Class {
 	#name : 'OTOtlpGrpcLogRecordExporter',
@@ -20,6 +22,12 @@ OTOtlpGrpcLogRecordExporter >> defaultResponseDecoderClass [
 	^ OTOtlpProtobufLogRecordResponseDecoder
 ]
 
+{ #category : 'private - encoding' }
+OTOtlpGrpcLogRecordExporter >> encodedPayloadFrom: logRecords [
+
+	^ self encoder encodeLogRecords: logRecords
+]
+
 { #category : 'private - grpc' }
 OTOtlpGrpcLogRecordExporter >> grpcServiceName [
 
@@ -30,10 +38,4 @@ OTOtlpGrpcLogRecordExporter >> grpcServiceName [
 OTOtlpGrpcLogRecordExporter >> otlpSignalName [
 
 	^ 'log'
-]
-
-{ #category : 'private - encoding' }
-OTOtlpGrpcLogRecordExporter >> encodedPayloadFrom: logRecords [
-
-	^ self encoder encodeLogRecords: logRecords
 ]

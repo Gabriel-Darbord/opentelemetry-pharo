@@ -40,7 +40,7 @@ OTMethodProxyBefore class >> prototypeTrap [
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethod [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -64,7 +64,7 @@ OTMethodProxyBefore class >> trapMethod [
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -88,7 +88,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 [
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -114,7 +114,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 [
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -141,7 +141,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 [
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -183,7 +183,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -229,7 +229,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -279,7 +279,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -333,7 +333,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -391,7 +391,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -453,7 +453,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -519,7 +519,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -589,7 +589,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -663,7 +663,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -741,7 +741,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 with: arg14 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.
@@ -823,7 +823,7 @@ OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: ar
 	^ result
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'generated traps' }
 OTMethodProxyBefore class >> trapMethodwith: arg1 with: arg2 with: arg3 with: arg4 with: arg5 with: arg6 with: arg7 with: arg8 with: arg9 with: arg10 with: arg11 with: arg12 with: arg13 with: arg14 with: arg15 [
 	"The unwind handler should be the first temp.
 	The complete flag should be the second temp.

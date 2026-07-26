@@ -5,7 +5,10 @@ Class {
 	#name : 'OTCompositeLogRecordProcessor',
 	#superclass : 'OTLogRecordProcessor',
 	#instVars : [
-		'processors'
+		'processors',
+		'stateLock',
+		'shutdownRequested',
+		'shutdownCompleted'
 	],
 	#category : 'OpenTelemetry-Logs',
 	#package : 'OpenTelemetry-Logs'
@@ -22,8 +25,20 @@ OTCompositeLogRecordProcessor class >> withAll: aCollection [
 { #category : 'accessing' }
 OTCompositeLogRecordProcessor >> addProcessor: anOTLogRecordProcessor [
 
+	self isShutdown ifTrue: [ ^ anOTLogRecordProcessor ].
 	self processors add: anOTLogRecordProcessor.
 	^ anOTLogRecordProcessor
+]
+
+{ #category : 'private - lifecycle' }
+OTCompositeLogRecordProcessor >> beginShutdown [
+
+	^ stateLock critical: [
+			  (shutdownRequested = true or: [ shutdownCompleted = true ])
+				  ifTrue: [ false ]
+				  ifFalse: [
+						  shutdownRequested := true.
+						  true ] ]
 ]
 
 { #category : 'accessing' }
@@ -36,6 +51,7 @@ OTCompositeLogRecordProcessor >> componentProcessors [
 { #category : 'testing' }
 OTCompositeLogRecordProcessor >> enabledIn: anOTContext instrumentationScope: anInstrumentationScope severityNumber: anObject eventName: aString [
 
+	self isShutdown ifTrue: [ ^ false ].
 	self processors isEmpty ifTrue: [ ^ false ].
 	^ self processors anySatisfy: [ :each |
 			  each
@@ -48,6 +64,7 @@ OTCompositeLogRecordProcessor >> enabledIn: anOTContext instrumentationScope: an
 { #category : 'processing' }
 OTCompositeLogRecordProcessor >> forceFlush [
 
+	self isShutdown ifTrue: [ ^ false ].
 	^ self processors inject: true into: [ :allFlushed :each | each forceFlush & allFlushed ]
 ]
 
@@ -55,13 +72,33 @@ OTCompositeLogRecordProcessor >> forceFlush [
 OTCompositeLogRecordProcessor >> initialize [
 
 	super initialize.
-	processors := OrderedCollection new
+	processors := OrderedCollection new.
+	stateLock := Semaphore forMutualExclusion.
+	shutdownRequested := false.
+	shutdownCompleted := false
+]
+
+{ #category : 'testing' }
+OTCompositeLogRecordProcessor >> isShutdown [
+
+	^ stateLock critical: [ shutdownRequested = true or: [ shutdownCompleted = true ] ]
+]
+
+{ #category : 'private - lifecycle' }
+OTCompositeLogRecordProcessor >> markShutdown [
+
+	stateLock critical: [
+			shutdownRequested := true.
+			shutdownCompleted := true ].
+	self
 ]
 
 { #category : 'processing' }
 OTCompositeLogRecordProcessor >> onEmit: anOTLogRecord context: anOTContext [
 
-	self processors do: [ :each | each onEmit: anOTLogRecord context: anOTContext ]
+	self isShutdown ifTrue: [ ^ self ].
+	self processors do: [ :each | each onEmit: anOTLogRecord context: anOTContext ].
+	self
 ]
 
 { #category : 'accessing' }
@@ -81,7 +118,10 @@ OTCompositeLogRecordProcessor >> processors: aCollection [
 { #category : 'processing' }
 OTCompositeLogRecordProcessor >> shutdown [
 
-	| flushed |
-	flushed := self forceFlush.
-	^ (self processors inject: true into: [ :allShutdown :each | each shutdown & allShutdown ]) & flushed
+	| flushed processorsSnapshot |
+	self beginShutdown ifFalse: [ ^ false ].
+	processorsSnapshot := self componentProcessors.
+	flushed := processorsSnapshot inject: true into: [ :allFlushed :each | each forceFlush & allFlushed ].
+	self markShutdown.
+	^ (processorsSnapshot inject: true into: [ :allShutdown :each | each shutdown & allShutdown ]) & flushed
 ]

@@ -58,7 +58,7 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'tests' with: #( 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
 		group: 'default' with: #( 'core' );
 		group: 'all' with: #( 'core' 'tests' )
-	]
+]
 
 { #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [

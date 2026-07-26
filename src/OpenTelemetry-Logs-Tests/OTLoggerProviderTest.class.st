@@ -33,6 +33,50 @@ OTLoggerProviderTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTLoggerProviderTest >> testConcurrentLoggerCreationReturnsIdenticalLogger [
+
+	| done gate lock results workerCount |
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: (provider loggerNamed: 'spec.logs') ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: results notEmpty.
+	self assert: results asSet size equals: 1.
+	self assert: results first class identicalTo: OTLogger
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testConcurrentShutdownReturnsTrueOnce [
+
+	| done gate lock results workerCount |
+	provider addLogRecordProcessor: processor.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: provider shutdown ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: (results count: [ :each | each = true ]) equals: 1.
+	self assert: (results count: [ :each | each = false ]) equals: workerCount - 1.
+	self assert: provider isShutdown.
+	self assert: exporter shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTLoggerProviderTest >> testEmitAddsExceptionAttributesWithoutOverwritingUserAttributes [
 
 	| logger |
@@ -81,6 +125,52 @@ OTLoggerProviderTest >> testEmitPopulatesObservedTimestampAndTraceContextFromCur
 ]
 
 { #category : 'tests' }
+OTLoggerProviderTest >> testEmitStillInvokesProcessorWhenEnabledAnswersFalse [
+
+	| invoked logger filteringProcessor |
+	invoked := false.
+	filteringProcessor := OTBlockLogRecordProcessor new.
+	filteringProcessor
+		enabledBlock: [ :context :scope :severity :eventName | false ];
+		onEmitBlock: [ :logRecord :context | invoked := true ].
+	provider addLogRecordProcessor: filteringProcessor.
+	logger := provider loggerNamed: 'spec.logs'.
+	self deny: logger enabled.
+	self assert: (logger emitBody: 'hello').
+	self assert: invoked
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testEnabledReturnsFalseWhenAllProcessorsDisableLogRecord [
+
+	| logger firstProcessor secondProcessor |
+	firstProcessor := OTBlockLogRecordProcessor new.
+	firstProcessor enabledBlock: [ :context :scope :severity :eventName | false ].
+	secondProcessor := OTBlockLogRecordProcessor new.
+	secondProcessor enabledBlock: [ :context :scope :severity :eventName | false ].
+	provider
+		addLogRecordProcessor: firstProcessor;
+		addLogRecordProcessor: secondProcessor.
+	logger := provider loggerNamed: 'spec.logs'.
+	self deny: logger enabled
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testEnabledReturnsTrueWhenOneProcessorAllowsLogRecord [
+
+	| logger firstProcessor secondProcessor |
+	firstProcessor := OTBlockLogRecordProcessor new.
+	firstProcessor enabledBlock: [ :context :scope :severity :eventName | false ].
+	secondProcessor := OTBlockLogRecordProcessor new.
+	secondProcessor enabledBlock: [ :context :scope :severity :eventName | true ].
+	provider
+		addLogRecordProcessor: firstProcessor;
+		addLogRecordProcessor: secondProcessor.
+	logger := provider loggerNamed: 'spec.logs'.
+	self assert: logger enabled
+]
+
+{ #category : 'tests' }
 OTLoggerProviderTest >> testExistingLoggerSeesUpdatedConfigurator [
 
 	| config logger |
@@ -92,6 +182,19 @@ OTLoggerProviderTest >> testExistingLoggerSeesUpdatedConfigurator [
 	config enabled: false.
 	provider loggerConfigurator: [ :scope | config ].
 	self deny: logger enabled
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testForceFlushReturnsFalseAfterShutdown [
+
+	self assert: provider shutdown.
+	self deny: provider forceFlush
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testForceFlushSucceedsWithoutProcessors [
+
+	self assert: provider forceFlush
 ]
 
 { #category : 'tests' }
@@ -128,12 +231,119 @@ OTLoggerProviderTest >> testMinimumSeverityFilteringDropsBelowThreshold [
 ]
 
 { #category : 'tests' }
+OTLoggerProviderTest >> testNilAndEmptyLoggerNamesReturnDistinctLoggers [
+
+	| emptyLogger nilLogger |
+	nilLogger := provider loggerNamed: nil.
+	emptyLogger := provider loggerNamed: ''.
+	self deny: nilLogger identicalTo: emptyLogger.
+	self assert: nilLogger instrumentationName isNil.
+	self assert: emptyLogger instrumentationName equals: ''
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testNilLoggerNameReturnsFallbackLoggerAndWarns [
+
+	self withWarningsDo: [ :warnings |
+			| logger |
+			logger := provider loggerNamed: nil.
+			self assert: logger instrumentationName isNil.
+			self assert: warnings asArray equals: #( 'OpenTelemetry logger name was invalid: nil' ) ]
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testNoopProviderPreservesNilLoggerName [
+
+	| logger noopProvider |
+	noopProvider := OTNoopLoggerProvider new.
+	logger := noopProvider
+		          loggerNamed: nil
+		          version: '1.2.3'
+		          schemaUrl: 'https://example.com/schema'
+		          attributes: { ('library' -> 'demo') }.
+	self assert: logger class identicalTo: OTNoopLogger.
+	self assert: logger provider isNil.
+	self assert: logger instrumentationName equals: ''.
+	self assert: logger instrumentationVersion equals: ''.
+	self assert: logger schemaUrl equals: ''.
+	self assert: logger scopeAttributes isEmpty.
+	self deny: logger enabled
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testNoopProviderReturnsDisabledNoopLogger [
+
+	| logger noopProvider |
+	noopProvider := OTNoopLoggerProvider new.
+	logger := noopProvider loggerNamed: 'spec.logs'.
+	self assert: logger class identicalTo: OTNoopLogger.
+	self deny: logger enabled.
+	self deny: (logger emitBody: 'hello')
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testNoopTypesDoNotDeclareInstanceState [
+
+	self assert: OTNoopLogger allInstVarNames isEmpty.
+	self assert: OTNoopLoggerProvider allInstVarNames isEmpty
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testProcessorMutationFlowsIntoExportingProcessor [
+
+	| logger mutatingProcessor |
+	mutatingProcessor := OTBlockLogRecordProcessor new.
+	mutatingProcessor onEmitBlock: [ :logRecord :context | logRecord attributeNamed: 'stage' put: 'mutated' ].
+	provider
+		addLogRecordProcessor: mutatingProcessor;
+		addLogRecordProcessor: processor.
+	logger := provider loggerNamed: 'spec.logs'.
+	self assert: (logger emitBody: 'hello').
+	self assert: exporter exportedRecords size equals: 1.
+	self assert: (exporter exportedRecords first attributeNamed: 'stage') equals: 'mutated'
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testProcessorMutationsAreVisibleToNextRegisteredProcessor [
+
+	| logger observedValue firstProcessor secondProcessor |
+	firstProcessor := OTBlockLogRecordProcessor new.
+	firstProcessor onEmitBlock: [ :logRecord :context | logRecord attributeNamed: 'stage' put: 'first' ].
+	secondProcessor := OTBlockLogRecordProcessor new.
+	secondProcessor onEmitBlock: [ :logRecord :context | observedValue := logRecord attributeNamed: 'stage' ].
+	provider
+		addLogRecordProcessor: firstProcessor;
+		addLogRecordProcessor: secondProcessor.
+	logger := provider loggerNamed: 'spec.logs'.
+	self assert: (logger emitBody: 'hello').
+	self assert: observedValue equals: 'first'
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testProcessorsRunInRegistrationOrder [
+
+	| events firstProcessor logger secondProcessor |
+	events := OrderedCollection new.
+	firstProcessor := OTBlockLogRecordProcessor new.
+	firstProcessor onEmitBlock: [ :logRecord :context | events add: #first ].
+	secondProcessor := OTBlockLogRecordProcessor new.
+	secondProcessor onEmitBlock: [ :logRecord :context | events add: #second ].
+	provider
+		addLogRecordProcessor: firstProcessor;
+		addLogRecordProcessor: secondProcessor.
+	logger := provider loggerNamed: 'spec.logs'.
+	self assert: (logger emitBody: 'hello').
+	self assert: events asArray equals: #( first second )
+]
+
+{ #category : 'tests' }
 OTLoggerProviderTest >> testShutdownReturnsNoopLogger [
 
 	| logger |
 	provider addLogRecordProcessor: processor.
 	self assert: provider shutdown.
 	logger := provider loggerNamed: 'spec.logs'.
+	self assert: logger class identicalTo: OTNoopLogger.
 	self deny: logger enabled.
 	self deny: (logger emitBody: 'after shutdown')
 ]
@@ -166,4 +376,23 @@ OTLoggerProviderTest >> testTraceBasedFilteringDropsUnsampledTrace [
 			 eventName: nil
 			 exception: nil).
 	self assert: exporter exportedRecords isEmpty
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testWhitespaceLoggerNameIsPreservedWithoutWarning [
+
+	self withWarningsDo: [ :warnings |
+			| logger |
+			logger := provider loggerNamed: '  spaced  '.
+			self assert: logger instrumentationName equals: '  spaced  '.
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'private' }
+OTLoggerProviderTest >> withWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	OTLoggerProvider configurationWarningSink: [ :message | warnings add: message ].
+	[ ^ aBlock value: warnings ] ensure: [ OTLoggerProvider configurationWarningSink: nil ]
 ]

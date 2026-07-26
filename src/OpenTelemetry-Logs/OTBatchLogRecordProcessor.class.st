@@ -1,5 +1,7 @@
 "
 A batching log-record processor that asynchronously exports readable log records.
+
+It serializes calls to its exporter, maintains a bounded queue, and stops accepting new log records once shutdown begins.
 "
 Class {
 	#name : 'OTBatchLogRecordProcessor',

@@ -1,5 +1,7 @@
 "
 A backend-agnostic entry point to the OpenTelemetry logs API and SDK.
+
+Instances are safe for concurrent logger creation and lookup, force flush, and shutdown. Returned loggers keep delegating through their provider so later provider configuration changes become visible without reacquiring the logger.
 "
 Class {
 	#name : 'OTLoggerProvider',
@@ -10,7 +12,9 @@ Class {
 		'logRecordProcessors',
 		'logRecordLimits',
 		'loggerConfigurator',
-		'shutdown'
+		'shutdown',
+		'stateLock',
+		'shutdownRequested'
 	],
 	#classVars : [
 		'Current'
@@ -242,9 +246,9 @@ OTLoggerProvider class >> normalizedLoggerNameFrom: aValue [
 			self noteInvalidLoggerName: aValue.
 			^ '' ].
 	loggerName := aValue asString.
-	loggerName trimBoth isEmpty ifTrue: [
+	loggerName isEmpty ifTrue: [
 			self noteInvalidLoggerName: aValue.
-			^ '' ].
+			^ loggerName ].
 	^ loggerName
 ]
 
@@ -266,8 +270,7 @@ OTLoggerProvider class >> noteInvalidBatchProcessorEnvironmentValue: aValue forV
 { #category : 'private - logging' }
 OTLoggerProvider class >> noteInvalidLoggerName: aValue [
 
-	self configurationWarningSink value: 'OpenTelemetry logger name was invalid and has been normalized to an empty string: '
-		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self configurationWarningSink value: 'OpenTelemetry logger name was invalid: ' , aValue printString
 ]
 
 { #category : 'private - logging' }
@@ -319,13 +322,13 @@ OTLoggerProvider class >> processorForExporter: anExporter [
 OTLoggerProvider class >> readConfiguration [
 
 	| configurationSourceClass exporterNames processors provider |
+	OTTracerProvider sdkDisabled ifTrue: [ ^ OTNoopLoggerProvider new ].
 	provider := self new.
 	configurationSourceClass := self configurationSourceClass.
 	provider
 		resource: OTTracerProvider configuredResource;
 		logRecordLimits: self configuredLogRecordLimits;
 		loggerConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredLoggerConfigurator ]).
-	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	processors := configurationSourceClass ifNotNil: [ configurationSourceClass configuredLogRecordProcessors ].
 	processors ifNotNil: [
 			provider logRecordProcessors: processors.
@@ -337,6 +340,12 @@ OTLoggerProvider class >> readConfiguration [
 			exporter ifNotNil: [
 				exporter class = OTNoopLogRecordExporter ifFalse: [ provider addLogRecordProcessor: (self processorForExporter: exporter) ] ] ].
 	^ provider
+]
+
+{ #category : 'private' }
+OTLoggerProvider class >> requestedLoggerNameFrom: aValue [
+
+	^ aValue ifNotNil: [ aValue asString ]
 ]
 
 { #category : 'class initialization' }
@@ -380,8 +389,9 @@ OTLoggerProvider class >> strictPositiveIntegerFrom: aString [
 { #category : 'accessing' }
 OTLoggerProvider >> addLogRecordProcessor: anOTLogRecordProcessor [
 
-	self ensureOpen.
-	self logRecordProcessors add: anOTLogRecordProcessor.
+	stateLock critical: [
+			self ensureOpenLocked.
+			logRecordProcessors add: anOTLogRecordProcessor ].
 	^ anOTLogRecordProcessor
 ]
 
@@ -395,15 +405,11 @@ OTLoggerProvider >> effectiveContextFrom: anOTContext [
 OTLoggerProvider >> emitForLogger: anOTLogger timestamp: aTimestamp observedTimestamp: anObservedTimestamp context: anOTContext severityNumber: aSeverityNumber severityText: aSeverityText body: aBody attributes: someAttributes eventName: anEventName exception: anException [
 
 	| config context logRecord |
+	self isStopping ifTrue: [ ^ false ].
 	self isShutdown ifTrue: [ ^ false ].
 	context := self effectiveContextFrom: anOTContext.
 	config := self loggerConfigFor: anOTLogger instrumentationScope.
 	(self shouldEmitInContext: context severityNumber: aSeverityNumber loggerConfig: config) ifFalse: [ ^ false ].
-	(self
-		 processorsAllowInContext: context
-		 instrumentationScope: anOTLogger instrumentationScope
-		 severityNumber: aSeverityNumber
-		 eventName: anEventName) ifFalse: [ ^ false ].
 	logRecord := self
 		             newLogRecordForLogger: anOTLogger
 		             timestamp: aTimestamp
@@ -421,16 +427,26 @@ OTLoggerProvider >> emitForLogger: anOTLogger timestamp: aTimestamp observedTime
 { #category : 'private' }
 OTLoggerProvider >> ensureOpen [
 
-	self isShutdown ifTrue: [ Error signal: 'This logger provider has been shut down' ].
+	stateLock critical: [ self ensureOpenLocked ].
+	self
+]
+
+{ #category : 'private' }
+OTLoggerProvider >> ensureOpenLocked [
+
+	(shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ Error signal: 'This logger provider has been shut down' ].
 	self
 ]
 
 { #category : 'processing' }
 OTLoggerProvider >> forceFlush [
 
-	| processors allFlushed |
-	processors := self logRecordProcessors.
-	processors isEmpty ifTrue: [ ^ false ].
+	| processors allFlushed stopping |
+	processors := stateLock critical: [
+			              stopping := shutdownRequested = true or: [ shutdown = true ].
+			              logRecordProcessors copy ].
+	stopping ifTrue: [ ^ false ].
+	processors isEmpty ifTrue: [ ^ true ].
 	allFlushed := true.
 	processors do: [ :each |
 			allFlushed := (self
@@ -450,49 +466,60 @@ OTLoggerProvider >> initialize [
 	logRecordProcessors := OrderedCollection new.
 	logRecordLimits := OTLogRecordLimits default.
 	loggerConfigurator := [ :scope | nil ].
-	shutdown := false
+	shutdown := false.
+	stateLock := Semaphore forMutualExclusion.
+	shutdownRequested := false
 ]
 
 { #category : 'testing' }
 OTLoggerProvider >> isShutdown [
 
-	^ shutdown = true
+	^ stateLock critical: [ shutdown = true ]
+]
+
+{ #category : 'testing' }
+OTLoggerProvider >> isStopping [
+
+	^ stateLock critical: [ shutdownRequested = true ]
 ]
 
 { #category : 'accessing' }
 OTLoggerProvider >> logRecordLimits [
 
-	^ logRecordLimits copy
+	^ stateLock critical: [ logRecordLimits copy ]
 ]
 
 { #category : 'accessing' }
 OTLoggerProvider >> logRecordLimits: anOTLogRecordLimits [
 
-	self ensureOpen.
-	logRecordLimits := (anOTLogRecordLimits ifNil: [ OTLogRecordLimits default ] ifNotNil: [ anOTLogRecordLimits ]) copy.
+	stateLock critical: [
+			self ensureOpenLocked.
+			logRecordLimits := (anOTLogRecordLimits ifNil: [ OTLogRecordLimits default ] ifNotNil: [ anOTLogRecordLimits ]) copy ].
 	^ self logRecordLimits
 ]
 
 { #category : 'accessing' }
 OTLoggerProvider >> logRecordProcessors [
 
-	^ logRecordProcessors ifNil: [ OrderedCollection new ]
+	^ stateLock critical: [ logRecordProcessors copy ]
 ]
 
 { #category : 'accessing' }
 OTLoggerProvider >> logRecordProcessors: aCollection [
 
-	self ensureOpen.
-	logRecordProcessors := OrderedCollection new.
-	aCollection ifNotNil: [ aCollection do: [ :each | logRecordProcessors add: each ] ].
+	stateLock critical: [
+			self ensureOpenLocked.
+			logRecordProcessors := OrderedCollection new.
+			aCollection ifNotNil: [ aCollection do: [ :each | logRecordProcessors add: each ] ] ].
 	^ self logRecordProcessors
 ]
 
 { #category : 'private' }
 OTLoggerProvider >> loggerConfigFor: anInstrumentationScope [
 
-	| configured |
-	configured := [ loggerConfigurator value: anInstrumentationScope ]
+	| configured configurator |
+	configurator := stateLock critical: [ loggerConfigurator ].
+	configured := [ configurator value: anInstrumentationScope ]
 		              on: Error
 		              do: [ :error |
 				              self class configurationWarningSink value:
@@ -507,21 +534,24 @@ OTLoggerProvider >> loggerConfigFor: anInstrumentationScope [
 { #category : 'accessing' }
 OTLoggerProvider >> loggerConfigurator [
 
-	^ loggerConfigurator
+	^ stateLock critical: [ loggerConfigurator ]
 ]
 
 { #category : 'accessing' }
 OTLoggerProvider >> loggerConfigurator: aBlock [
 
-	self ensureOpen.
-	loggerConfigurator := aBlock ifNil: [ [ :scope | nil ] ] ifNotNil: [ aBlock ].
-	^ loggerConfigurator
+	stateLock critical: [
+			self ensureOpenLocked.
+			loggerConfigurator := aBlock ifNil: [ [ :scope | nil ] ] ifNotNil: [ aBlock ] ].
+	^ self loggerConfigurator
 ]
 
 { #category : 'testing' }
 OTLoggerProvider >> loggerEnabled: anOTLogger inContext: anOTContext severityNumber: aSeverityNumber eventName: aString [
 
 	| config context processors |
+	self isStopping ifTrue: [ ^ false ].
+	self isShutdown ifTrue: [ ^ false ].
 	context := self effectiveContextFrom: anOTContext.
 	processors := self logRecordProcessors.
 	processors isEmpty ifTrue: [ ^ false ].
@@ -548,20 +578,28 @@ OTLoggerProvider >> loggerNamed: aString [
 { #category : 'logging' }
 OTLoggerProvider >> loggerNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
-	| scope |
-	self isShutdown ifTrue: [
-			scope := OTInstrumentationScope
-				         named: (self class normalizedLoggerNameFrom: aString)
-				         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
-				         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
-				         attributes: aCollection.
-			^ OTLogger forProvider: nil instrumentationScope: scope ].
+	| requestedName scope |
+	requestedName := self class requestedLoggerNameFrom: aString.
 	scope := OTInstrumentationScope
 		         named: (self class normalizedLoggerNameFrom: aString)
 		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
 		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
 		         attributes: aCollection.
-	^ loggers at: scope ifAbsentPut: [ OTLogger forProvider: self instrumentationScope: scope ]
+	^ stateLock critical: [
+			  | registrationKey |
+			  (shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ ^ OTNoopLogger new ].
+			  registrationKey := self loggerRegistrationKeyForRequestedName: requestedName instrumentationScope: scope.
+			  loggers
+				  at: registrationKey
+				  ifAbsentPut: [ OTLogger forProvider: self instrumentationScope: scope rawInstrumentationName: requestedName ] ]
+]
+
+{ #category : 'private' }
+OTLoggerProvider >> loggerRegistrationKeyForRequestedName: aRequestedName instrumentationScope: anInstrumentationScope [
+
+	^ {
+		  aRequestedName.
+		  anInstrumentationScope }
 ]
 
 { #category : 'private' }
@@ -644,14 +682,15 @@ OTLoggerProvider >> processorsAllowInContext: anOTContext instrumentationScope: 
 { #category : 'accessing' }
 OTLoggerProvider >> resource [
 
-	^ resource ifNil: [ OTResource empty ]
+	^ stateLock critical: [ resource ifNil: [ OTResource empty ] ]
 ]
 
 { #category : 'accessing' }
 OTLoggerProvider >> resource: anOTResource [
 
-	self ensureOpen.
-	resource := anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ].
+	stateLock critical: [
+			self ensureOpenLocked.
+			resource := anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ] ].
 	^ self resource
 ]
 
@@ -665,9 +704,16 @@ OTLoggerProvider >> shouldEmitInContext: anOTContext severityNumber: aSeverityNu
 { #category : 'processing' }
 OTLoggerProvider >> shutdown [
 
-	| processors allShutdown |
-	self isShutdown ifTrue: [ ^ false ].
-	processors := self logRecordProcessors.
+	| allShutdown alreadyStopping processors |
+	processors := #(  ).
+	alreadyStopping := stateLock critical: [
+			                   | stopping |
+			                   stopping := shutdownRequested = true or: [ shutdown = true ].
+			                   stopping ifFalse: [
+					                   shutdownRequested := true.
+					                   processors := logRecordProcessors copy ].
+			                   stopping ].
+	alreadyStopping ifTrue: [ ^ false ].
 	allShutdown := true.
 	processors do: [ :each |
 			allShutdown := (self
@@ -675,7 +721,7 @@ OTLoggerProvider >> shutdown [
 				                operationNamed: 'shutdown'
 				                default: false
 				                do: [ each shutdown ]) & allShutdown ].
-	shutdown := true.
+	stateLock critical: [ shutdown := true ].
 	^ allShutdown
 ]
 

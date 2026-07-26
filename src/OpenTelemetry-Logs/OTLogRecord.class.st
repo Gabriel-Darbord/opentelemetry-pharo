@@ -95,7 +95,7 @@ OTLogRecord >> body [
 { #category : 'accessing' }
 OTLogRecord >> body: anObject [
 
-	body := OTAttributeNormalizer normalizeAttributeValue: anObject lengthLimit: self limits attributeValueLengthLimit.
+	body := OTAttributeNormalizer normalizeAttributeValue: anObject lengthLimit: nil.
 	^ body
 ]
 

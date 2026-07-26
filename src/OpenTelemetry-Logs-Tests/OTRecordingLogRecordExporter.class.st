@@ -13,6 +13,7 @@ Class {
 { #category : 'exporting' }
 OTRecordingLogRecordExporter >> export: someLogRecords [
 
+	self isShutdown ifTrue: [ ^ false ].
 	self exportedBatches add: (someLogRecords collect: [ :each | each copy ]) asArray.
 	^ true
 ]
@@ -33,6 +34,7 @@ OTRecordingLogRecordExporter >> exportedRecords [
 { #category : 'exporting' }
 OTRecordingLogRecordExporter >> forceFlush [
 
+	super forceFlush ifFalse: [ ^ false ].
 	forceFlushCount := self forceFlushCount + 1.
 	^ true
 ]
@@ -46,6 +48,7 @@ OTRecordingLogRecordExporter >> forceFlushCount [
 { #category : 'exporting' }
 OTRecordingLogRecordExporter >> shutdown [
 
+	super shutdown ifFalse: [ ^ false ].
 	shutdownCount := self shutdownCount + 1.
 	^ true
 ]

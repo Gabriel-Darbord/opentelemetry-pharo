@@ -98,6 +98,45 @@ OTOtlpHttpJsonLogRecordExporterTest >> testExportAppliesHttpJsonConfigurationAnd
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonLogRecordExporterTest >> testExportReturnsFailureAfterShutdownWithoutExecutingHttpRequest [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: { self sampleLogRecord }).
+	self deny: exporter forceFlush.
+	self deny: exporter shutdown.
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonLogRecordExporterTest >> testExportSucceedsAgainstLocalHttpServer [
+
+	| receivedBody receivedContentEncoding receivedContentType receivedMethod receivedPath payload |
+	ZnServer withOSAssignedPortDo: [ :server |
+			server onRequestRespond: [ :request |
+					receivedMethod := request method.
+					receivedPath := request uri pathSegments asArray.
+					receivedContentType := request contentType asString.
+					receivedContentEncoding := request headers at: 'Content-Encoding' ifAbsent: [ nil ].
+					receivedBody := request entity contents.
+					ZnResponse ok: (ZnEntity json: '{}') ].
+			configuration endpoint: (server localUrl
+					 addPathSegment: 'v1';
+					 addPathSegment: 'logs';
+					 yourself) asString.
+			exporter := OTOtlpHttpJsonLogRecordExporter configuration: configuration.
+			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+					self assert: (exporter export: { self sampleLogRecord }).
+					self assert: retrySleeps isEmpty.
+					self assert: warnings isEmpty ] ].
+	self assert: receivedMethod equals: #POST.
+	self assert: receivedPath equals: #( 'v1' 'logs' ).
+	self assert: receivedContentType equals: 'application/json'.
+	self assert: receivedContentEncoding isNil.
+	payload := STONJSON fromString: receivedBody asString.
+	self assert: (payload at: 'resourceLogs') size equals: 1
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonLogRecordExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
 	client responseContents: '{"partialSuccess":{"rejectedLogRecords":2,"errorMessage":"collector dropped logs"}}'.

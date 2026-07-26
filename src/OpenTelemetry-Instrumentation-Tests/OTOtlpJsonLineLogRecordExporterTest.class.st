@@ -52,6 +52,16 @@ OTOtlpJsonLineLogRecordExporterTest >> testFileExporterAppendsOneJsonLinePerExpo
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineLogRecordExporterTest >> testJsonLineExporterRejectsExportAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: { self sampleLogRecord }).
+	self deny: exporter forceFlush.
+	self deny: exporter shutdown.
+	self assert: exporter writtenLines isEmpty
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineLogRecordExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerExport [
 
 	| line payload |

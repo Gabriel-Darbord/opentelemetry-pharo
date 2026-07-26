@@ -14,6 +14,22 @@ Class {
 }
 
 { #category : 'private - grpc' }
+OTOtlpGrpcSpanExporter class >> grpcDependencyNamed: aSymbol requiredBy: aConsumerName [
+
+	| dependency |
+	dependency := self grpcDependencyResolver value: aSymbol.
+	^ dependency
+		  ifNil: [
+				  Error signal: (String streamContents: [ :stream |
+							   stream
+								   nextPutAll: aConsumerName;
+								   nextPutAll: ' requires grpc-pharo to be loaded (missing ';
+								   nextPutAll: aSymbol asString;
+								   nextPut: $) ]) ]
+		  ifNotNil: [ dependency ]
+]
+
+{ #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter class >> grpcDependencyResolver [
 
 	^ OTClassStateStore
@@ -98,16 +114,7 @@ OTOtlpGrpcSpanExporter >> grpcChannelClass [
 { #category : 'private - grpc' }
 OTOtlpGrpcSpanExporter >> grpcDependencyNamed: aSymbol [
 
-	| dependency |
-	dependency := self class grpcDependencyResolver value: aSymbol.
-	^ dependency
-		  ifNil: [
-				  Error signal: (String streamContents: [ :stream |
-							   stream
-								   nextPutAll: 'OTOtlpGrpcSpanExporter requires grpc-pharo to be loaded (missing ';
-								   nextPutAll: aSymbol asString;
-								   nextPut: $) ]) ]
-		  ifNotNil: [ dependency ]
+	^ self class grpcDependencyNamed: aSymbol requiredBy: self class name
 ]
 
 { #category : 'private - grpc' }
