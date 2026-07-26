@@ -326,6 +326,53 @@ OTMeterProviderTest >> testDistinctMeterRequestsReturnDistinctMeters [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testConcurrentMeterCreationReturnsIdenticalMeter [
+
+	| done gate lock provider results workerCount |
+	provider := OTMeterProvider new.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: (provider meterNamed: 'demo.metrics') ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: results notEmpty.
+	self assert: results asSet size equals: 1.
+	self assert: results first class identicalTo: OTMeter
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testConcurrentShutdownReturnsTrueOnce [
+
+	| done gate lock provider reader results workerCount |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: provider shutdown ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: (results count: [ :each | each = true ]) equals: 1.
+	self assert: (results count: [ :each | each = false ]) equals: workerCount - 1.
+	self assert: provider isShutdown.
+	self assert: reader shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testExplicitMeterProviderCanBeInstalledGlobally [
 
 	| provider |
@@ -338,6 +385,41 @@ OTMeterProviderTest >> testExplicitMeterProviderCanBeInstalledGlobally [
 OTMeterProviderTest >> testForceFlushAnswersSuccess [
 
 	self assert: OTMeterProvider new forceFlush
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testConcurrentForceFlushIsSafe [
+
+	| done gate lock provider reader results workerCount |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: provider forceFlush ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: (results allSatisfy: [ :each | each = true ]).
+	self assert: reader forceFlushCount equals: workerCount
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testForceFlushReturnsFalseAfterShutdown [
+
+	| provider reader |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	self assert: provider shutdown.
+	self deny: provider forceFlush.
+	self assert: reader forceFlushCount equals: 0
 ]
 
 { #category : 'tests' }
