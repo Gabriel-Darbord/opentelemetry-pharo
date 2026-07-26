@@ -6,7 +6,9 @@ Class {
 	#name : 'OTPrometheusTextEncoder',
 	#superclass : 'Object',
 	#instVars : [
-		'warningSink'
+		'warningSink',
+		'scopeInfoEnabled',
+		'targetInfoEnabled'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -55,7 +57,9 @@ OTPrometheusTextEncoder >> histogramBucketIndexForExemplar: anOTMetricExemplar b
 OTPrometheusTextEncoder >> initialize [
 
 	super initialize.
-	warningSink := self defaultWarningSink
+	warningSink := self defaultWarningSink.
+	scopeInfoEnabled := true.
+	targetInfoEnabled := true
 ]
 
 { #category : 'private - testing' }
@@ -199,6 +203,7 @@ OTPrometheusTextEncoder >> pointLabels: someAttributes scope: anOTInstrumentatio
 	| rawLabels reservedScopeLabels |
 	rawLabels := OrderedCollection new.
 	someAttributes associationsDo: [ :each | rawLabels add: each key asString -> (self prometheusStringValueFor: each value) ].
+	self scopeInfoEnabled ifFalse: [ ^ rawLabels ].
 	rawLabels
 		add: 'otel_scope_name' -> anOTInstrumentationScope name;
 		add: 'otel_scope_version' -> anOTInstrumentationScope version;
@@ -503,6 +508,18 @@ OTPrometheusTextEncoder >> quotedPrometheusValueFor: aString [
 						  stream nextPut: each ] ] ]
 ]
 
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> scopeInfoEnabled [
+
+	^ scopeInfoEnabled ifNil: [ true ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> scopeInfoEnabled: aBoolean [
+
+	scopeInfoEnabled := aBoolean
+]
+
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> sampleIdentityFor: aSampleSpecification [
 
@@ -650,6 +667,18 @@ OTPrometheusTextEncoder >> supportsPrometheusExemplarsInFormat: aFormatSymbol [
 OTPrometheusTextEncoder >> supportsUnitMetadataInFormat: aFormatSymbol [
 
 	^ aFormatSymbol ~= #prometheusText004
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> targetInfoEnabled [
+
+	^ targetInfoEnabled ifNil: [ true ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> targetInfoEnabled: aBoolean [
+
+	targetInfoEnabled := aBoolean
 ]
 
 { #category : 'private - formatting' }
@@ -918,7 +947,7 @@ OTPrometheusTextEncoder >> writeSampleSpecification: aSampleSpecification on: aS
 OTPrometheusTextEncoder >> writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: aStream [
 
 	| metricFamilies |
-	self writeTargetInfoFor: anOTMetricSnapshot resource on: aStream.
+	self targetInfoEnabled ifTrue: [ self writeTargetInfoFor: anOTMetricSnapshot resource on: aStream ].
 	metricFamilies := OrderedDictionary new.
 	anOTMetricSnapshot metrics do: [ :each |
 			| type familyName |

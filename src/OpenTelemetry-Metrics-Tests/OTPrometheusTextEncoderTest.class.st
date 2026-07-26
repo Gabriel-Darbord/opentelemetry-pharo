@@ -152,6 +152,63 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotConcatenatesMetricAttributeWith
 ]
 
 { #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotCanDisableScopeInfoLabels [
+
+	| metric point snapshot text |
+	point := OTNumberDataPoint
+		         attributes: { ('method' -> 'GET') }
+		         value: 1
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTGaugeMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Requests';
+		unit: '1';
+		points: { point }.
+	snapshot := OTMetricSnapshot
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	encoder scopeInfoEnabled: false.
+	text := encoder encodeSnapshot: snapshot.
+	self assert: (text includesSubstring: 'method="GET"').
+	self deny: (text includesSubstring: 'otel_scope_name').
+	self deny: (text includesSubstring: 'otel_scope_version').
+	self deny: (text includesSubstring: 'otel_scope_schema_url').
+	self deny: (text includesSubstring: 'otel_scope_scope_key')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotCanDisableTargetInfoMetric [
+
+	| metric point snapshot text |
+	point := OTNumberDataPoint
+		         attributes: { ('method' -> 'GET') }
+		         value: 1
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTGaugeMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Requests';
+		unit: '1';
+		points: { point }.
+	snapshot := OTMetricSnapshot
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	encoder targetInfoEnabled: false.
+	text := encoder encodeSnapshot: snapshot.
+	self assert: (text includesSubstring: 'requests{').
+	self deny: (text includesSubstring: 'target_info{')
+]
+
+{ #category : 'tests' }
 OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsExponentialHistogramsFromTextOutput [
 
 	| metric point snapshot text |

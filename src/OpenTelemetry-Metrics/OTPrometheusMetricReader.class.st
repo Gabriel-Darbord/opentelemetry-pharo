@@ -76,7 +76,13 @@ OTPrometheusMetricReader >> encoder [
 OTPrometheusMetricReader >> encoder: anOTPrometheusTextEncoder [
 
 	stateLock critical: [
+		| currentEncoder |
 		self ensureOpenLocked.
+		currentEncoder := encoder.
+		currentEncoder ifNotNil: [
+			anOTPrometheusTextEncoder
+				scopeInfoEnabled: currentEncoder scopeInfoEnabled;
+				targetInfoEnabled: currentEncoder targetInfoEnabled ].
 		encoder := anOTPrometheusTextEncoder ]
 ]
 
@@ -150,6 +156,20 @@ OTPrometheusMetricReader >> path: aString [
 ]
 
 { #category : 'accessing' }
+OTPrometheusMetricReader >> scopeInfoEnabled [
+
+	^ stateLock critical: [ (encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) scopeInfoEnabled ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> scopeInfoEnabled: aBoolean [
+
+	stateLock critical: [
+		self ensureOpenLocked.
+		(encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) scopeInfoEnabled: aBoolean ]
+]
+
+{ #category : 'accessing' }
 OTPrometheusMetricReader >> port [
 
 	^ stateLock critical: [ port ifNil: [ 9464 ] ]
@@ -194,6 +214,20 @@ OTPrometheusMetricReader >> scrapeTextForFormat: aFormatSymbol [
 OTPrometheusMetricReader >> server [
 
 	^ stateLock critical: [ server ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> targetInfoEnabled [
+
+	^ stateLock critical: [ (encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) targetInfoEnabled ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> targetInfoEnabled: aBoolean [
+
+	stateLock critical: [
+		self ensureOpenLocked.
+		(encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) targetInfoEnabled: aBoolean ]
 ]
 
 { #category : 'lifecycle' }

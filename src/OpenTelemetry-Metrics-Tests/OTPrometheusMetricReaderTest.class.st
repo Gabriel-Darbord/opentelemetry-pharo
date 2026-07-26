@@ -30,6 +30,32 @@ OTPrometheusMetricReaderTest >> testCollectUsesCumulativeTemporality [
 ]
 
 { #category : 'tests' }
+OTPrometheusMetricReaderTest >> testScrapeCanDisableScopeInfoAndTargetInfo [
+
+	| counter scrape |
+	provider := OTMeterProvider new.
+	provider resource: (OTResource attributes: { ('service.name' -> 'demo') }).
+	reader := OTPrometheusMetricReader new.
+	reader
+		port: 0;
+		scopeInfoEnabled: false;
+		targetInfoEnabled: false.
+	provider addMetricReader: reader.
+	counter := (provider
+		            meterNamed: 'demo.metrics'
+		            version: '1.0.0'
+		            schemaUrl: ''
+		            attributes: { ('scope.answer' -> 42) }) counterNamed: 'requests.total'.
+	counter add: 3 attributes: { ('method' -> 'GET') }.
+	scrape := ZnClient new get: 'http://localhost:' , reader port asString , reader path.
+	scrape := scrape asString.
+	self assert: (scrape includesSubstring: '# TYPE requests_total counter').
+	self assert: (scrape includesSubstring: 'method="GET"').
+	self deny: (scrape includesSubstring: 'otel_scope_name="demo.metrics"').
+	self deny: (scrape includesSubstring: 'target_info{')
+]
+
+{ #category : 'tests' }
 OTPrometheusMetricReaderTest >> testConcurrentShutdownReturnsTrueOnce [
 
 	| done gate lock results workerCount |
