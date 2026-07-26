@@ -1,10 +1,7 @@
 "
 Abstract exporter for readable log records.
 
-The SDK must not call Export concurrently on the same exporter instance.
-ForceFlush and Shutdown must be safe to call concurrently with each other and
-with exporter-managed background work. Concrete exporters document any extra
-transport or destination constraints on top of this shared contract.
+The SDK must not call Export concurrently on the same exporter instance. ForceFlush and Shutdown must be safe to call concurrently with each other and with exporter-managed background work. Concrete exporters document any extra transport or destination constraints on top of this shared contract.
 "
 Class {
 	#name : 'OTLogRecordExporter',

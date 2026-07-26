@@ -65,12 +65,6 @@ OTOtlpGrpcLogRecordExporterTest >> setUp [
 	exporter := OTOtlpGrpcLogRecordExporter configuration: configuration
 ]
 
-{ #category : 'running' }
-OTOtlpGrpcLogRecordExporterTest >> tearDown [
-
-	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
-]
-
 { #category : 'private' }
 OTOtlpGrpcLogRecordExporterTest >> successResponseWithRejectedLogRecords: aCount message: aString [
 
@@ -87,6 +81,12 @@ OTOtlpGrpcLogRecordExporterTest >> successResponseWithRejectedLogRecords: aCount
 							writeTag: 2 wireType: 2;
 							writeString: aString ] ].
 	^ writer contents
+]
+
+{ #category : 'running' }
+OTOtlpGrpcLogRecordExporterTest >> tearDown [
+
+	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -107,6 +107,21 @@ OTOtlpGrpcLogRecordExporterTest >> testExportBuildsGrpcRequestFromConfiguration 
 	resourceLogs := reader readBytes.
 	self assert: resourceLogs notEmpty.
 	self assert: reader atEnd
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcLogRecordExporterTest >> testExportReturnsFailureAfterShutdownWithoutInvokingRequestExecutor [
+
+	| invoked |
+	invoked := false.
+	exporter requestExecutor: [ :request |
+			invoked := true.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: exporter shutdown.
+	self deny: (exporter export: { self sampleLogRecord }).
+	self deny: exporter forceFlush.
+	self deny: exporter shutdown.
+	self deny: invoked
 ]
 
 { #category : 'tests' }

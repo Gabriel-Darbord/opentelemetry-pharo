@@ -73,60 +73,59 @@ OTOtlpHttpJsonMetricExporter class >> configuredTemporalitySelector [
 { #category : 'private - retry' }
 OTOtlpHttpJsonMetricExporter class >> defaultRetryBaseDelayMillis [
 
-	^ 1000
+	^ OTOtlpHttpJsonExportSupport defaultRetryBaseDelayMillis
 ]
 
 { #category : 'private - retry' }
 OTOtlpHttpJsonMetricExporter class >> defaultRetryMaxDelayMillis [
 
-	^ 5000
+	^ OTOtlpHttpJsonExportSupport defaultRetryMaxDelayMillis
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter class >> defaultWarningSink [
 
-	^ OTDiagnosticLogger defaultWarningSink
+	^ OTOtlpHttpJsonExportSupport defaultWarningSink
 ]
 
 { #category : 'private - retry' }
 OTOtlpHttpJsonMetricExporter class >> maxExportAttempts [
 
-	^ 6
+	^ OTOtlpHttpJsonExportSupport maxExportAttempts
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonMetricExporter class >> noteInvalidConfigurationPreference: aString message: aMessage [
+
+	OTMeterProvider configurationWarningSink value: aMessage , aString printString
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter class >> noteInvalidHistogramAggregationPreference: aString [
 
-	| meterProviderClass warningSink |
-	meterProviderClass := self environment at: #OTMeterProvider ifAbsent: [ nil ].
-	warningSink := meterProviderClass
-		               ifNil: [ OTDiagnosticLogger defaultWarningSink ]
-		               ifNotNil: [ meterProviderClass configurationWarningSink ].
-	warningSink value:
-		'OpenTelemetry OTLP metrics default histogram aggregation was invalid and has been ignored: ' , aString printString
+	self
+		noteInvalidConfigurationPreference: aString
+		message: 'OpenTelemetry OTLP metrics default histogram aggregation was invalid and has been ignored: '
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter class >> noteInvalidTemporalityPreference: aString [
 
-	| meterProviderClass warningSink |
-	meterProviderClass := self environment at: #OTMeterProvider ifAbsent: [ nil ].
-	warningSink := meterProviderClass
-		               ifNil: [ OTDiagnosticLogger defaultWarningSink ]
-		               ifNotNil: [ meterProviderClass configurationWarningSink ].
-	warningSink value: 'OpenTelemetry OTLP metrics temporality preference was invalid and has been ignored: ' , aString printString
+	self
+		noteInvalidConfigurationPreference: aString
+		message: 'OpenTelemetry OTLP metrics temporality preference was invalid and has been ignored: '
 ]
 
 { #category : 'private - retry' }
 OTOtlpHttpJsonMetricExporter class >> retryableStatusCodes [
 
-	^ #( 429 502 503 504 ) asSet
+	^ OTOtlpHttpJsonExportSupport retryableStatusCodes
 ]
 
 { #category : 'accessing' }
 OTOtlpHttpJsonMetricExporter class >> supportedProtocol [
 
-	^ 'http/json'
+	^ OTOtlpHttpJsonExportSupport supportedProtocol
 ]
 
 { #category : 'private - logging' }
@@ -148,18 +147,7 @@ OTOtlpHttpJsonMetricExporter class >> warningSink: aBlock [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonMetricExporter >> applyConfigurationToHttpClient [
 
-	| client |
-	client := self httpClient.
-	client
-		url: self configuration endpoint;
-		method: #POST;
-		timeout: self configuration timeoutMillis.
-	self configuration headers associationsDo: [ :each | client headerAt: each key put: each value ].
-	(self hasUserAgentHeaderConfigured: self configuration headers) ifFalse: [
-		client headerAt: 'User-Agent' put: self configuration userAgent ].
-	client
-		headerAt: 'Content-Type' put: 'application/json';
-		headerAt: 'Accept-Encoding' put: 'gzip'
+	^ self httpJsonExportSupport applyConfigurationToHttpClient
 ]
 
 { #category : 'accessing' }
@@ -174,21 +162,28 @@ OTOtlpHttpJsonMetricExporter >> configuration: anOtlpConfiguration [
 	configuration := anOtlpConfiguration
 ]
 
+{ #category : 'private - configuration' }
+OTOtlpHttpJsonMetricExporter >> configuredRequestTimeoutMillisOrNil [
+
+	^ self configuration timeoutMillis
+]
+
 { #category : 'private - decoding' }
 OTOtlpHttpJsonMetricExporter >> decodedResponseContentsFrom: aResponse [
 
-	| contents encoding |
-	contents := self responseContentsFrom: aResponse.
-	contents ifNil: [ ^ nil ].
-	encoding := self responseHeaderAt: 'Content-Encoding' in: aResponse ifAbsent: [ 'identity' ].
-	(encoding asString sameAs: 'gzip') ifFalse: [ ^ contents ].
-	^ (GZipReadStream on: contents readStream) upToEnd
+	^ self httpJsonExportSupport decodedResponseContentsFrom: aResponse
 ]
 
 { #category : 'private - encoding' }
 OTOtlpHttpJsonMetricExporter >> defaultEncoderClass [
 
 	^ OTOtlpJsonMetricEncoder
+]
+
+{ #category : 'private - encoding' }
+OTOtlpHttpJsonMetricExporter >> encodedPayloadFrom: anOTMetricSnapshot [
+
+	^ self encoder encodeSnapshot: anOTMetricSnapshot
 ]
 
 { #category : 'accessing' }
@@ -206,12 +201,16 @@ OTOtlpHttpJsonMetricExporter >> encoder: anEncoder [
 { #category : 'private - encoding' }
 OTOtlpHttpJsonMetricExporter >> entityForPayload: aString [
 
-	| entity |
-	entity := self configuration usesGzipCompression
-		          ifTrue: [ ZnEntity bytes: (self gzipCompressedBytesFor: aString) ]
-		          ifFalse: [ ZnEntity with: aString type: ZnMimeType applicationJson ].
-	entity contentType: ZnMimeType applicationJson.
-	^ entity
+	^ self httpJsonExportSupport entityForPayload: aString
+]
+
+{ #category : 'private - configuration' }
+OTOtlpHttpJsonMetricExporter >> executeHttpRequestForPayloadString: payloadString usingSupport: anOtlpHttpJsonExportSupport [
+
+	anOtlpHttpJsonExportSupport configureHttpClientForPayloadString: payloadString.
+	^ self httpClient
+		  execute;
+		  response
 ]
 
 { #category : 'exporting' }
@@ -224,62 +223,25 @@ OTOtlpHttpJsonMetricExporter >> export: anOTMetricSnapshot [
 { #category : 'exporting' }
 OTOtlpHttpJsonMetricExporter >> exportAttemptNumber: attemptNumber payloadString: payloadString [
 
-	| response responseCode |
-	[
-		self applyConfigurationToHttpClient.
-		self httpClient entity: (self entityForPayload: payloadString).
-		self configuration usesGzipCompression
-			ifTrue: [ self httpClient headerAt: 'Content-Encoding' put: 'gzip' ]
-			ifFalse: [ self removeRequestHeaderNamed: 'Content-Encoding' ].
-		response := self httpClient
-			            execute;
-			            response ]
-		on: Error
-		do: [ :error |
-				attemptNumber >= self maxExportAttempts ifTrue: [
-						self noteRetryExhaustedForError: error.
-						^ false ].
-				self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
-				^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString ].
-	responseCode := self responseCodeFrom: response.
-	responseCode = 200 ifTrue: [ ^ self handleSuccessResponse: response ].
-	(self isRetryableStatusCode: responseCode) ifFalse: [ ^ false ].
-	attemptNumber >= self maxExportAttempts ifTrue: [
-			self noteRetryExhaustedForResponse: response.
-			^ false ].
-	self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: response).
-	^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString
+	^ self httpJsonExportSupport exportAttemptNumber: attemptNumber payloadString: payloadString
 ]
 
 { #category : 'private - encoding' }
 OTOtlpHttpJsonMetricExporter >> gzipCompressedBytesFor: aString [
 
-	^ ByteArray streamContents: [ :stream |
-			  | zipper |
-			  zipper := GZipWriteStream on: stream.
-			  zipper nextPutAll: aString utf8Encoded.
-			  zipper close ]
+	^ self httpJsonExportSupport gzipCompressedBytesFor: aString
 ]
 
 { #category : 'private - success handling' }
 OTOtlpHttpJsonMetricExporter >> handleSuccessResponse: aResponse [
 
-	| partialSuccess responseRepresentation |
-	responseRepresentation := [ self successfulResponseRepresentationFrom: aResponse ]
-		                          on: Error
-		                          do: [ :error |
-				                          self noteInvalidSuccessResponse: error.
-				                          ^ false ].
-	partialSuccess := self partialSuccessFrom: responseRepresentation.
-	partialSuccess ifNil: [ ^ true ].
-	self notePartialSuccess: partialSuccess.
-	^ true
+	^ self httpJsonExportSupport handleSuccessResponse: aResponse
 ]
 
 { #category : 'testing' }
 OTOtlpHttpJsonMetricExporter >> hasUserAgentHeaderConfigured: aDictionary [
 
-	^ aDictionary keys anySatisfy: [ :each | each asString sameAs: 'User-Agent' ]
+	^ self httpJsonExportSupport hasUserAgentHeaderConfigured: aDictionary
 ]
 
 { #category : 'accessing' }
@@ -292,6 +254,12 @@ OTOtlpHttpJsonMetricExporter >> httpClient [
 OTOtlpHttpJsonMetricExporter >> httpClient: anHttpClient [
 
 	httpClient := anHttpClient
+]
+
+{ #category : 'private - support' }
+OTOtlpHttpJsonMetricExporter >> httpJsonExportSupport [
+
+	^ OTOtlpHttpJsonExportSupport for: self
 ]
 
 { #category : 'private - retry' }
@@ -316,11 +284,7 @@ OTOtlpHttpJsonMetricExporter >> maxExportAttempts: anInteger [
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter >> nonNegativeIntegerFrom: anObject default: aDefaultValue [
 
-	| parsed |
-	anObject ifNil: [ ^ aDefaultValue ].
-	(anObject isInteger and: [ anObject >= 0 ]) ifTrue: [ ^ anObject ].
-	parsed := self strictPositiveIntegerFrom: anObject asString.
-	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+	^ self httpJsonExportSupport nonNegativeIntegerFrom: anObject default: aDefaultValue
 ]
 
 { #category : 'private - encoding' }
@@ -332,27 +296,25 @@ OTOtlpHttpJsonMetricExporter >> normalizedPayloadForEncoding: anOTMetricSnapshot
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter >> noteInvalidSuccessResponse: anError [
 
-	self warningSink value:
-		(OTOtlpExportSupport invalidSuccessResponseMessageForSignal: self otlpSignalName transport: 'HTTP' error: anError)
+	^ self httpJsonExportSupport noteInvalidSuccessResponse: anError
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter >> notePartialSuccess: aDictionary [
 
-	self warningSink value: (OTOtlpExportSupport partialSuccessMessageForSignal: self otlpSignalName details: aDictionary)
+	^ self httpJsonExportSupport notePartialSuccess: aDictionary
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter >> noteRetryExhaustedForError: anError [
 
-	self warningSink value: (OTOtlpExportSupport retryExhaustedForTransportErrorMessageForSignal: self otlpSignalName error: anError)
+	^ self httpJsonExportSupport noteRetryExhaustedForError: anError
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter >> noteRetryExhaustedForResponse: aResponse [
 
-	self warningSink value:
-		(OTOtlpExportSupport retryExhaustedForHttpStatusMessageForSignal: self otlpSignalName code: (self responseCodeFrom: aResponse))
+	^ self httpJsonExportSupport noteRetryExhaustedForResponse: aResponse
 ]
 
 { #category : 'private - logging' }
@@ -364,10 +326,7 @@ OTOtlpHttpJsonMetricExporter >> otlpSignalName [
 { #category : 'private - retry' }
 OTOtlpHttpJsonMetricExporter >> parseRetryAfterMillisFrom: aValue [
 
-	| parsed |
-	aValue ifNil: [ ^ nil ].
-	parsed := self strictPositiveIntegerFrom: aValue asString.
-	^ parsed ifNotNil: [ parsed * 1000 ]
+	^ self httpJsonExportSupport parseRetryAfterMillisFrom: aValue
 ]
 
 { #category : 'private - success handling' }
@@ -383,15 +342,9 @@ OTOtlpHttpJsonMetricExporter >> partialSuccessFrom: aDictionary [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpHttpJsonMetricExporter >> encodedPayloadFrom: anOTMetricSnapshot [
+OTOtlpHttpJsonMetricExporter >> payloadStringFrom: anObject [
 
-	^ self encoder encodeSnapshot: anOTMetricSnapshot
-]
-
-{ #category : 'private - encoding' }
-OTOtlpHttpJsonMetricExporter >> payloadStringFrom: anOTMetricSnapshot [
-
-	^ ZnUtils defaultJSONWriter toString: (self encodedPayloadFrom: (self normalizedPayloadForEncoding: anOTMetricSnapshot))
+	^ self httpJsonExportSupport payloadStringFrom: anObject
 ]
 
 { #category : 'private - success handling' }
@@ -412,36 +365,31 @@ OTOtlpHttpJsonMetricExporter >> removeRequestHeaderNamed: aString [
 { #category : 'private - retry' }
 OTOtlpHttpJsonMetricExporter >> responseCodeFrom: aResponse [
 
-	^ aResponse code
+	^ self httpJsonExportSupport responseCodeFrom: aResponse
 ]
 
 { #category : 'private - decoding' }
 OTOtlpHttpJsonMetricExporter >> responseContentsFrom: aResponse [
 
-	^ aResponse responseContents
+	^ self httpJsonExportSupport responseContentsFrom: aResponse
 ]
 
 { #category : 'private - decoding' }
 OTOtlpHttpJsonMetricExporter >> responseHeaderAt: aString in: aResponse ifAbsent: aBlock [
 
-	^ aResponse responseHeaderAt: aString ifAbsent: aBlock
+	^ self httpJsonExportSupport responseHeaderAt: aString in: aResponse ifAbsent: aBlock
 ]
 
 { #category : 'private - retry' }
 OTOtlpHttpJsonMetricExporter >> retryAfterMillisFromResponse: aResponse [
 
-	^ self parseRetryAfterMillisFrom: (self responseHeaderAt: 'Retry-After' in: aResponse ifAbsent: [ nil ])
+	^ self httpJsonExportSupport retryAfterMillisFromResponse: aResponse
 ]
 
 { #category : 'private - retry' }
 OTOtlpHttpJsonMetricExporter >> retryDelayMillisForAttempt: attemptNumber response: aResponse [
 
-	| retryAfter baseDelay cappedDelay |
-	retryAfter := aResponse ifNil: [ nil ] ifNotNil: [ self retryAfterMillisFromResponse: aResponse ].
-	retryAfter ifNotNil: [ ^ retryAfter ].
-	baseDelay := self class defaultRetryBaseDelayMillis * (2 raisedTo: attemptNumber - 1).
-	cappedDelay := baseDelay min: self class defaultRetryMaxDelayMillis.
-	^ self retryJitterBlock value: cappedDelay
+	^ self httpJsonExportSupport retryDelayMillisForAttempt: attemptNumber response: aResponse
 ]
 
 { #category : 'private - retry' }
@@ -497,12 +445,7 @@ OTOtlpHttpJsonMetricExporter >> strictPositiveIntegerFrom: aString [
 { #category : 'private - success handling' }
 OTOtlpHttpJsonMetricExporter >> successfulResponseRepresentationFrom: aResponse [
 
-	| contents text |
-	contents := self decodedResponseContentsFrom: aResponse.
-	contents ifNil: [ Error signal: 'Missing OTLP success response body' ].
-	text := contents asString trimBoth.
-	text isEmpty ifTrue: [ Error signal: 'Missing OTLP success response body' ].
-	^ STONJSON fromString: text
+	^ self httpJsonExportSupport successfulResponseRepresentationFrom: aResponse
 ]
 
 { #category : 'private - logging' }

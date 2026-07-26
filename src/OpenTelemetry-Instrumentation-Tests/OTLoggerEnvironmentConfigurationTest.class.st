@@ -124,19 +124,37 @@ OTLoggerEnvironmentConfigurationTest >> testCurrentUsesDefaultOtlpHttpProtobufEx
 ]
 
 { #category : 'tests' }
-OTLoggerEnvironmentConfigurationTest >> testCurrentUsesNoopProviderWhenSdkIsDisabled [
+OTLoggerEnvironmentConfigurationTest >> testCurrentUsesGeneralAttributeLimitsAsLogRecordDefaults [
 
 	self
 		withEnvironmentValues: (Dictionary new
-				 at: 'OTEL_SDK_DISABLED' put: 'true';
+				 at: 'OTEL_ATTRIBUTE_COUNT_LIMIT' put: '7';
+				 at: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT' put: '9';
 				 yourself)
 		during: [
-				| logger provider |
+				| limits provider |
 				provider := OTLoggerProvider current.
-				self assert: provider class identicalTo: OTNoopLoggerProvider.
-				logger := provider loggerNamed: 'spec.logs'.
-				self assert: logger class identicalTo: OTNoopLogger.
-				self deny: logger enabled ]
+				limits := provider logRecordLimits.
+				self assert: limits attributeCountLimit equals: 7.
+				self assert: limits attributeValueLengthLimit equals: 9 ]
+]
+
+{ #category : 'tests' }
+OTLoggerEnvironmentConfigurationTest >> testCurrentUsesLogRecordSpecificLimitsOverGeneralAttributeLimits [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_ATTRIBUTE_COUNT_LIMIT' put: '7';
+				 at: 'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT' put: '9';
+				 at: 'OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT' put: '11';
+				 at: 'OTEL_LOGRECORD_ATTRIBUTE_VALUE_LENGTH_LIMIT' put: '13';
+				 yourself)
+		during: [
+				| limits provider |
+				provider := OTLoggerProvider current.
+				limits := provider logRecordLimits.
+				self assert: limits attributeCountLimit equals: 11.
+				self assert: limits attributeValueLengthLimit equals: 13 ]
 ]
 
 { #category : 'tests' }

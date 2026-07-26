@@ -1,10 +1,7 @@
 "
 A backend-agnostic logger responsible for one instrumentation scope.
 
-Instances are safe for concurrent enabled checks and emit calls because they
-delegate mutable SDK behavior through their provider. The logger preserves the
-raw requested logger name for user-facing APIs while its instrumentation scope
-continues to carry the normalized SDK-facing identity tuple.
+Instances are safe for concurrent enabled checks and emit calls because they delegate mutable SDK behavior through their provider. The logger preserves the raw requested logger name for user-facing APIs while its instrumentation scope continues to carry the normalized SDK-facing identity tuple.
 "
 Class {
 	#name : 'OTLogger',

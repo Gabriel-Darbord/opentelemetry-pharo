@@ -1,5 +1,7 @@
 "
 A synchronous processor that exports each log record immediately.
+
+It serializes calls to its exporter so `export:` is never invoked concurrently, and after shutdown it stops accepting new log records.
 "
 Class {
 	#name : 'OTSimpleLogRecordProcessor',

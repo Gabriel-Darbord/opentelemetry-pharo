@@ -1,8 +1,7 @@
 "
 An OTLP logs exporter that writes JSON-line OTLP payloads to standard output.
 
-It inherits per-instance export serialization from the JSON-line exporter so
-stdout writes are not performed concurrently by the SDK on the same exporter.
+It inherits per-instance export serialization from the JSON-line exporter so stdout writes are not performed concurrently by the SDK on the same exporter.
 "
 Class {
 	#name : 'OTOtlpStdoutLogRecordExporter',

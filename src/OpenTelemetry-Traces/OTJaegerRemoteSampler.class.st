@@ -72,18 +72,13 @@ OTJaegerRemoteSampler class >> grpcDependenciesAvailable [
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler class >> grpcDependencyResolver [
 
-	^ OTClassStateStore
-		  valueAt: #otGrpcDependencyResolver
-		  forClass: self
-		  ifAbsent: [ [ :symbol | Smalltalk globals at: symbol ifAbsent: [ nil ] ] ]
+	^ OTOtlpGrpcSpanExporter grpcDependencyResolver
 ]
 
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler class >> grpcDependencyResolver: aBlockOrNil [
 
-	aBlockOrNil
-		ifNil: [ OTClassStateStore removeValueAt: #otGrpcDependencyResolver forClass: self ifAbsent: [ ] ]
-		ifNotNil: [ OTClassStateStore valueAt: #otGrpcDependencyResolver forClass: self put: aBlockOrNil ].
+	OTOtlpGrpcSpanExporter grpcDependencyResolver: aBlockOrNil.
 	^ self grpcDependencyResolver
 ]
 
@@ -208,16 +203,7 @@ OTJaegerRemoteSampler >> grpcChannelClass [
 { #category : 'private - grpc' }
 OTJaegerRemoteSampler >> grpcDependencyNamed: aSymbol [
 
-	| dependency |
-	dependency := self class grpcDependencyResolver value: aSymbol.
-	^ dependency
-		  ifNil: [
-				  Error signal: (String streamContents: [ :stream |
-							   stream
-								   nextPutAll: 'OTJaegerRemoteSampler requires grpc-pharo to be loaded (missing ';
-								   nextPutAll: aSymbol asString;
-								   nextPut: $) ]) ]
-		  ifNotNil: [ dependency ]
+	^ OTOtlpGrpcSpanExporter grpcDependencyNamed: aSymbol requiredBy: self class name
 ]
 
 { #category : 'private - grpc' }

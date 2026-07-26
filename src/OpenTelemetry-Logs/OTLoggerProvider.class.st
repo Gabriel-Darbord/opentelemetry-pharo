@@ -1,9 +1,7 @@
 "
 A backend-agnostic entry point to the OpenTelemetry logs API and SDK.
 
-Instances are safe for concurrent logger creation and lookup, force flush, and
-shutdown. Returned loggers keep delegating through their provider so later
-provider configuration changes become visible without reacquiring the logger.
+Instances are safe for concurrent logger creation and lookup, force flush, and shutdown. Returned loggers keep delegating through their provider so later provider configuration changes become visible without reacquiring the logger.
 "
 Class {
 	#name : 'OTLoggerProvider',
@@ -320,12 +318,6 @@ OTLoggerProvider class >> processorForExporter: anExporter [
 	^ self batchLogRecordProcessorWithExporter: anExporter
 ]
 
-{ #category : 'private' }
-OTLoggerProvider class >> requestedLoggerNameFrom: aValue [
-
-	^ aValue ifNotNil: [ aValue asString ]
-]
-
 { #category : 'instance creation' }
 OTLoggerProvider class >> readConfiguration [
 
@@ -348,6 +340,12 @@ OTLoggerProvider class >> readConfiguration [
 			exporter ifNotNil: [
 				exporter class = OTNoopLogRecordExporter ifFalse: [ provider addLogRecordProcessor: (self processorForExporter: exporter) ] ] ].
 	^ provider
+]
+
+{ #category : 'private' }
+OTLoggerProvider class >> requestedLoggerNameFrom: aValue [
+
+	^ aValue ifNotNil: [ aValue asString ]
 ]
 
 { #category : 'class initialization' }

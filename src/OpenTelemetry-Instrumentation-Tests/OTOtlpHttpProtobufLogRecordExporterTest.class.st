@@ -107,6 +107,16 @@ OTOtlpHttpProtobufLogRecordExporterTest >> testExportAppliesHttpProtobufConfigur
 ]
 
 { #category : 'tests' }
+OTOtlpHttpProtobufLogRecordExporterTest >> testExportReturnsFailureAfterShutdownWithoutExecutingHttpRequest [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: { self sampleLogRecord }).
+	self deny: exporter forceFlush.
+	self deny: exporter shutdown.
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
 OTOtlpHttpProtobufLogRecordExporterTest >> testExportSucceedsAgainstLocalHttpServer [
 
 	| reader receivedBody receivedContentEncoding receivedContentType receivedMethod receivedPath |
@@ -118,14 +128,13 @@ OTOtlpHttpProtobufLogRecordExporterTest >> testExportSucceedsAgainstLocalHttpSer
 					receivedContentType := request contentType asString.
 					receivedContentEncoding := request headers at: 'Content-Encoding' ifAbsent: [ nil ].
 					receivedBody := request entity contents.
-					response := ZnResponse ok:
-						            (ZnEntity bytes: (self successResponseWithRejectedLogRecords: 0 message: '')).
+					response := ZnResponse ok: (ZnEntity bytes: (self successResponseWithRejectedLogRecords: 0 message: '')).
 					response entity contentType: 'application/x-protobuf' asZnMimeType.
 					response ].
-			configuration endpoint: ((server localUrl
-					  addPathSegment: 'v1';
-					  addPathSegment: 'logs';
-					  yourself) asString).
+			configuration endpoint: (server localUrl
+					 addPathSegment: 'v1';
+					 addPathSegment: 'logs';
+					 yourself) asString.
 			exporter := OTOtlpHttpProtobufLogRecordExporter configuration: configuration.
 			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
 					self assert: (exporter export: { self sampleLogRecord }).

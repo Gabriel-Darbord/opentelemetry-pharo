@@ -66,6 +66,23 @@ OTEnvironmentConfigurationTest >> testCurrentDisabledSdkPreservesExistingNonReco
 ]
 
 { #category : 'tests' }
+OTEnvironmentConfigurationTest >> testCurrentDisablesLogsSdkWhenConfigured [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_SDK_DISABLED' put: 'TRUE';
+				 yourself)
+		during: [
+				| logger provider |
+				provider := OTLoggerProvider current.
+				self assert: provider class identicalTo: OTNoopLoggerProvider.
+				logger := provider loggerNamed: 'demo.scope'.
+				self assert: logger class identicalTo: OTNoopLogger.
+				self deny: logger enabled.
+				self deny: (logger emitBody: 'hello') ]
+]
+
+{ #category : 'tests' }
 OTEnvironmentConfigurationTest >> testCurrentDisablesSdkWhenConfigured [
 
 	self

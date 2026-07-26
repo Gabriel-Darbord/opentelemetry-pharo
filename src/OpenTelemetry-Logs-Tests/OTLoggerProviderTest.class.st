@@ -103,22 +103,6 @@ OTLoggerProviderTest >> testEmitAddsExceptionAttributesWithoutOverwritingUserAtt
 ]
 
 { #category : 'tests' }
-OTLoggerProviderTest >> testEmitStillInvokesProcessorWhenEnabledAnswersFalse [
-
-	| invoked logger filteringProcessor |
-	invoked := false.
-	filteringProcessor := OTBlockLogRecordProcessor new.
-	filteringProcessor
-		enabledBlock: [ :context :scope :severity :eventName | false ];
-		onEmitBlock: [ :logRecord :context | invoked := true ].
-	provider addLogRecordProcessor: filteringProcessor.
-	logger := provider loggerNamed: 'spec.logs'.
-	self deny: logger enabled.
-	self assert: (logger emitBody: 'hello').
-	self assert: invoked
-]
-
-{ #category : 'tests' }
 OTLoggerProviderTest >> testEmitPopulatesObservedTimestampAndTraceContextFromCurrentContext [
 
 	| context logger spanContext |
@@ -141,17 +125,19 @@ OTLoggerProviderTest >> testEmitPopulatesObservedTimestampAndTraceContextFromCur
 ]
 
 { #category : 'tests' }
-OTLoggerProviderTest >> testExistingLoggerSeesUpdatedConfigurator [
+OTLoggerProviderTest >> testEmitStillInvokesProcessorWhenEnabledAnswersFalse [
 
-	| config logger |
+	| invoked logger filteringProcessor |
+	invoked := false.
+	filteringProcessor := OTBlockLogRecordProcessor new.
+	filteringProcessor
+		enabledBlock: [ :context :scope :severity :eventName | false ];
+		onEmitBlock: [ :logRecord :context | invoked := true ].
+	provider addLogRecordProcessor: filteringProcessor.
 	logger := provider loggerNamed: 'spec.logs'.
 	self deny: logger enabled.
-	provider addLogRecordProcessor: processor.
-	self assert: logger enabled.
-	config := OTLoggerConfig default.
-	config enabled: false.
-	provider loggerConfigurator: [ :scope | config ].
-	self deny: logger enabled
+	self assert: (logger emitBody: 'hello').
+	self assert: invoked
 ]
 
 { #category : 'tests' }
@@ -185,6 +171,20 @@ OTLoggerProviderTest >> testEnabledReturnsTrueWhenOneProcessorAllowsLogRecord [
 ]
 
 { #category : 'tests' }
+OTLoggerProviderTest >> testExistingLoggerSeesUpdatedConfigurator [
+
+	| config logger |
+	logger := provider loggerNamed: 'spec.logs'.
+	self deny: logger enabled.
+	provider addLogRecordProcessor: processor.
+	self assert: logger enabled.
+	config := OTLoggerConfig default.
+	config enabled: false.
+	provider loggerConfigurator: [ :scope | config ].
+	self deny: logger enabled
+]
+
+{ #category : 'tests' }
 OTLoggerProviderTest >> testForceFlushReturnsFalseAfterShutdown [
 
 	self assert: provider shutdown.
@@ -195,6 +195,39 @@ OTLoggerProviderTest >> testForceFlushReturnsFalseAfterShutdown [
 OTLoggerProviderTest >> testForceFlushSucceedsWithoutProcessors [
 
 	self assert: provider forceFlush
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testLoggerEnabledIsFalseWithoutProcessors [
+
+	| logger |
+	logger := provider loggerNamed: 'spec.logs'.
+	self deny: logger enabled.
+	self deny: (logger emitBody: 'hello')
+]
+
+{ #category : 'tests' }
+OTLoggerProviderTest >> testMinimumSeverityFilteringDropsBelowThreshold [
+
+	| config logger |
+	provider addLogRecordProcessor: processor.
+	config := OTLoggerConfig default.
+	config minimumSeverity: OTSeverity error.
+	provider loggerConfigurator: [ :scope | config ].
+	logger := provider loggerNamed: 'spec.logs'.
+	self deny: (logger enabledIn: nil severityNumber: OTSeverity warn eventName: nil).
+	self assert: (logger enabledIn: nil severityNumber: OTSeverity error eventName: nil).
+	self deny: (logger
+			 emitTimestamp: nil
+			 observedTimestamp: nil
+			 in: nil
+			 severityNumber: OTSeverity warn
+			 severityText: 'WARN'
+			 body: 'skip'
+			 attributes: #(  )
+			 eventName: nil
+			 exception: nil).
+	self assert: exporter exportedRecords isEmpty
 ]
 
 { #category : 'tests' }
@@ -219,12 +252,22 @@ OTLoggerProviderTest >> testNilLoggerNameReturnsFallbackLoggerAndWarns [
 ]
 
 { #category : 'tests' }
-OTLoggerProviderTest >> testLoggerEnabledIsFalseWithoutProcessors [
+OTLoggerProviderTest >> testNoopProviderPreservesNilLoggerName [
 
-	| logger |
-	logger := provider loggerNamed: 'spec.logs'.
-	self deny: logger enabled.
-	self deny: (logger emitBody: 'hello')
+	| logger noopProvider |
+	noopProvider := OTNoopLoggerProvider new.
+	logger := noopProvider
+		          loggerNamed: nil
+		          version: '1.2.3'
+		          schemaUrl: 'https://example.com/schema'
+		          attributes: { ('library' -> 'demo') }.
+	self assert: logger class identicalTo: OTNoopLogger.
+	self assert: logger provider isNil.
+	self assert: logger instrumentationName equals: ''.
+	self assert: logger instrumentationVersion equals: ''.
+	self assert: logger schemaUrl equals: ''.
+	self assert: logger scopeAttributes isEmpty.
+	self deny: logger enabled
 ]
 
 { #category : 'tests' }
@@ -291,30 +334,6 @@ OTLoggerProviderTest >> testProcessorsRunInRegistrationOrder [
 	logger := provider loggerNamed: 'spec.logs'.
 	self assert: (logger emitBody: 'hello').
 	self assert: events asArray equals: #( first second )
-]
-
-{ #category : 'tests' }
-OTLoggerProviderTest >> testMinimumSeverityFilteringDropsBelowThreshold [
-
-	| config logger |
-	provider addLogRecordProcessor: processor.
-	config := OTLoggerConfig default.
-	config minimumSeverity: OTSeverity error.
-	provider loggerConfigurator: [ :scope | config ].
-	logger := provider loggerNamed: 'spec.logs'.
-	self deny: (logger enabledIn: nil severityNumber: OTSeverity warn eventName: nil).
-	self assert: (logger enabledIn: nil severityNumber: OTSeverity error eventName: nil).
-	self deny: (logger
-			 emitTimestamp: nil
-			 observedTimestamp: nil
-			 in: nil
-			 severityNumber: OTSeverity warn
-			 severityText: 'WARN'
-			 body: 'skip'
-			 attributes: #(  )
-			 eventName: nil
-			 exception: nil).
-	self assert: exporter exportedRecords isEmpty
 ]
 
 { #category : 'tests' }

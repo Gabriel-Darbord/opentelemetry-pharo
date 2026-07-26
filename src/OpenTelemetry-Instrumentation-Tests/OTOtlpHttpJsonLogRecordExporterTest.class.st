@@ -98,6 +98,16 @@ OTOtlpHttpJsonLogRecordExporterTest >> testExportAppliesHttpJsonConfigurationAnd
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonLogRecordExporterTest >> testExportReturnsFailureAfterShutdownWithoutExecutingHttpRequest [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: { self sampleLogRecord }).
+	self deny: exporter forceFlush.
+	self deny: exporter shutdown.
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonLogRecordExporterTest >> testExportSucceedsAgainstLocalHttpServer [
 
 	| receivedBody receivedContentEncoding receivedContentType receivedMethod receivedPath payload |
@@ -109,10 +119,10 @@ OTOtlpHttpJsonLogRecordExporterTest >> testExportSucceedsAgainstLocalHttpServer 
 					receivedContentEncoding := request headers at: 'Content-Encoding' ifAbsent: [ nil ].
 					receivedBody := request entity contents.
 					ZnResponse ok: (ZnEntity json: '{}') ].
-			configuration endpoint: ((server localUrl
-					  addPathSegment: 'v1';
-					  addPathSegment: 'logs';
-					  yourself) asString).
+			configuration endpoint: (server localUrl
+					 addPathSegment: 'v1';
+					 addPathSegment: 'logs';
+					 yourself) asString.
 			exporter := OTOtlpHttpJsonLogRecordExporter configuration: configuration.
 			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
 					self assert: (exporter export: { self sampleLogRecord }).
