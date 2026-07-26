@@ -76,7 +76,19 @@ OTOtlpHttpJsonSpanExporter class >> warningSink [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonSpanExporter >> applyConfigurationToHttpClient [
 
-	^ self httpJsonExportSupport applyConfigurationToHttpClient
+	| client timeoutMillis |
+	client := self httpClient.
+	client
+		url: self configuration endpoint;
+		method: #POST.
+	timeoutMillis := self configuredRequestTimeoutMillisOrNil.
+	timeoutMillis ifNotNil: [ client timeout: timeoutMillis ].
+	self configuration headers associationsDo: [ :each | client headerAt: each key put: each value ].
+	(self hasUserAgentHeaderConfigured: self configuration headers) ifFalse: [
+		client headerAt: 'User-Agent' put: self configuration userAgent ].
+	client
+		headerAt: 'Content-Type' put: 'application/json';
+		headerAt: 'Accept-Encoding' put: 'gzip'
 ]
 
 { #category : 'private - configuration' }
@@ -136,7 +148,12 @@ OTOtlpHttpJsonSpanExporter >> encoder: anEncoder [
 { #category : 'private - encoding' }
 OTOtlpHttpJsonSpanExporter >> entityForPayload: aString [
 
-	^ self httpJsonExportSupport entityForPayload: aString
+	| entity |
+	entity := self configuration usesGzipCompression
+		          ifTrue: [ ZnEntity bytes: (self gzipCompressedBytesFor: aString) ]
+		          ifFalse: [ ZnEntity with: aString type: ZnMimeType applicationJson ].
+	entity contentType: ZnMimeType applicationJson.
+	^ entity
 ]
 
 { #category : 'private - configuration' }
@@ -395,7 +412,12 @@ OTOtlpHttpJsonSpanExporter >> strictPositiveIntegerFrom: aString [
 { #category : 'private - success handling' }
 OTOtlpHttpJsonSpanExporter >> successfulResponseRepresentationFrom: aResponse [
 
-	^ self httpJsonExportSupport successfulResponseRepresentationFrom: aResponse
+	| contents text |
+	contents := self decodedResponseContentsFrom: aResponse.
+	contents ifNil: [ Error signal: 'Missing OTLP success response body' ].
+	text := contents asString trimBoth.
+	text isEmpty ifTrue: [ Error signal: 'Missing OTLP success response body' ].
+	^ STONJSON fromString: text
 ]
 
 { #category : 'private - tls' }

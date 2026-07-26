@@ -91,8 +91,8 @@ OTOtlpHttpJsonExportSupport >> applyConfigurationToHttpClient [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonExportSupport >> configureHttpClientForPayloadString: payloadString [
 
-	self applyConfigurationToHttpClient.
-	self exporter httpClient entity: (self entityForPayload: payloadString).
+	self exporter applyConfigurationToHttpClient.
+	self exporter httpClient entity: (self exporter entityForPayload: payloadString).
 	self exporter configuration usesGzipCompression
 		ifTrue: [ self exporter httpClient headerAt: 'Content-Encoding' put: 'gzip' ]
 		ifFalse: [ self exporter removeRequestHeaderNamed: 'Content-Encoding' ]
@@ -168,7 +168,7 @@ OTOtlpHttpJsonExportSupport >> gzipCompressedBytesFor: aString [
 OTOtlpHttpJsonExportSupport >> handleSuccessResponse: aResponse [
 
 	| partialSuccess responseRepresentation |
-	responseRepresentation := [ self successfulResponseRepresentationFrom: aResponse ]
+	responseRepresentation := [ self exporter successfulResponseRepresentationFrom: aResponse ]
 		                          on: Error
 		                          do: [ :error |
 				                          self noteInvalidSuccessResponse: error.
