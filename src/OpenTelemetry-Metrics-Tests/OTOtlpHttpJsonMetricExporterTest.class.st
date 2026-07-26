@@ -113,6 +113,14 @@ OTOtlpHttpJsonMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testExportReturnsFalseAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonMetricExporterTest >> testExportRetriesRetryableHttpResponsesUntilSuccess [
 
 	client

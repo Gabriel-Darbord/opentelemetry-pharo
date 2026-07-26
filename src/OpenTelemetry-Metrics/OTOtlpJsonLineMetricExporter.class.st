@@ -26,7 +26,7 @@ OTOtlpJsonLineMetricExporter >> encoder: anEncoder [
 { #category : 'exporting' }
 OTOtlpJsonLineMetricExporter >> export: anOTMetricSnapshot [
 
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	self writeJsonLine: (self jsonLineFrom: anOTMetricSnapshot).
 	^ true
 ]

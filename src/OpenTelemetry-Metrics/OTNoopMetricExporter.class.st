@@ -12,6 +12,6 @@ Class {
 { #category : 'exporting' }
 OTNoopMetricExporter >> export: anOTMetricSnapshot [
 
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	^ true
 ]

@@ -47,3 +47,11 @@ OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterWritesOneValidJsonLinePe
 	payload := STONJSON fromString: line allButLast.
 	self assert: (payload at: 'resourceMetrics') size equals: 1
 ]
+
+{ #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self assert: exporter writtenLines isEmpty
+]

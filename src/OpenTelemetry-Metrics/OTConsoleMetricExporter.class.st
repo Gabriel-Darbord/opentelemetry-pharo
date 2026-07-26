@@ -16,7 +16,7 @@ Class {
 OTConsoleMetricExporter >> export: anOTMetricSnapshot [
 
 	| stream |
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	stream := self outputStream.
 	stream
 		nextPutAll: anOTMetricSnapshot metrics printString;
