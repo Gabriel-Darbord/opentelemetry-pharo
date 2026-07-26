@@ -85,9 +85,12 @@ OTMeterProvider class >> configuredOtlpExporter [
 { #category : 'private - configuration' }
 OTMeterProvider class >> configuredPrometheusReader [
 
+	| filter |
+	filter := self prometheusResourceConstantLabels.
 	^ OTPrometheusMetricReader new
 		  host: self prometheusHost;
 		  port: self prometheusPort;
+		  resourceConstantLabels: filter;
 		  yourself
 ]
 
@@ -325,6 +328,17 @@ OTMeterProvider class >> prometheusPort [
 	^ self nonNegativeIntegerEnvironmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_PORT' default: 9464
 ]
 
+{ #category : 'private - configuration' }
+OTMeterProvider class >> prometheusResourceConstantLabels [
+
+	| included rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_RESOURCE_CONSTANT_LABELS'.
+	rawValue ifNil: [ ^ nil ].
+	included := self stringCollectionFrom: rawValue.
+	included ifNil: [ ^ nil ].
+	^ OTMetricAttributeFilter included: included excluded: nil
+]
+
 { #category : 'instance creation' }
 OTMeterProvider class >> readConfiguration [
 
@@ -373,6 +387,23 @@ OTMeterProvider class >> reset [
 	configurationSourceClass := self configurationSourceClass.
 	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	OTClassStateStore removeCurrentValueForClass: self ifAbsent: [ ]
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> stringCollectionFrom: aString [
+
+	| entries trimmed |
+	trimmed := aString trimBoth.
+	trimmed isEmpty ifTrue: [ ^ nil ].
+	(trimmed size >= 2 and: [ trimmed first = $[ and: [ trimmed last = $] ] ]) ifTrue: [
+		trimmed := (trimmed copyFrom: 2 to: trimmed size - 1) trimBoth ].
+	trimmed ifEmpty: [ ^ #(  ) ].
+	entries := OrderedCollection new.
+	(trimmed substrings: ',') do: [ :each |
+			| entry |
+			entry := each trimBoth.
+			entry ifNotEmpty: [ entries add: entry ] ].
+	^ entries asArray
 ]
 
 { #category : 'private' }

@@ -49,6 +49,26 @@ OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusMetricRea
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusResourceConstantLabels [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+						 at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
+						 at: 'OTEL_EXPORTER_PROMETHEUS_RESOURCE_CONSTANT_LABELS' put: 'service.name, service.namespace';
+						 yourself)
+				during: [
+						| filter metricReader |
+						metricReader := OTMeterProvider current metricReaders first.
+						filter := metricReader resourceConstantLabels.
+						self assert: filter class identicalTo: OTMetricAttributeFilter.
+						self assert: filter includedKeys equals: #( 'service.name' 'service.namespace' ).
+						self assert: filter excludedKeys isNil ].
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredExemplarFilter [
 
 	self

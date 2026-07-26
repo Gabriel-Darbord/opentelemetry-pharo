@@ -905,6 +905,38 @@ meter_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusResourceConstantLabels [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+meter_provider:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+            resource_constant_labels:
+              included:
+                - service.name
+                - service.namespace
+              excluded:
+                - service.namespace
+'
+		environmentValues: Dictionary new
+		during: [
+				| filter reader |
+				reader := OTMeterProvider current metricReaders first.
+				filter := reader resourceConstantLabels.
+				self assert: reader class identicalTo: OTPrometheusMetricReader.
+				self assert: reader host equals: 'metrics.example'.
+				self assert: reader port equals: 9564.
+				self assert: filter class identicalTo: OTMetricAttributeFilter.
+				self assert: filter includedKeys equals: #( 'service.name' 'service.namespace' ).
+				self assert: filter excludedKeys equals: #( 'service.namespace' ) ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsProbabilitySamplerRatioBelowSpecificationMinimum [
 
 	self

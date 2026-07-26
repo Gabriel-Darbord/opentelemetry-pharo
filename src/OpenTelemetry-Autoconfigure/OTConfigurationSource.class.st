@@ -1146,11 +1146,18 @@ OTConfigurationSource class >> metricViewAggregationParametersFor: anAssociation
 { #category : 'private - projection' }
 OTConfigurationSource class >> metricViewAttributeFilterFrom: aDictionary [
 
-	| attributeKeys excluded filter included |
+	| attributeKeys |
 	attributeKeys := self dictionaryValueAt: 'attribute_keys' in: aDictionary.
-	attributeKeys ifNil: [ ^ nil ].
-	included := self stringCollectionValueAt: 'included' in: attributeKeys.
-	excluded := self stringCollectionValueAt: 'excluded' in: attributeKeys.
+	^ self includeExcludeStringFilterFrom: attributeKeys
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> includeExcludeStringFilterFrom: aDictionary [
+
+	| excluded filter included |
+	aDictionary ifNil: [ ^ nil ].
+	included := self stringCollectionValueAt: 'included' in: aDictionary.
+	excluded := self stringCollectionValueAt: 'excluded' in: aDictionary.
 	filter := OTMetricAttributeFilter included: included excluded: excluded.
 	filter isAll ifTrue: [ ^ nil ].
 	^ filter
@@ -1524,6 +1531,7 @@ OTConfigurationSource class >> projectExporterConfigurationNode: aDictionary sig
 				from: 'port'
 				in: exporterOptions
 				into: anEnvironment.
+			self projectPrometheusResourceConstantLabelsFrom: exporterOptions into: anEnvironment.
 			^ self ].
 	exporterName := exporterType = 'otlp_grpc'
 		                ifTrue: [ 'grpc' ]
@@ -1929,7 +1937,27 @@ OTConfigurationSource class >> pullMetricReaderFrom: aDictionary [
 	reader := OTPrometheusMetricReader new.
 	(self stringValueAt: 'host' in: exporterOptions) ifNotNil: [ :value | reader host: value ].
 	reader port: (self nonNegativeIntegerValueAt: 'port' in: exporterOptions default: reader port).
+	reader resourceConstantLabels: (self includeExcludeStringFilterFrom: (self dictionaryValueAt: 'resource_constant_labels' in: exporterOptions)).
 	^ reader
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectPrometheusResourceConstantLabelsFrom: aDictionary into: anEnvironment [
+
+	| included resourceConstantLabels |
+	resourceConstantLabels := self dictionaryValueAt: 'resource_constant_labels' in: aDictionary.
+	resourceConstantLabels ifNil: [ ^ self ].
+	(self stringCollectionValueAt: 'excluded' in: resourceConstantLabels) ifNotNil: [
+		Error signal:
+			'Declarative Prometheus exporter resource_constant_labels exclusions are not representable via SDK environment variables' ].
+	included := self stringCollectionValueAt: 'included' in: resourceConstantLabels.
+	included ifNil: [ ^ self ].
+	anEnvironment
+		at: 'OTEL_EXPORTER_PROMETHEUS_RESOURCE_CONSTANT_LABELS'
+		put: (String streamContents: [ :stream |
+					 included doWithIndex: [ :each :index |
+							 index > 1 ifTrue: [ stream nextPut: $, ].
+							 stream nextPutAll: each ] ])
 ]
 
 { #category : 'private - projection' }

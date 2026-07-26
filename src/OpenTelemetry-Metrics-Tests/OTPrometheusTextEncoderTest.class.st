@@ -209,6 +209,34 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotCanDisableTargetInfoMetric [
 ]
 
 { #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotCopiesConfiguredResourceConstantLabelsToMetricLabels [
+
+	| metric point snapshot text |
+	point := OTNumberDataPoint
+		         attributes: { ('method' -> 'GET') }
+		         value: 1
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTGaugeMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Requests';
+		unit: '1';
+		points: { point }.
+	snapshot := OTMetricSnapshot
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	encoder resourceConstantLabels: (OTMetricAttributeFilter included: #( 'service.name' 'service.namespace' ) excluded: #( 'service.namespace' )).
+	text := encoder encodeSnapshot: snapshot.
+	self assert: (self occurrencesOfSubstring: 'service_name="demo"' in: text) equals: 2.
+	self assert: (self occurrencesOfSubstring: 'service_namespace="shop"' in: text) equals: 1.
+	self assert: (self occurrencesOfSubstring: 'service_instance_id="pharo-1"' in: text) equals: 1
+]
+
+{ #category : 'tests' }
 OTPrometheusTextEncoderTest >> testEncodeSnapshotDropsExponentialHistogramsFromTextOutput [
 
 	| metric point snapshot text |

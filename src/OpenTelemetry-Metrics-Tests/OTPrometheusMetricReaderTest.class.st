@@ -9,6 +9,20 @@ Class {
 	#package : 'OpenTelemetry-Metrics-Tests'
 }
 
+{ #category : 'private' }
+OTPrometheusMetricReaderTest >> occurrencesOfSubstring: aSubstring in: aString [
+
+	| count index |
+	count := 0.
+	index := 1.
+	[
+		index := aString findString: aSubstring startingAt: index.
+		index > 0 ] whileTrue: [
+			count := count + 1.
+			index := index + aSubstring size ].
+	^ count
+]
+
 { #category : 'running' }
 OTPrometheusMetricReaderTest >> tearDown [
 
@@ -53,6 +67,29 @@ OTPrometheusMetricReaderTest >> testScrapeCanDisableScopeInfoAndTargetInfo [
 	self assert: (scrape includesSubstring: 'method="GET"').
 	self deny: (scrape includesSubstring: 'otel_scope_name="demo.metrics"').
 	self deny: (scrape includesSubstring: 'target_info{')
+]
+
+{ #category : 'tests' }
+OTPrometheusMetricReaderTest >> testScrapeCopiesConfiguredResourceConstantLabels [
+
+	| counter scrape |
+	provider := OTMeterProvider new.
+	provider resource: (OTResource attributes: {
+				 ('service.name' -> 'demo').
+				 ('service.namespace' -> 'shop').
+				 ('service.instance.id' -> 'pharo-1') }).
+	reader := OTPrometheusMetricReader new.
+	reader
+		port: 0;
+		resourceConstantLabels: (OTMetricAttributeFilter included: #( 'service.name' ) excluded: nil).
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 3 attributes: { ('method' -> 'GET') }.
+	scrape := ZnClient new get: 'http://localhost:' , reader port asString , reader path.
+	scrape := scrape asString.
+	self assert: (self occurrencesOfSubstring: 'service_name="demo"' in: scrape) equals: 2.
+	self assert: (self occurrencesOfSubstring: 'service_namespace="shop"' in: scrape) equals: 1.
+	self assert: (self occurrencesOfSubstring: 'service_instance_id="pharo-1"' in: scrape) equals: 1
 ]
 
 { #category : 'tests' }

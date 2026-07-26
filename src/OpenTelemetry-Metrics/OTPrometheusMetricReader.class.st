@@ -81,6 +81,7 @@ OTPrometheusMetricReader >> encoder: anOTPrometheusTextEncoder [
 		currentEncoder := encoder.
 		currentEncoder ifNotNil: [
 			anOTPrometheusTextEncoder
+				resourceConstantLabels: currentEncoder resourceConstantLabels;
 				scopeInfoEnabled: currentEncoder scopeInfoEnabled;
 				targetInfoEnabled: currentEncoder targetInfoEnabled ].
 		encoder := anOTPrometheusTextEncoder ]
@@ -156,6 +157,21 @@ OTPrometheusMetricReader >> path: aString [
 ]
 
 { #category : 'accessing' }
+OTPrometheusMetricReader >> resourceConstantLabels [
+
+	^ stateLock critical: [ encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]. encoder resourceConstantLabels ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> resourceConstantLabels: anOTMetricAttributeFilterOrNil [
+
+	stateLock critical: [
+		self ensureOpenLocked.
+		(encoder ifNil: [ encoder := OTPrometheusTextEncoder new ])
+			resourceConstantLabels: anOTMetricAttributeFilterOrNil ]
+]
+
+{ #category : 'accessing' }
 OTPrometheusMetricReader >> scopeInfoEnabled [
 
 	^ stateLock critical: [ (encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) scopeInfoEnabled ]
@@ -207,7 +223,21 @@ OTPrometheusMetricReader >> scrapeText [
 { #category : 'collecting' }
 OTPrometheusMetricReader >> scrapeTextForFormat: aFormatSymbol [
 
-	^ self encoder encodeSnapshot: self collectSnapshot format: aFormatSymbol
+	^ self scrapeEncoder encodeSnapshot: self collectSnapshot format: aFormatSymbol
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> scrapeEncoder [
+
+	| configuredEncoder template |
+	template := self encoder.
+	configuredEncoder := OTPrometheusTextEncoder new.
+	configuredEncoder
+		resourceConstantLabels: template resourceConstantLabels;
+		scopeInfoEnabled: template scopeInfoEnabled;
+		targetInfoEnabled: template targetInfoEnabled;
+		warningSink: template warningSink.
+	^ configuredEncoder
 ]
 
 { #category : 'accessing' }

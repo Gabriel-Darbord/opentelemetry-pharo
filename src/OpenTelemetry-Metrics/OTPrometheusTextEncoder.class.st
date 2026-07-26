@@ -8,7 +8,9 @@ Class {
 	#instVars : [
 		'warningSink',
 		'scopeInfoEnabled',
-		'targetInfoEnabled'
+		'targetInfoEnabled',
+		'resourceConstantLabels',
+		'currentResource'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -43,7 +45,11 @@ OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot [
 { #category : 'encoding' }
 OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot format: aFormatSymbol [
 
-	^ String streamContents: [ :stream | self writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: stream ]
+	| previousResource |
+	previousResource := currentResource.
+	currentResource := anOTMetricSnapshot resource.
+	^ [ String streamContents: [ :stream | self writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: stream ] ]
+		  ensure: [ currentResource := previousResource ]
 ]
 
 { #category : 'private - writing' }
@@ -59,7 +65,9 @@ OTPrometheusTextEncoder >> initialize [
 	super initialize.
 	warningSink := self defaultWarningSink.
 	scopeInfoEnabled := true.
-	targetInfoEnabled := true
+	targetInfoEnabled := true.
+	resourceConstantLabels := nil.
+	currentResource := OTResource empty
 ]
 
 { #category : 'private - testing' }
@@ -198,11 +206,12 @@ OTPrometheusTextEncoder >> noteIgnoredConflictingMetadataNamed: aMetadataName fo
 ]
 
 { #category : 'private - formatting' }
-OTPrometheusTextEncoder >> pointLabels: someAttributes scope: anOTInstrumentationScope [
+OTPrometheusTextEncoder >> pointLabels: someAttributes resource: anOTResource scope: anOTInstrumentationScope [
 
 	| rawLabels reservedScopeLabels |
 	rawLabels := OrderedCollection new.
 	someAttributes associationsDo: [ :each | rawLabels add: each key asString -> (self prometheusStringValueFor: each value) ].
+	self resourceConstantLabelAssociationsFrom: anOTResource do: [ :each | rawLabels add: each ].
 	self scopeInfoEnabled ifFalse: [ ^ rawLabels ].
 	rawLabels
 		add: 'otel_scope_name' -> anOTInstrumentationScope name;
@@ -509,6 +518,30 @@ OTPrometheusTextEncoder >> quotedPrometheusValueFor: aString [
 ]
 
 { #category : 'accessing' }
+OTPrometheusTextEncoder >> resourceConstantLabels [
+
+	^ resourceConstantLabels
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> resourceConstantLabels: anOTMetricAttributeFilterOrNil [
+
+	resourceConstantLabels := anOTMetricAttributeFilterOrNil
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> resourceConstantLabelAssociationsFrom: anOTResource do: aBlock [
+
+	| filter selected |
+	anOTResource ifNil: [ ^ self ].
+	filter := self resourceConstantLabels.
+	filter ifNil: [ ^ self ].
+	selected := filter selectedAttributesFrom: anOTResource allAttributes.
+	selected associationsDo: [ :each |
+			aBlock value: each key asString -> (self prometheusStringValueFor: each value) ]
+]
+
+{ #category : 'accessing' }
 OTPrometheusTextEncoder >> scopeInfoEnabled [
 
 	^ scopeInfoEnabled ifNil: [ true ]
@@ -565,7 +598,11 @@ OTPrometheusTextEncoder >> sampleSpecificationsForGauge: anOTGaugeMetricData typ
 	anOTGaugeMetricData points do: [ :each |
 			sampleSpecifications add: (self
 					 sampleSpecificationNamed: metricName
-					 labels: (self pointLabels: each attributes scope: anOTGaugeMetricData instrumentationScope)
+					 labels:
+					 (self
+						  pointLabels: each attributes
+						  resource: currentResource
+						  scope: anOTGaugeMetricData instrumentationScope)
 					 value: (self prometheusValueForGaugeLikePoint: each type: aTypeSymbol)) ].
 	^ sampleSpecifications
 ]
@@ -581,7 +618,10 @@ OTPrometheusTextEncoder >> sampleSpecificationsForHistogram: anOTHistogramMetric
 	sampleSpecifications := OrderedCollection new.
 	anOTHistogramMetricData points do: [ :eachPoint |
 			| baseLabels bucketExemplars cumulative |
-			baseLabels := self pointLabels: eachPoint attributes scope: anOTHistogramMetricData instrumentationScope.
+			baseLabels := self
+				              pointLabels: eachPoint attributes
+				              resource: currentResource
+				              scope: anOTHistogramMetricData instrumentationScope.
 			bucketExemplars := self latestHistogramExemplarsByBucketFor: eachPoint.
 			cumulative := 0.
 			1 to: eachPoint explicitBounds size do: [ :index |
@@ -621,7 +661,11 @@ OTPrometheusTextEncoder >> sampleSpecificationsForSum: anOTSumMetricData type: a
 		  collect: [ :each |
 				  self
 					  sampleSpecificationNamed: (self prometheusMetricNameFor: anOTSumMetricData type: #counter format: aFormatSymbol)
-					  labels: (self pointLabels: each attributes scope: anOTSumMetricData instrumentationScope)
+					  labels:
+					  (self
+						   pointLabels: each attributes
+						   resource: currentResource
+						   scope: anOTSumMetricData instrumentationScope)
 					  value: each value
 					  exemplar: (self latestExemplarIn: each exemplars) ]
 		  as: OrderedCollection
@@ -637,7 +681,10 @@ OTPrometheusTextEncoder >> sampleSpecificationsForSummary: anOTSummaryMetricData
 	sampleSpecifications := OrderedCollection new.
 	anOTSummaryMetricData points do: [ :eachPoint |
 			| baseLabels |
-			baseLabels := self pointLabels: eachPoint attributes scope: anOTSummaryMetricData instrumentationScope.
+			baseLabels := self
+				              pointLabels: eachPoint attributes
+				              resource: currentResource
+				              scope: anOTSummaryMetricData instrumentationScope.
 			eachPoint quantileValues do: [ :eachQuantile |
 					sampleSpecifications add: (self
 							 sampleSpecificationNamed: metricName
@@ -718,7 +765,11 @@ OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData type: aTypeSymbol for
 	anOTGaugeMetricData points do: [ :each |
 			self
 				writeSampleNamed: metricName
-				labels: (self pointLabels: each attributes scope: anOTGaugeMetricData instrumentationScope)
+				labels:
+				(self
+					 pointLabels: each attributes
+					 resource: currentResource
+					 scope: anOTGaugeMetricData instrumentationScope)
 				value: (self prometheusValueForGaugeLikePoint: each type: aTypeSymbol)
 				on: aStream ]
 ]
@@ -730,7 +781,10 @@ OTPrometheusTextEncoder >> writeHistogram: anOTHistogramMetricData on: aStream [
 	metricName := self prometheusMetricNameFor: anOTHistogramMetricData type: #histogram.
 	anOTHistogramMetricData points do: [ :eachPoint |
 			| baseLabels cumulative |
-			baseLabels := self pointLabels: eachPoint attributes scope: anOTHistogramMetricData instrumentationScope.
+			baseLabels := self
+				              pointLabels: eachPoint attributes
+				              resource: currentResource
+				              scope: anOTHistogramMetricData instrumentationScope.
 			cumulative := 0.
 			1 to: eachPoint explicitBounds size do: [ :index |
 					cumulative := cumulative + (eachPoint bucketCounts at: index ifAbsent: [ 0 ]).
@@ -978,7 +1032,11 @@ OTPrometheusTextEncoder >> writeSum: anOTSumMetricData on: aStream [
 	anOTSumMetricData points do: [ :each |
 			self
 				writeSampleNamed: metricName
-				labels: (self pointLabels: each attributes scope: anOTSumMetricData instrumentationScope)
+				labels:
+				(self
+					 pointLabels: each attributes
+					 resource: currentResource
+					 scope: anOTSumMetricData instrumentationScope)
 				value: each value
 				on: aStream ]
 ]
@@ -1002,7 +1060,10 @@ OTPrometheusTextEncoder >> writeSummary: anOTSummaryMetricData on: aStream [
 	metricName := self prometheusMetricNameFor: anOTSummaryMetricData type: #summary.
 	anOTSummaryMetricData points do: [ :eachPoint |
 			| baseLabels |
-			baseLabels := self pointLabels: eachPoint attributes scope: anOTSummaryMetricData instrumentationScope.
+			baseLabels := self
+				              pointLabels: eachPoint attributes
+				              resource: currentResource
+				              scope: anOTSummaryMetricData instrumentationScope.
 			eachPoint quantileValues do: [ :eachQuantile |
 					self
 						writeSampleNamed: metricName
