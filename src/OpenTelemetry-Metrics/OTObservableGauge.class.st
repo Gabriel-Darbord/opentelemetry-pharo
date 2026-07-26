@@ -8,6 +8,12 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'instance creation' }
+OTObservableGauge class >> noop [
+
+	^ OTNoopObservableGauge instance
+]
+
 { #category : 'accessing' }
 OTObservableGauge >> instrumentType [
 

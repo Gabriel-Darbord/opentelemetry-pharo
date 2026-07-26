@@ -11,11 +11,7 @@ Class {
 { #category : 'instance creation' }
 OTSynchronousMetricInstrument class >> noop [
 
-	^ OTClassStateStore valueAt: #otNoopMetricInstrument forClass: self ifAbsent: [
-			  | instrument |
-			  instrument := self new.
-			  OTClassStateStore valueAt: #otNoopMetricInstrument forClass: self put: instrument.
-			  instrument ]
+	self subclassResponsibility
 ]
 
 { #category : 'binding' }

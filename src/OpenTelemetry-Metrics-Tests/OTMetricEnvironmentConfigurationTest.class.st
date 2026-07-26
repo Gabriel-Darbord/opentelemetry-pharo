@@ -75,6 +75,16 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredMetricReaderInt
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesNoopMeterProviderWhenSdkIsDisabled [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_SDK_DISABLED' put: 'TRUE';
+				 yourself)
+		during: [ self assert: OTMeterProvider current class identicalTo: OTNoopMeterProvider ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterWithShorterDefaultInterval [
 
 	self

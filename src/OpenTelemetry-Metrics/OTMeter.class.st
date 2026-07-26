@@ -50,11 +50,7 @@ OTMeter class >> instrumentWarningSink: aBlock [
 { #category : 'instance creation' }
 OTMeter class >> noop [
 
-	^ OTClassStateStore valueAt: #otNoopMeter forClass: self ifAbsent: [
-			  | meter |
-			  meter := self forProvider: nil instrumentationScope: (OTInstrumentationScope named: '').
-			  OTClassStateStore valueAt: #otNoopMeter forClass: self put: meter.
-			  meter ]
+	^ OTNoopMeter instance
 ]
 
 { #category : 'private' }

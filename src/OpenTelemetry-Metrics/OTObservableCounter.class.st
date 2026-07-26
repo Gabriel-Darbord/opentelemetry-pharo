@@ -8,6 +8,12 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'instance creation' }
+OTObservableCounter class >> noop [
+
+	^ OTNoopObservableCounter instance
+]
+
 { #category : 'accessing' }
 OTObservableCounter >> instrumentType [
 

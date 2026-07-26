@@ -74,10 +74,62 @@ OTMeterProviderTest >> testAsynchronousNoopInstrumentOperationsAreSafe [
 
 	| instrument |
 	instrument := OTObservableGauge noop.
+	self assert: instrument class identicalTo: OTNoopObservableGauge.
 	self deny: instrument enabled.
 	self assert: (instrument bind: { ('key' -> 'value') }) identicalTo: instrument.
 	self shouldnt: [ instrument observe: 42 ] raise: Error.
 	self shouldnt: [ instrument observe: 42 attributes: { ('key' -> 'value') } ] raise: Error
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopAsyncInstrumentDoesNotRetainCallbacks [
+
+	| instrument meter |
+	meter := OTNoopMeter instance.
+	instrument := meter
+		              observableGaugeNamed: 'runtime.memory'
+		              callbacks: { [ :observer | observer observe: 42 ] }
+		              unit: 'By'
+		              description: 'Runtime memory'
+		              advice: Dictionary new.
+	self assert: instrument class identicalTo: OTNoopObservableGauge.
+	self assert: instrument callbacks isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopProviderReturnsStatelessNoopMeter [
+
+	| meter noopProvider |
+	noopProvider := OTNoopMeterProvider instance.
+	meter := noopProvider
+		         meterNamed: 'demo.metrics'
+		         version: '1.2.3'
+		         schemaUrl: 'https://example.com/schema'
+		         attributes: self sampleAttributes.
+	self assert: meter class identicalTo: OTNoopMeter.
+	self assert: meter provider isNil.
+	self assert: meter instrumentationName equals: ''.
+	self assert: meter instrumentationVersion equals: ''.
+	self assert: meter schemaUrl equals: ''.
+	self assert: meter scopeAttributes isEmpty.
+	self assert: meter registeredMetricInstruments isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopTypesDoNotDeclareInstanceState [
+
+	self assert: OTNoopMeterProvider allInstVarNames isEmpty.
+	self assert: OTNoopMeter allInstVarNames isEmpty.
+	self assert: OTNoopMetricInstrument allInstVarNames isEmpty.
+	self assert: OTNoopSynchronousMetricInstrument allInstVarNames isEmpty.
+	self assert: OTNoopAsynchronousMetricInstrument allInstVarNames isEmpty.
+	self assert: OTNoopCounter allInstVarNames isEmpty.
+	self assert: OTNoopUpDownCounter allInstVarNames isEmpty.
+	self assert: OTNoopHistogram allInstVarNames isEmpty.
+	self assert: OTNoopGauge allInstVarNames isEmpty.
+	self assert: OTNoopObservableCounter allInstVarNames isEmpty.
+	self assert: OTNoopObservableUpDownCounter allInstVarNames isEmpty.
+	self assert: OTNoopObservableGauge allInstVarNames isEmpty
 ]
 
 { #category : 'tests' }
@@ -866,7 +918,7 @@ OTMeterProviderTest >> testProviderShutdownShutsDownMetricReaders [
 ]
 
 { #category : 'tests' }
-OTMeterProviderTest >> testShutdownMakesFutureMetersNoopButPreservesScope [
+OTMeterProviderTest >> testShutdownMakesFutureMetersNoop [
 
 	| meter provider |
 	provider := OTMeterProvider new.
@@ -876,9 +928,10 @@ OTMeterProviderTest >> testShutdownMakesFutureMetersNoopButPreservesScope [
 		         version: '1.2.3'
 		         schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
 		         attributes: self sampleAttributes.
+	self assert: meter class identicalTo: OTNoopMeter.
 	self assert: meter isNoop.
-	self assert: meter instrumentationName equals: 'demo.metrics'.
-	self assert: meter instrumentationVersion equals: '1.2.3'
+	self assert: meter instrumentationName equals: ''.
+	self assert: meter instrumentationVersion equals: ''
 ]
 
 { #category : 'tests' }
@@ -921,6 +974,10 @@ OTMeterProviderTest >> testSynchronousNoopInstrumentOperationsAreSafe [
 	upDownCounter := OTUpDownCounter noop.
 	histogram := OTHistogram noop.
 	gauge := OTGauge noop.
+	self assert: counter class identicalTo: OTNoopCounter.
+	self assert: upDownCounter class identicalTo: OTNoopUpDownCounter.
+	self assert: histogram class identicalTo: OTNoopHistogram.
+	self assert: gauge class identicalTo: OTNoopGauge.
 	self deny: counter enabled.
 	self assert: (counter bind: { ('method' -> 'GET') }) identicalTo: counter.
 	self shouldnt: [ counter add: 1 ] raise: Error.

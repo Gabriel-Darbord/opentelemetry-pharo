@@ -327,6 +327,7 @@ OTMeterProvider class >> prometheusPort [
 OTMeterProvider class >> readConfiguration [
 
 	| configurationSourceClass exporterNames provider readers views |
+	OTTracerProvider sdkDisabled ifTrue: [ ^ OTNoopMeterProvider instance ].
 	provider := self new.
 	configurationSourceClass := self configurationSourceClass.
 	provider
@@ -335,7 +336,6 @@ OTMeterProvider class >> readConfiguration [
 		meterConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredMeterConfigurator ]).
 	views := configurationSourceClass ifNotNil: [ configurationSourceClass configuredMetricViews ] ifNil: [ #(  ) ].
 	views do: [ :each | provider addView: each ].
-	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	readers := configurationSourceClass ifNotNil: [ configurationSourceClass configuredMetricReaders ].
 	readers ifNotNil: [
 			readers do: [ :each | provider addMetricReader: each ].
@@ -525,7 +525,7 @@ OTMeterProvider >> meterNamed: aString version: aVersionString schemaUrl: aSchem
 		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
 		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
 		         attributes: aCollection.
-	self isShutdown ifTrue: [ ^ OTMeter forProvider: nil instrumentationScope: scope ].
+	self isShutdown ifTrue: [ ^ OTNoopMeter instance ].
 	^ self meters at: scope ifAbsentPut: [ OTMeter forProvider: self instrumentationScope: scope ]
 ]
 

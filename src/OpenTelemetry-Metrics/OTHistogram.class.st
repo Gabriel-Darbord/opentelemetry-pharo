@@ -8,6 +8,12 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'instance creation' }
+OTHistogram class >> noop [
+
+	^ OTNoopHistogram instance
+]
+
 { #category : 'aggregating' }
 OTHistogram >> bucketCountsForMeasurements: someMeasurements boundaries: someBoundaries [
 

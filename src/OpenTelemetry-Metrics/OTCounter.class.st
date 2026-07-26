@@ -8,6 +8,12 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'instance creation' }
+OTCounter class >> noop [
+
+	^ OTNoopCounter instance
+]
+
 { #category : 'recording' }
 OTCounter >> add: aNumber [
 
