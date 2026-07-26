@@ -26,7 +26,7 @@ OTNoopMetricInstrument >> advice [
 { #category : 'binding' }
 OTNoopMetricInstrument >> bind: aCollection [
 
-	^ self
+	
 ]
 
 { #category : 'collecting' }
@@ -53,12 +53,6 @@ OTNoopMetricInstrument >> enabled [
 	^ false
 ]
 
-{ #category : 'testing' }
-OTNoopMetricInstrument >> isNoop [
-
-	^ true
-]
-
 { #category : 'accessing' }
 OTNoopMetricInstrument >> instrumentType [
 
@@ -69,6 +63,12 @@ OTNoopMetricInstrument >> instrumentType [
 OTNoopMetricInstrument >> instrumentationScope [
 
 	^ OTInstrumentationScope named: ''
+]
+
+{ #category : 'testing' }
+OTNoopMetricInstrument >> isNoop [
+
+	^ true
 ]
 
 { #category : 'accessing' }

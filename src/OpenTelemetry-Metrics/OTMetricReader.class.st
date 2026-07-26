@@ -278,9 +278,6 @@ OTMetricReader >> initialize [
 	shutdownRequested := false.
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.
 	lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new.
-	temporalitySelector := nil.
-	aggregationSelector := nil.
-	cardinalityLimitSelector := nil.
 	callbackTimeoutMillis := 30000.
 	selectedAttributeSetsByStream := Dictionary new.
 	warnedMetricIdentityConflicts := Set new
@@ -569,14 +566,6 @@ OTMetricReader >> selectedMeasurementsFrom: someMeasurements for: anOTMetricInst
 		  each timestamp > startTimestamp and: [ each timestamp <= anOTMetricAggregationContext collectedAt ] ]
 ]
 
-{ #category : 'lifecycle' }
-OTMetricReader >> shutdown [
-
-	(self beginShutdown) ifFalse: [ ^ false ].
-	self finishShutdown.
-	^ true
-]
-
 { #category : 'private - logging' }
 OTMetricReader >> shouldWarnAboutMetricIdentityConflictAt: aMetricIdentityKey whenMetricCountIs: anInteger [
 
@@ -585,6 +574,14 @@ OTMetricReader >> shouldWarnAboutMetricIdentityConflictAt: aMetricIdentityKey wh
 			  (warnedMetricIdentityConflicts includes: aMetricIdentityKey) ifTrue: [ ^ false ].
 			  warnedMetricIdentityConflicts add: aMetricIdentityKey.
 			  true ]
+]
+
+{ #category : 'lifecycle' }
+OTMetricReader >> shutdown [
+
+	(self beginShutdown) ifFalse: [ ^ false ].
+	self finishShutdown.
+	^ true
 ]
 
 { #category : 'collecting' }

@@ -17,13 +17,13 @@ OTNoopGauge >> instrumentType [
 { #category : 'recording' }
 OTNoopGauge >> record: aNumber [
 
-	^ self
+	
 ]
 
 { #category : 'recording' }
 OTNoopGauge >> record: aNumber attributes: aCollection [
 
-	^ self
+	
 ]
 
 { #category : 'aggregating' }

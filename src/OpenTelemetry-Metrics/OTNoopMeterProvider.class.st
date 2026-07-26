@@ -53,12 +53,6 @@ OTNoopMeterProvider >> forceFlush [
 	^ true
 ]
 
-{ #category : 'initialization' }
-OTNoopMeterProvider >> initialize [
-
-	self
-]
-
 { #category : 'testing' }
 OTNoopMeterProvider >> isShutdown [
 

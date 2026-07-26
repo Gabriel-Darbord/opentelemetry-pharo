@@ -109,8 +109,7 @@ OTPrometheusMetricReader >> initialize [
 	host := 'localhost'.
 	port := 9464.
 	path := '/metrics'.
-	encoder := OTPrometheusTextEncoder new.
-	server := nil
+	encoder := OTPrometheusTextEncoder new
 ]
 
 { #category : 'private - http' }

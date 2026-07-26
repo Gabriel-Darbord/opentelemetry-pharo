@@ -95,12 +95,6 @@ OTNoopMeter >> histogramNamed: aString unit: aUnitString description: aDescripti
 	^ OTNoopHistogram instance
 ]
 
-{ #category : 'initialization' }
-OTNoopMeter >> initialize [
-
-	self
-]
-
 { #category : 'accessing' }
 OTNoopMeter >> instrumentationName [
 

@@ -11,13 +11,13 @@ Class {
 { #category : 'recording' }
 OTNoopCounter >> add: aNumber [
 
-	^ self
+	
 ]
 
 { #category : 'recording' }
 OTNoopCounter >> add: aNumber attributes: aCollection [
 
-	^ self
+	
 ]
 
 { #category : 'accessing' }

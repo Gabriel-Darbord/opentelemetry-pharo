@@ -17,13 +17,13 @@ OTNoopHistogram >> instrumentType [
 { #category : 'recording' }
 OTNoopHistogram >> record: aNumber [
 
-	^ self
+	
 ]
 
 { #category : 'recording' }
 OTNoopHistogram >> record: aNumber attributes: aCollection [
 
-	^ self
+	
 ]
 
 { #category : 'aggregating' }

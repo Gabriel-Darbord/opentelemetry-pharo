@@ -414,12 +414,13 @@ OTMeterProvider >> addView: anOTMetricView [
 { #category : 'collecting' }
 OTMeterProvider >> collectMeasurementsFor: anOTMetricReader [
 
-	| collected registeredMeters |
-	stateLock critical: [
-			collected := measurements copy.
-			registeredMeters := meters values asArray ].
-	registeredMeters do: [ :each | each collectMeasurementsFor: anOTMetricReader into: collected ].
-	^ collected
+	| snapshot |
+	snapshot := stateLock critical: [
+			            {
+				            measurements copy.
+				            meters values asArray } ].
+	snapshot second do: [ :each | each collectMeasurementsFor: anOTMetricReader into: snapshot first ].
+	^ snapshot first
 ]
 
 { #category : 'private - lifecycle' }
@@ -447,12 +448,13 @@ OTMeterProvider >> exemplarFilter: anOTMetricExemplarFilter [
 { #category : 'lifecycle' }
 OTMeterProvider >> forceFlush [
 
-	| readers stopping |
-	stateLock critical: [
-			stopping := shutdownRequested = true or: [ shutdown = true ].
-			readers := metricReaders copy ].
-	stopping ifTrue: [ ^ false ].
-	^ readers allSatisfy: [ :each | each forceFlush ]
+	| snapshot |
+	snapshot := stateLock critical: [
+			            {
+				            (shutdownRequested = true or: [ shutdown = true ]).
+				            metricReaders copy } ].
+	snapshot first ifTrue: [ ^ false ].
+	^ snapshot second allSatisfy: [ :each | each forceFlush ]
 ]
 
 { #category : 'initialization' }
@@ -467,7 +469,6 @@ OTMeterProvider >> initialize [
 	shutdown := false.
 	shutdownRequested := false.
 	stateLock := Semaphore forMutualExclusion.
-	meterConfigurator := nil.
 	resource := OTResource empty
 ]
 

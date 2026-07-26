@@ -25,11 +25,11 @@ OTNoopAsynchronousMetricInstrument >> callbacks: someCallbacks [
 { #category : 'recording' }
 OTNoopAsynchronousMetricInstrument >> observe: aNumber [
 
-	^ self
+	
 ]
 
 { #category : 'recording' }
 OTNoopAsynchronousMetricInstrument >> observe: aNumber attributes: aCollection [
 
-	^ self
+	
 ]
