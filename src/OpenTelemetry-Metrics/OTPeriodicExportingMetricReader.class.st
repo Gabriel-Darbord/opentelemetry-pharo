@@ -32,7 +32,7 @@ OTPeriodicExportingMetricReader >> collect [
 			  | snapshot |
 			  self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
 			  snapshot := self collectSnapshot.
-			  self exporter export: snapshot.
+			  self runExporterOperation: [ self exporter export: snapshot ].
 			  snapshot ]
 ]
 
@@ -108,8 +108,9 @@ OTPeriodicExportingMetricReader >> forceFlush [
 			  | exportResult flushResult snapshot |
 			  self isStopping ifTrue: [ ^ false ].
 			  snapshot := self collectSnapshot.
-			  exportResult := self exporter export: snapshot.
-			  flushResult := self exporter forceFlush.
+			  exportResult := self runExporterOperation: [ self exporter export: snapshot ].
+			  exportResult ifFalse: [ ^ false ].
+			  flushResult := self runExporterOperation: [ self exporter forceFlush ].
 			  exportResult & flushResult ]
 ]
 
@@ -127,6 +128,14 @@ OTPeriodicExportingMetricReader >> restartExportProcess [
 
 	self stopExportProcess.
 	self startExportProcess
+]
+
+{ #category : 'private - lifecycle' }
+OTPeriodicExportingMetricReader >> runExporterOperation: aBlock [
+
+	^ [ aBlock value ]
+		  valueWithinMilliseconds: self exportTimeoutMillis
+		  onTimeout: [ false ]
 ]
 
 { #category : 'lifecycle' }

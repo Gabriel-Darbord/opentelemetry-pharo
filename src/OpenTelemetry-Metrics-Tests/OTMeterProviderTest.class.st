@@ -872,6 +872,26 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectExportsSnapshot [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectHonorsExportTimeoutMillis [
+
+	| durationMillis exporter provider reader snapshot startedAt |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		exportTimeoutMillis: 50.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	startedAt := Time millisecondClockValue.
+	[ snapshot := reader collect ] ensure: [ exporter allowExportToContinue ].
+	durationMillis := Time millisecondClockValue - startedAt.
+	self assert: (exporter waitForExportEntryWithin: 10).
+	self assert: snapshot metrics size equals: 1.
+	self assert: durationMillis < 500
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderDefaultsTemporalityFromExporter [
 
 	| exporter metric provider reader snapshot |
@@ -900,6 +920,24 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushDelegatesToExp
 	self assert: reader forceFlush.
 	self assert: exporter exports size equals: 1.
 	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushHonorsExportTimeoutMillis [
+
+	| exporter provider reader |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		exportTimeoutMillis: 50.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	[
+		self deny: reader forceFlush.
+		self assert: exporter forceFlushCount equals: 0 ]
+		ensure: [ exporter allowExportToContinue ]
 ]
 
 { #category : 'tests' }
