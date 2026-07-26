@@ -131,17 +131,13 @@ OTOtlpHttpJsonMetricExporter class >> supportedProtocol [
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter class >> warningSink [
 
-	^ OTClassStateStore valueAt: #otWarningSink forClass: self ifAbsent: [ self defaultWarningSink ]
+	^ OTOtlpHttpJsonExportSupport warningSinkFor: self
 ]
 
 { #category : 'private - logging' }
 OTOtlpHttpJsonMetricExporter class >> warningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
-	^ self warningSink
+	^ OTOtlpHttpJsonExportSupport warningSink: aBlock for: self
 ]
 
 { #category : 'private - configuration' }

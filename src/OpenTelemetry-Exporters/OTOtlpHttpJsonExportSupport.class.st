@@ -57,6 +57,19 @@ OTOtlpHttpJsonExportSupport class >> supportedProtocol [
 	^ 'http/json'
 ]
 
+{ #category : 'private - logging' }
+OTOtlpHttpJsonExportSupport class >> warningSink: aBlock for: aBehavior [
+
+	OTClassStateStore valueAt: #otWarningSink forClass: aBehavior putOrRemoveIfNil: aBlock.
+	^ self warningSinkFor: aBehavior
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonExportSupport class >> warningSinkFor: aBehavior [
+
+	^ OTClassStateStore valueAt: #otWarningSink forClass: aBehavior ifAbsent: [ self defaultWarningSink ]
+]
+
 { #category : 'private - configuration' }
 OTOtlpHttpJsonExportSupport >> applyConfigurationToHttpClient [
 

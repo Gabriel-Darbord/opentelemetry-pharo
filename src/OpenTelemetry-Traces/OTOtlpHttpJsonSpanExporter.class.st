@@ -70,7 +70,7 @@ OTOtlpHttpJsonSpanExporter class >> tlsEnvironmentLock [
 { #category : 'private - logging' }
 OTOtlpHttpJsonSpanExporter class >> warningSink [
 
-	^ OTClassStateStore valueAt: #otWarningSink forClass: self ifAbsent: [ self defaultWarningSink ]
+	^ OTOtlpHttpJsonExportSupport warningSinkFor: self
 ]
 
 { #category : 'private - configuration' }
