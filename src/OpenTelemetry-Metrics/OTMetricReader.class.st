@@ -8,6 +8,8 @@ Class {
 	#instVars : [
 		'provider',
 		'shutdown',
+		'stateLock',
+		'shutdownRequested',
 		'temporalitySelector',
 		'aggregationSelector',
 		'cardinalityLimitSelector',
@@ -77,36 +79,51 @@ OTMetricReader >> aggregationFor: anOTMetricInstrument [
 { #category : 'accessing' }
 OTMetricReader >> aggregationSelector [
 
-	^ aggregationSelector ifNil: [ self defaultAggregationSelector ]
+	^ stateLock critical: [ aggregationSelector ifNil: [ self defaultAggregationSelector ] ]
 ]
 
 { #category : 'accessing' }
 OTMetricReader >> aggregationSelector: aBlockOrNil [
 
-	aggregationSelector := aBlockOrNil
+	stateLock critical: [
+		self ensureOpenLocked.
+		aggregationSelector := aBlockOrNil ]
 ]
 
 { #category : 'accessing' }
 OTMetricReader >> attachToProvider: anOTMeterProvider [
 
-	provider ifNil: [
-			provider := anOTMeterProvider.
-			^ provider ].
-	provider == anOTMeterProvider ifTrue: [ ^ provider ].
-	Error signal: 'OpenTelemetry metric readers cannot be registered on multiple meter providers'
+	^ stateLock critical: [
+			  self ensureOpenLocked.
+			  provider ifNil: [
+					  provider := anOTMeterProvider.
+					  ^ provider ].
+			  provider == anOTMeterProvider ifTrue: [ ^ provider ].
+			  Error signal: 'OpenTelemetry metric readers cannot be registered on multiple meter providers' ]
+]
+
+{ #category : 'private - lifecycle' }
+OTMetricReader >> beginShutdown [
+
+	^ stateLock critical: [
+			  (shutdownRequested or: [ shutdown ]) ifTrue: [ ^ false ].
+			  shutdownRequested := true.
+			  true ]
 ]
 
 { #category : 'accessing' }
 OTMetricReader >> callbackTimeoutMillis [
 
-	^ callbackTimeoutMillis ifNil: [ 30000 ]
+	^ stateLock critical: [ callbackTimeoutMillis ifNil: [ 30000 ] ]
 ]
 
 { #category : 'accessing' }
 OTMetricReader >> callbackTimeoutMillis: anInteger [
 
-	callbackTimeoutMillis := anInteger ifNil: [ 30000 ] ifNotNil: [ anInteger max: 1 ].
-	^ self callbackTimeoutMillis
+	^ stateLock critical: [
+			  self ensureOpenLocked.
+			  callbackTimeoutMillis := anInteger ifNil: [ 30000 ] ifNotNil: [ anInteger max: 1 ].
+			  callbackTimeoutMillis ]
 ]
 
 { #category : 'private - logging' }
@@ -127,35 +144,42 @@ OTMetricReader >> cardinalityLimitFor: anOTMetricInstrument [
 { #category : 'accessing' }
 OTMetricReader >> cardinalityLimitSelector [
 
-	^ cardinalityLimitSelector ifNil: [ self defaultCardinalityLimitSelector ]
+	^ stateLock critical: [ cardinalityLimitSelector ifNil: [ self defaultCardinalityLimitSelector ] ]
 ]
 
 { #category : 'accessing' }
 OTMetricReader >> cardinalityLimitSelector: aBlockOrNil [
 
-	cardinalityLimitSelector := aBlockOrNil
+	stateLock critical: [
+		self ensureOpenLocked.
+		cardinalityLimitSelector := aBlockOrNil ]
 ]
 
 { #category : 'collecting' }
 OTMetricReader >> cardinalityLimitedMeasurementsFrom: someMeasurements for: anOTMetricInstrument using: anOTMetricAggregationContext stateKey: aStateKey [
 
-	| attributeFilter limit limitedMeasurements overflowAttributes selectedAttributeSets |
+	| attributeFilter limit overflowAttributes |
 	limit := anOTMetricAggregationContext cardinalityLimit.
-	limitedMeasurements := OrderedCollection new: someMeasurements size.
 	overflowAttributes := self overflowAttributes.
 	attributeFilter := anOTMetricAggregationContext attributeFilter.
-	selectedAttributeSets := self selectedAttributeSetsForStateKey: aStateKey.
-	someMeasurements do: [ :each |
-			| knownAttributes normalizedAttributes |
-			normalizedAttributes := anOTMetricInstrument normalizedAttributesForMeasurement: each usingAttributeFilter: attributeFilter.
-			knownAttributes := self selectedAttributeSetMatching: normalizedAttributes within: selectedAttributeSets.
-			knownAttributes ifNotNil: [ limitedMeasurements add: (each withAttributes: knownAttributes) ] ifNil: [
-					selectedAttributeSets size < limit
-						ifTrue: [
-								selectedAttributeSets add: normalizedAttributes.
-								limitedMeasurements add: (each withAttributes: normalizedAttributes) ]
-						ifFalse: [ limitedMeasurements add: (each withAttributes: overflowAttributes) ] ] ].
-	^ limitedMeasurements asArray
+	^ self
+		  withSelectedAttributeSetsForStateKey: aStateKey
+		  do: [ :selectedAttributeSets |
+				  | limitedMeasurements |
+				  limitedMeasurements := OrderedCollection new: someMeasurements size.
+				  someMeasurements do: [ :each |
+						  | knownAttributes normalizedAttributes |
+						  normalizedAttributes := anOTMetricInstrument normalizedAttributesForMeasurement: each usingAttributeFilter: attributeFilter.
+						  knownAttributes := self selectedAttributeSetMatching: normalizedAttributes within: selectedAttributeSets.
+						  knownAttributes
+							  ifNotNil: [ limitedMeasurements add: (each withAttributes: knownAttributes) ]
+							  ifNil: [
+									  selectedAttributeSets size < limit
+										  ifTrue: [
+												  selectedAttributeSets add: normalizedAttributes.
+												  limitedMeasurements add: (each withAttributes: normalizedAttributes) ]
+										  ifFalse: [ limitedMeasurements add: (each withAttributes: overflowAttributes) ] ] ].
+				  limitedMeasurements asArray ]
 ]
 
 { #category : 'collecting' }
@@ -189,7 +213,7 @@ OTMetricReader >> collectAsynchronousCallback: aBlock for: anOTAsynchronousMetri
 OTMetricReader >> collectSnapshot [
 
 	| collectedAt instruments measurements metrics |
-	self isShutdown ifTrue: [ ^ OTMetricSnapshot empty ].
+	self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
 	collectedAt := DateAndTime now asUTC.
 	^ self provider ifNil: [ OTMetricSnapshot empty ] ifNotNil: [ :aProvider |
 			  instruments := aProvider registeredMetricInstruments.
@@ -227,17 +251,31 @@ OTMetricReader >> didRegisterWithProvider [
 	self
 ]
 
+{ #category : 'private - lifecycle' }
+OTMetricReader >> ensureOpenLocked [
+
+	(shutdownRequested or: [ shutdown ]) ifTrue: [ Error signal: 'OpenTelemetry metric reader is shutdown' ]
+]
+
+{ #category : 'private - lifecycle' }
+OTMetricReader >> finishShutdown [
+
+	stateLock critical: [ shutdown := true ]
+]
+
 { #category : 'lifecycle' }
 OTMetricReader >> forceFlush [
 
-	^ true
+	^ self isStopping not
 ]
 
 { #category : 'initialization' }
 OTMetricReader >> initialize [
 
 	super initialize.
+	stateLock := Semaphore forMutualExclusion.
 	shutdown := false.
+	shutdownRequested := false.
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.
 	lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new.
 	temporalitySelector := nil.
@@ -251,18 +289,19 @@ OTMetricReader >> initialize [
 { #category : 'collecting' }
 OTMetricReader >> invokeAsynchronousCallback: aBlock for: anOTAsynchronousMetricInstrument observer: anOTAsynchronousMetricObserver [
 
-	| error process semaphore timedOut |
+	| error process semaphore timedOut timeoutMillis |
 	error := nil.
+	timeoutMillis := self callbackTimeoutMillis.
 	semaphore := Semaphore new.
 	process := [
 		           [ anOTAsynchronousMetricInstrument invokeCallback: aBlock with: anOTAsynchronousMetricObserver ]
 			           on: Error
 			           do: [ :anError | error := anError ].
 		           semaphore signal ] forkAt: Processor userBackgroundPriority.
-	timedOut := semaphore waitTimeoutMilliseconds: self callbackTimeoutMillis.
+	timedOut := semaphore waitTimeoutMilliseconds: timeoutMillis.
 	timedOut ifTrue: [
 			process terminate.
-			self noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument.
+			self noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument timeoutMillis: timeoutMillis.
 			^ #timedOut ].
 	error ifNotNil: [
 			self noteAsynchronousCallbackError: error for: anOTAsynchronousMetricInstrument.
@@ -273,7 +312,13 @@ OTMetricReader >> invokeAsynchronousCallback: aBlock for: anOTAsynchronousMetric
 { #category : 'testing' }
 OTMetricReader >> isShutdown [
 
-	^ shutdown
+	^ stateLock critical: [ shutdown = true ]
+]
+
+{ #category : 'testing' }
+OTMetricReader >> isStopping [
+
+	^ stateLock critical: [ shutdownRequested = true ]
 ]
 
 { #category : 'collecting' }
@@ -285,7 +330,7 @@ OTMetricReader >> lastAsynchronousValuesByInstrument [
 { #category : 'collecting' }
 OTMetricReader >> lastAsynchronousValuesFor: anOTMetricInstrument [
 
-	^ self lastAsynchronousValuesByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]
+	^ self withLastAsynchronousValuesFor: anOTMetricInstrument do: [ :values | values copy ]
 ]
 
 { #category : 'collecting' }
@@ -297,13 +342,13 @@ OTMetricReader >> lastCollectionTimestampByInstrument [
 { #category : 'collecting' }
 OTMetricReader >> lastCollectionTimestampFor: anOTMetricInstrument [
 
-	^ self lastCollectionTimestampByInstrument at: anOTMetricInstrument ifAbsent: [ nil ]
+	^ stateLock critical: [ (self lastCollectionTimestampByInstrument at: anOTMetricInstrument ifAbsent: [ nil ]) ]
 ]
 
 { #category : 'collecting' }
 OTMetricReader >> markCollectedAt: aDateAndTime forInstruments: someInstruments [
 
-	someInstruments do: [ :each | self lastCollectionTimestampByInstrument at: each put: aDateAndTime ]
+	stateLock critical: [ someInstruments do: [ :each | self lastCollectionTimestampByInstrument at: each put: aDateAndTime ] ]
 ]
 
 { #category : 'collecting' }
@@ -425,9 +470,15 @@ OTMetricReader >> noteAsynchronousCallbackError: anError for: anOTAsynchronousMe
 { #category : 'private - logging' }
 OTMetricReader >> noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument [
 
+	self noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument timeoutMillis: self callbackTimeoutMillis
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument timeoutMillis: anInteger [
+
 	self callbackWarningSink value:
 		'OpenTelemetry asynchronous metric callback timed out for instrument ' , anOTAsynchronousMetricInstrument name printString
-		, ' after ' , self callbackTimeoutMillis asString , ' ms'
+		, ' after ' , anInteger asString , ' ms'
 ]
 
 { #category : 'private - logging' }
@@ -438,9 +489,8 @@ OTMetricReader >> noteConflictingMetricIdentitiesIn: someMetrics [
 	someMetrics do: [ :each |
 		(groupedMetrics at: (self metricIdentityKeyFor: each) ifAbsentPut: [ OrderedCollection new ]) add: each ].
 	groupedMetrics associationsDo: [ :each |
-			(each value size > 1 and: [ (warnedMetricIdentityConflicts includes: each key) not ]) ifTrue: [
-					warnedMetricIdentityConflicts add: each key.
-					self noteMetricIdentityConflictFor: each value ] ]
+			(self shouldWarnAboutMetricIdentityConflictAt: each key whenMetricCountIs: each value size)
+				ifTrue: [ self noteMetricIdentityConflictFor: each value ] ]
 ]
 
 { #category : 'private - logging' }
@@ -481,13 +531,13 @@ OTMetricReader >> overflowAttributes [
 { #category : 'accessing' }
 OTMetricReader >> provider [
 
-	^ provider
+	^ stateLock critical: [ provider ]
 ]
 
 { #category : 'accessing' }
 OTMetricReader >> provider: anOTMeterProvider [
 
-	provider := anOTMeterProvider
+	stateLock critical: [ provider := anOTMeterProvider ]
 ]
 
 { #category : 'collecting' }
@@ -505,7 +555,7 @@ OTMetricReader >> selectedAttributeSetsByStream [
 { #category : 'collecting' }
 OTMetricReader >> selectedAttributeSetsForStateKey: aStateKey [
 
-	^ self selectedAttributeSetsByStream at: aStateKey ifAbsentPut: [ OrderedCollection new ]
+	^ self withSelectedAttributeSetsForStateKey: aStateKey do: [ :selectedAttributeSets | selectedAttributeSets copy ]
 ]
 
 { #category : 'collecting' }
@@ -522,8 +572,19 @@ OTMetricReader >> selectedMeasurementsFrom: someMeasurements for: anOTMetricInst
 { #category : 'lifecycle' }
 OTMetricReader >> shutdown [
 
-	shutdown := true.
+	(self beginShutdown) ifFalse: [ ^ false ].
+	self finishShutdown.
 	^ true
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> shouldWarnAboutMetricIdentityConflictAt: aMetricIdentityKey whenMetricCountIs: anInteger [
+
+	^ stateLock critical: [
+			  anInteger <= 1 ifTrue: [ ^ false ].
+			  (warnedMetricIdentityConflicts includes: aMetricIdentityKey) ifTrue: [ ^ false ].
+			  warnedMetricIdentityConflicts add: aMetricIdentityKey.
+			  true ]
 ]
 
 { #category : 'collecting' }
@@ -539,11 +600,27 @@ OTMetricReader >> temporalityFor: anOTMetricInstrument [
 { #category : 'accessing' }
 OTMetricReader >> temporalitySelector [
 
-	^ temporalitySelector ifNil: [ self defaultTemporalitySelector ]
+	^ stateLock critical: [ temporalitySelector ifNil: [ self defaultTemporalitySelector ] ]
 ]
 
 { #category : 'accessing' }
 OTMetricReader >> temporalitySelector: aBlockOrNil [
 
-	temporalitySelector := aBlockOrNil
+	stateLock critical: [
+		self ensureOpenLocked.
+		temporalitySelector := aBlockOrNil ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> withLastAsynchronousValuesFor: anOTMetricInstrument do: aBlock [
+
+	^ stateLock critical: [
+			  aBlock value: (self lastAsynchronousValuesByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]) ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> withSelectedAttributeSetsForStateKey: aStateKey do: aBlock [
+
+	^ stateLock critical: [
+			  aBlock value: (self selectedAttributeSetsByStream at: aStateKey ifAbsentPut: [ OrderedCollection new ]) ]
 ]

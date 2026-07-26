@@ -27,9 +27,10 @@ OTPeriodicExportingMetricReader class >> exporter: anOTMetricExporter [
 { #category : 'collecting' }
 OTPeriodicExportingMetricReader >> collect [
 
-	self isShutdown ifTrue: [ ^ OTMetricSnapshot empty ].
+	self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
 	^ exportLock critical: [
 			  | snapshot |
+			  self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
 			  snapshot := self collectSnapshot.
 			  self exporter export: snapshot.
 			  snapshot ]
@@ -63,7 +64,7 @@ OTPeriodicExportingMetricReader >> exportIntervalMillis [
 OTPeriodicExportingMetricReader >> exportIntervalMillis: anInteger [
 
 	exportIntervalMillis := anInteger ifNil: [ 60000 ] ifNotNil: [ anInteger max: 1 ].
-	provider ifNotNil: [ self restartExportProcess ].
+	self provider ifNotNil: [ self restartExportProcess ].
 	^ self exportIntervalMillis
 ]
 
@@ -102,9 +103,10 @@ OTPeriodicExportingMetricReader >> exporter: anOTMetricExporter [
 { #category : 'lifecycle' }
 OTPeriodicExportingMetricReader >> forceFlush [
 
-	self isShutdown ifTrue: [ ^ false ].
+	self isStopping ifTrue: [ ^ false ].
 	^ exportLock critical: [
 			  | exportResult flushResult snapshot |
+			  self isStopping ifTrue: [ ^ false ].
 			  snapshot := self collectSnapshot.
 			  exportResult := self exporter export: snapshot.
 			  flushResult := self exporter forceFlush.
@@ -131,31 +133,36 @@ OTPeriodicExportingMetricReader >> restartExportProcess [
 OTPeriodicExportingMetricReader >> shutdown [
 
 	| exporterResult |
-	self isShutdown ifTrue: [ ^ false ].
+	(self beginShutdown) ifFalse: [ ^ false ].
 	self stopExportProcess.
 	exporterResult := exportLock critical: [ self exporter shutdown ].
-	super shutdown.
+	self finishShutdown.
 	^ exporterResult
 ]
 
 { #category : 'private - lifecycle' }
 OTPeriodicExportingMetricReader >> startExportProcess [
 
-	self isShutdown ifTrue: [ ^ nil ].
-	exportProcess ifNotNil: [ ^ exportProcess ].
-	exportProcess := [
-		                 [ self isShutdown ] whileFalse: [
-				                 (Delay forMilliseconds: self exportIntervalMillis) wait.
-				                 self isShutdown ifFalse: [ self collect ] ] ] forkAt: Processor userBackgroundPriority.
-	^ exportProcess
+	^ exportLock critical: [
+			  self isStopping ifTrue: [ ^ nil ].
+			  exportProcess ifNotNil: [ ^ exportProcess ].
+			  exportProcess := [
+				                   [ self isStopping ] whileFalse: [
+						                   (Delay forMilliseconds: self exportIntervalMillis) wait.
+						                   self isStopping ifFalse: [ self collect ] ] ]
+					                   forkAt: Processor userBackgroundPriority.
+			  exportProcess ]
 ]
 
 { #category : 'private - lifecycle' }
 OTPeriodicExportingMetricReader >> stopExportProcess [
 
 	| process |
-	process := exportProcess.
-	exportProcess := nil.
+	process := exportLock critical: [
+			           | runningProcess |
+			           runningProcess := exportProcess.
+			           exportProcess := nil.
+			           runningProcess ].
 	process ifNotNil: [ process terminate ].
 	^ nil
 ]

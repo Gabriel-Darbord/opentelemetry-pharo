@@ -30,6 +30,32 @@ OTPrometheusMetricReaderTest >> testCollectUsesCumulativeTemporality [
 ]
 
 { #category : 'tests' }
+OTPrometheusMetricReaderTest >> testConcurrentShutdownReturnsTrueOnce [
+
+	| done gate lock results workerCount |
+	provider := OTMeterProvider new.
+	reader := OTPrometheusMetricReader new.
+	reader port: 0.
+	provider addMetricReader: reader.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: reader shutdown ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: (results count: [ :each | each = true ]) equals: 1.
+	self assert: (results count: [ :each | each = false ]) equals: workerCount - 1.
+	self assert: reader isShutdown.
+	self assert: reader server isNil
+]
+
+{ #category : 'tests' }
 OTPrometheusMetricReaderTest >> testResponseFormatForAcceptHeaderUsesHighestWeightedSupportedFormat [
 
 	reader := OTPrometheusMetricReader new.

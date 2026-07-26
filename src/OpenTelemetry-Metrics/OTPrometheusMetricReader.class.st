@@ -19,10 +19,16 @@ Class {
 { #category : 'private - http' }
 OTPrometheusMetricReader >> bindingAddressForHost [
 
-	host ifNil: [ ^ #[ 127 0 0 1 ] ].
-	(host sameAs: 'localhost') ifTrue: [ ^ #[ 127 0 0 1 ] ].
-	host = '0.0.0.0' ifTrue: [ ^ nil ].
-	^ [ NetNameResolver addressForName: host timeout: 5 ]
+	^ self bindingAddressForHost: self host
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> bindingAddressForHost: aHostString [
+
+	aHostString ifNil: [ ^ #[ 127 0 0 1 ] ].
+	(aHostString sameAs: 'localhost') ifTrue: [ ^ #[ 127 0 0 1 ] ].
+	aHostString = '0.0.0.0' ifTrue: [ ^ nil ].
+	^ [ NetNameResolver addressForName: aHostString timeout: 5 ]
 		  on: NameLookupFailure
 		  do: [ #[ 127 0 0 1 ] ]
 ]
@@ -63,13 +69,15 @@ OTPrometheusMetricReader >> didRegisterWithProvider [
 { #category : 'accessing' }
 OTPrometheusMetricReader >> encoder [
 
-	^ encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]
+	^ stateLock critical: [ encoder ifNil: [ encoder := OTPrometheusTextEncoder new ] ]
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> encoder: anOTPrometheusTextEncoder [
 
-	encoder := anOTPrometheusTextEncoder
+	stateLock critical: [
+		self ensureOpenLocked.
+		encoder := anOTPrometheusTextEncoder ]
 ]
 
 { #category : 'private - http' }
@@ -83,13 +91,15 @@ OTPrometheusMetricReader >> handleRequest: aZnRequest [
 { #category : 'accessing' }
 OTPrometheusMetricReader >> host [
 
-	^ host ifNil: [ 'localhost' ]
+	^ stateLock critical: [ host ifNil: [ 'localhost' ] ]
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> host: aString [
 
-	host := aString ifNil: [ 'localhost' ] ifNotNil: [ aString asString ]
+	stateLock critical: [
+		self ensureOpenLocked.
+		host := aString ifNil: [ 'localhost' ] ifNotNil: [ aString asString ] ]
 ]
 
 { #category : 'initialization' }
@@ -122,7 +132,7 @@ OTPrometheusMetricReader >> metricsResponseForFormat: aFormatSymbol [
 { #category : 'accessing' }
 OTPrometheusMetricReader >> path [
 
-	^ path ifNil: [ '/metrics' ]
+	^ stateLock critical: [ path ifNil: [ '/metrics' ] ]
 ]
 
 { #category : 'accessing' }
@@ -130,24 +140,28 @@ OTPrometheusMetricReader >> path: aString [
 
 	| normalized |
 	normalized := aString ifNil: [ '/metrics' ] ifNotNil: [ aString asString ].
-	path := normalized isEmpty
-		        ifTrue: [ '/metrics' ]
-		        ifFalse: [
-				        normalized first = $/
-					        ifTrue: [ normalized ]
-					        ifFalse: [ '/' , normalized ] ]
+	stateLock critical: [
+		self ensureOpenLocked.
+		path := normalized isEmpty
+			        ifTrue: [ '/metrics' ]
+			        ifFalse: [
+					        normalized first = $/
+						        ifTrue: [ normalized ]
+						        ifFalse: [ '/' , normalized ] ] ]
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> port [
 
-	^ port ifNil: [ 9464 ]
+	^ stateLock critical: [ port ifNil: [ 9464 ] ]
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> port: anInteger [
 
-	port := anInteger ifNil: [ 9464 ] ifNotNil: [ anInteger max: 0 ]
+	stateLock critical: [
+		self ensureOpenLocked.
+		port := anInteger ifNil: [ 9464 ] ifNotNil: [ anInteger max: 0 ] ]
 ]
 
 { #category : 'private - http' }
@@ -180,40 +194,59 @@ OTPrometheusMetricReader >> scrapeTextForFormat: aFormatSymbol [
 { #category : 'accessing' }
 OTPrometheusMetricReader >> server [
 
-	^ server
+	^ stateLock critical: [ server ]
 ]
 
 { #category : 'lifecycle' }
 OTPrometheusMetricReader >> shutdown [
 
-	| result |
+	(self beginShutdown) ifFalse: [ ^ false ].
 	self stopServer.
-	result := super shutdown.
-	^ result
+	self finishShutdown.
+	^ true
 ]
 
 { #category : 'private - http' }
 OTPrometheusMetricReader >> startServer [
 
-	| bindingAddress newServer |
-	self isShutdown ifTrue: [ ^ nil ].
-	server ifNotNil: [ ^ server ].
-	newServer := ZnServer defaultServerClass on: self port.
+	| bindingAddress hostValue newServer portValue runningServer snapshot |
+	snapshot := stateLock critical: [
+		            (shutdownRequested or: [ shutdown ]) ifTrue: [ ^ nil ].
+		            server ifNotNil: [ ^ server ].
+		            {
+			            host ifNil: [ 'localhost' ].
+			            port ifNil: [ 9464 ] } ].
+	hostValue := snapshot first.
+	portValue := snapshot second.
+	newServer := ZnServer defaultServerClass on: portValue.
 	newServer delegate: self.
-	bindingAddress := self bindingAddressForHost.
+	bindingAddress := self bindingAddressForHost: hostValue.
 	bindingAddress ifNotNil: [ newServer bindingAddress: bindingAddress ].
 	newServer start.
-	server := newServer.
-	port := newServer port.
-	^ server
+	runningServer := stateLock critical: [
+			                 shutdownRequested ifTrue: [ nil ] ifFalse: [
+					                 server ifNil: [
+							                 server := newServer.
+							                 port := newServer port.
+							                 server ] ifNotNil: [ server ] ] ].
+	runningServer ifNil: [
+			newServer stop.
+			^ nil ].
+	runningServer == newServer ifTrue: [ ^ runningServer ].
+	newServer stop.
+	^ runningServer
 ]
 
 { #category : 'private - http' }
 OTPrometheusMetricReader >> stopServer [
 
-	server ifNotNil: [
-			server stop.
-			server := nil ].
+	| runningServer |
+	runningServer := stateLock critical: [
+			                 | previousServer |
+			                 previousServer := server.
+			                 server := nil.
+			                 previousServer ].
+	runningServer ifNotNil: [ runningServer stop ].
 	^ nil
 ]
 
