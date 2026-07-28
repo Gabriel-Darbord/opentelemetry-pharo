@@ -113,11 +113,19 @@ OTOtlpHttpJsonMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 ]
 
 { #category : 'tests' }
-OTOtlpHttpJsonMetricExporterTest >> testExportReturnsFalseAfterShutdown [
+OTOtlpHttpJsonMetricExporterTest >> testExportEncodesNonFiniteNumbersAsJsonStrings [
 
-	self assert: exporter shutdown.
-	self deny: (exporter export: self sampleSnapshot).
-	self assert: client executionCount equals: 0
+	| payload point resourceMetrics scopeMetrics snapshot |
+	snapshot := self sampleSnapshot.
+	point := snapshot metrics first points first.
+	point value: Float nan.
+	snapshot metrics first metadata: { ('limit' -> Float negativeInfinity) }.
+	self assert: (exporter export: snapshot).
+	payload := self payloadFromClientEntity.
+	resourceMetrics := (payload at: 'resourceMetrics') first.
+	scopeMetrics := (resourceMetrics at: 'scopeMetrics') first.
+	self assert: ((((scopeMetrics at: 'metrics') first at: 'sum') at: 'dataPoints') first at: 'asDouble') equals: 'NaN'.
+	self assert: ((((scopeMetrics at: 'metrics') first at: 'metadata') first at: 'value') at: 'doubleValue') equals: '-Infinity'
 ]
 
 { #category : 'tests' }
@@ -137,6 +145,14 @@ OTOtlpHttpJsonMetricExporterTest >> testExportRetriesRetryableHttpResponsesUntil
 			self assert: client executionCount equals: 2.
 			self assert: retrySleeps asArray equals: #( 2000 ).
 			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testExportReturnsFalseAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self assert: client executionCount equals: 0
 ]
 
 { #category : 'tests' }

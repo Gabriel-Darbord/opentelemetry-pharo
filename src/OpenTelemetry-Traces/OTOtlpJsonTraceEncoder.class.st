@@ -24,7 +24,7 @@ OTOtlpJsonTraceEncoder >> anyValueDataFor: anObject [
 			data at: 'intValue' put: anObject asString.
 			^ data ].
 	anObject isNumber ifTrue: [
-			data at: 'doubleValue' put: anObject asFloat.
+			data at: 'doubleValue' put: (self jsonDoubleValueFor: anObject).
 			^ data ].
 	(anObject isKindOf: ByteArray) ifTrue: [
 			data at: 'bytesValue' put: anObject base64Encoded.
@@ -92,6 +92,19 @@ OTOtlpJsonTraceEncoder >> groupedSpansFrom: someSpans [
 			scopeGroups := groupedSpans at: resource ifAbsentPut: [ OrderedDictionary new ].
 			(scopeGroups at: scope ifAbsentPut: [ OrderedCollection new ]) add: eachSpan ].
 	^ groupedSpans
+]
+
+{ #category : 'private - encoding' }
+OTOtlpJsonTraceEncoder >> jsonDoubleValueFor: aNumber [
+
+	| value |
+	value := aNumber asFloat.
+	value isNaN ifTrue: [ ^ 'NaN' ].
+	value isInfinite ifTrue: [
+			^ value > 0
+				  ifTrue: [ 'Infinity' ]
+				  ifFalse: [ '-Infinity' ] ].
+	^ value
 ]
 
 { #category : 'private - encoding' }

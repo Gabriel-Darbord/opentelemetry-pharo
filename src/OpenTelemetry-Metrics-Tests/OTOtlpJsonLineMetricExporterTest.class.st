@@ -37,6 +37,28 @@ OTOtlpJsonLineMetricExporterTest >> testFileExporterAppendsOneJsonLinePerExport 
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterEncodesNonFiniteNumbersAsJsonStrings [
+
+	| line payload point scopeMetrics snapshot |
+	snapshot := self sampleSnapshot.
+	point := snapshot metrics second points first.
+	point value: Float infinity.
+	self assert: (exporter export: snapshot).
+	line := exporter writtenLines first.
+	payload := STONJSON fromString: line allButLast.
+	scopeMetrics := ((payload at: 'resourceMetrics') first at: 'scopeMetrics') first.
+	self assert: ((((scopeMetrics at: 'metrics') second at: 'gauge') at: 'dataPoints') first at: 'asDouble') equals: 'Infinity'
+]
+
+{ #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self assert: exporter writtenLines isEmpty
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerExport [
 
 	| line payload |
@@ -46,12 +68,4 @@ OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterWritesOneValidJsonLinePe
 	self assert: line last equals: Character lf.
 	payload := STONJSON fromString: line allButLast.
 	self assert: (payload at: 'resourceMetrics') size equals: 1
-]
-
-{ #category : 'tests' }
-OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseAfterShutdown [
-
-	self assert: exporter shutdown.
-	self deny: (exporter export: self sampleSnapshot).
-	self assert: exporter writtenLines isEmpty
 ]

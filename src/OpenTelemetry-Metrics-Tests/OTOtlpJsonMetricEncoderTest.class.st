@@ -281,3 +281,67 @@ OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotProducesSummaryJsonPayload [
 	self assert: (quantiles second at: 'quantile') equals: 0.9.
 	self assert: (quantiles second at: 'value') equals: 2.5
 ]
+
+{ #category : 'tests' }
+OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotRepresentsNonFiniteHistogramAndMetricNumbersAsJsonStrings [
+
+	| gauge histogram histogramPoint metadata payload resourceMetrics scopeMetrics snapshot valuesByKey |
+	snapshot := self sampleSnapshot.
+	snapshot metrics first metadata: { ('limit' -> Float infinity) }.
+	snapshot metrics second points first value: Float nan.
+	histogramPoint := snapshot metrics third points first.
+	histogramPoint
+		sum: Float negativeInfinity;
+		min: Float infinity;
+		max: Float nan;
+		explicitBounds: {
+				10.0.
+				Float infinity }.
+	payload := encoder encodeSnapshot: snapshot.
+	resourceMetrics := (payload at: 'resourceMetrics') first.
+	scopeMetrics := (resourceMetrics at: 'scopeMetrics') first.
+	metadata := (scopeMetrics at: 'metrics') first at: 'metadata'.
+	valuesByKey := self attributeValuesByKeyFrom: metadata.
+	self assert: ((valuesByKey at: 'limit') at: 'doubleValue') equals: 'Infinity'.
+	gauge := (scopeMetrics at: 'metrics') second.
+	self assert: (((gauge at: 'gauge') at: 'dataPoints') first at: 'asDouble') equals: 'NaN'.
+	histogram := (((scopeMetrics at: 'metrics') third at: 'histogram') at: 'dataPoints') first.
+	self assert: (histogram at: 'sum') equals: '-Infinity'.
+	self assert: (histogram at: 'min') equals: 'Infinity'.
+	self assert: (histogram at: 'max') equals: 'NaN'.
+	self assert: (histogram at: 'explicitBounds') second equals: 'Infinity'
+]
+
+{ #category : 'tests' }
+OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotRepresentsNonFiniteSummaryAndExponentialHistogramNumbersAsJsonStrings [
+
+	| dataPoint exponential payload quantiles resourceMetrics scopeMetrics snapshot |
+	snapshot := self sampleSummarySnapshot.
+	snapshot metrics first points first
+		sum: Float nan;
+		quantileValues: {
+				(OTSummaryQuantileValue quantile: 0.5 value: Float infinity).
+				(OTSummaryQuantileValue quantile: 0.9 value: Float negativeInfinity) }.
+	payload := encoder encodeSnapshot: snapshot.
+	resourceMetrics := (payload at: 'resourceMetrics') first.
+	scopeMetrics := (resourceMetrics at: 'scopeMetrics') first.
+	dataPoint := (((scopeMetrics at: 'metrics') first at: 'summary') at: 'dataPoints') first.
+	self assert: (dataPoint at: 'sum') equals: 'NaN'.
+	quantiles := dataPoint at: 'quantileValues'.
+	self assert: (quantiles first at: 'value') equals: 'Infinity'.
+	self assert: (quantiles second at: 'value') equals: '-Infinity'.
+	snapshot := self sampleExponentialHistogramSnapshot.
+	snapshot metrics first points first
+		sum: Float infinity;
+		min: Float negativeInfinity;
+		max: Float nan;
+		zeroThreshold: Float infinity.
+	payload := encoder encodeSnapshot: snapshot.
+	resourceMetrics := (payload at: 'resourceMetrics') first.
+	scopeMetrics := (resourceMetrics at: 'scopeMetrics') first.
+	exponential := (((scopeMetrics at: 'metrics') first at: 'exponentialHistogram') at: 'dataPoints') first.
+	self assert: (exponential at: 'sum') equals: 'Infinity'.
+	self assert: (exponential at: 'min') equals: '-Infinity'.
+	self assert: (exponential at: 'max') equals: 'NaN'.
+	self assert: (exponential at: 'zeroThreshold') equals: 'Infinity'
+]
