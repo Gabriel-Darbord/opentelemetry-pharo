@@ -147,7 +147,6 @@ OTPeriodicExportingMetricReader >> forceFlush [
 			  self isStopping ifTrue: [ ^ false ].
 			  snapshot := self collectSnapshot.
 			  exportResult := self exportSnapshot: snapshot.
-			  exportResult ifFalse: [ ^ false ].
 			  flushResult := self runExporterOperation: [ self exporter forceFlush ].
 			  exportResult & flushResult ]
 ]

@@ -1045,7 +1045,7 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushHonorsExportTi
 	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
 	[
 		self deny: reader forceFlush.
-		self assert: exporter forceFlushCount equals: 0 ] ensure: [ exporter allowExportToContinue ]
+		self assert: exporter forceFlushCount equals: 1 ] ensure: [ exporter allowExportToContinue ]
 ]
 
 { #category : 'tests' }
