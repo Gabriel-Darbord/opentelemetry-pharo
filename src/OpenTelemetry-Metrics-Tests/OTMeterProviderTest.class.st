@@ -1089,6 +1089,40 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderOverrideWinsOverExporter
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderSerializesConcurrentCollectExports [
+
+	| done errors exporter firstSnapshot secondSnapshot provider reader |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	done := Semaphore new.
+	errors := OrderedCollection new.
+	[
+		[ firstSnapshot := reader collect ]
+			on: Error
+			do: [ :anError | errors add: anError ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForExportEntryWithin: 100).
+	[
+		[ secondSnapshot := reader collect ]
+			on: Error
+			do: [ :anError | errors add: anError ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForExportEntryWithin: 20) not.
+	exporter allowExportToContinue.
+	self assert: (exporter waitForExportEntryWithin: 100).
+	exporter allowExportToContinue.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: errors isEmpty.
+	self assert: firstSnapshot metrics size equals: 1.
+	self assert: secondSnapshot metrics size equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownShutsDownExporter [
 
 	| exporter provider reader |
