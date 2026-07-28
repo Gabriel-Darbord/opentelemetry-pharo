@@ -801,6 +801,27 @@ OTMeterProviderTest >> testMeterWarnsAndReusesFirstSeenNameCasing [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForDescriptionConflictIncludesViewResolutionHint [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: 'First'
+				advice: Dictionary new.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: 'Second'
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'streamDescription:').
+			self assert: (warnings first includesSubstring: 'Second') ]
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterWarnsOnDuplicateInstrumentRegistrationWithDifferentDescription [
 
 	self withInstrumentWarningsDo: [ :warnings |
@@ -821,6 +842,28 @@ OTMeterProviderTest >> testMeterWarnsOnDuplicateInstrumentRegistrationWithDiffer
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForKindConflictIncludesRenamingViewRecipe [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: ''
+				advice: Dictionary new.
+			meter
+				gaugeNamed: 'requests.total'
+				unit: '1'
+				description: ''
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'streamName:').
+			self assert: (warnings first includesSubstring: 'instrumentType:').
+			self assert: (warnings first includesSubstring: 'gauge') ]
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterWarnsOnInvalidInstrumentNamesAndPreservesOriginalText [
 
 	self withInstrumentWarningsDo: [ :warnings |
@@ -833,6 +876,28 @@ OTMeterProviderTest >> testMeterWarnsOnInvalidInstrumentNamesAndPreservesOrigina
 				              advice: Dictionary new.
 			self assert: instrument name equals: '1 requests'.
 			self assert: warnings size equals: 1 ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForUnitConflictFallsBackToGenericMessage [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: 's'
+				description: ''
+				advice: Dictionary new.
+			meter
+				counterNamed: 'requests.total'
+				unit: 'ms'
+				description: ''
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self deny: (warnings first includesSubstring: 'streamDescription:').
+			self deny: (warnings first includesSubstring: 'streamName:').
+			self assert: (warnings first includesSubstring: 'Requested instrument:') ]
 ]
 
 { #category : 'tests' }
