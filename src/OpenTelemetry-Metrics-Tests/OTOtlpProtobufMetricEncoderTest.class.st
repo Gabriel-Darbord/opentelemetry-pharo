@@ -140,3 +140,38 @@ OTOtlpProtobufMetricEncoderTest >> testWriteSummaryDataPointEncodesCountSumAndQu
 	self assertReader: quantileReader readsField: 2 wireType: 1.
 	self assert: quantileReader readDouble equals: 1.5
 ]
+
+{ #category : 'tests' }
+OTOtlpProtobufMetricEncoderTest >> testWriteSummaryDataPointNormalizesNegativeQuantileValuesToZero [
+
+	| point quantileReader reader writer |
+	point := OTSummaryDataPoint
+		         attributes: { ('method' -> 'GET') }
+		         count: 2
+		         sum: 3.0
+		         quantileValues: {
+				         (OTSummaryQuantileValue quantile: 0.5 value: 1.5).
+				         (OTSummaryQuantileValue quantile: 0.9 value: Float negativeInfinity) }
+		         startTimestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 1)
+		         timestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 2).
+	writer := OTProtobufWriter withBytes.
+	encoder writeSummaryDataPoint: point on: writer.
+	reader := OTProtobufReader on: writer contents.
+	self assertReader: reader readsField: 7 wireType: 2.
+	reader readBytes.
+	self assertReader: reader readsField: 2 wireType: 1.
+	reader readFixed64.
+	self assertReader: reader readsField: 3 wireType: 1.
+	reader readFixed64.
+	self assertReader: reader readsField: 4 wireType: 1.
+	reader readFixed64.
+	self assertReader: reader readsField: 5 wireType: 1.
+	reader readDouble.
+	reader readTag.
+	reader readBytes.
+	quantileReader := OTProtobufReader on: (self bytesForFieldNumber: 6 fromReader: reader).
+	self assertReader: quantileReader readsField: 1 wireType: 1.
+	self assert: quantileReader readDouble equals: 0.9.
+	self assertReader: quantileReader readsField: 2 wireType: 1.
+	self assert: quantileReader readDouble equals: 0.0
+]

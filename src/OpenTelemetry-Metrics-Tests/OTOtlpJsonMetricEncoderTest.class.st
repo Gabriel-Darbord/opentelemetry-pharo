@@ -329,7 +329,7 @@ OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotRepresentsNonFiniteSummaryAndEx
 	self assert: (dataPoint at: 'sum') equals: 'NaN'.
 	quantiles := dataPoint at: 'quantileValues'.
 	self assert: (quantiles first at: 'value') equals: 'Infinity'.
-	self assert: (quantiles second at: 'value') equals: '-Infinity'.
+	self assert: (quantiles second at: 'value') equals: 0.0.
 	snapshot := self sampleExponentialHistogramSnapshot.
 	snapshot metrics first points first
 		sum: Float infinity;
