@@ -166,6 +166,27 @@ OTMeterProviderTest >> testAsynchronousObservationOutsideCallbacksIsIgnored [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObserverAppliesOneTimestampPerCallback [
+
+	| measurements provider reader timestamps |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableGaugeNamed: 'runtime.memory'
+		callbacks: { [ :observer |
+				observer observe: 42 attributes: { ('state' -> 'used') }.
+				observer observe: 7 attributes: { ('state' -> 'free') } ] }
+		unit: 'By'
+		description: 'Runtime memory'
+		advice: Dictionary new.
+	measurements := reader collect.
+	self assert: measurements size equals: 2.
+	timestamps := measurements collect: [ :each | each timestamp ].
+	self assert: timestamps asSet size equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousObserverIgnoresNonFiniteMeasurements [
 
 	| measurement measurements provider reader |
