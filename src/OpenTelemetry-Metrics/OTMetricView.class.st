@@ -186,7 +186,7 @@ OTMetricView >> attributeKeys [
 { #category : 'accessing' }
 OTMetricView >> attributeKeys: aCollection [
 
-	attributeKeys := aCollection ifNil: [ nil ] ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+	attributeKeys := aCollection ifNotNil: [ aCollection collect: [ :each | each asString ] ]
 ]
 
 { #category : 'accessing' }
@@ -198,7 +198,7 @@ OTMetricView >> excludedAttributeKeys [
 { #category : 'accessing' }
 OTMetricView >> excludedAttributeKeys: aCollection [
 
-	excludedAttributeKeys := aCollection ifNil: [ nil ] ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+	excludedAttributeKeys := aCollection ifNotNil: [ aCollection collect: [ :each | each asString ] ]
 ]
 
 { #category : 'accessing' }
@@ -289,7 +289,7 @@ OTMetricView >> meterName [
 { #category : 'accessing' }
 OTMetricView >> meterName: aString [
 
-	meterName := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	meterName := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -301,7 +301,7 @@ OTMetricView >> meterSchemaUrl [
 { #category : 'accessing' }
 OTMetricView >> meterSchemaUrl: aString [
 
-	meterSchemaUrl := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	meterSchemaUrl := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -313,7 +313,7 @@ OTMetricView >> meterVersion [
 { #category : 'accessing' }
 OTMetricView >> meterVersion: aString [
 
-	meterVersion := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	meterVersion := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -325,7 +325,7 @@ OTMetricView >> namePattern [
 { #category : 'accessing' }
 OTMetricView >> namePattern: aString [
 
-	namePattern := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	namePattern := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'resolving' }
@@ -376,7 +376,7 @@ OTMetricView >> streamDescription [
 { #category : 'accessing' }
 OTMetricView >> streamDescription: aString [
 
-	streamDescription := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	streamDescription := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -388,7 +388,7 @@ OTMetricView >> streamName [
 { #category : 'accessing' }
 OTMetricView >> streamName: aString [
 
-	streamName := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	streamName := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -400,7 +400,7 @@ OTMetricView >> unit [
 { #category : 'accessing' }
 OTMetricView >> unit: aString [
 
-	unit := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	unit := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'matching' }

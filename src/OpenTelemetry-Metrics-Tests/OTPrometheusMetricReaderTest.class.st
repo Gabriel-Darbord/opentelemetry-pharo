@@ -77,8 +77,8 @@ OTPrometheusMetricReaderTest >> testConcurrentShutdownReturnsTrueOnce [
 				done signal ] forkAt: Processor userBackgroundPriority ].
 	workerCount timesRepeat: [ gate signal ].
 	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
-	self assert: (results count: [ :each | each = true ]) equals: 1.
-	self assert: (results count: [ :each | each = false ]) equals: workerCount - 1.
+	self assert: (results count: [ :each | each ]) equals: 1.
+	self assert: (results count: [ :each | each not ]) equals: workerCount - 1.
 	self assert: reader isShutdown.
 	self assert: reader server isNil
 ]

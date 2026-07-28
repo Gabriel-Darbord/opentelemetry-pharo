@@ -47,8 +47,7 @@ OTSpanBuilder class >> normalizedParentContextFrom: aContext [
 OTSpanBuilder class >> noteInvalidParentContext: anObject [
 
 	self parentContextWarningSink value:
-		'OpenTelemetry span builder ignored an invalid parent context and used a root context instead: '
-		, (anObject ifNil: [ 'nil' ] ifNotNil: [ anObject printString ])
+		'OpenTelemetry span builder ignored an invalid parent context and used a root context instead: ' , anObject printString
 ]
 
 { #category : 'private - logging' }

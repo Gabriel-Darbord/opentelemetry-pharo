@@ -9,7 +9,7 @@ Class {
 OTMetricCardinalityLimitTest >> overflowPointFrom: somePoints [
 
 	^ somePoints
-		  detect: [ :each | (each attributes at: 'otel.metric.overflow' ifAbsent: [ false ]) = true ]
+		  detect: [ :each | each attributes at: 'otel.metric.overflow' ifAbsent: [ false ] ]
 		  ifNone: [ self fail: 'Expected an overflow point' ]
 ]
 

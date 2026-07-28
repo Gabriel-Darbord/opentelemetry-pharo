@@ -340,16 +340,21 @@ OTMeter >> noteDuplicateInstrumentRegistrationBetween: anExistingInstrument requ
 { #category : 'private - logging' }
 OTMeter >> noteDuplicateInstrumentRegistrationFor: anExistingInstrument conflictingAdvice: aDictionary [
 
-	self class instrumentWarningSink value:
-		'OpenTelemetry metric instrument registration reused first-seen advisory parameters for ' , anExistingInstrument class name
-		, ' ' , anExistingInstrument name printString , ': ' , aDictionary printString
+	self class instrumentWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry metric instrument registration reused first-seen advisory parameters for ';
+					 nextPutAll: anExistingInstrument class name;
+					 nextPut: Character space;
+					 print: anExistingInstrument name;
+					 nextPutAll: ': ';
+					 print: aDictionary ])
 ]
 
 { #category : 'private - logging' }
 OTMeter >> noteInvalidInstrumentName: aValue [
 
-	self class instrumentWarningSink value: 'OpenTelemetry metric instrument name was invalid and has been left unchanged: '
-		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self class instrumentWarningSink value:
+		'OpenTelemetry metric instrument name was invalid and has been left unchanged: ' , aValue printString
 ]
 
 { #category : 'accessing' }

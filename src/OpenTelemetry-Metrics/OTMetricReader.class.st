@@ -355,13 +355,13 @@ OTMetricReader >> invokeAsynchronousCallback: aBlock for: anOTAsynchronousMetric
 { #category : 'testing' }
 OTMetricReader >> isShutdown [
 
-	^ stateLock critical: [ shutdown = true ]
+	^ stateLock critical: [ shutdown ]
 ]
 
 { #category : 'testing' }
 OTMetricReader >> isStopping [
 
-	^ stateLock critical: [ shutdownRequested = true ]
+	^ stateLock critical: [ shutdownRequested ]
 ]
 
 { #category : 'collecting' }

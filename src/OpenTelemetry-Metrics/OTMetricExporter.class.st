@@ -79,13 +79,13 @@ OTMetricExporter >> initialize [
 { #category : 'testing' }
 OTMetricExporter >> isShutdown [
 
-	^ stateLock critical: [ shutdown = true ]
+	^ stateLock critical: [ shutdown ]
 ]
 
 { #category : 'testing' }
 OTMetricExporter >> isStopping [
 
-	^ stateLock critical: [ shutdownRequested = true ]
+	^ stateLock critical: [ shutdownRequested ]
 ]
 
 { #category : 'lifecycle' }

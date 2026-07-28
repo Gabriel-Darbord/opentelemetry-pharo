@@ -8,9 +8,17 @@ Class {
 { #category : 'tests' }
 OTMetricExporterTest >> testConcurrentForceFlushAndShutdownAreSafe [
 
-	| done errors exporter gate lock operations results |
+	| done errors exporter forceFlushResults gate lock operations results shutdownResults |
 	exporter := OTInMemoryMetricExporter new.
-	operations := #( forceFlush forceFlush forceFlush forceFlush shutdown shutdown shutdown shutdown ).
+	operations := {
+		              (#forceFlush -> [ exporter forceFlush ]).
+		              (#forceFlush -> [ exporter forceFlush ]).
+		              (#forceFlush -> [ exporter forceFlush ]).
+		              (#forceFlush -> [ exporter forceFlush ]).
+		              (#shutdown -> [ exporter shutdown ]).
+		              (#shutdown -> [ exporter shutdown ]).
+		              (#shutdown -> [ exporter shutdown ]).
+		              (#shutdown -> [ exporter shutdown ]) }.
 	results := OrderedCollection new.
 	errors := OrderedCollection new.
 	lock := Semaphore forMutualExclusion.
@@ -20,17 +28,18 @@ OTMetricExporterTest >> testConcurrentForceFlushAndShutdownAreSafe [
 			[
 				[
 					gate wait.
-					lock critical: [ results add: eachOperation -> (exporter perform: eachOperation) ] ]
+					lock critical: [ results add: eachOperation key -> eachOperation value value ] ]
 					on: Error
 					do: [ :anError | lock critical: [ errors add: anError ] ].
 				done signal ] forkAt: Processor userBackgroundPriority ].
 	operations size timesRepeat: [ gate signal ].
 	operations size timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	shutdownResults := results select: [ :each | each key = #shutdown ].
+	forceFlushResults := results select: [ :each | each key = #forceFlush ].
 	self assert: errors isEmpty.
-	self assert: ((results select: [ :each | each key = #shutdown ]) count: [ :each | each value = true ]) equals: 1.
-	self assert: ((results select: [ :each | each key = #shutdown ]) count: [ :each | each value = false ]) equals: 3.
-	self assert:
-		((results select: [ :each | each key = #forceFlush ]) allSatisfy: [ :each | each value = true or: [ each value = false ] ]).
+	self assert: (shutdownResults count: [ :each | each value ]) equals: 1.
+	self assert: (shutdownResults count: [ :each | each value not ]) equals: 3.
+	self assert: (forceFlushResults allSatisfy: [ :each | each value isKindOf: Boolean ]).
 	self assert: exporter isShutdown.
 	self assert: exporter forceFlushCount <= 4
 ]
@@ -52,8 +61,8 @@ OTMetricExporterTest >> testConcurrentShutdownReturnsTrueOnce [
 				done signal ] forkAt: Processor userBackgroundPriority ].
 	workerCount timesRepeat: [ gate signal ].
 	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
-	self assert: (results count: [ :each | each = true ]) equals: 1.
-	self assert: (results count: [ :each | each = false ]) equals: workerCount - 1.
+	self assert: (results count: [ :each | each ]) equals: 1.
+	self assert: (results count: [ :each | each not ]) equals: workerCount - 1.
 	self assert: exporter isShutdown
 ]
 

@@ -480,7 +480,7 @@ OTMeterProvider >> collectMeasurementsFor: anOTMetricReader [
 { #category : 'private - lifecycle' }
 OTMeterProvider >> ensureOpenLocked [
 
-	(shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ Error signal: 'This meter provider has been shut down' ].
+	(shutdownRequested or: [ shutdown ]) ifTrue: [ Error signal: 'This meter provider has been shut down' ].
 	self
 ]
 
@@ -505,7 +505,7 @@ OTMeterProvider >> forceFlush [
 	| snapshot |
 	snapshot := stateLock critical: [
 			            {
-				            (shutdownRequested = true or: [ shutdown = true ]).
+				            (shutdownRequested or: [ shutdown ]).
 				            metricReaders copy } ].
 	snapshot first ifTrue: [ ^ false ].
 	^ snapshot second allSatisfy: [ :each | each forceFlush ]
@@ -529,13 +529,13 @@ OTMeterProvider >> initialize [
 { #category : 'testing' }
 OTMeterProvider >> isShutdown [
 
-	^ stateLock critical: [ shutdown = true ]
+	^ stateLock critical: [ shutdown ]
 ]
 
 { #category : 'testing' }
 OTMeterProvider >> isStopping [
 
-	^ stateLock critical: [ shutdownRequested = true ]
+	^ stateLock critical: [ shutdownRequested ]
 ]
 
 { #category : 'configuration' }
@@ -579,7 +579,7 @@ OTMeterProvider >> meterConfigFor: anOTInstrumentationScope [
 	configured := configurator value: anOTInstrumentationScope.
 	configured ifNil: [ ^ OTMeterConfig default ].
 	configured class = OTMeterConfig ifTrue: [ ^ configured copy ].
-	(configured == true or: [ configured == false ]) ifTrue: [ ^ OTMeterConfig enabled: configured ].
+	(configured isKindOf: Boolean) ifTrue: [ ^ OTMeterConfig enabled: configured ].
 	^ OTMeterConfig default
 ]
 
@@ -623,7 +623,7 @@ OTMeterProvider >> meterNamed: aString version: aVersionString schemaUrl: aSchem
 		            scope schemaUrl.
 		            scope allAttributes }.
 	^ stateLock critical: [
-			  (shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ ^ OTNoopMeter instance ].
+			  (shutdownRequested or: [ shutdown ]) ifTrue: [ ^ OTNoopMeter instance ].
 			  meter := meters at: meterKey ifAbsent: [ nil ].
 			  meter ifNotNil: [ ^ meter ].
 			  meter := OTMeter forProvider: self instrumentationScope: scope.
@@ -651,7 +651,7 @@ OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber att
 	anOTMetricInstrument enabled ifFalse: [ ^ false ].
 	measurement := self measurementFor: anOTMetricInstrument value: aNumber attributes: aCollection.
 	^ stateLock critical: [
-			  (shutdownRequested = true or: [ shutdown = true ])
+			  (shutdownRequested or: [ shutdown ])
 				  ifTrue: [ false ]
 				  ifFalse: [
 						  measurements add: measurement.
@@ -690,7 +690,7 @@ OTMeterProvider >> shutdown [
 	readers := #(  ).
 	alreadyStopping := stateLock critical: [
 			                   | stopping |
-			                   stopping := shutdownRequested = true or: [ shutdown = true ].
+			                   stopping := shutdownRequested or: [ shutdown ].
 			                   stopping ifFalse: [
 					                   shutdownRequested := true.
 					                   readers := metricReaders copy ].

@@ -63,7 +63,7 @@ OTMetricExemplar >> spanId [
 { #category : 'accessing' }
 OTMetricExemplar >> spanId: aString [
 
-	spanId := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	spanId := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -87,7 +87,7 @@ OTMetricExemplar >> traceId [
 { #category : 'accessing' }
 OTMetricExemplar >> traceId: aString [
 
-	traceId := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	traceId := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }

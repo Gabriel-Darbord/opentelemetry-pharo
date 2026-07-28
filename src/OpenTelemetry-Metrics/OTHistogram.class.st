@@ -301,7 +301,7 @@ OTHistogram >> recordMinMaxForAggregationContext: anOTMetricAggregationContext [
 
 	| recordMinMax |
 	recordMinMax := anOTMetricAggregationContext aggregationParameterAt: #recordMinMax ifAbsent: [ nil ].
-	(recordMinMax == true or: [ recordMinMax == false ]) ifTrue: [ ^ recordMinMax ].
+	(recordMinMax isKindOf: Boolean) ifTrue: [ ^ recordMinMax ].
 	^ true
 ]
 
