@@ -131,22 +131,6 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredExemplarFilter 
 ]
 
 { #category : 'tests' }
-OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidExemplarFilterAndFallsBackToTraceBased [
-
-	self withWarningsDo: [ :warnings |
-			self
-				withEnvironmentValues: (Dictionary new
-						 at: 'OTEL_METRICS_EXEMPLAR_FILTER' put: 'loudly_maybe';
-						 yourself)
-				during: [ self assert: OTMeterProvider current exemplarFilter class identicalTo: OTTraceBasedMetricExemplarFilter ].
-			self assert: warnings size equals: 1.
-			self
-				assert: warnings first
-				equals:
-					'OpenTelemetry metrics exemplar filter was invalid and defaulted to trace_based: ''loudly_maybe''' ]
-]
-
-{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredMetricReaderIntervalAndTimeout [
 
 	self
@@ -421,6 +405,21 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesTraceBasedExemplarFilterB
 	self
 		withEnvironmentValues: Dictionary new
 		during: [ self assert: OTMeterProvider current exemplarFilter class identicalTo: OTTraceBasedMetricExemplarFilter ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidExemplarFilterAndFallsBackToTraceBased [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_METRICS_EXEMPLAR_FILTER' put: 'loudly_maybe';
+						 yourself)
+				during: [ self assert: OTMeterProvider current exemplarFilter class identicalTo: OTTraceBasedMetricExemplarFilter ].
+			self assert: warnings size equals: 1.
+			self
+				assert: warnings first
+				equals: 'OpenTelemetry metrics exemplar filter was invalid and defaulted to trace_based: ''loudly_maybe''' ]
 ]
 
 { #category : 'tests' }

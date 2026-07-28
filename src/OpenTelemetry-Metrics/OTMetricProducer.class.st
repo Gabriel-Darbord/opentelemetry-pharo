@@ -11,6 +11,12 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'accessing' }
+OTMetricProducer >> instrumentationScope [
+
+	^ OTInstrumentationScope named: self class name
+]
+
 { #category : 'collecting' }
 OTMetricProducer >> produce [
 
@@ -27,4 +33,28 @@ OTMetricProducer >> produceForReader: anOTMetricReader [
 OTMetricProducer >> produceForReader: anOTMetricReader metricFilter: anOTMetricFilter [
 
 	^ self produceForReader: anOTMetricReader
+]
+
+{ #category : 'collecting' }
+OTMetricProducer >> produceResult [
+
+	^ OTMetricBatchResult successSnapshot: self produce
+]
+
+{ #category : 'collecting' }
+OTMetricProducer >> produceResultForReader: anOTMetricReader [
+
+	^ self produceResult
+]
+
+{ #category : 'collecting' }
+OTMetricProducer >> produceResultForReader: anOTMetricReader metricFilter: anOTMetricFilter [
+
+	^ self produceResultForReader: anOTMetricReader
+]
+
+{ #category : 'collecting' }
+OTMetricProducer >> produceResultForReader: anOTMetricReader resource: anOTResource metricFilter: anOTMetricFilter [
+
+	^ self produceResultForReader: anOTMetricReader metricFilter: anOTMetricFilter
 ]

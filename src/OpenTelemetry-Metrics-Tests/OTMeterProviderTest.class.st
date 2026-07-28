@@ -106,6 +106,36 @@ OTMeterProviderTest >> testAsynchronousNoopInstrumentOperationsAreSafe [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObservableCounterCumulativeLateSeriesUsesPriorCollectionTimestampAsStartTimestamp [
+
+	| callbackValues firstPoint latePoint provider reader secondSnapshot |
+	callbackValues := OrderedDictionary new
+		                  at: '1001' put: 5;
+		                  yourself.
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableCounterNamed: 'runtime.page_faults'
+		callbacks:
+		{ [ :observer | callbackValues associationsDo: [ :each | observer observe: each value attributes: { ('pid' -> each key) } ] ] }
+		unit: '1'
+		description: 'Page faults'
+		advice: Dictionary new.
+	firstPoint := reader collectSnapshot metrics first points first.
+	callbackValues := OrderedDictionary new
+		                  at: '1001' put: 8;
+		                  at: '1002' put: 3;
+		                  yourself.
+	secondSnapshot := reader collectSnapshot.
+	latePoint := secondSnapshot metrics first points
+		             detect: [ :each | (each attributes at: 'pid') = '1002' ]
+		             ifNone: [ self fail: 'Expected late cumulative asynchronous series' ].
+	self assert: latePoint value equals: 3.
+	self assert: latePoint startTimestamp equals: firstPoint timestamp
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousObservableCounterCumulativeSnapshotKeepsStableStartTimestamp [
 
 	| callbackValue firstPoint provider reader secondPoint |
@@ -125,37 +155,6 @@ OTMeterProviderTest >> testAsynchronousObservableCounterCumulativeSnapshotKeepsS
 	self assert: firstPoint value equals: 5.
 	self assert: secondPoint value equals: 8.
 	self assert: secondPoint startTimestamp equals: firstPoint startTimestamp
-]
-
-{ #category : 'tests' }
-OTMeterProviderTest >> testAsynchronousObservableCounterCumulativeLateSeriesUsesPriorCollectionTimestampAsStartTimestamp [
-
-	| callbackValues firstPoint latePoint provider reader secondSnapshot |
-	callbackValues := OrderedDictionary new
-		                  at: '1001' put: 5;
-		                  yourself.
-	provider := OTMeterProvider new.
-	reader := OTInMemoryMetricReader new.
-	provider addMetricReader: reader.
-	(provider meterNamed: 'demo.metrics')
-		observableCounterNamed: 'runtime.page_faults'
-		callbacks: { [ :observer |
-				callbackValues associationsDo: [ :each |
-					observer observe: each value attributes: { ('pid' -> each key) } ] ] }
-		unit: '1'
-		description: 'Page faults'
-		advice: Dictionary new.
-	firstPoint := reader collectSnapshot metrics first points first.
-	callbackValues := OrderedDictionary new
-		                  at: '1001' put: 8;
-		                  at: '1002' put: 3;
-		                  yourself.
-	secondSnapshot := reader collectSnapshot.
-	latePoint := secondSnapshot metrics first points
-		             detect: [ :each | (each attributes at: 'pid') = '1002' ]
-		             ifNone: [ self fail: 'Expected late cumulative asynchronous series' ].
-	self assert: latePoint value equals: 3.
-	self assert: latePoint startTimestamp equals: firstPoint timestamp
 ]
 
 { #category : 'tests' }
@@ -724,6 +723,32 @@ OTMeterProviderTest >> testMeterProviderCachesByFullInstrumentationScope [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMeterProviderForceFlushResultCombinesReaderResults [
+
+	| provider reader result |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	result := provider forceFlushResult.
+	self assert: result isSuccess.
+	self assert: reader forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterProviderShutdownResultReturnsFailureOnSecondCall [
+
+	| first provider reader second |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	first := provider shutdownResult.
+	second := provider shutdownResult.
+	self assert: first isSuccess.
+	self assert: second isFailure.
+	self assert: reader shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterReturnsIdenticalInstrumentForIdenticalRegistration [
 
 	| first second meter |
@@ -756,6 +781,71 @@ OTMeterProviderTest >> testMeterReturnsRealInstrumentMetadata [
 	self assert: instrument unit equals: 'ms'.
 	self assert: instrument description equals: 'Request duration'.
 	self assert: (instrument advice at: 'attributes') equals: #( 'method' )
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForDescriptionConflictIncludesViewResolutionHint [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: 'First'
+				advice: Dictionary new.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: 'Second'
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'streamDescription:').
+			self assert: (warnings first includesSubstring: 'Second') ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForKindConflictIncludesRenamingViewRecipe [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: ''
+				advice: Dictionary new.
+			meter
+				gaugeNamed: 'requests.total'
+				unit: '1'
+				description: ''
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'streamName:').
+			self assert: (warnings first includesSubstring: 'instrumentType:').
+			self assert: (warnings first includesSubstring: 'gauge') ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForUnitConflictFallsBackToGenericMessage [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: 's'
+				description: ''
+				advice: Dictionary new.
+			meter
+				counterNamed: 'requests.total'
+				unit: 'ms'
+				description: ''
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self deny: (warnings first includesSubstring: 'streamDescription:').
+			self deny: (warnings first includesSubstring: 'streamName:').
+			self assert: (warnings first includesSubstring: 'Requested instrument:') ]
 ]
 
 { #category : 'tests' }
@@ -801,27 +891,6 @@ OTMeterProviderTest >> testMeterWarnsAndReusesFirstSeenNameCasing [
 ]
 
 { #category : 'tests' }
-OTMeterProviderTest >> testMeterWarningForDescriptionConflictIncludesViewResolutionHint [
-
-	self withInstrumentWarningsDo: [ :warnings |
-			| meter |
-			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
-			meter
-				counterNamed: 'requests.total'
-				unit: '1'
-				description: 'First'
-				advice: Dictionary new.
-			meter
-				counterNamed: 'requests.total'
-				unit: '1'
-				description: 'Second'
-				advice: Dictionary new.
-			self assert: warnings size equals: 1.
-			self assert: (warnings first includesSubstring: 'streamDescription:').
-			self assert: (warnings first includesSubstring: 'Second') ]
-]
-
-{ #category : 'tests' }
 OTMeterProviderTest >> testMeterWarnsOnDuplicateInstrumentRegistrationWithDifferentDescription [
 
 	self withInstrumentWarningsDo: [ :warnings |
@@ -842,28 +911,6 @@ OTMeterProviderTest >> testMeterWarnsOnDuplicateInstrumentRegistrationWithDiffer
 ]
 
 { #category : 'tests' }
-OTMeterProviderTest >> testMeterWarningForKindConflictIncludesRenamingViewRecipe [
-
-	self withInstrumentWarningsDo: [ :warnings |
-			| meter |
-			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
-			meter
-				counterNamed: 'requests.total'
-				unit: '1'
-				description: ''
-				advice: Dictionary new.
-			meter
-				gaugeNamed: 'requests.total'
-				unit: '1'
-				description: ''
-				advice: Dictionary new.
-			self assert: warnings size equals: 1.
-			self assert: (warnings first includesSubstring: 'streamName:').
-			self assert: (warnings first includesSubstring: 'instrumentType:').
-			self assert: (warnings first includesSubstring: 'gauge') ]
-]
-
-{ #category : 'tests' }
 OTMeterProviderTest >> testMeterWarnsOnInvalidInstrumentNamesAndPreservesOriginalText [
 
 	self withInstrumentWarningsDo: [ :warnings |
@@ -876,28 +923,6 @@ OTMeterProviderTest >> testMeterWarnsOnInvalidInstrumentNamesAndPreservesOrigina
 				              advice: Dictionary new.
 			self assert: instrument name equals: '1 requests'.
 			self assert: warnings size equals: 1 ]
-]
-
-{ #category : 'tests' }
-OTMeterProviderTest >> testMeterWarningForUnitConflictFallsBackToGenericMessage [
-
-	self withInstrumentWarningsDo: [ :warnings |
-			| meter |
-			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
-			meter
-				counterNamed: 'requests.total'
-				unit: 's'
-				description: ''
-				advice: Dictionary new.
-			meter
-				counterNamed: 'requests.total'
-				unit: 'ms'
-				description: ''
-				advice: Dictionary new.
-			self assert: warnings size equals: 1.
-			self deny: (warnings first includesSubstring: 'streamDescription:').
-			self deny: (warnings first includesSubstring: 'streamName:').
-			self assert: (warnings first includesSubstring: 'Requested instrument:') ]
 ]
 
 { #category : 'tests' }
@@ -1020,7 +1045,9 @@ OTMeterProviderTest >> testMetricSnapshotIgnoresInvalidExplicitBucketBoundariesA
 			histogramMetric := snapshot metrics first.
 			point := histogramMetric points first.
 			self deny: (instrument advice includesKey: 'ExplicitBucketBoundaries').
-			self assert: point explicitBounds equals: #( 0.0 5.0 10.0 25.0 50.0 75.0 100.0 250.0 500.0 750.0 1000.0 2500.0 5000.0 7500.0 10000.0 ).
+			self
+				assert: point explicitBounds
+				equals: #( 0.0 5.0 10.0 25.0 50.0 75.0 100.0 250.0 500.0 750.0 1000.0 2500.0 5000.0 7500.0 10000.0 ).
 			self assert: warnings size equals: 1.
 			self assert: (warnings first includesSubstring: 'ExplicitBucketBoundaries').
 			self assert: (warnings first includesSubstring: 'invalid and has been ignored') ]

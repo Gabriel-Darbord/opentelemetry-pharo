@@ -47,10 +47,8 @@ OTExponentialHistogramTest >> testReaderChoosesHighestExponentialHistogramScaleT
 						 ('max_scale' -> 5).
 						 ('max_size' -> 4) } asDictionary;
 				 yourself).
-	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
-		record: 1.
-	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
-		record: 2.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration') record: 1.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration') record: 2.
 	histogramMetric := reader collectSnapshot metrics first.
 	point := histogramMetric points first.
 	self assert: histogramMetric class identicalTo: OTExponentialHistogramMetricData.
@@ -119,12 +117,9 @@ OTExponentialHistogramTest >> testReaderUsesConfiguredMaxScaleWhenExponentialHis
 				 aggregation: #base2ExponentialBucketHistogram;
 				 aggregationParameters: { ('max_scale' -> 7) } asDictionary;
 				 yourself).
-	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
-		record: 0.
-	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
-		record: 1.
-	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
-		record: -2.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration') record: 0.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration') record: 1.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration') record: -2.
 	histogramMetric := reader collectSnapshot metrics first.
 	point := histogramMetric points first.
 	self assert: histogramMetric class identicalTo: OTExponentialHistogramMetricData.

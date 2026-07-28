@@ -23,7 +23,8 @@ Class {
 		'firstAsynchronousStartTimestampsByInstrument',
 		'metricProducers',
 		'metricFilter',
-		'collectLock'
+		'collectLock',
+		'currentCollectionIssues'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -106,6 +107,33 @@ OTMetricReader >> aggregationSelector: aBlockOrNil [
 			aggregationSelector := aBlockOrNil ]
 ]
 
+{ #category : 'collecting' }
+OTMetricReader >> asynchronousCallbackFailureMessageFor: anOTAsynchronousMetricInstrument [
+
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'OpenTelemetry asynchronous metric callback failed for ';
+				  nextPutAll: anOTAsynchronousMetricInstrument name ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> asynchronousCallbackTimeoutMessageFor: anOTAsynchronousMetricInstrument [
+
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'OpenTelemetry asynchronous metric callback timed out for ';
+				  nextPutAll: anOTAsynchronousMetricInstrument name ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> asynchronousCumulativeStartTimestampFor: anOTAsynchronousMetricInstrument pointAttributes: aCollection previousCollection: aDateAndTime [
+
+	^ self withFirstAsynchronousStartTimestampsFor: anOTAsynchronousMetricInstrument do: [ :startTimestamps |
+			  startTimestamps
+				  at: aCollection
+				  ifAbsentPut: [ aDateAndTime ifNil: [ anOTAsynchronousMetricInstrument creationTimestamp ] ifNotNil: [ aDateAndTime ] ] ]
+]
+
 { #category : 'accessing' }
 OTMetricReader >> attachToProvider: anOTMeterProvider [
 
@@ -172,15 +200,6 @@ OTMetricReader >> cardinalityLimitSelector: aBlockOrNil [
 ]
 
 { #category : 'collecting' }
-OTMetricReader >> asynchronousCumulativeStartTimestampFor: anOTAsynchronousMetricInstrument pointAttributes: aCollection previousCollection: aDateAndTime [
-
-	^ self withFirstAsynchronousStartTimestampsFor: anOTAsynchronousMetricInstrument do: [ :startTimestamps |
-			  startTimestamps
-				  at: aCollection
-				  ifAbsentPut: [ aDateAndTime ifNil: [ anOTAsynchronousMetricInstrument creationTimestamp ] ifNotNil: [ aDateAndTime ] ] ]
-]
-
-{ #category : 'collecting' }
 OTMetricReader >> cardinalityLimitedMeasurementsFrom: someMeasurements for: anOTMetricInstrument using: anOTMetricAggregationContext stateKey: aStateKey [
 
 	| attributeFilter limit overflowAttributes |
@@ -227,31 +246,67 @@ OTMetricReader >> collectAsynchronousCallback: aBlock for: anOTAsynchronousMetri
 		          invokeAsynchronousCallback: aBlock
 		          for: anOTAsynchronousMetricInstrument
 		          observer: (anOTAsynchronousMetricInstrument newObserverOn: callbackMeasurements).
-	status = #completed ifTrue: [ aCollection addAll: callbackMeasurements ]
+	status = #completed ifTrue: [
+			aCollection addAll: callbackMeasurements.
+			^ self ].
+	status = #timedOut
+		ifTrue: [ self recordCollectionTimeout: (self asynchronousCallbackTimeoutMessageFor: anOTAsynchronousMetricInstrument) ]
+		ifFalse: [ self recordCollectionFailure: (self asynchronousCallbackFailureMessageFor: anOTAsynchronousMetricInstrument) ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> collectResult [
+
+	^ self collectSnapshotResult
 ]
 
 { #category : 'collecting' }
 OTMetricReader >> collectSnapshot [
 
-	| collectedAt instruments measurements metrics producerMetrics currentProvider |
-	self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
+	^ self collectSnapshotResult snapshot
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> collectSnapshotResult [
+
+	| collectedAt currentProvider instruments measurements metrics producerMetrics snapshot |
+	self isStopping ifTrue: [
+		^ OTMetricBatchResult failureSnapshot: OTMetricSnapshot empty failedReasons: { 'OpenTelemetry metric reader is shutdown' } ].
 	^ collectLock critical: [
-			  self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
-			  collectedAt := DateAndTime now asUTC.
-			  currentProvider := self provider.
-			  currentProvider ifNil: [ ^ OTMetricSnapshot empty ].
-			  instruments := currentProvider registeredMetricInstruments.
-			  measurements := currentProvider collectMeasurementsFor: self.
-			  metrics := self filteredMetricsFrom:
-				             (self metricDataFromMeasurements: measurements instruments: instruments collectedAt: collectedAt).
-			  producerMetrics := self producerMetrics.
-			  producerMetrics ifNotEmpty: [ metrics := metrics , producerMetrics ].
-			  self markCollectedAt: collectedAt forInstruments: instruments.
-			  OTMetricSnapshot
-				  resource: currentProvider resource
-				  measurements: measurements
-				  metrics: metrics
-				  collectedAt: collectedAt ]
+			  self isStopping ifTrue: [
+				  ^ OTMetricBatchResult failureSnapshot: OTMetricSnapshot empty failedReasons: { 'OpenTelemetry metric reader is shutdown' } ].
+			  currentCollectionIssues := {
+				                             OrderedCollection new.
+				                             OrderedCollection new }.
+			  [
+				  collectedAt := DateAndTime now asUTC.
+				  currentProvider := self provider.
+				  currentProvider ifNil: [ ^ self metricBatchResultForSnapshot: OTMetricSnapshot empty ].
+				  instruments := currentProvider registeredMetricInstruments.
+				  measurements := currentProvider collectMeasurementsFor: self.
+				  metrics := self filteredMetricsFrom:
+					             (self metricDataFromMeasurements: measurements instruments: instruments collectedAt: collectedAt).
+				  producerMetrics := self producerMetricsForResource: currentProvider resource.
+				  producerMetrics ifNotEmpty: [ metrics := metrics , producerMetrics ].
+				  self markCollectedAt: collectedAt forInstruments: instruments.
+				  snapshot := OTMetricSnapshot
+					              resource: currentProvider resource
+					              measurements: measurements
+					              metrics: metrics
+					              collectedAt: collectedAt.
+				  ^ self metricBatchResultForSnapshot: snapshot ] ensure: [ currentCollectionIssues := nil ] ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> currentCollectionFailures [
+
+	^ currentCollectionIssues ifNil: [ #(  ) ] ifNotNil: [ currentCollectionIssues first ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> currentCollectionTimeouts [
+
+	^ currentCollectionIssues ifNil: [ #(  ) ] ifNotNil: [ currentCollectionIssues second ]
 ]
 
 { #category : 'accessing' }
@@ -317,10 +372,24 @@ OTMetricReader >> finishShutdown [
 	stateLock critical: [ shutdown := true ]
 ]
 
+{ #category : 'collecting' }
+OTMetricReader >> firstAsynchronousStartTimestampsByInstrument [
+
+	^ firstAsynchronousStartTimestampsByInstrument ifNil: [
+		  firstAsynchronousStartTimestampsByInstrument := WeakIdentityKeyDictionary new ]
+]
+
 { #category : 'lifecycle' }
 OTMetricReader >> forceFlush [
 
 	^ self isStopping not
+]
+
+{ #category : 'lifecycle' }
+OTMetricReader >> forceFlushResult [
+
+	self isStopping ifTrue: [ ^ OTLifecycleResult failure ].
+	^ OTLifecycleResult fromBoolean: self forceFlush
 ]
 
 { #category : 'initialization' }
@@ -337,14 +406,8 @@ OTMetricReader >> initialize [
 	callbackTimeoutMillis := 30000.
 	metricProducers := OrderedCollection new.
 	selectedAttributeSetsByStream := Dictionary new.
-	warnedMetricIdentityConflicts := Set new
-]
-
-{ #category : 'collecting' }
-OTMetricReader >> firstAsynchronousStartTimestampsByInstrument [
-
-	^ firstAsynchronousStartTimestampsByInstrument ifNil: [
-		  firstAsynchronousStartTimestampsByInstrument := WeakIdentityKeyDictionary new ]
+	warnedMetricIdentityConflicts := Set new.
+	currentCollectionIssues := nil
 ]
 
 { #category : 'collecting' }
@@ -450,29 +513,39 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMe
 		                   ifNil: [ anOTMetricInstrument attributeFilter ]
 		                   ifNotNil: [ anOTMetricViewOrNil resolvedAttributeFilterFor: anOTMetricInstrument ].
 	^ (OTMetricAggregationContext
-		  collectedAt: aDateAndTime
-		  startTimestamp: startTimestamp
-		  temporality: temporality
-		  aggregation: aggregation
-		  retainedAttributeKeys: attributeFilter
-		  cardinalityLimit: (anOTMetricViewOrNil
-				   ifNil: [ self cardinalityLimitFor: anOTMetricInstrument ]
-				   ifNotNil: [ anOTMetricViewOrNil resolvedCardinalityLimitFor: anOTMetricInstrument reader: self ])
-		  aggregationParameters:
-		  (anOTMetricViewOrNil ifNotNil: [ anOTMetricViewOrNil resolvedAggregationParametersFor: anOTMetricInstrument reader: self ])
-		  exemplarFilter: self provider exemplarFilter
-		  exemplarReservoirFactory:
-		  (anOTMetricViewOrNil ifNotNil: [ anOTMetricViewOrNil resolvedExemplarReservoirFactoryFor: anOTMetricInstrument reader: self ]))
-		 pointStartTimestampResolver: (
-			  (temporality = #cumulative and: [ anOTMetricInstrument isKindOf: OTAsynchronousMetricInstrument ])
-				  ifTrue: [
-						  [ :metricInstrument :pointAttributes :pointMeasurements |
-						  self
-							  asynchronousCumulativeStartTimestampFor: metricInstrument
-							  pointAttributes: pointAttributes
-							  previousCollection: previousCollection ] ]
-				  ifFalse: [ nil ]);
-		 yourself
+		   collectedAt: aDateAndTime
+		   startTimestamp: startTimestamp
+		   temporality: temporality
+		   aggregation: aggregation
+		   retainedAttributeKeys: attributeFilter
+		   cardinalityLimit: (anOTMetricViewOrNil
+				    ifNil: [ self cardinalityLimitFor: anOTMetricInstrument ]
+				    ifNotNil: [ anOTMetricViewOrNil resolvedCardinalityLimitFor: anOTMetricInstrument reader: self ])
+		   aggregationParameters:
+			   (anOTMetricViewOrNil ifNotNil: [ anOTMetricViewOrNil resolvedAggregationParametersFor: anOTMetricInstrument reader: self ])
+		   exemplarFilter: self provider exemplarFilter
+		   exemplarReservoirFactory:
+			   (anOTMetricViewOrNil ifNotNil: [ anOTMetricViewOrNil resolvedExemplarReservoirFactoryFor: anOTMetricInstrument reader: self ]))
+		  pointStartTimestampResolver:
+			  ((temporality = #cumulative and: [ anOTMetricInstrument isKindOf: OTAsynchronousMetricInstrument ])
+				   ifTrue: [
+						   [ :metricInstrument :pointAttributes :pointMeasurements |
+							   self
+								   asynchronousCumulativeStartTimestampFor: metricInstrument
+								   pointAttributes: pointAttributes
+								   previousCollection: previousCollection ] ]
+				   ifFalse: [ nil ]);
+		  yourself
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> metricBatchResultForSnapshot: anOTMetricSnapshot [
+
+	self currentCollectionTimeouts ifNotEmpty: [
+		^ OTMetricBatchResult timeoutSnapshot: anOTMetricSnapshot failedReasons: self currentCollectionTimeouts ].
+	self currentCollectionFailures ifNotEmpty: [
+		^ OTMetricBatchResult failureSnapshot: anOTMetricSnapshot failedReasons: self currentCollectionFailures ].
+	^ OTMetricBatchResult successSnapshot: anOTMetricSnapshot
 ]
 
 { #category : 'collecting' }
@@ -494,9 +567,9 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 							context aggregation = #drop ifFalse: [
 									preparedMeasurements := each preparedMeasurementsFrom: instrumentMeasurements forReader: self using: context.
 									((each isKindOf: OTAsynchronousMetricInstrument) and: [ context temporality = #cumulative ]) ifTrue: [
-											self
-												pruneMissingAsynchronousStartTimestampsFor: each
-												keepingOnly: (each groupedMeasurementsByAttributes: preparedMeasurements) ].
+										self
+											pruneMissingAsynchronousStartTimestampsFor: each
+											keepingOnly: (each groupedMeasurementsByAttributes: preparedMeasurements) ].
 									selectedMeasurements := self selectedMeasurementsFrom: preparedMeasurements for: each using: context.
 									selectedMeasurements := self
 										                        cardinalityLimitedMeasurementsFrom: selectedMeasurements
@@ -509,6 +582,14 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 											metrics add: metric ] ] ] ] ].
 	self noteConflictingMetricIdentitiesIn: metrics.
 	^ metrics asArray
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> metricDataNeedsProducerInstrumentationScope: anOTMetricData [
+
+	| scope |
+	scope := anOTMetricData instrumentationScope.
+	^ scope name isEmpty and: [ scope version isEmpty and: [ scope schemaUrl isEmpty and: [ scope allAttributes isEmpty ] ] ]
 ]
 
 { #category : 'configuration' }
@@ -552,6 +633,49 @@ OTMetricReader >> metricWarningSink [
 OTMetricReader >> normalizedAggregationSymbolFrom: anObject [
 
 	^ OTMetricView normalizedAggregationFrom: anObject
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> normalizedProducerMetric: anOTMetricData producer: anOTMetricProducer [
+
+	(self metricDataNeedsProducerInstrumentationScope: anOTMetricData) ifFalse: [ ^ anOTMetricData ].
+	^ anOTMetricData copy
+		  instrumentationScope: anOTMetricProducer instrumentationScope;
+		  yourself
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> normalizedProducerMetricsFrom: someMetricData producer: anOTMetricProducer [
+
+	^ someMetricData collect: [ :each | self normalizedProducerMetric: each producer: anOTMetricProducer ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> normalizedProducerResultFrom: anObject producer: anOTMetricProducer [
+
+	| reasons result snapshot |
+	anObject ifNil: [ ^ OTMetricBatchResult successSnapshot: OTMetricSnapshot empty ].
+	result := (anObject isKindOf: OTMetricBatchResult)
+		          ifTrue: [ anObject ]
+		          ifFalse: [
+				          (anObject isKindOf: OTMetricSnapshot)
+					          ifTrue: [ OTMetricBatchResult successSnapshot: anObject ]
+					          ifFalse: [ Error signal: 'OpenTelemetry metric producers must answer an OTMetricSnapshot or OTMetricBatchResult' ] ].
+	snapshot := self normalizedProducerSnapshot: result snapshot producer: anOTMetricProducer.
+	reasons := result failedReasons.
+	(reasons isEmpty and: [ result isSuccess not ]) ifTrue: [
+		reasons := { (self producerStatusMessageFor: anOTMetricProducer status: result status) } ].
+	^ OTMetricBatchResult status: result status snapshot: snapshot failedReasons: reasons
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> normalizedProducerSnapshot: anOTMetricSnapshot producer: anOTMetricProducer [
+
+	^ OTMetricSnapshot
+		  resource: anOTMetricSnapshot resource
+		  measurements: anOTMetricSnapshot measurements
+		  metrics: (self normalizedProducerMetricsFrom: anOTMetricSnapshot metrics producer: anOTMetricProducer)
+		  collectedAt: anOTMetricSnapshot collectedAt
 ]
 
 { #category : 'collecting' }
@@ -625,20 +749,82 @@ OTMetricReader >> noteMetricIdentityConflictFor: someMetrics [
 		, '. Multiple streams with the same name, description, unit, and metric type will be exported.'
 ]
 
+{ #category : 'private - logging' }
+OTMetricReader >> noteMetricProducerError: anError for: anOTMetricProducer [
+
+	| message |
+	message := self producerFailureMessageFor: anOTMetricProducer error: anError.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ self class metricWarningSink value: message ]
+]
+
 { #category : 'collecting' }
 OTMetricReader >> overflowAttributes [
 
 	^ OTAttributeNormalizer normalizeAttributes: { ('otel.metric.overflow' -> true) }
 ]
 
+{ #category : 'private - logging' }
+OTMetricReader >> producerFailureMessageFor: anOTMetricProducer error: anError [
+
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'OpenTelemetry metric producer failed for ';
+				  nextPutAll: anOTMetricProducer class name;
+				  nextPutAll: ': ';
+				  nextPutAll: anError messageText ]
+]
+
 { #category : 'collecting' }
 OTMetricReader >> producerMetrics [
 
+	| currentProvider |
+	currentProvider := self provider.
+	^ self producerMetricsForResource: (currentProvider ifNil: [ OTResource empty ] ifNotNil: [ currentProvider resource ])
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> producerMetricsForResource: anOTResource [
+
+	| filter |
+	filter := self metricFilter.
 	^ Array streamContents: [ :stream |
 			  self metricProducers do: [ :each |
-					  | snapshot |
-					  snapshot := self normalizedProducerSnapshotFrom: (each produceForReader: self metricFilter: self metricFilter).
-					  (self filteredMetricsFrom: snapshot metrics) do: [ :metric | stream nextPut: metric ] ] ]
+					  | metrics result |
+					  result := self producerResultFor: each resource: anOTResource metricFilter: filter.
+					  result isTimeout ifTrue: [ result failedReasons do: [ :reason | self recordCollectionTimeout: reason ] ].
+					  result isFailure ifTrue: [ result failedReasons do: [ :reason | self recordCollectionFailure: reason ] ].
+					  metrics := self filteredMetricsFrom: result snapshot metrics.
+					  metrics do: [ :metric | stream nextPut: metric ] ] ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> producerResultFor: anOTMetricProducer resource: anOTResource metricFilter: anOTMetricFilter [
+
+	^ [
+		  self
+			  normalizedProducerResultFrom:
+			  (anOTMetricProducer produceResultForReader: self resource: anOTResource metricFilter: anOTMetricFilter)
+			  producer: anOTMetricProducer ]
+		  on: Error
+		  do: [ :anError |
+				  self noteMetricProducerError: anError for: anOTMetricProducer.
+				  OTMetricBatchResult
+					  failureSnapshot: OTMetricSnapshot empty
+					  failedReasons: { (self producerFailureMessageFor: anOTMetricProducer error: anError) } ]
+]
+
+{ #category : 'private - logging' }
+OTMetricReader >> producerStatusMessageFor: anOTMetricProducer status: aSymbol [
+
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'OpenTelemetry metric producer ';
+				  nextPutAll: anOTMetricProducer class name;
+				  nextPutAll: ' reported ';
+				  nextPutAll: aSymbol asString ]
 ]
 
 { #category : 'accessing' }
@@ -651,6 +837,40 @@ OTMetricReader >> provider [
 OTMetricReader >> provider: anOTMeterProvider [
 
 	stateLock critical: [ provider := anOTMeterProvider ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> pruneMissingAsynchronousStartTimestampsFor: anOTMetricInstrument keepingOnly: currentValues [
+
+	^ self
+		  withFirstAsynchronousStartTimestampsFor: anOTMetricInstrument
+		  do: [ :startTimestamps | self pruneMissingAsynchronousState: startTimestamps keepingOnly: currentValues ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> pruneMissingAsynchronousState: aDictionary keepingOnly: currentValues [
+
+	aDictionary keys do: [ :each | (currentValues includesKey: each) ifFalse: [ aDictionary removeKey: each ] ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> pruneMissingLastAsynchronousValuesFor: anOTMetricInstrument keepingOnly: currentValues [
+
+	^ self
+		  withLastAsynchronousValuesFor: anOTMetricInstrument
+		  do: [ :previousValues | self pruneMissingAsynchronousState: previousValues keepingOnly: currentValues ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> recordCollectionFailure: aString [
+
+	currentCollectionIssues ifNotNil: [ currentCollectionIssues first add: aString ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> recordCollectionTimeout: aString [
+
+	currentCollectionIssues ifNotNil: [ currentCollectionIssues second add: aString ]
 ]
 
 { #category : 'collecting' }
@@ -683,27 +903,6 @@ OTMetricReader >> selectedMeasurementsFrom: someMeasurements for: anOTMetricInst
 ]
 
 { #category : 'private - logging' }
-OTMetricReader >> pruneMissingAsynchronousState: aDictionary keepingOnly: currentValues [
-
-	aDictionary keys do: [ :each |
-			(currentValues includesKey: each) ifFalse: [ aDictionary removeKey: each ] ]
-]
-
-{ #category : 'collecting' }
-OTMetricReader >> pruneMissingAsynchronousStartTimestampsFor: anOTMetricInstrument keepingOnly: currentValues [
-
-	^ self withFirstAsynchronousStartTimestampsFor: anOTMetricInstrument do: [ :startTimestamps |
-		  self pruneMissingAsynchronousState: startTimestamps keepingOnly: currentValues ]
-]
-
-{ #category : 'collecting' }
-OTMetricReader >> pruneMissingLastAsynchronousValuesFor: anOTMetricInstrument keepingOnly: currentValues [
-
-	^ self withLastAsynchronousValuesFor: anOTMetricInstrument do: [ :previousValues |
-		  self pruneMissingAsynchronousState: previousValues keepingOnly: currentValues ]
-]
-
-{ #category : 'private - logging' }
 OTMetricReader >> shouldWarnAboutMetricIdentityConflictAt: aMetricIdentityKey whenMetricCountIs: anInteger [
 
 	^ stateLock critical: [
@@ -719,6 +918,13 @@ OTMetricReader >> shutdown [
 	self beginShutdown ifFalse: [ ^ false ].
 	self finishShutdown.
 	^ true
+]
+
+{ #category : 'lifecycle' }
+OTMetricReader >> shutdownResult [
+
+	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	^ OTLifecycleResult fromBoolean: self shutdown
 ]
 
 { #category : 'collecting' }
@@ -746,18 +952,17 @@ OTMetricReader >> temporalitySelector: aBlockOrNil [
 ]
 
 { #category : 'collecting' }
+OTMetricReader >> withFirstAsynchronousStartTimestampsFor: anOTMetricInstrument do: aBlock [
+
+	^ stateLock critical: [
+		  aBlock value: (self firstAsynchronousStartTimestampsByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]) ]
+]
+
+{ #category : 'collecting' }
 OTMetricReader >> withLastAsynchronousValuesFor: anOTMetricInstrument do: aBlock [
 
 	^ stateLock critical: [
 		  aBlock value: (self lastAsynchronousValuesByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]) ]
-]
-
-{ #category : 'collecting' }
-OTMetricReader >> withFirstAsynchronousStartTimestampsFor: anOTMetricInstrument do: aBlock [
-
-	^ stateLock critical: [
-		  aBlock value:
-			  (self firstAsynchronousStartTimestampsByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]) ]
 ]
 
 { #category : 'collecting' }

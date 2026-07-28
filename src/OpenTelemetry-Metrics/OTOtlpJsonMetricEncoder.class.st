@@ -203,14 +203,6 @@ OTOtlpJsonMetricEncoder >> sumDataFor: anOTSumMetricData [
 ]
 
 { #category : 'private - encoding' }
-OTOtlpJsonMetricEncoder >> temporalityCodeFor: aSymbol [
-
-	aSymbol = #delta ifTrue: [ ^ 1 ].
-	aSymbol = #cumulative ifTrue: [ ^ 2 ].
-	Error signal: 'OpenTelemetry metric aggregation temporality is unsupported: ' , aSymbol printString
-]
-
-{ #category : 'private - encoding' }
 OTOtlpJsonMetricEncoder >> summaryDataFor: anOTSummaryMetricData [
 
 	^ OrderedDictionary new
@@ -247,7 +239,7 @@ OTOtlpJsonMetricEncoder >> summaryValueAtQuantileDataFor: anOTSummaryQuantileVal
 { #category : 'private - encoding' }
 OTOtlpJsonMetricEncoder >> temporalityCodeFor: aSymbol [
 
-	^ aSymbol = #delta
-		  ifTrue: [ 1 ]
-		  ifFalse: [ 2 ]
+	aSymbol = #delta ifTrue: [ ^ 1 ].
+	aSymbol = #cumulative ifTrue: [ ^ 2 ].
+	Error signal: 'OpenTelemetry metric aggregation temporality is unsupported: ' , aSymbol printString
 ]

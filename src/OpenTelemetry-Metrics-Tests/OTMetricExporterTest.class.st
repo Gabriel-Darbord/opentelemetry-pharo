@@ -88,6 +88,16 @@ OTMetricExporterTest >> testExportReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTMetricExporterTest >> testForceFlushResultReturnsFailureAfterShutdown [
+
+	| exporter result |
+	exporter := OTInMemoryMetricExporter new.
+	self assert: exporter shutdown.
+	result := exporter forceFlushResult.
+	self assert: result isFailure
+]
+
+{ #category : 'tests' }
 OTMetricExporterTest >> testForceFlushReturnsFalseAfterShutdown [
 
 	| exporter |
@@ -103,4 +113,24 @@ OTMetricExporterTest >> testNoopExporterReturnsFalseAfterShutdown [
 	exporter := OTNoopMetricExporter new.
 	self assert: exporter shutdown.
 	self deny: (exporter export: OTMetricSnapshot empty)
+]
+
+{ #category : 'tests' }
+OTMetricExporterTest >> testShutdownResultReturnsFailureAfterShutdown [
+
+	| exporter result |
+	exporter := OTInMemoryMetricExporter new.
+	self assert: exporter shutdown.
+	result := exporter shutdownResult.
+	self assert: result isFailure
+]
+
+{ #category : 'tests' }
+OTMetricExporterTest >> testShutdownResultReturnsSuccessOnFirstShutdown [
+
+	| exporter result |
+	exporter := OTInMemoryMetricExporter new.
+	result := exporter shutdownResult.
+	self assert: result isSuccess.
+	self assert: exporter isShutdown
 ]

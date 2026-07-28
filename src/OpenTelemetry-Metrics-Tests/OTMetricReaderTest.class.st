@@ -11,13 +11,20 @@ Class {
 { #category : 'private' }
 OTMetricReaderTest >> sampleProducerSnapshotNamed: aString [
 
-	| point resource scope sumMetric |
-	resource := OTResource attributes: { ('service.name' -> 'producer') } schemaUrl: 'https://producer.example/schema'.
+	| scope |
 	scope := OTInstrumentationScope
 		         named: 'external.metrics'
 		         version: '1.0.0'
 		         schemaUrl: 'https://scope.example/schema'
 		         attributes: #(  ).
+	^ self sampleProducerSnapshotNamed: aString instrumentationScope: scope
+]
+
+{ #category : 'private' }
+OTMetricReaderTest >> sampleProducerSnapshotNamed: aString instrumentationScope: anOTInstrumentationScope [
+
+	| point resource sumMetric |
+	resource := OTResource attributes: { ('service.name' -> 'producer') } schemaUrl: 'https://producer.example/schema'.
 	point := OTNumberDataPoint
 		         attributes: { ('source' -> 'external') }
 		         value: 7
@@ -25,7 +32,7 @@ OTMetricReaderTest >> sampleProducerSnapshotNamed: aString [
 		         timestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 2).
 	sumMetric := OTSumMetricData new.
 	sumMetric
-		instrumentationScope: scope;
+		instrumentationScope: anOTInstrumentationScope;
 		name: aString;
 		description: 'External count';
 		unit: '1';
@@ -165,6 +172,85 @@ OTMetricReaderTest >> testCollectSnapshotPassesMetricFilterToRegisteredMetricPro
 	reader collectSnapshot.
 	self assert: producer produceCount equals: 1.
 	self assert: producer lastMetricFilter identicalTo: filter
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotResultIncludesProducerFailureReasonsAndPartialMetrics [
+
+	| names producer reader result |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	producer := OTRecordingMetricProducer snapshot: (self sampleProducerSnapshotNamed: 'external.requests.total').
+	producer produceResultBlock: [ :each | OTMetricBatchResult failureSnapshot: each snapshot failedReasons: { 'producer failed' } ].
+	reader addMetricProducer: producer.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'local.requests.total') add: 3.
+	result := reader collectSnapshotResult.
+	names := result snapshot metrics collect: [ :each | each name ].
+	self assert: result isFailure.
+	self assert: producer produceCount equals: 1.
+	self assert: result failedReasons equals: #( 'producer failed' ).
+	self assert: result snapshot metrics size equals: 2.
+	self assert: (names includes: 'local.requests.total').
+	self assert: (names includes: 'external.requests.total')
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotResultInjectsProducerInstrumentationScopeWhenMissing [
+
+	| producer reader result scope |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	scope := OTInstrumentationScope
+		         named: 'external.producer'
+		         version: '2.0.0'
+		         schemaUrl: 'https://producer.example/scope'
+		         attributes: #(  ).
+	producer := OTRecordingMetricProducer snapshot:
+		            (self
+			             sampleProducerSnapshotNamed: 'external.requests.total'
+			             instrumentationScope: (OTInstrumentationScope named: '')).
+	producer instrumentationScope: scope.
+	reader addMetricProducer: producer.
+	provider addMetricReader: reader.
+	result := reader collectSnapshotResult.
+	self assert: result isSuccess.
+	self assert: result snapshot metrics size equals: 1.
+	self assert: result snapshot metrics first instrumentationScope equals: scope
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotResultPassesProviderResourceToRegisteredMetricProducer [
+
+	| producer providerResource reader |
+	provider := OTMeterProvider new.
+	providerResource := OTResource attributes: { ('service.name' -> 'sdk') } schemaUrl: 'https://sdk.example/schema'.
+	provider resource: providerResource.
+	reader := OTInMemoryMetricReader new.
+	producer := OTRecordingMetricProducer snapshot: (self sampleProducerSnapshotNamed: 'external.requests.total').
+	reader addMetricProducer: producer.
+	provider addMetricReader: reader.
+	reader collectSnapshotResult.
+	self assert: producer lastResource equals: providerResource
+]
+
+{ #category : 'tests' }
+OTMetricReaderTest >> testCollectSnapshotResultReportsAsynchronousCallbackTimeout [
+
+	| instrument reader result |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader callbackTimeoutMillis: 1.
+	provider addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics') observableCounterNamed: 'runtime.page_faults' callbacks: { [ :observer |
+			              (Delay forMilliseconds: 50) wait.
+			              observer observe: 42 attributes: { ('pid' -> '1001') } ] }.
+	result := reader collectSnapshotResult.
+	self assert: instrument class identicalTo: OTObservableCounter.
+	self assert: result isTimeout.
+	self assert: result snapshot metrics isEmpty.
+	self assert: result failedReasons size equals: 1.
+	self assert: (result failedReasons first includesSubstring: 'timed out')
 ]
 
 { #category : 'tests' }

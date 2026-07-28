@@ -101,27 +101,6 @@ OTMetricCardinalityLimitTest >> testReaderCardinalityLimitUsesReaderSelectorWhen
 ]
 
 { #category : 'tests' }
-OTMetricCardinalityLimitTest >> testViewCardinalityLimitOverridesReaderSelector [
-
-	| context instrument provider reader view |
-	provider := OTMeterProvider new.
-	reader := OTInMemoryMetricReader new.
-	reader cardinalityLimitSelector: [ :metricInstrument | 17 ].
-	view := (OTMetricView named: 'requests.total')
-		        aggregationCardinalityLimit: 3;
-		        yourself.
-	provider
-		addMetricReader: reader;
-		addView: view.
-	instrument := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
-	context := reader
-		           metricAggregationContextFor: instrument
-		           view: view
-		           collectedAt: DateAndTime now asUTC.
-	self assert: context cardinalityLimit equals: 3
-]
-
-{ #category : 'tests' }
 OTMetricCardinalityLimitTest >> testSynchronousCumulativeMetricsUseOverflowPointAfterCardinalityLimit [
 
 	| metric overflowPoint provider reader secondMetric secondOverflowPoint secondStablePoint stablePoint |
@@ -143,4 +122,22 @@ OTMetricCardinalityLimitTest >> testSynchronousCumulativeMetricsUseOverflowPoint
 	secondOverflowPoint := self overflowPointFrom: secondMetric points.
 	self assert: secondStablePoint value equals: 4.
 	self assert: secondOverflowPoint value equals: 6
+]
+
+{ #category : 'tests' }
+OTMetricCardinalityLimitTest >> testViewCardinalityLimitOverridesReaderSelector [
+
+	| context instrument provider reader view |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader cardinalityLimitSelector: [ :metricInstrument | 17 ].
+	view := (OTMetricView named: 'requests.total')
+		        aggregationCardinalityLimit: 3;
+		        yourself.
+	provider
+		addMetricReader: reader;
+		addView: view.
+	instrument := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	context := reader metricAggregationContextFor: instrument view: view collectedAt: DateAndTime now asUTC.
+	self assert: context cardinalityLimit equals: 3
 ]

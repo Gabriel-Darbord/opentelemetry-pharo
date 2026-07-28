@@ -271,54 +271,10 @@ OTMeter >> isNoop [
 ]
 
 { #category : 'private' }
-OTMeter >> normalizedInstrumentAdviceFrom: aDictionary [
-
-	| normalized |
-	aDictionary ifNil: [ ^ Dictionary new ].
-	normalized := Dictionary new.
-	aDictionary asDictionary associationsDo: [ :each |
-			| keyString |
-			keyString := each key asString.
-			(keyString sameAs: 'ExplicitBucketBoundaries')
-				ifTrue: [
-						(self normalizedExplicitBucketBoundariesFrom: each value)
-							ifNotNil: [ :boundaries | normalized at: 'ExplicitBucketBoundaries' put: boundaries ] ]
-				ifFalse: [ normalized at: each key put: each value ] ].
-	^ normalized
-]
-
-{ #category : 'private' }
-OTMeter >> normalizedInstrumentDescriptionFrom: aValue [
-
-	^ aValue ifNil: [ '' ] ifNotNil: [ aValue asString ]
-]
-
-{ #category : 'private' }
-OTMeter >> normalizedInstrumentNameFrom: aValue [
-
-	| instrumentName |
-	aValue ifNil: [
-			self noteInvalidInstrumentName: aValue.
-			^ '' ].
-	instrumentName := aValue asString.
-	instrumentName trimBoth isEmpty ifTrue: [
-			self noteInvalidInstrumentName: aValue.
-			^ '' ].
-	(self validatesInstrumentName: instrumentName) ifFalse: [ self noteInvalidInstrumentName: aValue ].
-	^ instrumentName
-]
-
-{ #category : 'private' }
-OTMeter >> normalizedInstrumentUnitFrom: aValue [
-
-	^ aValue ifNil: [ '' ] ifNotNil: [ aValue asString ]
-]
-
-{ #category : 'private' }
 OTMeter >> normalizedExplicitBucketBoundariesFrom: anObject [
 
 	| boundaries previousValue |
-	((anObject isCollection) and: [ anObject isString not ]) ifFalse: [
+	(anObject isCollection and: [ anObject isString not ]) ifFalse: [
 			self
 				noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
 				value: anObject
@@ -349,6 +305,50 @@ OTMeter >> normalizedExplicitBucketBoundariesFrom: anObject [
 					^ nil ].
 			previousValue := numericValue ].
 	^ boundaries copy
+]
+
+{ #category : 'private' }
+OTMeter >> normalizedInstrumentAdviceFrom: aDictionary [
+
+	| normalized |
+	aDictionary ifNil: [ ^ Dictionary new ].
+	normalized := Dictionary new.
+	aDictionary asDictionary associationsDo: [ :each |
+			| keyString |
+			keyString := each key asString.
+			(keyString sameAs: 'ExplicitBucketBoundaries')
+				ifTrue: [
+						(self normalizedExplicitBucketBoundariesFrom: each value) ifNotNil: [ :boundaries |
+							normalized at: 'ExplicitBucketBoundaries' put: boundaries ] ]
+				ifFalse: [ normalized at: each key put: each value ] ].
+	^ normalized
+]
+
+{ #category : 'private' }
+OTMeter >> normalizedInstrumentDescriptionFrom: aValue [
+
+	^ aValue ifNil: [ '' ] ifNotNil: [ aValue asString ]
+]
+
+{ #category : 'private' }
+OTMeter >> normalizedInstrumentNameFrom: aValue [
+
+	| instrumentName |
+	aValue ifNil: [
+			self noteInvalidInstrumentName: aValue.
+			^ '' ].
+	instrumentName := aValue asString.
+	instrumentName trimBoth isEmpty ifTrue: [
+			self noteInvalidInstrumentName: aValue.
+			^ '' ].
+	(self validatesInstrumentName: instrumentName) ifFalse: [ self noteInvalidInstrumentName: aValue ].
+	^ instrumentName
+]
+
+{ #category : 'private' }
+OTMeter >> normalizedInstrumentUnitFrom: aValue [
+
+	^ aValue ifNil: [ '' ] ifNotNil: [ aValue asString ]
 ]
 
 { #category : 'private - logging' }
@@ -398,24 +398,24 @@ OTMeter >> noteDuplicateInstrumentRegistrationFor: anExistingInstrument conflict
 ]
 
 { #category : 'private - logging' }
+OTMeter >> noteInvalidInstrumentAdviceNamed: aString value: anObject reason: aReasonString [
+
+	self class instrumentWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry metric instrument advisory parameter was invalid and has been ignored: ';
+					 nextPutAll: aString;
+					 nextPutAll: ' value=';
+					 print: anObject;
+					 nextPutAll: ' (';
+					 nextPutAll: aReasonString;
+					 nextPut: $) ])
+]
+
+{ #category : 'private - logging' }
 OTMeter >> noteInvalidInstrumentName: aValue [
 
 	self class instrumentWarningSink value:
 		'OpenTelemetry metric instrument name was invalid and has been left unchanged: ' , aValue printString
-]
-
-{ #category : 'private - logging' }
-OTMeter >> noteInvalidInstrumentAdviceNamed: aString value: anObject reason: aReasonString [
-
-	self class instrumentWarningSink value: (String streamContents: [ :stream |
-			 stream
-				 nextPutAll: 'OpenTelemetry metric instrument advisory parameter was invalid and has been ignored: ';
-				 nextPutAll: aString;
-				 nextPutAll: ' value=';
-				 print: anObject;
-				 nextPutAll: ' (';
-				 nextPutAll: aReasonString;
-				 nextPut: $) ])
 ]
 
 { #category : 'accessing' }

@@ -53,6 +53,12 @@ OTNoopMeterProvider >> forceFlush [
 	^ true
 ]
 
+{ #category : 'lifecycle' }
+OTNoopMeterProvider >> forceFlushResult [
+
+	^ OTLifecycleResult success
+]
+
 { #category : 'testing' }
 OTNoopMeterProvider >> isShutdown [
 
@@ -145,6 +151,12 @@ OTNoopMeterProvider >> resource: anOTResource [
 OTNoopMeterProvider >> shutdown [
 
 	^ true
+]
+
+{ #category : 'lifecycle' }
+OTNoopMeterProvider >> shutdownResult [
+
+	^ OTLifecycleResult success
 ]
 
 { #category : 'accessing' }

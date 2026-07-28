@@ -502,13 +502,19 @@ OTMeterProvider >> exemplarFilter: anOTMetricExemplarFilter [
 { #category : 'lifecycle' }
 OTMeterProvider >> forceFlush [
 
+	^ self forceFlushResult isSuccess
+]
+
+{ #category : 'lifecycle' }
+OTMeterProvider >> forceFlushResult [
+
 	| snapshot |
 	snapshot := stateLock critical: [
 			            {
 				            (shutdownRequested or: [ shutdown ]).
 				            metricReaders copy } ].
-	snapshot first ifTrue: [ ^ false ].
-	^ snapshot second allSatisfy: [ :each | each forceFlush ]
+	snapshot first ifTrue: [ ^ OTLifecycleResult failure ].
+	^ snapshot second inject: OTLifecycleResult success into: [ :allFlushed :each | allFlushed combinedWith: each forceFlushResult ]
 ]
 
 { #category : 'initialization' }
@@ -686,6 +692,12 @@ OTMeterProvider >> resource: anOTResource [
 { #category : 'lifecycle' }
 OTMeterProvider >> shutdown [
 
+	^ self shutdownResult isSuccess
+]
+
+{ #category : 'lifecycle' }
+OTMeterProvider >> shutdownResult [
+
 	| alreadyStopping allShutdown readers |
 	readers := #(  ).
 	alreadyStopping := stateLock critical: [
@@ -695,9 +707,8 @@ OTMeterProvider >> shutdown [
 					                   shutdownRequested := true.
 					                   readers := metricReaders copy ].
 			                   stopping ].
-	alreadyStopping ifTrue: [ ^ false ].
-	allShutdown := true.
-	readers do: [ :each | allShutdown := each shutdown & allShutdown ].
+	alreadyStopping ifTrue: [ ^ OTLifecycleResult failure ].
+	allShutdown := readers inject: OTLifecycleResult success into: [ :combined :each | combined combinedWith: each shutdownResult ].
 	stateLock critical: [ shutdown := true ].
 	^ allShutdown
 ]

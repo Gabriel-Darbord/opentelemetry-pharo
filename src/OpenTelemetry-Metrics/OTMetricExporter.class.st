@@ -35,7 +35,10 @@ OTMetricExporter class >> noteMetricExporter: anExporter failedDuring: anOperati
 				           nextPutAll: anExporter class name;
 				           nextPutAll: ': ';
 				           nextPutAll: anError messageText ].
-	OTDiagnosticLogger current handleSuppressedError: anError message: message fallback: [ anExporter class warningSink value: message ]
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ anExporter class warningSink value: message ]
 ]
 
 { #category : 'private - logging' }
@@ -98,6 +101,13 @@ OTMetricExporter >> forceFlush [
 	^ self withActiveStateDo: [ true ]
 ]
 
+{ #category : 'exporting' }
+OTMetricExporter >> forceFlushResult [
+
+	self isStopping ifTrue: [ ^ OTLifecycleResult failure ].
+	^ OTLifecycleResult fromBoolean: self forceFlush
+]
+
 { #category : 'initialization' }
 OTMetricExporter >> initialize [
 
@@ -130,6 +140,13 @@ OTMetricExporter >> shutdown [
 	^ true
 ]
 
+{ #category : 'lifecycle' }
+OTMetricExporter >> shutdownResult [
+
+	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	^ OTLifecycleResult fromBoolean: self shutdown
+]
+
 { #category : 'accessing' }
 OTMetricExporter >> temporalitySelector [
 
@@ -158,12 +175,6 @@ OTMetricExporter >> withActiveStateDo: aBlock [
 			  aBlock value ]
 ]
 
-{ #category : 'private - lifecycle' }
-OTMetricExporter >> withSynchronizedExportDo: aBlock [
-
-	^ exportLock critical: aBlock
-]
-
 { #category : 'private - error handling' }
 OTMetricExporter >> withOperationNamed: anOperationName default: aDefaultValue do: aBlock [
 
@@ -172,4 +183,10 @@ OTMetricExporter >> withOperationNamed: anOperationName default: aDefaultValue d
 		  do: [ :error |
 				  OTMetricExporter noteMetricExporter: self failedDuring: anOperationName error: error.
 				  aDefaultValue ]
+]
+
+{ #category : 'private - lifecycle' }
+OTMetricExporter >> withSynchronizedExportDo: aBlock [
+
+	^ exportLock critical: aBlock
 ]

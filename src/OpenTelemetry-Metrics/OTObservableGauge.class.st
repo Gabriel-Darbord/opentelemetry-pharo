@@ -30,10 +30,11 @@ OTObservableGauge >> metricDataFromMeasurements: someMeasurements using: anOTMet
 			          point := OTNumberDataPoint
 				                   attributes: each key
 				                   value: lastMeasurement value
-				                   startTimestamp: (anOTMetricAggregationContext
-						                    pointStartTimestampForInstrument: self
-						                    pointAttributes: each key
-						                    measurements: each value)
+				                   startTimestamp:
+				                   (anOTMetricAggregationContext
+					                    pointStartTimestampForInstrument: self
+					                    pointAttributes: each key
+					                    measurements: each value)
 				                   timestamp: anOTMetricAggregationContext collectedAt.
 			          point
 				          exemplars:
