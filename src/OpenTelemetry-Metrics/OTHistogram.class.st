@@ -15,6 +15,13 @@ OTHistogram class >> noop [
 ]
 
 { #category : 'aggregating' }
+OTHistogram >> aggregationForPreference: aSymbol [
+
+	aSymbol = #base2ExponentialBucketHistogram ifTrue: [ ^ #base2ExponentialBucketHistogram ].
+	^ #explicitBucketHistogram
+]
+
+{ #category : 'aggregating' }
 OTHistogram >> bucketCountsForMeasurements: someMeasurements boundaries: someBoundaries [
 
 	| counts |
@@ -104,18 +111,20 @@ OTHistogram >> exponentialBucketRangeFromCountsByIndex: countsByIndex [
 { #category : 'aggregating' }
 OTHistogram >> exponentialHistogramDataPointForMeasurements: someMeasurements attributes: someAttributes using: anOTMetricAggregationContext [
 
-	| negativeCounts point positiveCounts recordMinMax scale values zeroCount |
-	values := someMeasurements collect: [ :each | each value asFloat ].
-	scale := self exponentialHistogramScaleForMeasurements: someMeasurements using: anOTMetricAggregationContext.
+	| finiteMeasurements negativeCounts point positiveCounts recordMinMax scale values zeroCount |
+	finiteMeasurements := self finiteMeasurementsFrom: someMeasurements.
+	finiteMeasurements ifEmpty: [ ^ nil ].
+	values := finiteMeasurements collect: [ :each | each value asFloat ].
+	scale := self exponentialHistogramScaleForMeasurements: finiteMeasurements using: anOTMetricAggregationContext.
 	recordMinMax := self recordMinMaxForAggregationContext: anOTMetricAggregationContext.
 	positiveCounts := Dictionary new.
 	negativeCounts := Dictionary new.
 	zeroCount := 0.
 	values do: [ :each |
-			each = 0.0
+			each isZero
 				ifTrue: [ zeroCount := zeroCount + 1 ]
 				ifFalse: [
-						| absoluteValue bucketIndex bucketCounts |
+						| absoluteValue bucketCounts bucketIndex |
 						absoluteValue := each abs.
 						bucketIndex := self exponentialBucketIndexFor: absoluteValue scale: scale.
 						bucketCounts := each > 0
@@ -137,11 +146,11 @@ OTHistogram >> exponentialHistogramDataPointForMeasurements: someMeasurements at
 		max: (recordMinMax
 				 ifTrue: [ values max ]
 				 ifFalse: [ nil ]);
-		startTimestamp: (anOTMetricAggregationContext startTimestamp ifNil: [ someMeasurements first timestamp ]);
+		startTimestamp: (anOTMetricAggregationContext startTimestamp ifNil: [ finiteMeasurements first timestamp ]);
 		timestamp: anOTMetricAggregationContext collectedAt;
 		zeroThreshold: 0.0;
 		exemplars:
-			(self exemplarsFromMeasurements: someMeasurements pointAttributes: someAttributes using: anOTMetricAggregationContext).
+			(self exemplarsFromMeasurements: finiteMeasurements pointAttributes: someAttributes using: anOTMetricAggregationContext).
 	^ point
 ]
 
@@ -179,8 +188,11 @@ OTHistogram >> exponentialHistogramMaxSizeForAggregationContext: anOTMetricAggre
 OTHistogram >> exponentialHistogramMetricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
 	| points |
-	points := (self groupedMeasurementsByAttributes: someMeasurements) associations collect: [ :each |
-		          self exponentialHistogramDataPointForMeasurements: each value attributes: each key using: anOTMetricAggregationContext ].
+	points := ((self groupedMeasurementsByAttributes: someMeasurements) associations collect: [ :each |
+		           self
+			           exponentialHistogramDataPointForMeasurements: each value
+			           attributes: each key
+			           using: anOTMetricAggregationContext ]) reject: [ :each | each isNil ].
 	^ (OTExponentialHistogramMetricData instrument: self points: points)
 		  temporality: anOTMetricAggregationContext temporality;
 		  yourself
@@ -224,6 +236,15 @@ OTHistogram >> exponentialHistogramScaleForMeasurements: someMeasurements using:
 	^ self exponentialHistogramMinScale
 ]
 
+{ #category : 'aggregating' }
+OTHistogram >> finiteMeasurementsFrom: someMeasurements [
+
+	^ someMeasurements select: [ :each |
+			  | value |
+			  value := each value asFloat.
+			  value isNaN not and: [ value isInfinite not ] ]
+]
+
 { #category : 'accessing' }
 OTHistogram >> instrumentType [
 
@@ -238,13 +259,6 @@ OTHistogram >> metricDataFromMeasurements: someMeasurements using: anOTMetricAgg
 	anOTMetricAggregationContext aggregation = #base2ExponentialBucketHistogram ifTrue: [
 		^ self exponentialHistogramMetricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext ].
 	^ self explicitHistogramMetricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext
-]
-
-{ #category : 'aggregating' }
-OTHistogram >> aggregationForPreference: aSymbol [
-
-	aSymbol = #base2ExponentialBucketHistogram ifTrue: [ ^ #base2ExponentialBucketHistogram ].
-	^ #explicitBucketHistogram
 ]
 
 { #category : 'aggregating' }
