@@ -41,6 +41,25 @@ OTMetricExemplarTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTMetricExemplarTest >> testAlwaysOffFilterSkipsCustomExemplarReservoirCreation [
+
+	| counter factoryCallCount point |
+	factoryCallCount := 0.
+	provider
+		exemplarFilter: OTMetricExemplarFilter alwaysOff;
+		addView: ((OTMetricView named: 'requests.total')
+				 exemplarReservoirFactory: [ :context :instrument :pointAttributes |
+						 factoryCallCount := factoryCallCount + 1.
+						 OTRecordingMetricExemplarReservoir new ];
+				 yourself).
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 1 attributes: { ('status' -> '200') }.
+	point := self currentMetricPoint.
+	self assert: factoryCallCount equals: 0.
+	self assert: point exemplars isEmpty
+]
+
+{ #category : 'tests' }
 OTMetricExemplarTest >> testAlwaysOnFilterCapturesDroppedAttributesAsExemplarFilteredAttributes [
 
 	| counter exemplar point |
@@ -108,4 +127,39 @@ OTMetricExemplarTest >> testTraceBasedFilterSkipsMeasurementsWithoutSampledSpan 
 	counter add: 1 attributes: { ('status' -> '200') }.
 	point := self currentMetricPoint.
 	self assert: point exemplars isEmpty
+]
+
+{ #category : 'tests' }
+OTMetricExemplarTest >> testViewCanProvideCustomExemplarReservoir [
+
+	| counter point reservoirs reservoir |
+	reservoirs := OrderedCollection new.
+	provider
+		exemplarFilter: OTMetricExemplarFilter alwaysOn;
+		addView: ((OTMetricView named: 'requests.total')
+				 attributeKeys: #( 'status' );
+				 exemplarReservoirFactory: [ :context :instrument :pointAttributes |
+						 | customReservoir |
+						 customReservoir := OTRecordingMetricExemplarReservoir new.
+						 customReservoir pointAttributes: pointAttributes.
+						 reservoirs add: customReservoir.
+						 customReservoir ];
+				 yourself).
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 1 attributes: {
+			('status' -> '200').
+			('user' -> 'alice') }.
+	point := self currentMetricPoint.
+	reservoir := reservoirs first.
+	self assert: reservoirs size equals: 1.
+	self assert: reservoir collectArgument equals: point attributes.
+	self assert: reservoir pointAttributes equals: point attributes.
+	self assert: reservoir offeredMeasurements size equals: 1.
+	self assert: reservoir offeredMeasurements first attributes size equals: 1.
+	self assert: (reservoir offeredMeasurements first attributes at: 'status') equals: '200'.
+	self assert: reservoir offeredMeasurements first exemplarAttributes size equals: 2.
+	self assert: (reservoir offeredMeasurements first exemplarAttributes at: 'user') equals: 'alice'.
+	self assert: point exemplars size equals: 1.
+	self assert: point exemplars first value equals: 1.
+	self assert: (point exemplars first filteredAttributes at: 'user') equals: 'alice'
 ]
