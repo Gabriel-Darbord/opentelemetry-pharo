@@ -236,6 +236,56 @@ OTMeterProviderTest >> testBoundWrapperRecordsMergedMeasurements [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testConcurrentDeltaReadersDoNotShareCollectionState [
+
+	| done errors firstDeltaReader firstResults gate lock provider secondDeltaReader secondResults |
+	provider := OTMeterProvider new.
+	firstDeltaReader := OTInMemoryMetricReader new.
+	firstDeltaReader temporalitySelector: [ :instrument | #delta ].
+	secondDeltaReader := OTInMemoryMetricReader new.
+	secondDeltaReader temporalitySelector: [ :instrument | #delta ].
+	provider
+		addMetricReader: firstDeltaReader;
+		addMetricReader: secondDeltaReader.
+	lock := Semaphore forMutualExclusion.
+	errors := OrderedCollection new.
+	firstResults := OrderedCollection new.
+	secondResults := OrderedCollection new.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	2 timesRepeat: [
+			gate := Semaphore new.
+			done := Semaphore new.
+			[
+				[
+					| snapshot |
+					gate wait.
+					snapshot := firstDeltaReader collectSnapshot.
+					lock critical: [ firstResults add: snapshot ] ]
+					on: Error
+					do: [ :anError | lock critical: [ errors add: anError ] ].
+				done signal ] forkAt: Processor userBackgroundPriority.
+			[
+				[
+					| snapshot |
+					gate wait.
+					snapshot := secondDeltaReader collectSnapshot.
+					lock critical: [ secondResults add: snapshot ] ]
+					on: Error
+					do: [ :anError | lock critical: [ errors add: anError ] ].
+				done signal ] forkAt: Processor userBackgroundPriority.
+			2 timesRepeat: [ gate signal ].
+			2 timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+			firstResults size = 1 ifTrue: [ ((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 2 ] ].
+	self assert: errors isEmpty.
+	self assert: firstResults size equals: 2.
+	self assert: secondResults size equals: 2.
+	self assert: firstResults first metrics first points first value equals: 1.
+	self assert: secondResults first metrics first points first value equals: 1.
+	self assert: firstResults second metrics first points first value equals: 2.
+	self assert: secondResults second metrics first points first value equals: 2
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testConcurrentForceFlushIsSafe [
 
 	| done gate lock provider reader results workerCount |
