@@ -132,15 +132,21 @@ OTOtlpGrpcMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 { #category : 'tests' }
 OTOtlpGrpcMetricExporterTest >> testExportReturnsFalseForUnsupportedTemporalityWithoutExecutingGrpcRequest [
 
-	| executed snapshot |
+	| executed snapshot warnings |
 	executed := false.
+	warnings := OrderedCollection new.
 	snapshot := self sampleSnapshot.
 	snapshot metrics first temporality: #sideways.
-	exporter requestExecutor: [ :request |
-			executed := true.
-			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	exporter
+		warningSink: [ :message | warnings add: message ];
+		requestExecutor: [ :request |
+				executed := true.
+				OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
 	self deny: (exporter export: snapshot).
-	self deny: executed
+	self deny: executed.
+	self assert: warnings size equals: 1.
+	self assert: (warnings first includesSubstring: 'failed to encode').
+	self assert: (warnings first includesSubstring: 'unsupported')
 ]
 
 { #category : 'tests' }

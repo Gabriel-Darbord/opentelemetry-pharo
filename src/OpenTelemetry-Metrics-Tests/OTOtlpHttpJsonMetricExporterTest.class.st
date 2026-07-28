@@ -115,11 +115,16 @@ OTOtlpHttpJsonMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 { #category : 'tests' }
 OTOtlpHttpJsonMetricExporterTest >> testExportReturnsFalseForUnsupportedTemporalityWithoutExecutingHttpRequest [
 
-	| snapshot |
-	snapshot := self sampleSnapshot.
-	snapshot metrics first temporality: #sideways.
-	self deny: (exporter export: snapshot).
-	self assert: client executionCount equals: 0
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			| snapshot |
+			snapshot := self sampleSnapshot.
+			snapshot metrics first temporality: #sideways.
+			self deny: (exporter export: snapshot).
+			self assert: client executionCount equals: 0.
+			self assert: retrySleeps isEmpty.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'failed to encode').
+			self assert: (warnings first includesSubstring: 'unsupported') ]
 ]
 
 { #category : 'tests' }

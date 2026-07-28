@@ -21,6 +21,14 @@ OTOtlpJsonLineMetricExporterTest >> setUp [
 	exporter := OTRecordingOtlpJsonLineMetricExporter new
 ]
 
+{ #category : 'running' }
+OTOtlpJsonLineMetricExporterTest >> tearDown [
+
+	exporter ifNotNil: [ exporter class warningSink: nil ].
+	OTOtlpJsonLineMetricExporter warningSink: nil.
+	super tearDown
+]
+
 { #category : 'tests' }
 OTOtlpJsonLineMetricExporterTest >> testFileExporterAppendsOneJsonLinePerExport [
 
@@ -66,11 +74,15 @@ OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterEncodesNonFiniteNumbersA
 { #category : 'tests' }
 OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseForUnsupportedTemporalityWithoutWritingOutput [
 
-	| snapshot |
-	snapshot := self sampleSnapshot.
-	snapshot metrics first temporality: #sideways.
-	self deny: (exporter export: snapshot).
-	self assert: exporter writtenLines isEmpty
+	self withExporterWarningsDo: [ :warnings |
+			| snapshot |
+			snapshot := self sampleSnapshot.
+			snapshot metrics first temporality: #sideways.
+			self deny: (exporter export: snapshot).
+			self assert: exporter writtenLines isEmpty.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'failed to encode').
+			self assert: (warnings first includesSubstring: 'unsupported') ]
 ]
 
 { #category : 'tests' }
@@ -91,4 +103,13 @@ OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterWritesOneValidJsonLinePe
 	self assert: line last equals: Character lf.
 	payload := STONJSON fromString: line allButLast.
 	self assert: (payload at: 'resourceMetrics') size equals: 1
+]
+
+{ #category : 'private' }
+OTOtlpJsonLineMetricExporterTest >> withExporterWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	exporter class warningSink: [ :message | warnings add: message ].
+	^ aBlock value: warnings
 ]

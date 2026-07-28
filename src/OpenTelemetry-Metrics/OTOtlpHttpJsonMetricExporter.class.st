@@ -234,7 +234,9 @@ OTOtlpHttpJsonMetricExporter >> export: anOTMetricSnapshot [
 			  self isStopping ifTrue: [ ^ false ].
 			  payloadString := [ self payloadStringFrom: anOTMetricSnapshot ]
 				                   on: Error
-				                   do: [ ^ false ].
+				                   do: [ :error |
+						                   self notePayloadEncodingFailure: error.
+						                   ^ false ].
 			  self exportAttemptNumber: 1 payloadString: payloadString ]
 ]
 
@@ -321,6 +323,13 @@ OTOtlpHttpJsonMetricExporter >> noteInvalidSuccessResponse: anError [
 OTOtlpHttpJsonMetricExporter >> notePartialSuccess: aDictionary [
 
 	^ self httpJsonExportSupport notePartialSuccess: aDictionary
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonMetricExporter >> notePayloadEncodingFailure: anError [
+
+	self warningSink value:
+		(OTOtlpExportSupport payloadEncodingFailureMessageForSignal: self otlpSignalName transport: 'HTTP' error: anError)
 ]
 
 { #category : 'private - logging' }

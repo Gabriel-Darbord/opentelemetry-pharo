@@ -22,7 +22,9 @@ OTOtlpGrpcMetricExporter >> export: anOTMetricSnapshot [
 			  self isShutdown ifTrue: [ ^ false ].
 			  payloadBytes := [ self payloadBytesFrom: anOTMetricSnapshot ]
 				                  on: Error
-				                  do: [ ^ false ].
+				                  do: [ :error |
+						                  self notePayloadEncodingFailure: error.
+						                  ^ false ].
 			  self exportAttemptNumber: 1 payloadBytes: payloadBytes ]
 ]
 

@@ -245,6 +245,13 @@ OTOtlpGrpcSpanExporter >> noteInvalidGrpcSuccessResponse: anError [
 ]
 
 { #category : 'private - logging' }
+OTOtlpGrpcSpanExporter >> notePayloadEncodingFailure: anError [
+
+	self warningSink value:
+		(OTOtlpExportSupport payloadEncodingFailureMessageForSignal: self otlpSignalName transport: 'gRPC' error: anError)
+]
+
+{ #category : 'private - logging' }
 OTOtlpGrpcSpanExporter >> noteRetryExhaustedForStatus: aStatus [
 
 	self warningSink value: (OTOtlpExportSupport retryExhaustedForGrpcStatusMessageForSignal: self otlpSignalName status: aStatus)
