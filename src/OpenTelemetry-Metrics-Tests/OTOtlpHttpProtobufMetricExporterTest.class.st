@@ -128,6 +128,14 @@ OTOtlpHttpProtobufMetricExporterTest >> testExportReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTOtlpHttpProtobufMetricExporterTest >> testExportUsesDefaultTimeoutWhenConfigurationTimeoutIsNil [
+
+	configuration timeoutMillis: nil.
+	self assert: (exporter export: self sampleSnapshot).
+	self assert: client timeout equals: 10000
+]
+
+{ #category : 'tests' }
 OTOtlpHttpProtobufMetricExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
 	client responseContents: (self successResponseWithRejectedDataPoints: 2 message: 'collector dropped data points').

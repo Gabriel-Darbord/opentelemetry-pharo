@@ -143,6 +143,18 @@ OTOtlpGrpcMetricExporterTest >> testExportReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTOtlpGrpcMetricExporterTest >> testExportUsesDefaultTimeoutWhenConfigurationTimeoutIsNil [
+
+	| capturedRequest |
+	configuration timeoutMillis: nil.
+	exporter requestExecutor: [ :request |
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: (exporter export: self sampleSnapshot).
+	self assert: capturedRequest timeoutNanos equals: 10000000000
+]
+
+{ #category : 'tests' }
 OTOtlpGrpcMetricExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
 	| warnings |

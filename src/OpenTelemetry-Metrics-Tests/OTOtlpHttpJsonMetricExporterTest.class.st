@@ -156,6 +156,14 @@ OTOtlpHttpJsonMetricExporterTest >> testExportReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testExportUsesDefaultTimeoutWhenConfigurationTimeoutIsNil [
+
+	configuration timeoutMillis: nil.
+	self assert: (exporter export: self sampleSnapshot).
+	self assert: client timeout equals: 10000
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonMetricExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
 	client responseContents: '{"partialSuccess":{"rejectedDataPoints":2,"errorMessage":"collector dropped data points"}}'.
