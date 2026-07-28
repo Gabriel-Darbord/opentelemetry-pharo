@@ -273,8 +273,18 @@ OTMeter >> isNoop [
 { #category : 'private' }
 OTMeter >> normalizedInstrumentAdviceFrom: aDictionary [
 
+	| normalized |
 	aDictionary ifNil: [ ^ Dictionary new ].
-	^ aDictionary asDictionary copy
+	normalized := Dictionary new.
+	aDictionary asDictionary associationsDo: [ :each |
+			| keyString |
+			keyString := each key asString.
+			(keyString sameAs: 'ExplicitBucketBoundaries')
+				ifTrue: [
+						(self normalizedExplicitBucketBoundariesFrom: each value)
+							ifNotNil: [ :boundaries | normalized at: 'ExplicitBucketBoundaries' put: boundaries ] ]
+				ifFalse: [ normalized at: each key put: each value ] ].
+	^ normalized
 ]
 
 { #category : 'private' }
@@ -302,6 +312,43 @@ OTMeter >> normalizedInstrumentNameFrom: aValue [
 OTMeter >> normalizedInstrumentUnitFrom: aValue [
 
 	^ aValue ifNil: [ '' ] ifNotNil: [ aValue asString ]
+]
+
+{ #category : 'private' }
+OTMeter >> normalizedExplicitBucketBoundariesFrom: anObject [
+
+	| boundaries previousValue |
+	((anObject isCollection) and: [ anObject isString not ]) ifFalse: [
+			self
+				noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
+				value: anObject
+				reason: 'expected an increasing collection of finite numbers'.
+			^ nil ].
+	boundaries := anObject asArray.
+	previousValue := nil.
+	boundaries do: [ :each |
+			| numericValue |
+			each isNumber ifFalse: [
+					self
+						noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
+						value: anObject
+						reason: 'expected an increasing collection of finite numbers'.
+					^ nil ].
+			numericValue := each asFloat.
+			(numericValue isNaN or: [ numericValue isInfinite ]) ifTrue: [
+					self
+						noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
+						value: anObject
+						reason: 'expected an increasing collection of finite numbers'.
+					^ nil ].
+			(previousValue notNil and: [ previousValue >= numericValue ]) ifTrue: [
+					self
+						noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
+						value: anObject
+						reason: 'expected an increasing collection of finite numbers'.
+					^ nil ].
+			previousValue := numericValue ].
+	^ boundaries copy
 ]
 
 { #category : 'private - logging' }
@@ -355,6 +402,20 @@ OTMeter >> noteInvalidInstrumentName: aValue [
 
 	self class instrumentWarningSink value:
 		'OpenTelemetry metric instrument name was invalid and has been left unchanged: ' , aValue printString
+]
+
+{ #category : 'private - logging' }
+OTMeter >> noteInvalidInstrumentAdviceNamed: aString value: anObject reason: aReasonString [
+
+	self class instrumentWarningSink value: (String streamContents: [ :stream |
+			 stream
+				 nextPutAll: 'OpenTelemetry metric instrument advisory parameter was invalid and has been ignored: ';
+				 nextPutAll: aString;
+				 nextPutAll: ' value=';
+				 print: anObject;
+				 nextPutAll: ' (';
+				 nextPutAll: aReasonString;
+				 nextPut: $) ])
 ]
 
 { #category : 'accessing' }

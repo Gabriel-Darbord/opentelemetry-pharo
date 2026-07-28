@@ -907,6 +907,30 @@ OTMeterProviderTest >> testMetricSnapshotAggregatesHistogramMeasurementsWithExpl
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMetricSnapshotIgnoresInvalidExplicitBucketBoundariesAdviceAndWarns [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| histogramMetric instrument point provider reader snapshot |
+			provider := OTMeterProvider new.
+			reader := OTInMemoryMetricReader new.
+			provider addMetricReader: reader.
+			instrument := (provider meterNamed: 'demo.metrics')
+				              histogramNamed: 'request.duration'
+				              unit: 'ms'
+				              description: 'Request duration'
+				              advice: { ('ExplicitBucketBoundaries' -> #( 10 5 )) } asDictionary.
+			instrument record: 7.
+			snapshot := reader collectSnapshot.
+			histogramMetric := snapshot metrics first.
+			point := histogramMetric points first.
+			self deny: (instrument advice includesKey: 'ExplicitBucketBoundaries').
+			self assert: point explicitBounds equals: #( 0.0 5.0 10.0 25.0 50.0 75.0 100.0 250.0 500.0 750.0 1000.0 2500.0 5000.0 7500.0 10000.0 ).
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'ExplicitBucketBoundaries').
+			self assert: (warnings first includesSubstring: 'invalid and has been ignored') ]
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMetricSnapshotUsesAdvisedAttributeSubsetWhenAggregating [
 
 	| metric point provider reader snapshot |
