@@ -21,7 +21,8 @@ Class {
 		'lastCollectionTimestampByInstrument',
 		'lastAsynchronousValuesByInstrument',
 		'metricProducers',
-		'metricFilter'
+		'metricFilter',
+		'collectLock'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -222,19 +223,22 @@ OTMetricReader >> collectAsynchronousCallback: aBlock for: anOTAsynchronousMetri
 { #category : 'collecting' }
 OTMetricReader >> collectSnapshot [
 
-	| collectedAt instruments measurements metrics producerMetrics |
+	| collectedAt instruments measurements metrics producerMetrics currentProvider |
 	self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
-	collectedAt := DateAndTime now asUTC.
-	^ self provider ifNil: [ OTMetricSnapshot empty ] ifNotNil: [ :aProvider |
-			  instruments := aProvider registeredMetricInstruments.
-			  measurements := aProvider collectMeasurementsFor: self.
+	^ collectLock critical: [
+			  self isStopping ifTrue: [ ^ OTMetricSnapshot empty ].
+			  collectedAt := DateAndTime now asUTC.
+			  currentProvider := self provider.
+			  currentProvider ifNil: [ ^ OTMetricSnapshot empty ].
+			  instruments := currentProvider registeredMetricInstruments.
+			  measurements := currentProvider collectMeasurementsFor: self.
 			  metrics := self filteredMetricsFrom:
 				             (self metricDataFromMeasurements: measurements instruments: instruments collectedAt: collectedAt).
 			  producerMetrics := self producerMetrics.
 			  producerMetrics ifNotEmpty: [ metrics := metrics , producerMetrics ].
 			  self markCollectedAt: collectedAt forInstruments: instruments.
 			  OTMetricSnapshot
-				  resource: aProvider resource
+				  resource: currentProvider resource
 				  measurements: measurements
 				  metrics: metrics
 				  collectedAt: collectedAt ]
@@ -314,6 +318,7 @@ OTMetricReader >> initialize [
 
 	super initialize.
 	stateLock := Semaphore forMutualExclusion.
+	collectLock := Semaphore forMutualExclusion.
 	shutdown := false.
 	shutdownRequested := false.
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.

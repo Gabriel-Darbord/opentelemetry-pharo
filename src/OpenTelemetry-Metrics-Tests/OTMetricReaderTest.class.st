@@ -168,6 +168,38 @@ OTMetricReaderTest >> testCollectSnapshotPassesMetricFilterToRegisteredMetricPro
 ]
 
 { #category : 'tests' }
+OTMetricReaderTest >> testConcurrentDeltaCollectSnapshotConsumesWindowOnce [
+
+	1 to: 10 do: [ :iteration |
+			| done errors gate lock meterProvider reader results workerCount |
+			meterProvider := OTMeterProvider new.
+			reader := OTInMemoryMetricReader new.
+			reader temporalitySelector: [ :metricInstrument | #delta ].
+			meterProvider addMetricReader: reader.
+			((meterProvider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1 attributes: { ('method' -> 'GET') }.
+			results := OrderedCollection new.
+			errors := OrderedCollection new.
+			lock := Semaphore forMutualExclusion.
+			gate := Semaphore new.
+			done := Semaphore new.
+			workerCount := 8.
+			workerCount timesRepeat: [
+					[
+						[
+							gate wait.
+							lock critical: [ results add: reader collectSnapshot ] ]
+							on: Error
+							do: [ :anError | lock critical: [ errors add: anError ] ].
+						done signal ] forkAt: Processor userBackgroundPriority ].
+			workerCount timesRepeat: [ gate signal ].
+			workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+			self assert: errors isEmpty.
+			self assert: results size equals: workerCount.
+			self assert: (results count: [ :each | each metrics notEmpty ]) equals: 1.
+			self assert: (results detect: [ :each | each metrics notEmpty ]) metrics first points first value equals: 1 ]
+]
+
+{ #category : 'tests' }
 OTMetricReaderTest >> testConcurrentDeltaCollectSnapshotIsSafe [
 
 	| done errors gate instrument lock reader results workerCount |
