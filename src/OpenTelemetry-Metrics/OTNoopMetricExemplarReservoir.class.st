@@ -18,5 +18,5 @@ OTNoopMetricExemplarReservoir >> collectForPointAttributes: aCollection [
 { #category : 'offering' }
 OTNoopMetricExemplarReservoir >> offerMeasurement: anOTMetricMeasurement [
 
-	^ self
+	self
 ]

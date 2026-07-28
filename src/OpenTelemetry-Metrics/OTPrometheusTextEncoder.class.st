@@ -1003,16 +1003,13 @@ OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetr
 { #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString type: aTypeString on: aStream [
 
-	aStream
-		nextPutAll: '# HELP ';
-		yourself.
+	aStream nextPutAll: '# HELP '.
 	self writePrometheusMetricName: aMetricName on: aStream.
 	aStream
 		space;
 		nextPutAll: (self prometheusHelpStringFor: aHelpString);
 		lf;
-		nextPutAll: '# TYPE ';
-		yourself.
+		nextPutAll: '# TYPE '.
 	self writePrometheusMetricName: aMetricName on: aStream.
 	aStream
 		space;
@@ -1024,17 +1021,13 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString unit: aUnitString type: aTypeString format: aFormatSymbol on: aStream [
 
 	aHelpString isNotEmpty ifTrue: [
-			aStream
-				nextPutAll: '# HELP ';
-				yourself.
+			aStream nextPutAll: '# HELP '.
 			self writePrometheusMetricName: aMetricName on: aStream.
 			aStream
 				space;
 				nextPutAll: (self prometheusHelpStringFor: aHelpString);
 				lf ].
-	aStream
-		nextPutAll: '# TYPE ';
-		yourself.
+	aStream nextPutAll: '# TYPE '.
 	self writePrometheusMetricName: aMetricName on: aStream.
 	aStream
 		space;
@@ -1042,9 +1035,7 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 		lf.
 	((self supportsUnitMetadataInFormat: aFormatSymbol) and: [ aUnitString ifNil: [ false ] ifNotNil: [ aUnitString isNotEmpty ] ])
 		ifTrue: [
-				aStream
-					nextPutAll: '# UNIT ';
-					yourself.
+				aStream nextPutAll: '# UNIT '.
 				self writePrometheusMetricName: aMetricName on: aStream.
 				aStream
 					space;

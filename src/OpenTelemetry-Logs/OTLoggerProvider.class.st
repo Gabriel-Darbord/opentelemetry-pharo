@@ -435,11 +435,10 @@ OTLoggerProvider >> ensureOpenLocked [
 { #category : 'processing' }
 OTLoggerProvider >> forceFlush [
 
-	| processors allFlushed stopping |
+	| processors allFlushed |
 	processors := stateLock critical: [
-			              stopping := shutdownRequested = true or: [ shutdown = true ].
+			              (shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ ^ false ].
 			              logRecordProcessors copy ].
-	stopping ifTrue: [ ^ false ].
 	processors isEmpty ifTrue: [ ^ true ].
 	allFlushed := true.
 	processors do: [ :each |

@@ -53,12 +53,12 @@ OTSimpleFixedSizeMetricExemplarReservoir >> offerMeasurement: anOTMetricMeasurem
 	| bucket |
 	(anOTMetricMeasurement exemplarEligible not or: [ self size <= 0 ]) ifTrue: [ ^ self ].
 	measurementsSeen := measurementsSeen + 1.
-	measurementsSeen <= self size ifTrue: [
-			measurements at: measurementsSeen put: anOTMetricMeasurement.
-			^ self ].
-	bucket := SharedRandom globalGenerator nextInteger: measurementsSeen.
-	bucket <= self size ifTrue: [ measurements at: bucket put: anOTMetricMeasurement ].
-	^ self
+	measurementsSeen <= self size
+		ifTrue: [ measurements at: measurementsSeen put: anOTMetricMeasurement ]
+		ifFalse: [
+				bucket := SharedRandom globalGenerator nextInteger: measurementsSeen.
+				bucket <= self size ifTrue: [ measurements at: bucket put: anOTMetricMeasurement ] ].
+	self
 ]
 
 { #category : 'private' }

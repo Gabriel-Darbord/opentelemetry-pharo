@@ -68,8 +68,8 @@ OTAlignedHistogramBucketMetricExemplarReservoir >> measurementsByBucket [
 OTAlignedHistogramBucketMetricExemplarReservoir >> offerMeasurement: anOTMetricMeasurement [
 
 	| bucketIndex |
-	anOTMetricMeasurement exemplarEligible ifFalse: [ ^ self ].
-	bucketIndex := self bucketIndexForValue: anOTMetricMeasurement value.
-	measurementsByBucket at: bucketIndex put: anOTMetricMeasurement.
-	^ self
+	anOTMetricMeasurement exemplarEligible ifTrue: [
+			bucketIndex := self bucketIndexForValue: anOTMetricMeasurement value.
+			measurementsByBucket at: bucketIndex put: anOTMetricMeasurement ].
+	self
 ]

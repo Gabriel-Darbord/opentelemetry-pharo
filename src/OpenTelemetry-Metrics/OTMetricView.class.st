@@ -25,10 +25,54 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'normalization' }
+OTMetricView class >> aggregationFromNormalizedString: aString [
+
+	aString ifNil: [ ^ #default ].
+	aString = 'drop' ifTrue: [ ^ #drop ].
+	aString = 'dropaggregation' ifTrue: [ ^ #drop ].
+	aString = 'default' ifTrue: [ ^ #default ].
+	aString = 'defaultaggregation' ifTrue: [ ^ #default ].
+	aString = 'sum' ifTrue: [ ^ #sum ].
+	aString = 'sumaggregation' ifTrue: [ ^ #sum ].
+	aString = 'lastvalue' ifTrue: [ ^ #lastValue ].
+	aString = 'lastvalueaggregation' ifTrue: [ ^ #lastValue ].
+	aString = 'explicitbuckethistogram' ifTrue: [ ^ #explicitBucketHistogram ].
+	aString = 'explicitbuckethistogramaggregation' ifTrue: [ ^ #explicitBucketHistogram ].
+	aString = 'base2exponentialbuckethistogram' ifTrue: [ ^ #base2ExponentialBucketHistogram ].
+	aString = 'base2exponentialbuckethistogramaggregation' ifTrue: [ ^ #base2ExponentialBucketHistogram ].
+	^ #default
+]
+
+{ #category : 'normalization' }
+OTMetricView class >> aggregationParameterKeyFromNormalizedString: aString [
+
+	aString ifNil: [ ^ nil ].
+	aString = 'boundaries' ifTrue: [ ^ #boundaries ].
+	aString = 'recordminmax' ifTrue: [ ^ #recordMinMax ].
+	aString = 'maxsize' ifTrue: [ ^ #maxSize ].
+	aString = 'maxscale' ifTrue: [ ^ #maxScale ].
+	^ nil
+]
+
 { #category : 'instance creation' }
 OTMetricView class >> all [
 
 	^ self named: '*'
+]
+
+{ #category : 'normalization' }
+OTMetricView class >> instrumentTypeFromNormalizedString: aString [
+
+	aString ifNil: [ ^ nil ].
+	aString = 'counter' ifTrue: [ ^ #counter ].
+	aString = 'updowncounter' ifTrue: [ ^ #upDownCounter ].
+	aString = 'histogram' ifTrue: [ ^ #histogram ].
+	aString = 'gauge' ifTrue: [ ^ #gauge ].
+	aString = 'observablecounter' ifTrue: [ ^ #observableCounter ].
+	aString = 'observablegauge' ifTrue: [ ^ #observableGauge ].
+	aString = 'observableupdowncounter' ifTrue: [ ^ #observableUpDownCounter ].
+	^ nil
 ]
 
 { #category : 'instance creation' }
@@ -42,41 +86,14 @@ OTMetricView class >> named: aString [
 { #category : 'normalization' }
 OTMetricView class >> normalizedAggregationFrom: anObject [
 
-	| normalized |
 	anObject ifNil: [ ^ #default ].
-	anObject isSymbol ifTrue: [ normalized := anObject asString ].
-	anObject isString ifTrue: [ normalized := anObject ].
-	normalized ifNil: [ ^ #default ].
-	normalized := (normalized select: [ :each | each isAlphaNumeric ]) asLowercase.
-	normalized = 'drop' ifTrue: [ ^ #drop ].
-	normalized = 'dropaggregation' ifTrue: [ ^ #drop ].
-	normalized = 'default' ifTrue: [ ^ #default ].
-	normalized = 'defaultaggregation' ifTrue: [ ^ #default ].
-	normalized = 'sum' ifTrue: [ ^ #sum ].
-	normalized = 'sumaggregation' ifTrue: [ ^ #sum ].
-	normalized = 'lastvalue' ifTrue: [ ^ #lastValue ].
-	normalized = 'lastvalueaggregation' ifTrue: [ ^ #lastValue ].
-	normalized = 'explicitbuckethistogram' ifTrue: [ ^ #explicitBucketHistogram ].
-	normalized = 'explicitbuckethistogramaggregation' ifTrue: [ ^ #explicitBucketHistogram ].
-	normalized = 'base2exponentialbuckethistogram' ifTrue: [ ^ #base2ExponentialBucketHistogram ].
-	normalized = 'base2exponentialbuckethistogramaggregation' ifTrue: [ ^ #base2ExponentialBucketHistogram ].
-	^ #default
+	^ self aggregationFromNormalizedString: (self normalizedStringFrom: anObject)
 ]
 
 { #category : 'normalization' }
 OTMetricView class >> normalizedAggregationParameterKeyFrom: anObject [
 
-	| normalized |
-	anObject ifNil: [ ^ nil ].
-	anObject isSymbol ifTrue: [ normalized := anObject asString ].
-	anObject isString ifTrue: [ normalized := anObject ].
-	normalized ifNil: [ ^ nil ].
-	normalized := (normalized select: [ :each | each isAlphaNumeric ]) asLowercase.
-	normalized = 'boundaries' ifTrue: [ ^ #boundaries ].
-	normalized = 'recordminmax' ifTrue: [ ^ #recordMinMax ].
-	normalized = 'maxsize' ifTrue: [ ^ #maxSize ].
-	normalized = 'maxscale' ifTrue: [ ^ #maxScale ].
-	^ nil
+	^ self aggregationParameterKeyFromNormalizedString: (self normalizedStringFrom: anObject)
 ]
 
 { #category : 'normalization' }
@@ -95,7 +112,6 @@ OTMetricView class >> normalizedAggregationParametersFrom: aCollection [
 { #category : 'normalization' }
 OTMetricView class >> normalizedInstrumentTypeFrom: anObject [
 
-	| normalized |
 	anObject ifNil: [ ^ nil ].
 	anObject = OTCounter ifTrue: [ ^ #counter ].
 	anObject = OTUpDownCounter ifTrue: [ ^ #upDownCounter ].
@@ -104,18 +120,15 @@ OTMetricView class >> normalizedInstrumentTypeFrom: anObject [
 	anObject = OTObservableCounter ifTrue: [ ^ #observableCounter ].
 	anObject = OTObservableGauge ifTrue: [ ^ #observableGauge ].
 	anObject = OTObservableUpDownCounter ifTrue: [ ^ #observableUpDownCounter ].
-	anObject isSymbol ifTrue: [ normalized := anObject asString ].
-	anObject isString ifTrue: [ normalized := anObject ].
-	normalized ifNil: [ ^ nil ].
-	normalized := (normalized select: [ :each | each isAlphaNumeric ]) asLowercase.
-	normalized = 'counter' ifTrue: [ ^ #counter ].
-	normalized = 'updowncounter' ifTrue: [ ^ #upDownCounter ].
-	normalized = 'histogram' ifTrue: [ ^ #histogram ].
-	normalized = 'gauge' ifTrue: [ ^ #gauge ].
-	normalized = 'observablecounter' ifTrue: [ ^ #observableCounter ].
-	normalized = 'observablegauge' ifTrue: [ ^ #observableGauge ].
-	normalized = 'observableupdowncounter' ifTrue: [ ^ #observableUpDownCounter ].
-	^ nil
+	^ self instrumentTypeFromNormalizedString: (self normalizedStringFrom: anObject)
+]
+
+{ #category : 'normalization' }
+OTMetricView class >> normalizedStringFrom: anObject [
+
+	anObject ifNil: [ ^ nil ].
+	(anObject isString or: [ anObject isSymbol ]) ifFalse: [ ^ nil ].
+	^ (anObject asString select: [ :each | each isAlphaNumeric ]) asLowercase
 ]
 
 { #category : 'accessing' }
