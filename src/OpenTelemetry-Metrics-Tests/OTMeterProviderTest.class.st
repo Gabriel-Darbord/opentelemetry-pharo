@@ -1027,6 +1027,22 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectHonorsExportTimeo
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectReturnsEmptySnapshotAfterShutdown [
+
+	| exporter provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	self assert: reader shutdown.
+	snapshot := reader collect.
+	self assert: snapshot metrics isEmpty.
+	self assert: snapshot measurements isEmpty.
+	self assert: exporter exports isEmpty
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectSplitsExportBatchesByMetricDataPointCount [
 
 	| exporter metric provider reader snapshot |

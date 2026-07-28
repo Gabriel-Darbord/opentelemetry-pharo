@@ -30,6 +30,20 @@ OTPrometheusMetricReaderTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTPrometheusMetricReaderTest >> testCollectReturnsEmptySnapshotAfterShutdown [
+
+	| snapshot |
+	provider := OTMeterProvider new.
+	reader := OTPrometheusMetricReader new.
+	reader port: 0.
+	provider addMetricReader: reader.
+	self assert: reader shutdown.
+	snapshot := reader collect.
+	self assert: snapshot metrics isEmpty.
+	self assert: snapshot measurements isEmpty
+]
+
+{ #category : 'tests' }
 OTPrometheusMetricReaderTest >> testCollectUsesCumulativeTemporality [
 
 	| counter metric |
