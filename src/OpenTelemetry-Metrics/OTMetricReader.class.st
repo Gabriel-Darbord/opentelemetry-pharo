@@ -20,6 +20,7 @@ Class {
 		'warnedMetricIdentityConflicts',
 		'lastCollectionTimestampByInstrument',
 		'lastAsynchronousValuesByInstrument',
+		'firstAsynchronousStartTimestampsByInstrument',
 		'metricProducers',
 		'metricFilter',
 		'collectLock'
@@ -168,6 +169,15 @@ OTMetricReader >> cardinalityLimitSelector: aBlockOrNil [
 	stateLock critical: [
 			self ensureOpenLocked.
 			cardinalityLimitSelector := aBlockOrNil ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> asynchronousCumulativeStartTimestampFor: anOTAsynchronousMetricInstrument pointAttributes: aCollection previousCollection: aDateAndTime [
+
+	^ self withFirstAsynchronousStartTimestampsFor: anOTAsynchronousMetricInstrument do: [ :startTimestamps |
+			  startTimestamps
+				  at: aCollection
+				  ifAbsentPut: [ aDateAndTime ifNil: [ anOTAsynchronousMetricInstrument creationTimestamp ] ifNotNil: [ aDateAndTime ] ] ]
 ]
 
 { #category : 'collecting' }
@@ -323,10 +333,18 @@ OTMetricReader >> initialize [
 	shutdownRequested := false.
 	lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new.
 	lastAsynchronousValuesByInstrument := WeakIdentityKeyDictionary new.
+	firstAsynchronousStartTimestampsByInstrument := WeakIdentityKeyDictionary new.
 	callbackTimeoutMillis := 30000.
 	metricProducers := OrderedCollection new.
 	selectedAttributeSetsByStream := Dictionary new.
 	warnedMetricIdentityConflicts := Set new
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> firstAsynchronousStartTimestampsByInstrument [
+
+	^ firstAsynchronousStartTimestampsByInstrument ifNil: [
+		  firstAsynchronousStartTimestampsByInstrument := WeakIdentityKeyDictionary new ]
 ]
 
 { #category : 'collecting' }
@@ -431,7 +449,7 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMe
 	attributeFilter := anOTMetricViewOrNil
 		                   ifNil: [ anOTMetricInstrument attributeFilter ]
 		                   ifNotNil: [ anOTMetricViewOrNil resolvedAttributeFilterFor: anOTMetricInstrument ].
-	^ OTMetricAggregationContext
+	^ (OTMetricAggregationContext
 		  collectedAt: aDateAndTime
 		  startTimestamp: startTimestamp
 		  temporality: temporality
@@ -444,7 +462,17 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMe
 		  (anOTMetricViewOrNil ifNotNil: [ anOTMetricViewOrNil resolvedAggregationParametersFor: anOTMetricInstrument reader: self ])
 		  exemplarFilter: self provider exemplarFilter
 		  exemplarReservoirFactory:
-		  (anOTMetricViewOrNil ifNotNil: [ anOTMetricViewOrNil resolvedExemplarReservoirFactoryFor: anOTMetricInstrument reader: self ])
+		  (anOTMetricViewOrNil ifNotNil: [ anOTMetricViewOrNil resolvedExemplarReservoirFactoryFor: anOTMetricInstrument reader: self ]))
+		 pointStartTimestampResolver: (
+			  (temporality = #cumulative and: [ anOTMetricInstrument isKindOf: OTAsynchronousMetricInstrument ])
+				  ifTrue: [
+						  [ :metricInstrument :pointAttributes :pointMeasurements |
+						  self
+							  asynchronousCumulativeStartTimestampFor: metricInstrument
+							  pointAttributes: pointAttributes
+							  previousCollection: previousCollection ] ]
+				  ifFalse: [ nil ]);
+		 yourself
 ]
 
 { #category : 'collecting' }
@@ -465,6 +493,10 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 					context ifNotNil: [
 							context aggregation = #drop ifFalse: [
 									preparedMeasurements := each preparedMeasurementsFrom: instrumentMeasurements forReader: self using: context.
+									((each isKindOf: OTAsynchronousMetricInstrument) and: [ context temporality = #cumulative ]) ifTrue: [
+											self
+												pruneMissingAsynchronousStartTimestampsFor: each
+												keepingOnly: (each groupedMeasurementsByAttributes: preparedMeasurements) ].
 									selectedMeasurements := self selectedMeasurementsFrom: preparedMeasurements for: each using: context.
 									selectedMeasurements := self
 										                        cardinalityLimitedMeasurementsFrom: selectedMeasurements
@@ -651,6 +683,27 @@ OTMetricReader >> selectedMeasurementsFrom: someMeasurements for: anOTMetricInst
 ]
 
 { #category : 'private - logging' }
+OTMetricReader >> pruneMissingAsynchronousState: aDictionary keepingOnly: currentValues [
+
+	aDictionary keys do: [ :each |
+			(currentValues includesKey: each) ifFalse: [ aDictionary removeKey: each ] ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> pruneMissingAsynchronousStartTimestampsFor: anOTMetricInstrument keepingOnly: currentValues [
+
+	^ self withFirstAsynchronousStartTimestampsFor: anOTMetricInstrument do: [ :startTimestamps |
+		  self pruneMissingAsynchronousState: startTimestamps keepingOnly: currentValues ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> pruneMissingLastAsynchronousValuesFor: anOTMetricInstrument keepingOnly: currentValues [
+
+	^ self withLastAsynchronousValuesFor: anOTMetricInstrument do: [ :previousValues |
+		  self pruneMissingAsynchronousState: previousValues keepingOnly: currentValues ]
+]
+
+{ #category : 'private - logging' }
 OTMetricReader >> shouldWarnAboutMetricIdentityConflictAt: aMetricIdentityKey whenMetricCountIs: anInteger [
 
 	^ stateLock critical: [
@@ -697,6 +750,14 @@ OTMetricReader >> withLastAsynchronousValuesFor: anOTMetricInstrument do: aBlock
 
 	^ stateLock critical: [
 		  aBlock value: (self lastAsynchronousValuesByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]) ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> withFirstAsynchronousStartTimestampsFor: anOTMetricInstrument do: aBlock [
+
+	^ stateLock critical: [
+		  aBlock value:
+			  (self firstAsynchronousStartTimestampsByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]) ]
 ]
 
 { #category : 'collecting' }

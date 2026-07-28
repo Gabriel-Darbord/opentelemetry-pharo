@@ -29,7 +29,10 @@ OTObservableUpDownCounter >> metricDataFromMeasurements: someMeasurements using:
 			          point := OTNumberDataPoint
 				                   attributes: each key
 				                   value: (each value inject: 0 into: [ :sum :measurement | sum + measurement value ])
-				                   startTimestamp: (anOTMetricAggregationContext startTimestamp ifNil: [ each value first timestamp ])
+				                   startTimestamp: (anOTMetricAggregationContext
+						                    pointStartTimestampForInstrument: self
+						                    pointAttributes: each key
+						                    measurements: each value)
 				                   timestamp: anOTMetricAggregationContext collectedAt.
 			          point
 				          exemplars:
@@ -62,6 +65,7 @@ OTObservableUpDownCounter >> preparedMeasurementsFrom: someMeasurements forReade
 							   timestamp: anOTMetricAggregationContext collectedAt;
 							   yourself).
 					  previousValues at: each key put: currentValue ].
+			  anOTMetricReader pruneMissingAsynchronousState: previousValues keepingOnly: currentValues.
 			  deltaMeasurements asArray ]
 ]
 

@@ -128,6 +128,37 @@ OTMeterProviderTest >> testAsynchronousObservableCounterCumulativeSnapshotKeepsS
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObservableCounterCumulativeLateSeriesUsesPriorCollectionTimestampAsStartTimestamp [
+
+	| callbackValues firstPoint latePoint provider reader secondSnapshot |
+	callbackValues := OrderedDictionary new
+		                  at: '1001' put: 5;
+		                  yourself.
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableCounterNamed: 'runtime.page_faults'
+		callbacks: { [ :observer |
+				callbackValues associationsDo: [ :each |
+					observer observe: each value attributes: { ('pid' -> each key) } ] ] }
+		unit: '1'
+		description: 'Page faults'
+		advice: Dictionary new.
+	firstPoint := reader collectSnapshot metrics first points first.
+	callbackValues := OrderedDictionary new
+		                  at: '1001' put: 8;
+		                  at: '1002' put: 3;
+		                  yourself.
+	secondSnapshot := reader collectSnapshot.
+	latePoint := secondSnapshot metrics first points
+		             detect: [ :each | (each attributes at: 'pid') = '1002' ]
+		             ifNone: [ self fail: 'Expected late cumulative asynchronous series' ].
+	self assert: latePoint value equals: 3.
+	self assert: latePoint startTimestamp equals: firstPoint timestamp
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousObservableCounterDeltaSnapshotConvertsCumulativeValues [
 
 	| callbackValue firstPoint provider reader secondPoint |

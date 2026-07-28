@@ -14,7 +14,8 @@ Class {
 		'cardinalityLimit',
 		'aggregationParameters',
 		'exemplarFilter',
-		'exemplarReservoirFactory'
+		'exemplarReservoirFactory',
+		'pointStartTimestampResolver'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -173,6 +174,29 @@ OTMetricAggregationContext >> exemplarReservoirFactory [
 OTMetricAggregationContext >> exemplarReservoirFactory: aBlockClosure [
 
 	exemplarReservoirFactory := aBlockClosure
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> pointStartTimestampForInstrument: anOTMetricInstrument pointAttributes: aCollection measurements: someMeasurements [
+
+	pointStartTimestampResolver ifNotNil: [
+		^ pointStartTimestampResolver
+			  value: anOTMetricInstrument
+			  value: aCollection
+			  value: someMeasurements ].
+	^ startTimestamp ifNil: [ someMeasurements first timestamp ]
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> pointStartTimestampResolver [
+
+	^ pointStartTimestampResolver
+]
+
+{ #category : 'accessing' }
+OTMetricAggregationContext >> pointStartTimestampResolver: aBlockClosure [
+
+	pointStartTimestampResolver := aBlockClosure
 ]
 
 { #category : 'exemplars' }
