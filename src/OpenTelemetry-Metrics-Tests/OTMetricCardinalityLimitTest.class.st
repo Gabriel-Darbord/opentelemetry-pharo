@@ -76,6 +76,52 @@ OTMetricCardinalityLimitTest >> testCardinalityLimitIsAppliedAfterAttributeFilte
 ]
 
 { #category : 'tests' }
+OTMetricCardinalityLimitTest >> testReaderCardinalityLimitDefaultsTo2000WithoutSelectorOrView [
+
+	| context instrument provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	context := reader metricAggregationContextFor: instrument collectedAt: DateAndTime now asUTC.
+	self assert: context cardinalityLimit equals: 2000
+]
+
+{ #category : 'tests' }
+OTMetricCardinalityLimitTest >> testReaderCardinalityLimitUsesReaderSelectorWhenNoViewProvidesOne [
+
+	| context instrument provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader cardinalityLimitSelector: [ :metricInstrument | 17 ].
+	provider addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	context := reader metricAggregationContextFor: instrument collectedAt: DateAndTime now asUTC.
+	self assert: context cardinalityLimit equals: 17
+]
+
+{ #category : 'tests' }
+OTMetricCardinalityLimitTest >> testViewCardinalityLimitOverridesReaderSelector [
+
+	| context instrument provider reader view |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader cardinalityLimitSelector: [ :metricInstrument | 17 ].
+	view := (OTMetricView named: 'requests.total')
+		        aggregationCardinalityLimit: 3;
+		        yourself.
+	provider
+		addMetricReader: reader;
+		addView: view.
+	instrument := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	context := reader
+		           metricAggregationContextFor: instrument
+		           view: view
+		           collectedAt: DateAndTime now asUTC.
+	self assert: context cardinalityLimit equals: 3
+]
+
+{ #category : 'tests' }
 OTMetricCardinalityLimitTest >> testSynchronousCumulativeMetricsUseOverflowPointAfterCardinalityLimit [
 
 	| metric overflowPoint provider reader secondMetric secondOverflowPoint secondStablePoint stablePoint |
