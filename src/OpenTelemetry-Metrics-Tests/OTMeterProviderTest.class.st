@@ -1101,6 +1101,25 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectSplitsExportBatch
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderDefaultsAggregationFromExporter [
+
+	| exporter metric provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	exporter aggregationSelector: [ :instrument | #sum ].
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 2;
+		record: 3.
+	snapshot := reader collect.
+	metric := snapshot metrics first.
+	self assert: metric class identicalTo: OTSumMetricData.
+	self assert: metric points first value equals: 5
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderDefaultsTemporalityFromExporter [
 
 	| exporter metric provider reader snapshot |
@@ -1168,6 +1187,28 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushSplitsExportBa
 	self assert: exporter exports first metrics first points size equals: 2.
 	self assert: exporter exports second metrics first points size equals: 1.
 	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderOverrideWinsOverExporterAggregation [
+
+	| exporter metric provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	exporter aggregationSelector: [ :instrument | #sum ].
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		aggregationSelector: [ :instrument | #default ].
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 2;
+		record: 3.
+	snapshot := reader collect.
+	metric := snapshot metrics first.
+	self assert: metric class identicalTo: OTHistogramMetricData.
+	self assert: metric points first count equals: 2.
+	self assert: metric points first sum equals: 5
 ]
 
 { #category : 'tests' }
