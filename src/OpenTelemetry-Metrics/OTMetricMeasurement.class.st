@@ -27,7 +27,6 @@ OTMetricMeasurement class >> instrument: anOTMetricInstrument value: aNumber att
 		instrument: anOTMetricInstrument;
 		value: aNumber;
 		attributes: aCollection;
-		exemplarAttributes: aCollection;
 		timestamp: DateAndTime now asUTC.
 	^ measurement
 ]
@@ -138,9 +137,9 @@ OTMetricMeasurement >> withAttributes: aCollection [
 		value: self value;
 		attributes: aCollection;
 		exemplarEligible: self exemplarEligible;
-		exemplarAttributes: self exemplarAttributes;
 		exemplarTraceId: self exemplarTraceId;
 		exemplarSpanId: self exemplarSpanId;
 		timestamp: self timestamp.
+	exemplarAttributes ifNotNil: [ measurement exemplarAttributes: exemplarAttributes ].
 	^ measurement
 ]
