@@ -17,7 +17,7 @@ OTRecordingMetricExemplarReservoir >> collectArgument [
 ]
 
 { #category : 'collecting' }
-OTRecordingMetricExemplarReservoir >> collectForPointAttributes: aCollection [
+OTRecordingMetricExemplarReservoir >> collectForPointAttributesUnlocked: aCollection [
 
 	collectArgument := aCollection.
 	^ offeredMeasurements collect: [ :each | OTMetricExemplar measurement: each pointAttributes: aCollection ] as: Array
@@ -31,7 +31,7 @@ OTRecordingMetricExemplarReservoir >> initialize [
 ]
 
 { #category : 'offering' }
-OTRecordingMetricExemplarReservoir >> offerMeasurement: anOTMetricMeasurement [
+OTRecordingMetricExemplarReservoir >> offerMeasurementUnlocked: anOTMetricMeasurement [
 
 	offeredMeasurements add: anOTMetricMeasurement.
 	self

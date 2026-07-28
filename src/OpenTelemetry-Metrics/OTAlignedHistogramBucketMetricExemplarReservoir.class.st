@@ -24,30 +24,38 @@ OTAlignedHistogramBucketMetricExemplarReservoir class >> boundaries: aCollection
 { #category : 'accessing' }
 OTAlignedHistogramBucketMetricExemplarReservoir >> boundaries [
 
-	^ boundaries ifNil: [ #(  ) ]
+	^ self stateLock critical: [ self boundariesUnlocked copy ]
 ]
 
 { #category : 'accessing' }
 OTAlignedHistogramBucketMetricExemplarReservoir >> boundaries: aCollection [
 
-	boundaries := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ].
-	measurementsByBucket := Array new: self boundaries size + 1 withAll: nil
+	^ self stateLock critical: [
+			  boundaries := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ].
+			  measurementsByBucket := Array new: self boundariesUnlocked size + 1 withAll: nil.
+			  boundaries copy ]
+]
+
+{ #category : 'private' }
+OTAlignedHistogramBucketMetricExemplarReservoir >> boundariesUnlocked [
+
+	^ boundaries ifNil: [ #(  ) ]
 ]
 
 { #category : 'private' }
 OTAlignedHistogramBucketMetricExemplarReservoir >> bucketIndexForValue: aNumber [
 
-	^ self boundaries detectIndex: [ :boundary | aNumber <= boundary ] ifNone: [ self boundaries size + 1 ]
+	^ self boundariesUnlocked detectIndex: [ :boundary | aNumber <= boundary ] ifNone: [ self boundariesUnlocked size + 1 ]
 ]
 
 { #category : 'collecting' }
-OTAlignedHistogramBucketMetricExemplarReservoir >> collectForPointAttributes: aCollection [
+OTAlignedHistogramBucketMetricExemplarReservoir >> collectForPointAttributesUnlocked: aCollection [
 
 	| exemplars |
-	exemplars := self measurementsByBucket
+	exemplars := self measurementsByBucketUnlocked
 		             select: [ :each | each notNil ]
 		             thenCollect: [ :each | OTMetricExemplar measurement: each pointAttributes: aCollection ].
-	measurementsByBucket := Array new: self boundaries size + 1 withAll: nil.
+	measurementsByBucket := Array new: self boundariesUnlocked size + 1 withAll: nil.
 	^ exemplars asArray
 ]
 
@@ -61,11 +69,17 @@ OTAlignedHistogramBucketMetricExemplarReservoir >> initialize [
 { #category : 'accessing' }
 OTAlignedHistogramBucketMetricExemplarReservoir >> measurementsByBucket [
 
-	^ measurementsByBucket ifNil: [ measurementsByBucket := Array new: self boundaries size + 1 withAll: nil ]
+	^ self stateLock critical: [ self measurementsByBucketUnlocked copy ]
+]
+
+{ #category : 'private' }
+OTAlignedHistogramBucketMetricExemplarReservoir >> measurementsByBucketUnlocked [
+
+	^ measurementsByBucket ifNil: [ measurementsByBucket := Array new: self boundariesUnlocked size + 1 withAll: nil ]
 ]
 
 { #category : 'offering' }
-OTAlignedHistogramBucketMetricExemplarReservoir >> offerMeasurement: anOTMetricMeasurement [
+OTAlignedHistogramBucketMetricExemplarReservoir >> offerMeasurementUnlocked: anOTMetricMeasurement [
 
 	| bucketIndex |
 	anOTMetricMeasurement exemplarEligible ifTrue: [

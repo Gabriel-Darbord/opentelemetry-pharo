@@ -10,13 +10,13 @@ Class {
 }
 
 { #category : 'collecting' }
-OTNoopMetricExemplarReservoir >> collectForPointAttributes: aCollection [
+OTNoopMetricExemplarReservoir >> collectForPointAttributesUnlocked: aCollection [
 
 	^ #(  )
 ]
 
 { #category : 'offering' }
-OTNoopMetricExemplarReservoir >> offerMeasurement: anOTMetricMeasurement [
+OTNoopMetricExemplarReservoir >> offerMeasurementUnlocked: anOTMetricMeasurement [
 
 	self
 ]

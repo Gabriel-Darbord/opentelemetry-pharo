@@ -12,6 +12,47 @@ Class {
 }
 
 { #category : 'private' }
+OTMetricExemplarTest >> assertReservoir: anOTMetricExemplarReservoir staysSafeWithMaximumCollectSize: anInteger measurementBlock: aBlock [
+
+	| collectedBatches collectorCount done errors gate lock offererCount workerCount |
+	collectedBatches := OrderedCollection new.
+	errors := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	offererCount := 4.
+	collectorCount := 2.
+	workerCount := offererCount + collectorCount.
+	1 to: offererCount do: [ :offererIndex |
+			[
+				[
+					gate wait.
+					1 to: 50 do: [ :measurementIndex |
+					anOTMetricExemplarReservoir offerMeasurement: (aBlock value: offererIndex value: measurementIndex) ] ]
+					on: Error
+					do: [ :anError | lock critical: [ errors add: anError ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	1 to: collectorCount do: [ :collectorIndex |
+			[
+				[
+					gate wait.
+					1 to: 50 do: [ :each |
+							| collected |
+							collected := anOTMetricExemplarReservoir collectForPointAttributes: { ('status' -> '200') }.
+							lock critical: [ collectedBatches add: collected ] ] ]
+					on: Error
+					do: [ :anError | lock critical: [ errors add: anError ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 2000) not ].
+	self assert: errors isEmpty.
+	self assert: (collectedBatches allSatisfy: [ :each | each size <= anInteger ]).
+	self assert:
+		(collectedBatches allSatisfy: [ :each | each allSatisfy: [ :exemplar | exemplar class identicalTo: OTMetricExemplar ] ]).
+	self assert: (anOTMetricExemplarReservoir collectForPointAttributes: { ('status' -> '200') }) size <= anInteger
+]
+
+{ #category : 'private' }
 OTMetricExemplarTest >> currentMetricPoint [
 
 	^ reader collectSnapshot metrics first points first
@@ -38,6 +79,18 @@ OTMetricExemplarTest >> tearDown [
 		OpenTelemetry currentSpan: nil.
 		provider ifNotNil: [ provider shutdown ].
 		tracerProvider ifNotNil: [ tracerProvider shutdown ] ] ensure: [ super tearDown ]
+]
+
+{ #category : 'tests' }
+OTMetricExemplarTest >> testAlignedHistogramBucketReservoirIsSafeUnderConcurrentOfferAndCollect [
+
+	| counter reservoir |
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	reservoir := OTAlignedHistogramBucketMetricExemplarReservoir boundaries: #( 10 20 ).
+	self assertReservoir: reservoir staysSafeWithMaximumCollectSize: 3 measurementBlock: [ :offererIndex :measurementIndex |
+			| value |
+			value := #( 5 15 25 ) at: (offererIndex + measurementIndex - 1 rem: 3) + 1.
+			OTMetricMeasurement instrument: counter value: value attributes: { ('worker' -> offererIndex asString) } ]
 ]
 
 { #category : 'tests' }
@@ -98,6 +151,19 @@ OTMetricExemplarTest >> testExplicitHistogramUsesOneExemplarPerBucket [
 	point := self currentMetricPoint.
 	values := (point exemplars collect: [ :each | each value ]) asSortedCollection asArray.
 	self assert: values equals: #( 7 15 )
+]
+
+{ #category : 'tests' }
+OTMetricExemplarTest >> testSimpleFixedSizeReservoirIsSafeUnderConcurrentOfferAndCollect [
+
+	| counter reservoir |
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	reservoir := OTSimpleFixedSizeMetricExemplarReservoir size: 3.
+	self assertReservoir: reservoir staysSafeWithMaximumCollectSize: 3 measurementBlock: [ :offererIndex :measurementIndex |
+			OTMetricMeasurement
+				instrument: counter
+				value: offererIndex * 1000 + measurementIndex
+				attributes: { ('worker' -> offererIndex asString) } ]
 ]
 
 { #category : 'tests' }
