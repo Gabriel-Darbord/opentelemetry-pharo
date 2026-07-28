@@ -130,6 +130,20 @@ OTOtlpGrpcMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 ]
 
 { #category : 'tests' }
+OTOtlpGrpcMetricExporterTest >> testExportReturnsFalseForUnsupportedTemporalityWithoutExecutingGrpcRequest [
+
+	| executed snapshot |
+	executed := false.
+	snapshot := self sampleSnapshot.
+	snapshot metrics first temporality: #sideways.
+	exporter requestExecutor: [ :request |
+			executed := true.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self deny: (exporter export: snapshot).
+	self deny: executed
+]
+
+{ #category : 'tests' }
 OTOtlpGrpcMetricExporterTest >> testExportReturnsFalseAfterShutdown [
 
 	| executed |

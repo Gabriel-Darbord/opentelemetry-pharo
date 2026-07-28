@@ -120,6 +120,16 @@ OTOtlpHttpProtobufMetricExporterTest >> testExportAppliesHttpProtobufConfigurati
 ]
 
 { #category : 'tests' }
+OTOtlpHttpProtobufMetricExporterTest >> testExportReturnsFalseForUnsupportedTemporalityWithoutExecutingHttpRequest [
+
+	| snapshot |
+	snapshot := self sampleSnapshot.
+	snapshot metrics first temporality: #sideways.
+	self deny: (exporter export: snapshot).
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
 OTOtlpHttpProtobufMetricExporterTest >> testExportReturnsFalseAfterShutdown [
 
 	self assert: exporter shutdown.

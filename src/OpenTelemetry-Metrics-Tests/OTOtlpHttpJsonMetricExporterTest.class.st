@@ -113,6 +113,16 @@ OTOtlpHttpJsonMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testExportReturnsFalseForUnsupportedTemporalityWithoutExecutingHttpRequest [
+
+	| snapshot |
+	snapshot := self sampleSnapshot.
+	snapshot metrics first temporality: #sideways.
+	self deny: (exporter export: snapshot).
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonMetricExporterTest >> testExportEncodesNonFiniteNumbersAsJsonStrings [
 
 	| payload point resourceMetrics scopeMetrics snapshot |

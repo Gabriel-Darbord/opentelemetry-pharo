@@ -64,6 +64,16 @@ OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterEncodesNonFiniteNumbersA
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseForUnsupportedTemporalityWithoutWritingOutput [
+
+	| snapshot |
+	snapshot := self sampleSnapshot.
+	snapshot metrics first temporality: #sideways.
+	self deny: (exporter export: snapshot).
+	self assert: exporter writtenLines isEmpty
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseAfterShutdown [
 
 	self assert: exporter shutdown.

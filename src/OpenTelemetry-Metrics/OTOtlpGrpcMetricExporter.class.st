@@ -14,6 +14,18 @@ OTOtlpGrpcMetricExporter >> defaultEncoderClass [
 	^ OTOtlpProtobufMetricEncoder
 ]
 
+{ #category : 'exporting' }
+OTOtlpGrpcMetricExporter >> export: anOTMetricSnapshot [
+
+	| payloadBytes |
+	^ self withExportLockDo: [
+			  self isShutdown ifTrue: [ ^ false ].
+			  payloadBytes := [ self payloadBytesFrom: anOTMetricSnapshot ]
+				                  on: Error
+				                  do: [ ^ false ].
+			  self exportAttemptNumber: 1 payloadBytes: payloadBytes ]
+]
+
 { #category : 'accessing' }
 OTOtlpGrpcMetricExporter >> defaultResponseDecoderClass [
 

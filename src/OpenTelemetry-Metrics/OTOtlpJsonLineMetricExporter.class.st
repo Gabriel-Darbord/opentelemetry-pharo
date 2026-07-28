@@ -26,9 +26,13 @@ OTOtlpJsonLineMetricExporter >> encoder: anEncoder [
 { #category : 'exporting' }
 OTOtlpJsonLineMetricExporter >> export: anOTMetricSnapshot [
 
+	| jsonLine |
 	^ self withSynchronizedExportDo: [
 			  self isStopping ifTrue: [ ^ false ].
-			  self writeJsonLine: (self jsonLineFrom: anOTMetricSnapshot).
+			  jsonLine := [ self jsonLineFrom: anOTMetricSnapshot ]
+				              on: Error
+				              do: [ ^ false ].
+			  self writeJsonLine: jsonLine.
 			  true ]
 ]
 
