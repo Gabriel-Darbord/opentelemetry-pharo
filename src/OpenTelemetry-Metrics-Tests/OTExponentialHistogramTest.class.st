@@ -34,6 +34,31 @@ OTExponentialHistogramTest >> testReaderCanAggregateHistogramMeasurementsAsExpon
 ]
 
 { #category : 'tests' }
+OTExponentialHistogramTest >> testReaderChoosesHighestExponentialHistogramScaleThatFitsMaxSize [
+
+	| histogramMetric point provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider
+		addMetricReader: reader;
+		addView: ((OTMetricView named: 'request.duration')
+				 aggregation: #base2ExponentialBucketHistogram;
+				 aggregationParameters: {
+						 ('max_scale' -> 5).
+						 ('max_size' -> 4) } asDictionary;
+				 yourself).
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 1.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 2.
+	histogramMetric := reader collectSnapshot metrics first.
+	point := histogramMetric points first.
+	self assert: histogramMetric class identicalTo: OTExponentialHistogramMetricData.
+	self assert: point count equals: 2.
+	self assert: point scale equals: 1
+]
+
+{ #category : 'tests' }
 OTExponentialHistogramTest >> testReaderDropsAllNonFiniteValuesFromExponentialHistogram [
 
 	| provider reader snapshot |
@@ -80,4 +105,29 @@ OTExponentialHistogramTest >> testReaderIgnoresNonFiniteValuesWhenAggregatingExp
 	self assert: point zeroCount equals: 1.
 	self assert: (point positiveBuckets bucketCounts inject: 0 into: [ :sum :each | sum + each ]) equals: 1.
 	self assert: (point negativeBuckets bucketCounts inject: 0 into: [ :sum :each | sum + each ]) equals: 1
+]
+
+{ #category : 'tests' }
+OTExponentialHistogramTest >> testReaderUsesConfiguredMaxScaleWhenExponentialHistogramHasAtMostOnePositiveAndNegativeValue [
+
+	| histogramMetric point provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider
+		addMetricReader: reader;
+		addView: ((OTMetricView named: 'request.duration')
+				 aggregation: #base2ExponentialBucketHistogram;
+				 aggregationParameters: { ('max_scale' -> 7) } asDictionary;
+				 yourself).
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 0.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 1.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: -2.
+	histogramMetric := reader collectSnapshot metrics first.
+	point := histogramMetric points first.
+	self assert: histogramMetric class identicalTo: OTExponentialHistogramMetricData.
+	self assert: point count equals: 3.
+	self assert: point scale equals: 7
 ]
