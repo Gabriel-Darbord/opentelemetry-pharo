@@ -19,7 +19,8 @@ OTBlockingMetricExporter >> allowExportToContinue [
 { #category : 'exporting' }
 OTBlockingMetricExporter >> export: anOTMetricSnapshot [
 
-	^ self withActiveStateDo: [
+	^ self withSynchronizedExportDo: [
+			  self isStopping ifTrue: [ ^ false ].
 			  exportEntered signal.
 			  exportRelease wait.
 			  true ]

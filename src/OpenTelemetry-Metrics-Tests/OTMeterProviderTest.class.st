@@ -1239,6 +1239,44 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownShutsDownExporte
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReadersSerializeSharedExporterExports [
+
+	| done errors exporter firstReader firstSnapshot provider secondReader secondSnapshot |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	firstReader := OTPeriodicExportingMetricReader exporter: exporter.
+	secondReader := OTPeriodicExportingMetricReader exporter: exporter.
+	firstReader exportIntervalMillis: 1000000.
+	secondReader exportIntervalMillis: 1000000.
+	provider
+		addMetricReader: firstReader;
+		addMetricReader: secondReader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	done := Semaphore new.
+	errors := OrderedCollection new.
+	[
+		[ firstSnapshot := firstReader collect ]
+			on: Error
+			do: [ :anError | errors add: anError ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForExportEntryWithin: 100).
+	[
+		[ secondSnapshot := secondReader collect ]
+			on: Error
+			do: [ :anError | errors add: anError ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForExportEntryWithin: 20) not.
+	exporter allowExportToContinue.
+	self assert: (exporter waitForExportEntryWithin: 100).
+	exporter allowExportToContinue.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: errors isEmpty.
+	self assert: firstSnapshot metrics size equals: 1.
+	self assert: secondSnapshot metrics size equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testProviderAddMetricReaderAssignsProvider [
 
 	| provider reader |

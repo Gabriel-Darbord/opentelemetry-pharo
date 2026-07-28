@@ -10,7 +10,8 @@ Class {
 		'stateLock',
 		'shutdownRequested',
 		'temporalitySelector',
-		'aggregationSelector'
+		'aggregationSelector',
+		'exportLock'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -68,6 +69,7 @@ OTMetricExporter >> initialize [
 
 	super initialize.
 	stateLock := Semaphore forMutualExclusion.
+	exportLock := Semaphore forMutualExclusion.
 	shutdown := false.
 	shutdownRequested := false.
 	temporalitySelector := [ :instrument | #cumulative ].
@@ -114,4 +116,10 @@ OTMetricExporter >> withActiveStateDo: aBlock [
 	^ stateLock critical: [
 			  (shutdownRequested or: [ shutdown ]) ifTrue: [ ^ false ].
 			  aBlock value ]
+]
+
+{ #category : 'private - lifecycle' }
+OTMetricExporter >> withSynchronizedExportDo: aBlock [
+
+	^ exportLock critical: aBlock
 ]

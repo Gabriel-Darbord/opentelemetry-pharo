@@ -229,8 +229,9 @@ OTOtlpHttpJsonMetricExporter >> executeHttpRequestForPayloadString: payloadStrin
 { #category : 'exporting' }
 OTOtlpHttpJsonMetricExporter >> export: anOTMetricSnapshot [
 
-	self isStopping ifTrue: [ ^ false ].
-	^ self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: anOTMetricSnapshot)
+	^ self withSynchronizedExportDo: [
+			  self isStopping ifTrue: [ ^ false ].
+			  self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: anOTMetricSnapshot) ]
 ]
 
 { #category : 'exporting' }

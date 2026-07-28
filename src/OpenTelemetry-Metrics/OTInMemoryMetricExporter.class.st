@@ -16,9 +16,10 @@ Class {
 { #category : 'exporting' }
 OTInMemoryMetricExporter >> export: anOTMetricSnapshot [
 
-	^ self withActiveStateDo: [
-			  self exports add: anOTMetricSnapshot.
-			  true ]
+	^ self withSynchronizedExportDo: [
+			  self withActiveStateDo: [
+					  self exports add: anOTMetricSnapshot.
+					  true ] ]
 ]
 
 { #category : 'accessing' }
