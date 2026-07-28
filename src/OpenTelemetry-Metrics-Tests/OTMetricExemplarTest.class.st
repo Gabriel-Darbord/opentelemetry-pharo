@@ -94,6 +94,55 @@ OTMetricExemplarTest >> testAlignedHistogramBucketReservoirIsSafeUnderConcurrent
 ]
 
 { #category : 'tests' }
+OTMetricExemplarTest >> testDefaultExemplarReservoirUsesAlignedBucketsForExplicitHistogram [
+
+	| context histogram reservoir |
+	provider exemplarFilter: OTMetricExemplarFilter alwaysOn.
+	histogram := (provider meterNamed: 'demo.metrics')
+		             histogramNamed: 'request.duration'
+		             unit: 'ms'
+		             description: 'Request duration'
+		             advice: { ('ExplicitBucketBoundaries' -> #( 10 20 )) } asDictionary.
+	context := OTMetricAggregationContext
+		           collectedAt: DateAndTime now asUTC
+		           startTimestamp: nil
+		           temporality: #cumulative
+		           aggregation: #default
+		           retainedAttributeKeys: nil
+		           cardinalityLimit: 2000
+		           aggregationParameters: nil
+		           exemplarFilter: provider exemplarFilter
+		           exemplarReservoirFactory: nil.
+	reservoir := context newExemplarReservoirForInstrument: histogram pointAttributes: { ('status' -> '200') }.
+	self assert: reservoir class identicalTo: OTAlignedHistogramBucketMetricExemplarReservoir
+]
+
+{ #category : 'tests' }
+OTMetricExemplarTest >> testDefaultExemplarReservoirUsesConfiguredSimpleReservoirForExponentialHistogram [
+
+	| context histogram reservoir |
+	provider exemplarFilter: OTMetricExemplarFilter alwaysOn.
+	histogram := (provider meterNamed: 'demo.metrics')
+		             histogramNamed: 'request.duration'
+		             unit: 'ms'
+		             description: 'Request duration'
+		             advice: Dictionary new.
+	context := OTMetricAggregationContext
+		           collectedAt: DateAndTime now asUTC
+		           startTimestamp: nil
+		           temporality: #cumulative
+		           aggregation: #base2ExponentialBucketHistogram
+		           retainedAttributeKeys: nil
+		           cardinalityLimit: 2000
+		           aggregationParameters: { (#maxSize -> 7) } asOrderedDictionary
+		           exemplarFilter: provider exemplarFilter
+		           exemplarReservoirFactory: nil.
+	reservoir := context newExemplarReservoirForInstrument: histogram pointAttributes: { ('status' -> '200') }.
+	self assert: reservoir class identicalTo: OTSimpleFixedSizeMetricExemplarReservoir.
+	self assert: reservoir size equals: 7
+]
+
+{ #category : 'tests' }
 OTMetricExemplarTest >> testAlwaysOffFilterSkipsCustomExemplarReservoirCreation [
 
 	| counter factoryCallCount point |
@@ -151,6 +200,27 @@ OTMetricExemplarTest >> testExplicitHistogramUsesOneExemplarPerBucket [
 	point := self currentMetricPoint.
 	values := (point exemplars collect: [ :each | each value ]) asSortedCollection asArray.
 	self assert: values equals: #( 7 15 )
+]
+
+{ #category : 'tests' }
+OTMetricExemplarTest >> testDefaultExemplarReservoirUsesSizeOneSimpleReservoirForNonHistogramAggregation [
+
+	| context counter reservoir |
+	provider exemplarFilter: OTMetricExemplarFilter alwaysOn.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	context := OTMetricAggregationContext
+		           collectedAt: DateAndTime now asUTC
+		           startTimestamp: nil
+		           temporality: #cumulative
+		           aggregation: #default
+		           retainedAttributeKeys: nil
+		           cardinalityLimit: 2000
+		           aggregationParameters: nil
+		           exemplarFilter: provider exemplarFilter
+		           exemplarReservoirFactory: nil.
+	reservoir := context newExemplarReservoirForInstrument: counter pointAttributes: { ('status' -> '200') }.
+	self assert: reservoir class identicalTo: OTSimpleFixedSizeMetricExemplarReservoir.
+	self assert: reservoir size equals: 1
 ]
 
 { #category : 'tests' }
