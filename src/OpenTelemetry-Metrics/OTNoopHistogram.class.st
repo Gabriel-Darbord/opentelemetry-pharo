@@ -29,6 +29,5 @@ OTNoopHistogram >> record: aNumber attributes: aCollection [
 { #category : 'aggregating' }
 OTNoopHistogram >> supportsAggregation: aSymbol [
 
-	^ (super supportsAggregation: aSymbol)
-		  or: [ #( sum explicitBucketHistogram base2ExponentialBucketHistogram ) includes: aSymbol ]
+	^ (super supportsAggregation: aSymbol) or: [ #( sum explicitBucketHistogram base2ExponentialBucketHistogram ) includes: aSymbol ]
 ]

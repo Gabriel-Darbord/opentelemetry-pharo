@@ -54,26 +54,22 @@ OTObservableCounter >> preparedMeasurementsFrom: someMeasurements forReader: anO
 	currentValues := Dictionary new.
 	(self groupedMeasurementsByAttributes: someMeasurements) associations do: [ :each |
 		currentValues at: each key put: (each value inject: 0 into: [ :sum :measurement | sum + measurement value ]) ].
-	^ anOTMetricReader
-		  withLastAsynchronousValuesFor: self
-		  do: [ :previousValues |
-				  | deltaMeasurements |
-				  deltaMeasurements := OrderedCollection new.
-				  currentValues associations do: [ :each |
-						  | currentValue deltaValue previousValue |
-						  currentValue := each value.
-						  previousValue := previousValues at: each key ifAbsent: [ nil ].
-						  deltaValue := previousValue
-							                ifNil: [ currentValue ]
-							                ifNotNil: [
-									                currentValue >= previousValue
-										                ifTrue: [ currentValue - previousValue ]
-										                ifFalse: [ currentValue ] ].
-						  deltaMeasurements add: ((OTMetricMeasurement instrument: self value: deltaValue attributes: each key)
-								   timestamp: anOTMetricAggregationContext collectedAt;
-								   yourself).
-						  previousValues at: each key put: currentValue ].
-				  deltaMeasurements asArray ]
+	^ anOTMetricReader withLastAsynchronousValuesFor: self do: [ :previousValues |
+			  | deltaMeasurements |
+			  deltaMeasurements := OrderedCollection new.
+			  currentValues associations do: [ :each |
+					  | currentValue deltaValue previousValue |
+					  currentValue := each value.
+					  previousValue := previousValues at: each key ifAbsent: [ nil ].
+					  deltaValue := previousValue ifNil: [ currentValue ] ifNotNil: [
+							                currentValue >= previousValue
+								                ifTrue: [ currentValue - previousValue ]
+								                ifFalse: [ currentValue ] ].
+					  deltaMeasurements add: ((OTMetricMeasurement instrument: self value: deltaValue attributes: each key)
+							   timestamp: anOTMetricAggregationContext collectedAt;
+							   yourself).
+					  previousValues at: each key put: currentValue ].
+			  deltaMeasurements asArray ]
 ]
 
 { #category : 'aggregating' }

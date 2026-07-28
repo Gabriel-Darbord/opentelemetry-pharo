@@ -100,8 +100,8 @@ OTMetricReader >> aggregationSelector [
 OTMetricReader >> aggregationSelector: aBlockOrNil [
 
 	stateLock critical: [
-		self ensureOpenLocked.
-		aggregationSelector := aBlockOrNil ]
+			self ensureOpenLocked.
+			aggregationSelector := aBlockOrNil ]
 ]
 
 { #category : 'accessing' }
@@ -165,8 +165,8 @@ OTMetricReader >> cardinalityLimitSelector [
 OTMetricReader >> cardinalityLimitSelector: aBlockOrNil [
 
 	stateLock critical: [
-		self ensureOpenLocked.
-		cardinalityLimitSelector := aBlockOrNil ]
+			self ensureOpenLocked.
+			cardinalityLimitSelector := aBlockOrNil ]
 ]
 
 { #category : 'collecting' }
@@ -176,24 +176,20 @@ OTMetricReader >> cardinalityLimitedMeasurementsFrom: someMeasurements for: anOT
 	limit := anOTMetricAggregationContext cardinalityLimit.
 	overflowAttributes := self overflowAttributes.
 	attributeFilter := anOTMetricAggregationContext attributeFilter.
-	^ self
-		  withSelectedAttributeSetsForStateKey: aStateKey
-		  do: [ :selectedAttributeSets |
-				  | limitedMeasurements |
-				  limitedMeasurements := OrderedCollection new: someMeasurements size.
-				  someMeasurements do: [ :each |
-						  | knownAttributes normalizedAttributes |
-						  normalizedAttributes := anOTMetricInstrument normalizedAttributesForMeasurement: each usingAttributeFilter: attributeFilter.
-						  knownAttributes := self selectedAttributeSetMatching: normalizedAttributes within: selectedAttributeSets.
-						  knownAttributes
-							  ifNotNil: [ limitedMeasurements add: (each withAttributes: knownAttributes) ]
-							  ifNil: [
-									  selectedAttributeSets size < limit
-										  ifTrue: [
-												  selectedAttributeSets add: normalizedAttributes.
-												  limitedMeasurements add: (each withAttributes: normalizedAttributes) ]
-										  ifFalse: [ limitedMeasurements add: (each withAttributes: overflowAttributes) ] ] ].
-				  limitedMeasurements asArray ]
+	^ self withSelectedAttributeSetsForStateKey: aStateKey do: [ :selectedAttributeSets |
+			  | limitedMeasurements |
+			  limitedMeasurements := OrderedCollection new: someMeasurements size.
+			  someMeasurements do: [ :each |
+					  | knownAttributes normalizedAttributes |
+					  normalizedAttributes := anOTMetricInstrument normalizedAttributesForMeasurement: each usingAttributeFilter: attributeFilter.
+					  knownAttributes := self selectedAttributeSetMatching: normalizedAttributes within: selectedAttributeSets.
+					  knownAttributes ifNotNil: [ limitedMeasurements add: (each withAttributes: knownAttributes) ] ifNil: [
+							  selectedAttributeSets size < limit
+								  ifTrue: [
+										  selectedAttributeSets add: normalizedAttributes.
+										  limitedMeasurements add: (each withAttributes: normalizedAttributes) ]
+								  ifFalse: [ limitedMeasurements add: (each withAttributes: overflowAttributes) ] ] ].
+			  limitedMeasurements asArray ]
 ]
 
 { #category : 'collecting' }
@@ -384,7 +380,7 @@ OTMetricReader >> lastCollectionTimestampByInstrument [
 { #category : 'collecting' }
 OTMetricReader >> lastCollectionTimestampFor: anOTMetricInstrument [
 
-	^ stateLock critical: [ (self lastCollectionTimestampByInstrument at: anOTMetricInstrument ifAbsent: [ nil ]) ]
+	^ stateLock critical: [ self lastCollectionTimestampByInstrument at: anOTMetricInstrument ifAbsent: [ nil ] ]
 ]
 
 { #category : 'collecting' }
@@ -559,8 +555,8 @@ OTMetricReader >> noteConflictingMetricIdentitiesIn: someMetrics [
 	someMetrics do: [ :each |
 		(groupedMetrics at: (self metricIdentityKeyFor: each) ifAbsentPut: [ OrderedCollection new ]) add: each ].
 	groupedMetrics associationsDo: [ :each |
-			(self shouldWarnAboutMetricIdentityConflictAt: each key whenMetricCountIs: each value size)
-				ifTrue: [ self noteMetricIdentityConflictFor: each value ] ]
+			(self shouldWarnAboutMetricIdentityConflictAt: each key whenMetricCountIs: each value size) ifTrue: [
+				self noteMetricIdentityConflictFor: each value ] ]
 ]
 
 { #category : 'private - logging' }
@@ -662,7 +658,7 @@ OTMetricReader >> shouldWarnAboutMetricIdentityConflictAt: aMetricIdentityKey wh
 { #category : 'lifecycle' }
 OTMetricReader >> shutdown [
 
-	(self beginShutdown) ifFalse: [ ^ false ].
+	self beginShutdown ifFalse: [ ^ false ].
 	self finishShutdown.
 	^ true
 ]
@@ -687,20 +683,19 @@ OTMetricReader >> temporalitySelector [
 OTMetricReader >> temporalitySelector: aBlockOrNil [
 
 	stateLock critical: [
-		self ensureOpenLocked.
-		temporalitySelector := aBlockOrNil ]
+			self ensureOpenLocked.
+			temporalitySelector := aBlockOrNil ]
 ]
 
 { #category : 'collecting' }
 OTMetricReader >> withLastAsynchronousValuesFor: anOTMetricInstrument do: aBlock [
 
 	^ stateLock critical: [
-			  aBlock value: (self lastAsynchronousValuesByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]) ]
+		  aBlock value: (self lastAsynchronousValuesByInstrument at: anOTMetricInstrument ifAbsentPut: [ Dictionary new ]) ]
 ]
 
 { #category : 'collecting' }
 OTMetricReader >> withSelectedAttributeSetsForStateKey: aStateKey do: aBlock [
 
-	^ stateLock critical: [
-			  aBlock value: (self selectedAttributeSetsByStream at: aStateKey ifAbsentPut: [ OrderedCollection new ]) ]
+	^ stateLock critical: [ aBlock value: (self selectedAttributeSetsByStream at: aStateKey ifAbsentPut: [ OrderedCollection new ]) ]
 ]

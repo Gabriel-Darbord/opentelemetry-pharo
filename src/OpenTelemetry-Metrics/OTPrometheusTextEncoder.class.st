@@ -10,11 +10,41 @@ Class {
 		'scopeInfoEnabled',
 		'targetInfoEnabled',
 		'resourceConstantLabels',
-		'currentResource'
+		'currentResource',
+		'translationStrategy',
+		'escapingMode'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder class >> defaultTranslationStrategy [
+
+	^ #underscoreEscapingWithSuffixes
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder class >> translationStrategyNameFor: aSymbol [
+
+	aSymbol = #underscoreEscapingWithSuffixes ifTrue: [ ^ 'UnderscoreEscapingWithSuffixes' ].
+	aSymbol = #underscoreEscapingWithoutSuffixes ifTrue: [ ^ 'UnderscoreEscapingWithoutSuffixes' ].
+	aSymbol = #noUtf8EscapingWithSuffixes ifTrue: [ ^ 'NoUTF8EscapingWithSuffixes' ].
+	aSymbol = #noTranslation ifTrue: [ ^ 'NoTranslation' ].
+	^ nil
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder class >> translationStrategyNamed: aString ifAbsent: aBlock [
+
+	| normalized |
+	normalized := aString ifNil: [ '' ] ifNotNil: [ aString asString trimBoth ].
+	normalized = 'UnderscoreEscapingWithSuffixes' ifTrue: [ ^ #underscoreEscapingWithSuffixes ].
+	normalized = 'UnderscoreEscapingWithoutSuffixes' ifTrue: [ ^ #underscoreEscapingWithoutSuffixes ].
+	normalized = 'NoUTF8EscapingWithSuffixes' ifTrue: [ ^ #noUtf8EscapingWithSuffixes ].
+	normalized = 'NoTranslation' ifTrue: [ ^ #noTranslation ].
+	^ aBlock value
+]
 
 { #category : 'private - logging' }
 OTPrometheusTextEncoder >> defaultWarningSink [
@@ -48,8 +78,8 @@ OTPrometheusTextEncoder >> encodeSnapshot: anOTMetricSnapshot format: aFormatSym
 	| previousResource |
 	previousResource := currentResource.
 	currentResource := anOTMetricSnapshot resource.
-	^ [ String streamContents: [ :stream | self writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: stream ] ]
-		  ensure: [ currentResource := previousResource ]
+	^ [ String streamContents: [ :stream | self writeSnapshot: anOTMetricSnapshot format: aFormatSymbol on: stream ] ] ensure: [
+		  currentResource := previousResource ]
 ]
 
 { #category : 'private - writing' }
@@ -67,7 +97,9 @@ OTPrometheusTextEncoder >> initialize [
 	scopeInfoEnabled := true.
 	targetInfoEnabled := true.
 	resourceConstantLabels := nil.
-	currentResource := OTResource empty
+	currentResource := OTResource empty.
+	translationStrategy := self class defaultTranslationStrategy.
+	escapingMode := nil
 ]
 
 { #category : 'private - testing' }
@@ -97,6 +129,45 @@ OTPrometheusTextEncoder >> isPrometheusNameCharacter: aCharacter allowingColon: 
 OTPrometheusTextEncoder >> isPrometheusNameStartCharacter: aCharacter [
 
 	^ (self isAsciiLetter: aCharacter) or: [ aCharacter = $_ ]
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> attachesPrometheusNameSuffixes [
+
+	^ #( #underscoreEscapingWithSuffixes #noUtf8EscapingWithSuffixes ) includes: self translationStrategy
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> escapingMode [
+
+	^ escapingMode
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> escapingMode: aSymbolOrNil [
+
+	escapingMode := aSymbolOrNil
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> escapedPrometheusQuotedNameFrom: aString [
+
+	^ String streamContents: [ :stream |
+			  aString asString do: [ :each |
+					  each = $\ ifTrue: [ stream nextPutAll: '\\' ].
+					  each = $" ifTrue: [ stream nextPutAll: '\"' ].
+					  each = Character lf ifTrue: [ stream nextPutAll: '\n' ].
+					  each = Character cr ifTrue: [ stream nextPutAll: '\n' ].
+					  ((each ~= $\ and: [ each ~= $" ]) and: [ each ~= Character lf and: [ each ~= Character cr ] ]) ifTrue: [
+							  stream nextPut: each ] ] ]
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> effectiveEscapingMode [
+
+	(translationStrategy = #underscoreEscapingWithSuffixes
+		 or: [ translationStrategy = #underscoreEscapingWithoutSuffixes ]) ifTrue: [ ^ #underscores ].
+	^ escapingMode ifNil: [ #allowUtf8 ]
 ]
 
 { #category : 'private - formatting' }
@@ -309,7 +380,9 @@ OTPrometheusTextEncoder >> prometheusHelpStringFor: aString [
 { #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusLabelNameFor: aString [
 
-	^ self normalizedPrometheusNameFrom: aString allowingColon: false
+	^ self usesUnderscoreEscaping
+		  ifTrue: [ self normalizedPrometheusNameFrom: aString allowingColon: false ]
+		  ifFalse: [ aString asString ]
 ]
 
 { #category : 'private - formatting' }
@@ -341,23 +414,28 @@ OTPrometheusTextEncoder >> prometheusMetricNameFor: anOTMetricData type: aTypeSy
 
 	| suffix stem unitWord |
 	stem := self prometheusMetricStemFor: anOTMetricData type: aTypeSymbol.
-	unitWord := (self typeUsesPrometheusUnitSuffix: aTypeSymbol)
+	unitWord := ((self attachesPrometheusNameSuffixes and: [ self typeUsesPrometheusUnitSuffix: aTypeSymbol ]))
 		            ifTrue: [ self prometheusUnitWordFrom: anOTMetricData unit ]
 		            ifFalse: [ nil ].
 	(unitWord notNil and: [ (stem endsWith: '_' , unitWord) not and: [ stem ~= unitWord ] ]) ifTrue: [ stem := stem , '_' , unitWord ].
-	suffix := self suffixForPrometheusMetricType: aTypeSymbol format: aFormatSymbol.
+	suffix := self attachesPrometheusNameSuffixes
+		          ifTrue: [ self suffixForPrometheusMetricType: aTypeSymbol format: aFormatSymbol ]
+		          ifFalse: [ '' ].
 	^ stem , suffix
 ]
 
 { #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusMetricStemFor: anOTMetricData type: aTypeSymbol [
 
-	| normalizedName |
-	normalizedName := self normalizedPrometheusNameFrom: anOTMetricData name allowingColon: true.
-	(aTypeSymbol = #counter and: [ normalizedName endsWith: '_total' ]) ifTrue: [ ^ normalizedName allButLast: '_total' size ].
-	((#( #info #infoGauge ) includes: aTypeSymbol) and: [ normalizedName endsWith: '_info' ]) ifTrue: [
-		^ normalizedName allButLast: '_info' size ].
-	^ normalizedName
+	| metricName |
+	metricName := self usesUnderscoreEscaping
+		              ifTrue: [ self normalizedPrometheusNameFrom: anOTMetricData name allowingColon: true ]
+		              ifFalse: [ anOTMetricData name asString ].
+	self attachesPrometheusNameSuffixes ifFalse: [ ^ metricName ].
+	(aTypeSymbol = #counter and: [ metricName endsWith: '_total' ]) ifTrue: [ ^ metricName allButLast: '_total' size ].
+	((#( #info #infoGauge ) includes: aTypeSymbol) and: [ metricName endsWith: '_info' ]) ifTrue: [
+		^ metricName allButLast: '_info' size ].
+	^ metricName
 ]
 
 { #category : 'private - formatting' }
@@ -405,6 +483,22 @@ OTPrometheusTextEncoder >> prometheusTimestampStringFor: aDateAndTime [
 	fraction size < 6 ifTrue: [ fraction := (String new: 6 - fraction size withAll: $0) , fraction ].
 	[ fraction isNotEmpty and: [ fraction last = $0 ] ] whileTrue: [ fraction := fraction allButLast ].
 	^ seconds asString , '.' , fraction
+]
+
+{ #category : 'private - testing' }
+OTPrometheusTextEncoder >> requiresQuotedPrometheusLabelName: aString [
+
+	aString isEmpty ifTrue: [ ^ true ].
+	(self isPrometheusNameStartCharacter: aString first) ifFalse: [ ^ true ].
+	^ aString allButFirst anySatisfy: [ :each | (self isPrometheusNameCharacter: each allowingColon: false) not ]
+]
+
+{ #category : 'private - testing' }
+OTPrometheusTextEncoder >> requiresQuotedPrometheusMetricName: aString [
+
+	aString isEmpty ifTrue: [ ^ true ].
+	(self isPrometheusNameStartCharacter: aString first) ifFalse: [ ^ true ].
+	^ aString allButFirst anySatisfy: [ :each | (self isPrometheusNameCharacter: each allowingColon: true) not ]
 ]
 
 { #category : 'private - formatting' }
@@ -517,6 +611,17 @@ OTPrometheusTextEncoder >> quotedPrometheusValueFor: aString [
 						  stream nextPut: each ] ] ]
 ]
 
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> resourceConstantLabelAssociationsFrom: anOTResource do: aBlock [
+
+	| filter selected |
+	anOTResource ifNil: [ ^ self ].
+	filter := self resourceConstantLabels.
+	filter ifNil: [ ^ self ].
+	selected := filter selectedAttributesFrom: anOTResource allAttributes.
+	selected associationsDo: [ :each | aBlock value: each key asString -> (self prometheusStringValueFor: each value) ]
+]
+
 { #category : 'accessing' }
 OTPrometheusTextEncoder >> resourceConstantLabels [
 
@@ -527,30 +632,6 @@ OTPrometheusTextEncoder >> resourceConstantLabels [
 OTPrometheusTextEncoder >> resourceConstantLabels: anOTMetricAttributeFilterOrNil [
 
 	resourceConstantLabels := anOTMetricAttributeFilterOrNil
-]
-
-{ #category : 'private - formatting' }
-OTPrometheusTextEncoder >> resourceConstantLabelAssociationsFrom: anOTResource do: aBlock [
-
-	| filter selected |
-	anOTResource ifNil: [ ^ self ].
-	filter := self resourceConstantLabels.
-	filter ifNil: [ ^ self ].
-	selected := filter selectedAttributesFrom: anOTResource allAttributes.
-	selected associationsDo: [ :each |
-			aBlock value: each key asString -> (self prometheusStringValueFor: each value) ]
-]
-
-{ #category : 'accessing' }
-OTPrometheusTextEncoder >> scopeInfoEnabled [
-
-	^ scopeInfoEnabled ifNil: [ true ]
-]
-
-{ #category : 'accessing' }
-OTPrometheusTextEncoder >> scopeInfoEnabled: aBoolean [
-
-	scopeInfoEnabled := aBoolean
 ]
 
 { #category : 'private - writing' }
@@ -598,11 +679,7 @@ OTPrometheusTextEncoder >> sampleSpecificationsForGauge: anOTGaugeMetricData typ
 	anOTGaugeMetricData points do: [ :each |
 			sampleSpecifications add: (self
 					 sampleSpecificationNamed: metricName
-					 labels:
-					 (self
-						  pointLabels: each attributes
-						  resource: currentResource
-						  scope: anOTGaugeMetricData instrumentationScope)
+					 labels: (self pointLabels: each attributes resource: currentResource scope: anOTGaugeMetricData instrumentationScope)
 					 value: (self prometheusValueForGaugeLikePoint: each type: aTypeSymbol)) ].
 	^ sampleSpecifications
 ]
@@ -661,11 +738,7 @@ OTPrometheusTextEncoder >> sampleSpecificationsForSum: anOTSumMetricData type: a
 		  collect: [ :each |
 				  self
 					  sampleSpecificationNamed: (self prometheusMetricNameFor: anOTSumMetricData type: #counter format: aFormatSymbol)
-					  labels:
-					  (self
-						   pointLabels: each attributes
-						   resource: currentResource
-						   scope: anOTSumMetricData instrumentationScope)
+					  labels: (self pointLabels: each attributes resource: currentResource scope: anOTSumMetricData instrumentationScope)
 					  value: each value
 					  exemplar: (self latestExemplarIn: each exemplars) ]
 		  as: OrderedCollection
@@ -694,6 +767,18 @@ OTPrometheusTextEncoder >> sampleSpecificationsForSummary: anOTSummaryMetricData
 				add: (self sampleSpecificationNamed: sumMetricName labels: baseLabels value: eachPoint sum);
 				add: (self sampleSpecificationNamed: countMetricName labels: baseLabels value: eachPoint count) ].
 	^ sampleSpecifications
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> scopeInfoEnabled [
+
+	^ scopeInfoEnabled ifNil: [ true ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> scopeInfoEnabled: aBoolean [
+
+	scopeInfoEnabled := aBoolean
 ]
 
 { #category : 'private - formatting' }
@@ -735,6 +820,24 @@ OTPrometheusTextEncoder >> typeUsesPrometheusUnitSuffix: aTypeSymbol [
 ]
 
 { #category : 'accessing' }
+OTPrometheusTextEncoder >> translationStrategy [
+
+	^ translationStrategy ifNil: [ self class defaultTranslationStrategy ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusTextEncoder >> translationStrategy: aSymbol [
+
+	translationStrategy := aSymbol ifNil: [ self class defaultTranslationStrategy ]
+]
+
+{ #category : 'private - formatting' }
+OTPrometheusTextEncoder >> usesUnderscoreEscaping [
+
+	^ self effectiveEscapingMode = #underscores
+]
+
+{ #category : 'accessing' }
 OTPrometheusTextEncoder >> warningSink [
 
 	^ warningSink ifNil: [ warningSink := self defaultWarningSink ]
@@ -765,11 +868,7 @@ OTPrometheusTextEncoder >> writeGauge: anOTGaugeMetricData type: aTypeSymbol for
 	anOTGaugeMetricData points do: [ :each |
 			self
 				writeSampleNamed: metricName
-				labels:
-				(self
-					 pointLabels: each attributes
-					 resource: currentResource
-					 scope: anOTGaugeMetricData instrumentationScope)
+				labels: (self pointLabels: each attributes resource: currentResource scope: anOTGaugeMetricData instrumentationScope)
 				value: (self prometheusValueForGaugeLikePoint: each type: aTypeSymbol)
 				on: aStream ]
 ]
@@ -818,13 +917,7 @@ OTPrometheusTextEncoder >> writeLabels: someLabels on: aStream [
 	| associations |
 	associations := someLabels associations asArray.
 	aStream nextPut: ${.
-	associations doWithIndex: [ :each :index |
-			aStream
-				nextPutAll: each key;
-				nextPutAll: '="';
-				nextPutAll: (self quotedPrometheusValueFor: each value);
-				nextPut: $".
-			index < associations size ifTrue: [ aStream nextPut: $, ] ].
+	self writePrometheusLabelAssociations: associations on: aStream.
 	aStream nextPut: $}
 ]
 
@@ -909,12 +1002,16 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 
 	aStream
 		nextPutAll: '# HELP ';
-		nextPutAll: aMetricName;
+		yourself.
+	self writePrometheusMetricName: aMetricName on: aStream.
+	aStream
 		space;
 		nextPutAll: (self prometheusHelpStringFor: aHelpString);
 		lf;
 		nextPutAll: '# TYPE ';
-		nextPutAll: aMetricName;
+		yourself.
+	self writePrometheusMetricName: aMetricName on: aStream.
+	aStream
 		space;
 		nextPutAll: aTypeString;
 		lf
@@ -926,13 +1023,17 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 	aHelpString isNotEmpty ifTrue: [
 			aStream
 				nextPutAll: '# HELP ';
-				nextPutAll: aMetricName;
+				yourself.
+			self writePrometheusMetricName: aMetricName on: aStream.
+			aStream
 				space;
 				nextPutAll: (self prometheusHelpStringFor: aHelpString);
 				lf ].
 	aStream
 		nextPutAll: '# TYPE ';
-		nextPutAll: aMetricName;
+		yourself.
+	self writePrometheusMetricName: aMetricName on: aStream.
+	aStream
 		space;
 		nextPutAll: aTypeString;
 		lf.
@@ -940,10 +1041,66 @@ OTPrometheusTextEncoder >> writeMetricHeaderNamed: aMetricName help: aHelpString
 		ifTrue: [
 				aStream
 					nextPutAll: '# UNIT ';
-					nextPutAll: aMetricName;
+					yourself.
+				self writePrometheusMetricName: aMetricName on: aStream.
+				aStream
 					space;
 					nextPutAll: aUnitString;
 					lf ]
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writePrometheusLabelAssociations: someAssociations on: aStream [
+
+	someAssociations doWithIndex: [ :each :index |
+			self writePrometheusLabelName: each key on: aStream.
+			aStream
+				nextPutAll: '="';
+				nextPutAll: (self quotedPrometheusValueFor: each value);
+				nextPut: $".
+			index < someAssociations size ifTrue: [ aStream nextPut: $, ] ]
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writePrometheusLabelName: aString on: aStream [
+
+	(self requiresQuotedPrometheusLabelName: aString)
+		ifTrue: [
+				aStream
+					nextPut: $";
+					nextPutAll: (self escapedPrometheusQuotedNameFrom: aString);
+					nextPut: $" ]
+		ifFalse: [ aStream nextPutAll: aString ]
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writePrometheusMetricName: aString on: aStream [
+
+	(self requiresQuotedPrometheusMetricName: aString)
+		ifTrue: [
+				aStream
+					nextPut: $";
+					nextPutAll: (self escapedPrometheusQuotedNameFrom: aString);
+					nextPut: $" ]
+		ifFalse: [ aStream nextPutAll: aString ]
+]
+
+{ #category : 'private - writing' }
+OTPrometheusTextEncoder >> writePrometheusSampleName: aMetricName labels: someLabels on: aStream [
+
+	| associations |
+	associations := someLabels associations asArray.
+	(self requiresQuotedPrometheusMetricName: aMetricName)
+		ifTrue: [
+				aStream nextPut: ${.
+				self writePrometheusMetricName: aMetricName on: aStream.
+				associations isEmpty ifFalse: [
+						aStream nextPut: $,.
+						self writePrometheusLabelAssociations: associations on: aStream ].
+				aStream nextPut: $} ]
+		ifFalse: [
+				aStream nextPutAll: aMetricName.
+				associations isEmpty ifFalse: [ self writeLabels: someLabels on: aStream ] ]
 ]
 
 { #category : 'private - writing' }
@@ -969,8 +1126,7 @@ OTPrometheusTextEncoder >> writeSampleNamed: aMetricName labels: someLabels valu
 
 	| labels |
 	labels := self prometheusLabelsFromAssociations: someLabels.
-	aStream nextPutAll: aMetricName.
-	labels isEmpty ifFalse: [ self writeLabels: labels on: aStream ].
+	self writePrometheusSampleName: aMetricName labels: labels on: aStream.
 	aStream
 		space;
 		nextPutAll: (self prometheusValueStringFor: aValue);
@@ -988,8 +1144,7 @@ OTPrometheusTextEncoder >> writeSampleSpecification: aSampleSpecification on: aS
 
 	| labels |
 	labels := self prometheusLabelsFromAssociations: aSampleSpecification second.
-	aStream nextPutAll: aSampleSpecification first.
-	labels isEmpty ifFalse: [ self writeLabels: labels on: aStream ].
+	self writePrometheusSampleName: aSampleSpecification first labels: labels on: aStream.
 	aStream
 		space;
 		nextPutAll: (self prometheusValueStringFor: aSampleSpecification third).
@@ -1032,11 +1187,7 @@ OTPrometheusTextEncoder >> writeSum: anOTSumMetricData on: aStream [
 	anOTSumMetricData points do: [ :each |
 			self
 				writeSampleNamed: metricName
-				labels:
-				(self
-					 pointLabels: each attributes
-					 resource: currentResource
-					 scope: anOTSumMetricData instrumentationScope)
+				labels: (self pointLabels: each attributes resource: currentResource scope: anOTSumMetricData instrumentationScope)
 				value: each value
 				on: aStream ]
 ]

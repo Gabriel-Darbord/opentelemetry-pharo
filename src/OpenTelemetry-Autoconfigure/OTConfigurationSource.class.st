@@ -825,6 +825,18 @@ OTConfigurationSource class >> headersListStringFrom: aCollection [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> includeExcludeStringFilterFrom: aDictionary [
+
+	| excluded filter included |
+	aDictionary ifNil: [ ^ nil ].
+	included := self stringCollectionValueAt: 'included' in: aDictionary.
+	excluded := self stringCollectionValueAt: 'excluded' in: aDictionary.
+	filter := OTMetricAttributeFilter included: included excluded: excluded.
+	filter isAll ifTrue: [ ^ nil ].
+	^ filter
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> integerValueAt: aKey in: aDictionary [
 
 	| value |
@@ -1149,18 +1161,6 @@ OTConfigurationSource class >> metricViewAttributeFilterFrom: aDictionary [
 	| attributeKeys |
 	attributeKeys := self dictionaryValueAt: 'attribute_keys' in: aDictionary.
 	^ self includeExcludeStringFilterFrom: attributeKeys
-]
-
-{ #category : 'private - projection' }
-OTConfigurationSource class >> includeExcludeStringFilterFrom: aDictionary [
-
-	| excluded filter included |
-	aDictionary ifNil: [ ^ nil ].
-	included := self stringCollectionValueAt: 'included' in: aDictionary.
-	excluded := self stringCollectionValueAt: 'excluded' in: aDictionary.
-	filter := OTMetricAttributeFilter included: included excluded: excluded.
-	filter isAll ifTrue: [ ^ nil ].
-	^ filter
 ]
 
 { #category : 'private - projection' }
@@ -1531,6 +1531,7 @@ OTConfigurationSource class >> projectExporterConfigurationNode: aDictionary sig
 				from: 'port'
 				in: exporterOptions
 				into: anEnvironment.
+			self projectPrometheusTranslationStrategyFrom: exporterOptions into: anEnvironment.
 			self projectPrometheusResourceConstantLabelsFrom: exporterOptions into: anEnvironment.
 			^ self ].
 	exporterName := exporterType = 'otlp_grpc'
@@ -1691,6 +1692,34 @@ OTConfigurationSource class >> projectProcessorSequenceFrom: aDictionary signalN
 		on: Error
 		do: [ :error | (self shouldIgnoreProjectionError: error) ifFalse: [ error pass ] ].
 	^ self
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectPrometheusResourceConstantLabelsFrom: aDictionary into: anEnvironment [
+
+	| included resourceConstantLabels |
+	resourceConstantLabels := self dictionaryValueAt: 'resource_constant_labels' in: aDictionary.
+	resourceConstantLabels ifNil: [ ^ self ].
+	(self stringCollectionValueAt: 'excluded' in: resourceConstantLabels) ifNotNil: [
+			Error signal:
+				'Declarative Prometheus exporter resource_constant_labels exclusions are not representable via SDK environment variables' ].
+	included := self stringCollectionValueAt: 'included' in: resourceConstantLabels.
+	included ifNil: [ ^ self ].
+	anEnvironment at: 'OTEL_EXPORTER_PROMETHEUS_RESOURCE_CONSTANT_LABELS' put: (String streamContents: [ :stream |
+				 included doWithIndex: [ :each :index |
+						 index > 1 ifTrue: [ stream nextPut: $, ].
+						 stream nextPutAll: each ] ])
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectPrometheusTranslationStrategyFrom: aDictionary into: anEnvironment [
+
+	| strategyName |
+	strategyName := self stringValueAt: 'translation_strategy' in: aDictionary.
+	strategyName ifNil: [ ^ self ].
+	OTPrometheusTextEncoder translationStrategyNamed: strategyName ifAbsent: [
+		Error signal: 'Unsupported Prometheus translation_strategy: ' , strategyName printString ].
+	anEnvironment at: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY' put: strategyName
 ]
 
 { #category : 'private - projection' }
@@ -1937,27 +1966,13 @@ OTConfigurationSource class >> pullMetricReaderFrom: aDictionary [
 	reader := OTPrometheusMetricReader new.
 	(self stringValueAt: 'host' in: exporterOptions) ifNotNil: [ :value | reader host: value ].
 	reader port: (self nonNegativeIntegerValueAt: 'port' in: exporterOptions default: reader port).
-	reader resourceConstantLabels: (self includeExcludeStringFilterFrom: (self dictionaryValueAt: 'resource_constant_labels' in: exporterOptions)).
+	(self stringValueAt: 'translation_strategy' in: exporterOptions) ifNotNil: [ :value |
+			reader translationStrategy: (OTPrometheusTextEncoder
+					 translationStrategyNamed: value
+					 ifAbsent: [ Error signal: 'Unsupported Prometheus translation_strategy: ' , value printString ]) ].
+	reader resourceConstantLabels:
+		(self includeExcludeStringFilterFrom: (self dictionaryValueAt: 'resource_constant_labels' in: exporterOptions)).
 	^ reader
-]
-
-{ #category : 'private - projection' }
-OTConfigurationSource class >> projectPrometheusResourceConstantLabelsFrom: aDictionary into: anEnvironment [
-
-	| included resourceConstantLabels |
-	resourceConstantLabels := self dictionaryValueAt: 'resource_constant_labels' in: aDictionary.
-	resourceConstantLabels ifNil: [ ^ self ].
-	(self stringCollectionValueAt: 'excluded' in: resourceConstantLabels) ifNotNil: [
-		Error signal:
-			'Declarative Prometheus exporter resource_constant_labels exclusions are not representable via SDK environment variables' ].
-	included := self stringCollectionValueAt: 'included' in: resourceConstantLabels.
-	included ifNil: [ ^ self ].
-	anEnvironment
-		at: 'OTEL_EXPORTER_PROMETHEUS_RESOURCE_CONSTANT_LABELS'
-		put: (String streamContents: [ :stream |
-					 included doWithIndex: [ :each :index |
-							 index > 1 ifTrue: [ stream nextPut: $, ].
-							 stream nextPutAll: each ] ])
 ]
 
 { #category : 'private - projection' }

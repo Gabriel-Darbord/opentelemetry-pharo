@@ -420,10 +420,7 @@ OTOtlpExporterConfiguration class >> warningSink [
 { #category : 'private - logging' }
 OTOtlpExporterConfiguration class >> warningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
+	OTClassStateStore valueAt: #otWarningSink forClass: self putOrRemoveIfNil: aBlock.
 	^ self warningSink
 ]
 

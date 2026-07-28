@@ -190,16 +190,14 @@ OTPeriodicExportingMetricReader >> restartExportProcess [
 { #category : 'private - lifecycle' }
 OTPeriodicExportingMetricReader >> runExporterOperation: aBlock [
 
-	^ [ aBlock value ]
-		  valueWithinMilliseconds: self exportTimeoutMillis
-		  onTimeout: [ false ]
+	^ [ aBlock value ] valueWithinMilliseconds: self exportTimeoutMillis onTimeout: [ false ]
 ]
 
 { #category : 'lifecycle' }
 OTPeriodicExportingMetricReader >> shutdown [
 
 	| exporterResult |
-	(self beginShutdown) ifFalse: [ ^ false ].
+	self beginShutdown ifFalse: [ ^ false ].
 	self stopExportProcess.
 	exporterResult := exportLock critical: [ self exporter shutdown ].
 	self finishShutdown.
@@ -225,8 +223,7 @@ OTPeriodicExportingMetricReader >> startExportProcess [
 			  exportProcess := [
 				                   [ self isStopping ] whileFalse: [
 						                   (Delay forMilliseconds: self exportIntervalMillis) wait.
-						                   self isStopping ifFalse: [ self collect ] ] ]
-					                   forkAt: Processor userBackgroundPriority.
+						                   self isStopping ifFalse: [ self collect ] ] ] forkAt: Processor userBackgroundPriority.
 			  exportProcess ]
 ]
 

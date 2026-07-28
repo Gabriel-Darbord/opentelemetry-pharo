@@ -937,6 +937,30 @@ meter_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusTranslationStrategy [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+meter_provider:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+            translation_strategy: NoTranslation
+'
+		environmentValues: Dictionary new
+		during: [
+				| reader |
+				reader := OTMeterProvider current metricReaders first.
+				self assert: reader class identicalTo: OTPrometheusMetricReader.
+				self assert: reader host equals: 'metrics.example'.
+				self assert: reader port equals: 9564.
+				self assert: reader translationStrategy equals: #noTranslation ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsProbabilitySamplerRatioBelowSpecificationMinimum [
 
 	self

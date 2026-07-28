@@ -129,6 +129,17 @@ OTPrometheusMetricReaderTest >> testResponseFormatForAcceptHeaderUsesHighestWeig
 ]
 
 { #category : 'tests' }
+OTPrometheusMetricReaderTest >> testResponseFormatDescriptorForAcceptHeaderNegotiatesAllowUtf8Escaping [
+
+	| descriptor |
+	reader := OTPrometheusMetricReader new.
+	descriptor := reader responseFormatDescriptorForAcceptHeader:
+		              'application/openmetrics-text;version=1.0.0;escaping=allow-utf-8'.
+	self assert: (descriptor at: #format) equals: #openMetricsText100.
+	self assert: (descriptor at: #escaping) equals: #allowUtf8
+]
+
+{ #category : 'tests' }
 OTPrometheusMetricReaderTest >> testScrapeNegotiatesOpenMetricsText [
 
 	| client counter scrape |
@@ -149,6 +160,82 @@ OTPrometheusMetricReaderTest >> testScrapeNegotiatesOpenMetricsText [
 		assert: client response entity contentType asString
 		equals: 'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=underscores'.
 	self assert: (scrape includesSubstring: '# EOF')
+]
+
+{ #category : 'tests' }
+OTPrometheusMetricReaderTest >> testScrapeNegotiatesAllowUtf8EscapingForOpenMetricsText [
+
+	| client counter scrape |
+	provider := OTMeterProvider new.
+	reader := OTPrometheusMetricReader new.
+	reader
+		port: 0;
+		translationStrategy: #noTranslation;
+		scopeInfoEnabled: false;
+		targetInfoEnabled: false.
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'metric.name'.
+	counter add: 1 attributes: { ('label:with:colons' -> 'value') }.
+	client := ZnClient new.
+	client
+		url: 'http://localhost:' , reader port asString , reader path;
+		accept: 'application/openmetrics-text; version=1.0.0; escaping=allow-utf-8';
+		get.
+	scrape := client response entity contents asString.
+	self
+		assert: client response entity contentType asString
+		equals: 'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=allow-utf-8'.
+	self assert: (scrape includesSubstring: '{"metric.name","label:with:colons"="value"} 1')
+]
+
+{ #category : 'tests' }
+OTPrometheusMetricReaderTest >> testScrapeNegotiatedUnderscoresOverrideNoTranslation [
+
+	| client counter scrape |
+	provider := OTMeterProvider new.
+	reader := OTPrometheusMetricReader new.
+	reader
+		port: 0;
+		translationStrategy: #noTranslation;
+		scopeInfoEnabled: false;
+		targetInfoEnabled: false.
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'metric.name'.
+	counter add: 1 attributes: { ('label:with:colons' -> 'value') }.
+	client := ZnClient new.
+	client
+		url: 'http://localhost:' , reader port asString , reader path;
+		accept: 'application/openmetrics-text; version=1.0.0; escaping=underscores';
+		get.
+	scrape := client response entity contents asString.
+	self
+		assert: client response entity contentType asString
+		equals: 'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=underscores'.
+	self assert: (scrape includesSubstring: 'metric_name{label_with_colons="value"} 1').
+	self deny: (scrape includesSubstring: '{"metric.name"')
+]
+
+{ #category : 'tests' }
+OTPrometheusMetricReaderTest >> testScrapeAllowUtf8DoesNotUndoUnderscoreEscapingStrategy [
+
+	| client counter scrape |
+	provider := OTMeterProvider new.
+	reader := OTPrometheusMetricReader new.
+	reader
+		port: 0;
+		scopeInfoEnabled: false;
+		targetInfoEnabled: false.
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'metric.name'.
+	counter add: 1 attributes: { ('label:with:colons' -> 'value') }.
+	client := ZnClient new.
+	client
+		url: 'http://localhost:' , reader port asString , reader path;
+		accept: 'application/openmetrics-text; version=1.0.0; escaping=allow-utf-8';
+		get.
+	scrape := client response entity contents asString.
+	self assert: (scrape includesSubstring: 'metric_name_total{label_with_colons="value"} 1').
+	self deny: (scrape includesSubstring: '{"metric.name"')
 ]
 
 { #category : 'tests' }

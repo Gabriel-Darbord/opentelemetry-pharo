@@ -8,60 +8,10 @@ The intent is to keep the main implementation effort focused on required
 OpenTelemetry behavior while preserving a concrete backlog for later exporter
 improvements.
 
-## Deferred MAY-Level Work
-
-### `resource_constant_labels` configuration
-
-The Prometheus exporter specification allows an exporter to copy selected
-resource attributes onto exported metric families as metric labels.
-
-If we add this later, it should:
-
-- default to disabled
-- leave copied resource attributes present on `target_info`
-- support selecting which resource attributes are included or excluded
-
-### `translation_strategy` configuration
-
-The specification allows the Prometheus exporter to expose a translation
-strategy setting for metric and label naming.
-
-If we add it later, it should support the spec-defined options:
-
-- `UnderscoreEscapingWithSuffixes`
-- `UnderscoreEscapingWithoutSuffixes`
-- `NoUTF8EscapingWithSuffixes`
-- `NoTranslation`
-
-The current implementation already follows the default compatibility-oriented
-translation path, but it does not yet expose the optional configuration
-surface.
-
-### `scope_info_enabled` configuration
-
-The specification allows the exporter to expose a switch that controls whether
-instrumentation scope labels are included on exported metric points.
-
-If we add it later, it should:
-
-- default to `true`
-- disable the emitted `otel_scope_*` labels without changing unrelated
-  translation behavior
-
-### `target_info_enabled` configuration
-
-The specification allows the exporter to expose a switch that controls whether
-the `target_info` metric is emitted.
-
-If we add it later, it should:
-
-- default to `true`
-- suppress only the `target_info` family, not other resource-handling logic
-
 ## Deferred Development-Status Format Work
 
-These are also valid future Prometheus tasks, but they belong even less to the
-strict baseline than the configuration items above.
+The remaining notable Prometheus work is now mostly about richer output
+formats, not exporter configuration surface.
 
 ### Native histogram export for explicit histograms
 

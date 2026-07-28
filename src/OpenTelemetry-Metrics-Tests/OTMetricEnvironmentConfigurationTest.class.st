@@ -69,6 +69,24 @@ OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusResourceC
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusTranslationStrategy [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+						 at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
+						 at: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY' put: 'NoTranslation';
+						 yourself)
+				during: [
+						| metricReader |
+						metricReader := OTMeterProvider current metricReaders first.
+						self assert: metricReader class identicalTo: OTPrometheusMetricReader.
+						self assert: metricReader translationStrategy equals: #noTranslation ].
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredExemplarFilter [
 
 	self

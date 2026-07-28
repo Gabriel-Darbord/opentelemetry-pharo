@@ -19,7 +19,7 @@ OTRecordingMetricReader >> collect [
 { #category : 'lifecycle' }
 OTRecordingMetricReader >> forceFlush [
 
-	(super forceFlush) ifFalse: [ ^ false ].
+	super forceFlush ifFalse: [ ^ false ].
 	countLock critical: [ forceFlushCount := self forceFlushCount + 1 ].
 	^ true
 ]
@@ -42,7 +42,7 @@ OTRecordingMetricReader >> initialize [
 { #category : 'lifecycle' }
 OTRecordingMetricReader >> shutdown [
 
-	(super shutdown) ifFalse: [ ^ false ].
+	super shutdown ifFalse: [ ^ false ].
 	countLock critical: [ shutdownCount := self shutdownCount + 1 ].
 	^ true
 ]

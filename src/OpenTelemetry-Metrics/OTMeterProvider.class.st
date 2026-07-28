@@ -38,10 +38,7 @@ OTMeterProvider class >> configurationWarningSink [
 { #category : 'private - logging' }
 OTMeterProvider class >> configurationWarningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otMetricConfigurationWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
+	OTClassStateStore valueAt: #otMetricConfigurationWarningSink forClass: self putOrRemoveIfNil: aBlock.
 	^ self configurationWarningSink
 ]
 
@@ -85,13 +82,16 @@ OTMeterProvider class >> configuredOtlpExporter [
 { #category : 'private - configuration' }
 OTMeterProvider class >> configuredPrometheusReader [
 
-	| filter |
+	| filter reader translationStrategy |
 	filter := self prometheusResourceConstantLabels.
-	^ OTPrometheusMetricReader new
-		  host: self prometheusHost;
-		  port: self prometheusPort;
-		  resourceConstantLabels: filter;
-		  yourself
+	translationStrategy := self prometheusTranslationStrategy.
+	reader := OTPrometheusMetricReader new
+		          host: self prometheusHost;
+		          port: self prometheusPort;
+		          resourceConstantLabels: filter;
+		          yourself.
+	reader translationStrategy: translationStrategy.
+	^ reader
 ]
 
 { #category : 'accessing' }
@@ -103,10 +103,7 @@ OTMeterProvider class >> current [
 { #category : 'accessing' }
 OTMeterProvider class >> current: anOTMeterProvider [
 
-	OTClassStateStore
-		valueAt: #otCurrent
-		forClass: self
-		putOrRemoveIfNil: anOTMeterProvider
+	OTClassStateStore valueAt: #otCurrent forClass: self putOrRemoveIfNil: anOTMeterProvider
 ]
 
 { #category : 'accessing' }
@@ -180,10 +177,7 @@ OTMeterProvider class >> meterNameWarningSink [
 { #category : 'private' }
 OTMeterProvider class >> meterNameWarningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otMeterNameWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
+	OTClassStateStore valueAt: #otMeterNameWarningSink forClass: self putOrRemoveIfNil: aBlock.
 	^ self meterNameWarningSink
 ]
 
@@ -329,6 +323,21 @@ OTMeterProvider class >> prometheusPort [
 ]
 
 { #category : 'private - configuration' }
+OTMeterProvider class >> prometheusTranslationStrategy [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY'.
+	rawValue ifNil: [ ^ OTPrometheusTextEncoder defaultTranslationStrategy ].
+	^ OTPrometheusTextEncoder
+		  translationStrategyNamed: rawValue
+		  ifAbsent: [
+				  self
+					  noteInvalidPrometheusEnvironmentValue: rawValue
+					  forVariable: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY'.
+				  OTPrometheusTextEncoder defaultTranslationStrategy ]
+]
+
+{ #category : 'private - configuration' }
 OTMeterProvider class >> prometheusResourceConstantLabels [
 
 	| included rawValue |
@@ -390,6 +399,20 @@ OTMeterProvider class >> reset [
 ]
 
 { #category : 'private' }
+OTMeterProvider class >> strictPositiveIntegerFrom: aString [
+
+	| stream value |
+	stream := aString trimBoth readStream.
+	stream atEnd ifTrue: [ ^ nil ].
+	value := [ Integer readFrom: stream ]
+		         on: Error
+		         do: [ ^ nil ].
+	stream atEnd ifFalse: [ ^ nil ].
+	value > 0 ifFalse: [ ^ nil ].
+	^ value
+]
+
+{ #category : 'private' }
 OTMeterProvider class >> stringCollectionFrom: aString [
 
 	| entries trimmed |
@@ -404,20 +427,6 @@ OTMeterProvider class >> stringCollectionFrom: aString [
 			entry := each trimBoth.
 			entry ifNotEmpty: [ entries add: entry ] ].
 	^ entries asArray
-]
-
-{ #category : 'private' }
-OTMeterProvider class >> strictPositiveIntegerFrom: aString [
-
-	| stream value |
-	stream := aString trimBoth readStream.
-	stream atEnd ifTrue: [ ^ nil ].
-	value := [ Integer readFrom: stream ]
-		         on: Error
-		         do: [ ^ nil ].
-	stream atEnd ifFalse: [ ^ nil ].
-	value > 0 ifFalse: [ ^ nil ].
-	^ value
 ]
 
 { #category : 'accessing' }
@@ -620,9 +629,11 @@ OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber att
 	anOTMetricInstrument enabled ifFalse: [ ^ false ].
 	measurement := self measurementFor: anOTMetricInstrument value: aNumber attributes: aCollection.
 	^ stateLock critical: [
-			  (shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ false ] ifFalse: [
-				  measurements add: measurement.
-				  true ] ]
+			  (shutdownRequested = true or: [ shutdown = true ])
+				  ifTrue: [ false ]
+				  ifFalse: [
+						  measurements add: measurement.
+						  true ] ]
 ]
 
 { #category : 'accessing' }

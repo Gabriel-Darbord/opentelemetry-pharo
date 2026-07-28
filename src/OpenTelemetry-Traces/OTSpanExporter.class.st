@@ -386,10 +386,7 @@ OTSpanExporter class >> warningSink [
 { #category : 'private - logging' }
 OTSpanExporter class >> warningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
+	OTClassStateStore valueAt: #otWarningSink forClass: self putOrRemoveIfNil: aBlock.
 	^ self warningSink
 ]
 

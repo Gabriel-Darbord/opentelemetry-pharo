@@ -20,7 +20,7 @@ OTMetricExporterTest >> testConcurrentForceFlushAndShutdownAreSafe [
 			[
 				[
 					gate wait.
-					lock critical: [ results add: (eachOperation -> (exporter perform: eachOperation)) ] ]
+					lock critical: [ results add: eachOperation -> (exporter perform: eachOperation) ] ]
 					on: Error
 					do: [ :anError | lock critical: [ errors add: anError ] ].
 				done signal ] forkAt: Processor userBackgroundPriority ].
@@ -28,10 +28,9 @@ OTMetricExporterTest >> testConcurrentForceFlushAndShutdownAreSafe [
 	operations size timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
 	self assert: errors isEmpty.
 	self assert: ((results select: [ :each | each key = #shutdown ]) count: [ :each | each value = true ]) equals: 1.
-	self assert: ((results select: [ :each | each key = #shutdown ]) count: [ :each | each value = false ])
-		equals: 3.
-	self assert: ((results select: [ :each | each key = #forceFlush ]) allSatisfy: [ :each |
-			 each value = true or: [ each value = false ] ]).
+	self assert: ((results select: [ :each | each key = #shutdown ]) count: [ :each | each value = false ]) equals: 3.
+	self assert:
+		((results select: [ :each | each key = #forceFlush ]) allSatisfy: [ :each | each value = true or: [ each value = false ] ]).
 	self assert: exporter isShutdown.
 	self assert: exporter forceFlushCount <= 4
 ]

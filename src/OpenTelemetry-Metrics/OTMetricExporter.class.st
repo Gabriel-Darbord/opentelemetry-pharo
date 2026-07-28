@@ -26,8 +26,8 @@ OTMetricExporter >> aggregationSelector [
 OTMetricExporter >> aggregationSelector: aBlockOrNil [
 
 	stateLock critical: [
-		self ensureOpenLocked.
-		aggregationSelector := aBlockOrNil ifNil: [ [ :instrument | #default ] ] ifNotNil: [ aBlockOrNil ] ]
+			self ensureOpenLocked.
+			aggregationSelector := aBlockOrNil ifNil: [ [ :instrument | #default ] ] ifNotNil: [ aBlockOrNil ] ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -39,28 +39,28 @@ OTMetricExporter >> beginShutdown [
 			  true ]
 ]
 
-{ #category : 'exporting' }
-OTMetricExporter >> export: anOTMetricSnapshot [
-
-	self subclassResponsibility
-]
-
-{ #category : 'exporting' }
-OTMetricExporter >> forceFlush [
-
-	^ self withActiveStateDo: [ true ]
-]
-
 { #category : 'private - lifecycle' }
 OTMetricExporter >> ensureOpenLocked [
 
 	(shutdownRequested or: [ shutdown ]) ifTrue: [ Error signal: 'OpenTelemetry metric exporter is shutdown' ]
 ]
 
+{ #category : 'exporting' }
+OTMetricExporter >> export: anOTMetricSnapshot [
+
+	self subclassResponsibility
+]
+
 { #category : 'private - lifecycle' }
 OTMetricExporter >> finishShutdown [
 
 	stateLock critical: [ shutdown := true ]
+]
+
+{ #category : 'exporting' }
+OTMetricExporter >> forceFlush [
+
+	^ self withActiveStateDo: [ true ]
 ]
 
 { #category : 'initialization' }
@@ -89,7 +89,7 @@ OTMetricExporter >> isStopping [
 { #category : 'lifecycle' }
 OTMetricExporter >> shutdown [
 
-	(self beginShutdown) ifFalse: [ ^ false ].
+	self beginShutdown ifFalse: [ ^ false ].
 	self finishShutdown.
 	^ true
 ]
@@ -104,8 +104,8 @@ OTMetricExporter >> temporalitySelector [
 OTMetricExporter >> temporalitySelector: aBlockOrNil [
 
 	stateLock critical: [
-		self ensureOpenLocked.
-		temporalitySelector := aBlockOrNil ifNil: [ [ :instrument | #cumulative ] ] ifNotNil: [ aBlockOrNil ] ]
+			self ensureOpenLocked.
+			temporalitySelector := aBlockOrNil ifNil: [ [ :instrument | #cumulative ] ] ifNotNil: [ aBlockOrNil ] ]
 ]
 
 { #category : 'private - lifecycle' }

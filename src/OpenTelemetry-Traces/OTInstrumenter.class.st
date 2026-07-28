@@ -41,10 +41,7 @@ OTInstrumenter class >> configurationWarningSink [
 { #category : 'private - logging' }
 OTInstrumenter class >> configurationWarningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otConfigurationWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
+	OTClassStateStore valueAt: #otConfigurationWarningSink forClass: self putOrRemoveIfNil: aBlock.
 	^ self configurationWarningSink
 ]
 
