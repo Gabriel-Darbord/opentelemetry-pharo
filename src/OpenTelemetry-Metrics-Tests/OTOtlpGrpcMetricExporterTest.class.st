@@ -71,12 +71,6 @@ OTOtlpGrpcMetricExporterTest >> setUp [
 	exporter := OTOtlpGrpcMetricExporter configuration: configuration
 ]
 
-{ #category : 'running' }
-OTOtlpGrpcMetricExporterTest >> tearDown [
-
-	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
-]
-
 { #category : 'private' }
 OTOtlpGrpcMetricExporterTest >> successResponseWithRejectedDataPoints: aCount message: aString [
 
@@ -93,6 +87,12 @@ OTOtlpGrpcMetricExporterTest >> successResponseWithRejectedDataPoints: aCount me
 							writeTag: 2 wireType: 2;
 							writeString: aString ] ].
 	^ writer contents
+]
+
+{ #category : 'running' }
+OTOtlpGrpcMetricExporterTest >> tearDown [
+
+	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -127,6 +127,19 @@ OTOtlpGrpcMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 	self assert: capturedRequest messageEncoding equals: 'gzip'.
 	reader := OTProtobufReader on: (GZipReadStream on: capturedRequest payload readStream) upToEnd.
 	self assertReader: reader readsField: 1 wireType: 2
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcMetricExporterTest >> testExportReturnsFalseAfterShutdown [
+
+	| executed |
+	executed := false.
+	exporter requestExecutor: [ :request |
+			executed := true.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self deny: executed
 ]
 
 { #category : 'tests' }

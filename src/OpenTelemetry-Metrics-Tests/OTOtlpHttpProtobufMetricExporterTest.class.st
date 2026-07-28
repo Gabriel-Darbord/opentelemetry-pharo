@@ -120,6 +120,14 @@ OTOtlpHttpProtobufMetricExporterTest >> testExportAppliesHttpProtobufConfigurati
 ]
 
 { #category : 'tests' }
+OTOtlpHttpProtobufMetricExporterTest >> testExportReturnsFalseAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
 OTOtlpHttpProtobufMetricExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
 	client responseContents: (self successResponseWithRejectedDataPoints: 2 message: 'collector dropped data points').
