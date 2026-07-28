@@ -74,12 +74,17 @@ OTPrometheusMetricReader >> contentTypeStringForResponseFormat: aDictionary [
 	format := aDictionary at: #format.
 	escaping := aDictionary at: #escaping ifAbsent: [ #underscores ].
 	format = #openMetricsText100 ifTrue: [
-		^ 'application/openmetrics-text; version=1.0.0; charset=utf-8; escaping='
-		  , (self prometheusEscapingHeaderValueFor: escaping) ].
+		^ 'application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=' , (self prometheusEscapingHeaderValueFor: escaping) ].
 	format = #prometheusText100 ifTrue: [
-		^ 'text/plain; version=1.0.0; charset=utf-8; escaping='
-		  , (self prometheusEscapingHeaderValueFor: escaping) ].
+		^ 'text/plain; version=1.0.0; charset=utf-8; escaping=' , (self prometheusEscapingHeaderValueFor: escaping) ].
 	^ 'text/plain; version=0.0.4; charset=utf-8'
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> defaultEscapingModeForFormat: aFormatSymbol [
+
+	aFormatSymbol = #prometheusText004 ifTrue: [ ^ #underscores ].
+	^ #underscores
 ]
 
 { #category : 'private - http' }
@@ -123,10 +128,13 @@ OTPrometheusMetricReader >> encoder: anOTPrometheusTextEncoder [
 ]
 
 { #category : 'private - http' }
-OTPrometheusMetricReader >> defaultEscapingModeForFormat: aFormatSymbol [
+OTPrometheusMetricReader >> escapingModeFromAcceptParameters: someParameters [
 
-	aFormatSymbol = #prometheusText004 ifTrue: [ ^ #underscores ].
-	^ #underscores
+	| value |
+	value := self valueForAcceptParameterNamed: 'escaping' in: someParameters.
+	value = 'allow-utf-8' ifTrue: [ ^ #allowUtf8 ].
+	value = 'underscores' ifTrue: [ ^ #underscores ].
+	^ nil
 ]
 
 { #category : 'private - http' }
@@ -218,6 +226,13 @@ OTPrometheusMetricReader >> port: anInteger [
 			port := anInteger ifNil: [ 9464 ] ifNotNil: [ anInteger max: 0 ] ]
 ]
 
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> prometheusEscapingHeaderValueFor: aSymbol [
+
+	aSymbol = #allowUtf8 ifTrue: [ ^ 'allow-utf-8' ].
+	^ 'underscores'
+]
+
 { #category : 'accessing' }
 OTPrometheusMetricReader >> resourceConstantLabels [
 
@@ -235,17 +250,20 @@ OTPrometheusMetricReader >> resourceConstantLabels: anOTMetricAttributeFilterOrN
 ]
 
 { #category : 'private - http' }
-OTPrometheusMetricReader >> responseFormatForAcceptHeader: aString [
-
-	^ (self responseFormatDescriptorForAcceptHeader: aString) at: #format
-]
-
-{ #category : 'private - http' }
 OTPrometheusMetricReader >> responseFormatDescriptorFor: aFormatSymbol [
 
 	^ Dictionary new
 		  at: #format put: aFormatSymbol;
 		  at: #escaping put: (self defaultEscapingModeForFormat: aFormatSymbol);
+		  yourself
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> responseFormatDescriptorFor: aFormatSymbol escaping: aSymbol [
+
+	^ Dictionary new
+		  at: #format put: aFormatSymbol;
+		  at: #escaping put: aSymbol;
 		  yourself
 ]
 
@@ -262,6 +280,12 @@ OTPrometheusMetricReader >> responseFormatDescriptorForAcceptHeader: aString [
 					bestOrder := each second.
 					bestWeight := each third ] ].
 	^ bestFormat
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> responseFormatForAcceptHeader: aString [
+
+	^ (self responseFormatDescriptorForAcceptHeader: aString) at: #format
 ]
 
 { #category : 'accessing' }
@@ -312,13 +336,6 @@ OTPrometheusMetricReader >> scrapeTextForResponseFormat: aDictionary [
 	configuredEncoder := self scrapeEncoder.
 	configuredEncoder escapingMode: (aDictionary at: #escaping ifAbsent: [ nil ]).
 	^ configuredEncoder encodeSnapshot: self collectSnapshot format: (aDictionary at: #format)
-]
-
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> prometheusEscapingHeaderValueFor: aSymbol [
-
-	aSymbol = #allowUtf8 ifTrue: [ ^ 'allow-utf-8' ].
-	^ 'underscores'
 ]
 
 { #category : 'accessing' }
@@ -390,9 +407,9 @@ OTPrometheusMetricReader >> supportedResponseFormatsForAcceptHeader: aString [
 	| acceptedFormats formats results |
 	acceptedFormats := self supportedResponseFormatsFromHeader: aString.
 	formats := OrderedCollection new
-		           add: (#openMetricsText100 -> ('application/openmetrics-text' -> '1.0.0')) -> #( #underscores #allowUtf8 );
-		           add: (#prometheusText100 -> ('text/plain' -> '1.0.0')) -> #( #underscores #allowUtf8 );
-		           add: (#prometheusText004 -> ('text/plain' -> '0.0.4')) -> #( #underscores );
+		           add: #openMetricsText100 -> ('application/openmetrics-text' -> '1.0.0') -> #( #underscores #allowUtf8 );
+		           add: #prometheusText100 -> ('text/plain' -> '1.0.0') -> #( #underscores #allowUtf8 );
+		           add: #prometheusText004 -> ('text/plain' -> '0.0.4') -> #( #underscores );
 		           yourself.
 	results := OrderedCollection new.
 	acceptedFormats do: [ :eachHeader |
@@ -439,15 +456,6 @@ OTPrometheusMetricReader >> supportedResponseFormatsFromHeader: aString [
 							   yourself) ] ]
 ]
 
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> responseFormatDescriptorFor: aFormatSymbol escaping: aSymbol [
-
-	^ Dictionary new
-		  at: #format put: aFormatSymbol;
-		  at: #escaping put: aSymbol;
-		  yourself
-]
-
 { #category : 'accessing' }
 OTPrometheusMetricReader >> targetInfoEnabled [
 
@@ -483,16 +491,6 @@ OTPrometheusMetricReader >> valueForAcceptParameterNamed: aName in: someParamete
 			| keyValue |
 			keyValue := each substrings: '='.
 			(keyValue size = 2 and: [ keyValue first trimBoth asLowercase = aName ]) ifTrue: [ ^ keyValue second trimBoth asLowercase ] ].
-	^ nil
-]
-
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> escapingModeFromAcceptParameters: someParameters [
-
-	| value |
-	value := self valueForAcceptParameterNamed: 'escaping' in: someParameters.
-	value = 'allow-utf-8' ifTrue: [ ^ #allowUtf8 ].
-	value = 'underscores' ifTrue: [ ^ #underscores ].
 	^ nil
 ]
 

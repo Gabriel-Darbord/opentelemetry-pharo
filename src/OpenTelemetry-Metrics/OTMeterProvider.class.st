@@ -311,6 +311,17 @@ OTMeterProvider class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 ]
 
 { #category : 'private - configuration' }
+OTMeterProvider class >> prometheusDefaultHistogramAggregationPreference [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION'.
+	rawValue ifNil: [ ^ #explicitBucketHistogram ].
+	^ OTPrometheusMetricReader aggregationPreferenceNamed: rawValue ifAbsent: [
+			  self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION'.
+			  #explicitBucketHistogram ]
+]
+
+{ #category : 'private - configuration' }
 OTMeterProvider class >> prometheusHost [
 
 	| rawValue |
@@ -325,36 +336,6 @@ OTMeterProvider class >> prometheusPort [
 ]
 
 { #category : 'private - configuration' }
-OTMeterProvider class >> prometheusDefaultHistogramAggregationPreference [
-
-	| rawValue |
-	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION'.
-	rawValue ifNil: [ ^ #explicitBucketHistogram ].
-	^ OTPrometheusMetricReader
-		  aggregationPreferenceNamed: rawValue
-		  ifAbsent: [
-				  self
-					  noteInvalidPrometheusEnvironmentValue: rawValue
-					  forVariable: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION'.
-				  #explicitBucketHistogram ]
-]
-
-{ #category : 'private - configuration' }
-OTMeterProvider class >> prometheusTranslationStrategy [
-
-	| rawValue |
-	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY'.
-	rawValue ifNil: [ ^ OTPrometheusTextEncoder defaultTranslationStrategy ].
-	^ OTPrometheusTextEncoder
-		  translationStrategyNamed: rawValue
-		  ifAbsent: [
-				  self
-					  noteInvalidPrometheusEnvironmentValue: rawValue
-					  forVariable: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY'.
-				  OTPrometheusTextEncoder defaultTranslationStrategy ]
-]
-
-{ #category : 'private - configuration' }
 OTMeterProvider class >> prometheusResourceConstantLabels [
 
 	| included rawValue |
@@ -363,6 +344,17 @@ OTMeterProvider class >> prometheusResourceConstantLabels [
 	included := self stringCollectionFrom: rawValue.
 	included ifNil: [ ^ nil ].
 	^ OTMetricAttributeFilter included: included excluded: nil
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> prometheusTranslationStrategy [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY'.
+	rawValue ifNil: [ ^ OTPrometheusTextEncoder defaultTranslationStrategy ].
+	^ OTPrometheusTextEncoder translationStrategyNamed: rawValue ifAbsent: [
+			  self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY'.
+			  OTPrometheusTextEncoder defaultTranslationStrategy ]
 ]
 
 { #category : 'instance creation' }
