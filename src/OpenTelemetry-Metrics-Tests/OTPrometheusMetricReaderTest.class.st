@@ -44,6 +44,13 @@ OTPrometheusMetricReaderTest >> testCollectReturnsEmptySnapshotAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTPrometheusMetricReaderTest >> testHostDefaultsToLocalhost [
+
+	reader := OTPrometheusMetricReader new.
+	self assert: reader host equals: 'localhost'
+]
+
+{ #category : 'tests' }
 OTPrometheusMetricReaderTest >> testCollectUsesCumulativeTemporality [
 
 	| counter metric |
@@ -55,6 +62,13 @@ OTPrometheusMetricReaderTest >> testCollectUsesCumulativeTemporality [
 	counter add: 2 attributes: { ('method' -> 'GET') }.
 	metric := reader collectSnapshot metrics first.
 	self assert: metric temporality equals: #cumulative
+]
+
+{ #category : 'tests' }
+OTPrometheusMetricReaderTest >> testPortDefaultsTo9464 [
+
+	reader := OTPrometheusMetricReader new.
+	self assert: reader port equals: 9464
 ]
 
 { #category : 'tests' }
