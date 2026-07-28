@@ -17,6 +17,40 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'private - logging' }
+OTMetricExporter class >> defaultWarningSink [
+
+	^ OTDiagnosticLogger defaultWarningSink
+]
+
+{ #category : 'private - logging' }
+OTMetricExporter class >> noteMetricExporter: anExporter failedDuring: anOperationName error: anError [
+
+	| message |
+	message := String streamContents: [ :stream |
+			           stream
+				           nextPutAll: 'OpenTelemetry metric exporter operation failed during ';
+				           nextPutAll: anOperationName;
+				           nextPutAll: ' for ';
+				           nextPutAll: anExporter class name;
+				           nextPutAll: ': ';
+				           nextPutAll: anError messageText ].
+	OTDiagnosticLogger current handleSuppressedError: anError message: message fallback: [ anExporter class warningSink value: message ]
+]
+
+{ #category : 'private - logging' }
+OTMetricExporter class >> warningSink [
+
+	^ OTClassStateStore valueAt: #otWarningSink forClass: self ifAbsent: [ self defaultWarningSink ]
+]
+
+{ #category : 'private - logging' }
+OTMetricExporter class >> warningSink: aBlock [
+
+	OTClassStateStore valueAt: #otWarningSink forClass: self putOrRemoveIfNil: aBlock.
+	^ self warningSink
+]
+
 { #category : 'accessing' }
 OTMetricExporter >> aggregationSelector [
 
@@ -110,6 +144,12 @@ OTMetricExporter >> temporalitySelector: aBlockOrNil [
 			temporalitySelector := aBlockOrNil ifNil: [ [ :instrument | #cumulative ] ] ifNotNil: [ aBlockOrNil ] ]
 ]
 
+{ #category : 'private - logging' }
+OTMetricExporter >> warningSink [
+
+	^ self class warningSink
+]
+
 { #category : 'private - lifecycle' }
 OTMetricExporter >> withActiveStateDo: aBlock [
 
@@ -122,4 +162,14 @@ OTMetricExporter >> withActiveStateDo: aBlock [
 OTMetricExporter >> withSynchronizedExportDo: aBlock [
 
 	^ exportLock critical: aBlock
+]
+
+{ #category : 'private - error handling' }
+OTMetricExporter >> withOperationNamed: anOperationName default: aDefaultValue do: aBlock [
+
+	^ [ aBlock value ]
+		  on: Error
+		  do: [ :error |
+				  OTMetricExporter noteMetricExporter: self failedDuring: anOperationName error: error.
+				  aDefaultValue ]
 ]

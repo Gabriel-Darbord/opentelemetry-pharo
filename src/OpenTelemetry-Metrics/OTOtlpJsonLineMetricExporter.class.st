@@ -11,25 +11,6 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
-{ #category : 'private - logging' }
-OTOtlpJsonLineMetricExporter class >> defaultWarningSink [
-
-	^ OTDiagnosticLogger defaultWarningSink
-]
-
-{ #category : 'private - logging' }
-OTOtlpJsonLineMetricExporter class >> warningSink [
-
-	^ OTClassStateStore valueAt: #otWarningSink forClass: self ifAbsent: [ self defaultWarningSink ]
-]
-
-{ #category : 'private - logging' }
-OTOtlpJsonLineMetricExporter class >> warningSink: aBlock [
-
-	OTClassStateStore valueAt: #otWarningSink forClass: self putOrRemoveIfNil: aBlock.
-	^ self warningSink
-]
-
 { #category : 'accessing' }
 OTOtlpJsonLineMetricExporter >> encoder [
 
@@ -53,8 +34,9 @@ OTOtlpJsonLineMetricExporter >> export: anOTMetricSnapshot [
 				              do: [ :error |
 						              self notePayloadEncodingFailure: error.
 						              ^ false ].
-			  self writeJsonLine: jsonLine.
-			  true ]
+			  self withOperationNamed: 'export' default: false do: [
+					  self writeJsonLine: jsonLine.
+					  true ] ]
 ]
 
 { #category : 'private' }
@@ -68,12 +50,6 @@ OTOtlpJsonLineMetricExporter >> notePayloadEncodingFailure: anError [
 
 	self warningSink value:
 		(OTOtlpExportSupport payloadEncodingFailureMessageForSignal: 'metric' transport: 'JSON-line' error: anError)
-]
-
-{ #category : 'private - logging' }
-OTOtlpJsonLineMetricExporter >> warningSink [
-
-	^ self class warningSink
 ]
 
 { #category : 'private' }

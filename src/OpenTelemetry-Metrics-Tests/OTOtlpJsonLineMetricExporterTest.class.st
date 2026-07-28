@@ -94,6 +94,18 @@ OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseAfterShutdow
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseWhenWriteFailsAndWarns [
+
+	exporter := OTFailingOtlpJsonLineMetricExporter new.
+	self withExporterWarningsDo: [ :warnings |
+			self deny: (exporter export: self sampleSnapshot).
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'during export').
+			self assert: (warnings first includesSubstring: 'OTFailingOtlpJsonLineMetricExporter').
+			self assert: (warnings first includesSubstring: 'json-line write failure') ]
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerExport [
 
 	| line payload |
