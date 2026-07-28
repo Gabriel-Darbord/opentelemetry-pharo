@@ -162,6 +162,23 @@ OTPrometheusMetricReaderTest >> testScrapeCopiesConfiguredResourceConstantLabels
 ]
 
 { #category : 'tests' }
+OTPrometheusMetricReaderTest >> testScrapeDoesNotWriteTargetInfoForEmptyResource [
+
+	| counter scrape |
+	provider := OTMeterProvider new.
+	provider resource: OTResource empty.
+	reader := OTPrometheusMetricReader new.
+	reader port: 0.
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 3 attributes: { ('method' -> 'GET') }.
+	scrape := ZnClient new get: 'http://localhost:' , reader port asString , reader path.
+	scrape := scrape asString.
+	self assert: (scrape includesSubstring: 'requests_total{').
+	self deny: (scrape includesSubstring: 'target_info{')
+]
+
+{ #category : 'tests' }
 OTPrometheusMetricReaderTest >> testScrapeNegotiatedUnderscoresOverrideNoTranslation [
 
 	| client counter scrape |

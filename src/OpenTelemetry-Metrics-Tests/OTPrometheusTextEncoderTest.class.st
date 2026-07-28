@@ -271,35 +271,59 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotCopiesConfiguredResourceConstan
 ]
 
 { #category : 'tests' }
-OTPrometheusTextEncoderTest >> testEncodeSnapshotOmitsSuffixesWhenTranslationStrategyDisablesThem [
+OTPrometheusTextEncoderTest >> testEncodeSnapshotDoesNotEmitSummaryExemplarsForOpenMetrics [
+
+	| metric openMetricsText point snapshot |
+	point := OTSummaryDataPoint
+		         attributes: { ('http.method' -> 'GET') }
+		         count: 2
+		         sum: 3.0
+		         quantileValues: {
+				         (OTSummaryQuantileValue quantile: 0.5 value: 1.5).
+				         (OTSummaryQuantileValue quantile: 0.9 value: 2.5) }
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTSummaryMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'request.duration';
+		description: 'Request duration summary';
+		unit: 'ms';
+		points: { point }.
+	snapshot := OTMetricSnapshot
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self deny: (openMetricsText includesSubstring: ' # {')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotDoesNotWriteTargetInfoForEmptyResource [
 
 	| metric point snapshot text |
 	point := OTNumberDataPoint
-		         attributes: { ('method' -> 'GET') }
+		         attributes: { ('http.method' -> 'GET') }
 		         value: 4
 		         startTimestamp: DateAndTime unixEpoch
 		         timestamp: DateAndTime unixEpoch.
 	metric := OTSumMetricData new.
 	metric
 		instrumentationScope: self sampleScope;
-		name: 'response.size';
-		description: 'Response size';
-		unit: 'By';
+		name: 'http.requests';
+		description: 'Request count';
+		unit: '1';
 		points: { point };
 		monotonic: true;
 		temporality: #cumulative.
 	snapshot := OTMetricSnapshot
-		            resource: self sampleResource
+		            resource: OTResource empty
 		            measurements: #(  )
 		            metrics: { metric }
 		            collectedAt: DateAndTime unixEpoch.
-	encoder
-		translationStrategy: #underscoreEscapingWithoutSuffixes;
-		scopeInfoEnabled: false.
-	text := encoder encodeSnapshot: snapshot format: #openMetricsText100.
-	self assert: (text includesSubstring: '# TYPE response_size counter').
-	self assert: (text includesSubstring: 'response_size{').
-	self deny: (text includesSubstring: 'response_size_bytes_total')
+	text := encoder encodeSnapshot: snapshot.
+	self deny: (text includesSubstring: 'target_info{')
 ]
 
 { #category : 'tests' }
@@ -563,6 +587,38 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotLimitsExemplarLabelsAndPreserve
 ]
 
 { #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotOmitsSuffixesWhenTranslationStrategyDisablesThem [
+
+	| metric point snapshot text |
+	point := OTNumberDataPoint
+		         attributes: { ('method' -> 'GET') }
+		         value: 4
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTSumMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'response.size';
+		description: 'Response size';
+		unit: 'By';
+		points: { point };
+		monotonic: true;
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	encoder
+		translationStrategy: #underscoreEscapingWithoutSuffixes;
+		scopeInfoEnabled: false.
+	text := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (text includesSubstring: '# TYPE response_size counter').
+	self assert: (text includesSubstring: 'response_size{').
+	self deny: (text includesSubstring: 'response_size_bytes_total')
+]
+
+{ #category : 'tests' }
 OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesInfoTypeHintAcrossFormats [
 
 	| metric point prometheusText openMetricsText snapshot |
@@ -721,42 +777,6 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesUnknownTypeHintAcrossFormat
 ]
 
 { #category : 'tests' }
-OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesCountersScopeLabelsAndTargetInfo [
-
-	| metric point snapshot text |
-	point := OTNumberDataPoint
-		         attributes: { ('http.method' -> 'GET') }
-		         value: 4
-		         startTimestamp: DateAndTime unixEpoch
-		         timestamp: DateAndTime unixEpoch.
-	metric := OTSumMetricData new.
-	metric
-		instrumentationScope: self sampleScope;
-		name: 'http.requests';
-		description: 'Request count';
-		unit: '1';
-		points: { point };
-		monotonic: true;
-		temporality: #cumulative.
-	snapshot := OTMetricSnapshot
-		            resource: self sampleResource
-		            measurements: #(  )
-		            metrics: { metric }
-		            collectedAt: DateAndTime unixEpoch.
-	text := encoder encodeSnapshot: snapshot.
-	self assert: (text includesSubstring: '# TYPE http_requests_total counter').
-	self assert: (text includesSubstring: 'http_requests_total{').
-	self assert: (text includesSubstring: 'http_method="GET"').
-	self assert: (text includesSubstring: 'otel_scope_name="instrumentation"').
-	self assert: (text includesSubstring: 'otel_scope_version="1.0.0"').
-	self assert: (text includesSubstring: 'otel_scope_schema_url="https://scope.example/schema"').
-	self assert: (text includesSubstring: 'otel_scope_scope_key="scope-value"').
-	self assert: (text includesSubstring: 'target_info{').
-	self assert: (text includesSubstring: 'job="shop/demo"').
-	self assert: (text includesSubstring: 'instance="pharo-1"')
-]
-
-{ #category : 'tests' }
 OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesAtMostOneTargetInfoMetric [
 
 	| firstMetric firstPoint secondMetric secondPoint snapshot text |
@@ -795,6 +815,42 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesAtMostOneTargetInfoMetric
 		            collectedAt: DateAndTime unixEpoch.
 	text := encoder encodeSnapshot: snapshot.
 	self assert: (self occurrencesOfSubstring: 'target_info{' in: text) equals: 1
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesCountersScopeLabelsAndTargetInfo [
+
+	| metric point snapshot text |
+	point := OTNumberDataPoint
+		         attributes: { ('http.method' -> 'GET') }
+		         value: 4
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTSumMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'http.requests';
+		description: 'Request count';
+		unit: '1';
+		points: { point };
+		monotonic: true;
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	text := encoder encodeSnapshot: snapshot.
+	self assert: (text includesSubstring: '# TYPE http_requests_total counter').
+	self assert: (text includesSubstring: 'http_requests_total{').
+	self assert: (text includesSubstring: 'http_method="GET"').
+	self assert: (text includesSubstring: 'otel_scope_name="instrumentation"').
+	self assert: (text includesSubstring: 'otel_scope_version="1.0.0"').
+	self assert: (text includesSubstring: 'otel_scope_schema_url="https://scope.example/schema"').
+	self assert: (text includesSubstring: 'otel_scope_scope_key="scope-value"').
+	self assert: (text includesSubstring: 'target_info{').
+	self assert: (text includesSubstring: 'job="shop/demo"').
+	self assert: (text includesSubstring: 'instance="pharo-1"')
 ]
 
 { #category : 'tests' }
