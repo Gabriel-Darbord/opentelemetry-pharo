@@ -1280,6 +1280,47 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownShutsDownExporte
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesConfiguredTemporalityFromConsoleExporter [
+
+	| exporter firstPoint provider reader secondPoint stream |
+	exporter := OTConsoleMetricExporter new.
+	stream := String new writeStream.
+	exporter
+		outputStream: stream;
+		temporalitySelector: [ :instrument | #delta ].
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	firstPoint := reader collect metrics first points first.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 2.
+	secondPoint := reader collect metrics first points first.
+	self assert: firstPoint value equals: 1.
+	self assert: secondPoint value equals: 2.
+	self assert: secondPoint startTimestamp equals: firstPoint timestamp.
+	self assert: stream contents isNotEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesCumulativeTemporalityFromConsoleExporterByDefault [
+
+	| exporter metric provider reader stream |
+	exporter := OTConsoleMetricExporter new.
+	stream := String new writeStream.
+	exporter outputStream: stream.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	metric := reader collect metrics first.
+	self assert: metric temporality equals: #cumulative.
+	self assert: metric points first value equals: 1.
+	self assert: stream contents isNotEmpty
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReadersSerializeSharedExporterExports [
 
 	| done errors exporter firstReader firstSnapshot provider secondReader secondSnapshot |
