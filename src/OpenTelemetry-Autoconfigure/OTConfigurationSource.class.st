@@ -679,6 +679,14 @@ OTConfigurationSource class >> declarativeServiceResource [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> decodedResourceAttributeFromListEntry: entry separator: separator [
+
+	^ [ (entry copyFrom: 1 to: separator - 1) urlDecoded -> (entry copyFrom: separator + 1 to: entry size) urlDecoded ]
+		  on: Error
+		  do: [ Error signal: 'Failed to percent-decode resource.attributes_list entry ' , entry printString ]
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> dictionaryValueAt: aKey in: aDictionary [
 
 	| value |
@@ -1035,24 +1043,26 @@ OTConfigurationSource class >> loggerSeverityValueAt: aKey in: aDictionary [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> mergeResourceAttributeFromListEntry: entry into: anOrderedDictionary [
+
+	| decodedEntry separator |
+	separator := entry indexOf: $=.
+	separator > 0 ifFalse: [ Error signal: 'Invalid format for resource.attributes_list entry' ].
+	((entry copyFrom: separator + 1 to: entry size) includes: $=) ifTrue: [
+		Error signal: 'Invalid format for resource.attributes_list entry' ].
+	decodedEntry := self decodedResourceAttributeFromListEntry: entry separator: separator.
+	decodedEntry key isEmpty ifTrue: [ Error signal: 'Empty attribute name in resource.attributes_list entry' ].
+	anOrderedDictionary at: decodedEntry key put: decodedEntry value
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> mergeResourceAttributesFromListValue: aString into: anOrderedDictionary [
 
 	aString ifNil: [ ^ anOrderedDictionary ].
 	(aString substrings: ',') do: [ :each |
-			| entry key separator value |
+			| entry |
 			entry := each trimBoth.
-			entry ifNotEmpty: [
-					separator := entry indexOf: $=.
-					separator > 0 ifFalse: [ Error signal: 'Invalid format for resource.attributes_list entry' ].
-					((entry copyFrom: separator + 1 to: entry size) includes: $=) ifTrue: [
-						Error signal: 'Invalid format for resource.attributes_list entry' ].
-					[
-						key := (entry copyFrom: 1 to: separator - 1) urlDecoded.
-						value := (entry copyFrom: separator + 1 to: entry size) urlDecoded ]
-						on: Error
-						do: [ Error signal: 'Failed to percent-decode resource.attributes_list entry ' , entry printString ].
-					key isEmpty ifTrue: [ Error signal: 'Empty attribute name in resource.attributes_list entry' ].
-					anOrderedDictionary at: key put: value ] ].
+			entry ifNotEmpty: [ self mergeResourceAttributeFromListEntry: entry into: anOrderedDictionary ] ].
 	^ anOrderedDictionary
 ]
 

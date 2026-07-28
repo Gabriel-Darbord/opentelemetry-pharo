@@ -37,6 +37,19 @@ OTOtlpJsonLineMetricExporterTest >> testFileExporterAppendsOneJsonLinePerExport 
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testFileExporterReturnsFalseAfterShutdownAndDoesNotCreateFile [
+
+	| fileExporter outputFile |
+	outputFile := FileLocator temp / ('otlp-json-lines-metrics-' , UUID new asString36 , '.jsonl').
+	[
+		fileExporter := OTOtlpJsonFileMetricExporter new.
+		fileExporter fileReference: outputFile.
+		self assert: fileExporter shutdown.
+		self deny: (fileExporter export: self sampleSnapshot).
+		self deny: outputFile exists ] ensure: [ outputFile ensureDelete ]
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterEncodesNonFiniteNumbersAsJsonStrings [
 
 	| line payload point scopeMetrics snapshot |

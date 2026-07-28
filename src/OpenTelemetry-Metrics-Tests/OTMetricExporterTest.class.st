@@ -58,6 +58,18 @@ OTMetricExporterTest >> testConcurrentShutdownReturnsTrueOnce [
 ]
 
 { #category : 'tests' }
+OTMetricExporterTest >> testConsoleExporterReturnsFalseAfterShutdownAndWritesNothing [
+
+	| exporter stream |
+	exporter := OTConsoleMetricExporter new.
+	stream := String new writeStream.
+	exporter outputStream: stream.
+	self assert: exporter shutdown.
+	self deny: (exporter export: OTMetricSnapshot empty).
+	self assert: stream contents isEmpty
+]
+
+{ #category : 'tests' }
 OTMetricExporterTest >> testExportReturnsFalseAfterShutdown [
 
 	| exporter |
@@ -73,4 +85,13 @@ OTMetricExporterTest >> testForceFlushReturnsFalseAfterShutdown [
 	exporter := OTInMemoryMetricExporter new.
 	self assert: exporter shutdown.
 	self deny: exporter forceFlush
+]
+
+{ #category : 'tests' }
+OTMetricExporterTest >> testNoopExporterReturnsFalseAfterShutdown [
+
+	| exporter |
+	exporter := OTNoopMetricExporter new.
+	self assert: exporter shutdown.
+	self deny: (exporter export: OTMetricSnapshot empty)
 ]
