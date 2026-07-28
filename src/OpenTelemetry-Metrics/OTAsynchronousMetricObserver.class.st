@@ -57,11 +57,13 @@ OTAsynchronousMetricObserver >> observe: aNumber [
 { #category : 'recording' }
 OTAsynchronousMetricObserver >> observe: aNumber attributes: aCollection [
 
-	| measurement provider |
+	| measurement provider value |
+	value := self instrument recordableMeasurementValueFrom: aNumber.
+	value ifNil: [ ^ aNumber ].
 	provider := self instrument meter ifNil: [ nil ] ifNotNil: [ :aMeter | aMeter provider ].
 	measurement := provider
-		               ifNil: [ OTMetricMeasurement instrument: self instrument value: aNumber attributes: aCollection ]
-		               ifNotNil: [ provider measurementFor: self instrument value: aNumber attributes: aCollection ].
+		               ifNil: [ OTMetricMeasurement instrument: self instrument value: value attributes: aCollection ]
+		               ifNotNil: [ provider measurementFor: self instrument value: value attributes: aCollection ].
 	self measurements add: measurement.
 	^ aNumber
 ]

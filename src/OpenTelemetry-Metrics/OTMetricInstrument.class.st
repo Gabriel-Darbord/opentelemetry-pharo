@@ -44,6 +44,12 @@ OTMetricInstrument >> advice: aDictionary [
 ]
 
 { #category : 'aggregating' }
+OTMetricInstrument >> aggregationForPreference: aSymbol [
+
+	^ #default
+]
+
+{ #category : 'aggregating' }
 OTMetricInstrument >> attributeFilter [
 
 	^ OTMetricAttributeFilter included: self retainedAttributeKeys excluded: nil
@@ -185,12 +191,6 @@ OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement 
 ]
 
 { #category : 'aggregating' }
-OTMetricInstrument >> aggregationForPreference: aSymbol [
-
-	^ #default
-]
-
-{ #category : 'aggregating' }
 OTMetricInstrument >> otlpAggregationForPreference: aSymbol [
 
 	^ self aggregationForPreference: aSymbol
@@ -226,6 +226,16 @@ OTMetricInstrument >> otlpTemporalityForPreference: aSymbol [
 OTMetricInstrument >> preparedMeasurementsFrom: someMeasurements forReader: anOTMetricReader using: anOTMetricAggregationContext [
 
 	^ someMeasurements
+]
+
+{ #category : 'recording' }
+OTMetricInstrument >> recordableMeasurementValueFrom: anObject [
+
+	| value |
+	anObject isNumber ifFalse: [ ^ nil ].
+	value := anObject asFloat.
+	(value isNaN or: [ value isInfinite ]) ifTrue: [ ^ nil ].
+	^ anObject
 ]
 
 { #category : 'aggregating' }

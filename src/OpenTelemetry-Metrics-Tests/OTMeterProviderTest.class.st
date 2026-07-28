@@ -166,6 +166,31 @@ OTMeterProviderTest >> testAsynchronousObservationOutsideCallbacksIsIgnored [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObserverIgnoresNonFiniteMeasurements [
+
+	| measurement measurements provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableGaugeNamed: 'runtime.memory'
+		callbacks: { [ :observer |
+				observer observe: Float nan.
+				observer observe: Float infinity.
+				observer observe: Float negativeInfinity.
+				observer observe: 42 attributes: { ('state' -> 'used') } ] }
+		unit: 'By'
+		description: 'Runtime memory'
+		advice: Dictionary new.
+	measurements := reader collect.
+	self assert: measurements size equals: 1.
+	measurement := measurements first.
+	self assert: measurement instrument name equals: 'runtime.memory'.
+	self assert: measurement value equals: 42.
+	self assert: (measurement attributes at: 'state') equals: 'used'
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testBoundWrapperAcceptsAdditionalAttributes [
 
 	| bound counter meter |
@@ -1129,6 +1154,35 @@ OTMeterProviderTest >> testSynchronousInstrumentStaysEnabledWhenAnyMatchingViewE
 	self assert: instrument enabled.
 	instrument add: 1 attributes: { ('method' -> 'GET') }.
 	self assert: provider measurements size equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testSynchronousInstrumentsIgnoreNonFiniteMeasurements [
+
+	| measurements meter provider valuesByName |
+	provider := OTMeterProvider new.
+	meter := provider meterNamed: 'demo.metrics'.
+	(meter counterNamed: 'requests.total')
+		add: Float nan;
+		add: 3.
+	(meter upDownCounterNamed: 'queue.depth')
+		add: Float infinity;
+		add: -2.
+	(meter gaugeNamed: 'temperature')
+		record: Float negativeInfinity;
+		record: 7.
+	(meter histogramNamed: 'latency')
+		record: Float nan;
+		record: 5.
+	measurements := provider measurements.
+	self assert: measurements size equals: 4.
+	valuesByName := measurements inject: Dictionary new into: [ :dictionary :each |
+			                dictionary at: each instrument name put: each value.
+			                dictionary ].
+	self assert: (valuesByName at: 'requests.total') equals: 3.
+	self assert: (valuesByName at: 'queue.depth') equals: -2.
+	self assert: (valuesByName at: 'temperature') equals: 7.
+	self assert: (valuesByName at: 'latency') equals: 5
 ]
 
 { #category : 'tests' }

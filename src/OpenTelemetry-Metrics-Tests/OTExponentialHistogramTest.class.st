@@ -36,7 +36,7 @@ OTExponentialHistogramTest >> testReaderCanAggregateHistogramMeasurementsAsExpon
 { #category : 'tests' }
 OTExponentialHistogramTest >> testReaderDropsAllNonFiniteValuesFromExponentialHistogram [
 
-	| histogramMetric provider reader snapshot |
+	| provider reader snapshot |
 	provider := OTMeterProvider new.
 	reader := OTInMemoryMetricReader new.
 	reader aggregationSelector: [ :instrument | #base2ExponentialBucketHistogram ].
@@ -48,9 +48,7 @@ OTExponentialHistogramTest >> testReaderDropsAllNonFiniteValuesFromExponentialHi
 	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration') record:
 		Float negativeInfinity.
 	snapshot := reader collectSnapshot.
-	histogramMetric := snapshot metrics first.
-	self assert: histogramMetric class identicalTo: OTExponentialHistogramMetricData.
-	self assert: histogramMetric points isEmpty
+	self assert: snapshot metrics isEmpty
 ]
 
 { #category : 'tests' }
