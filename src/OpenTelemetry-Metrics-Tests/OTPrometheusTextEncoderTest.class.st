@@ -757,6 +757,47 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesCountersScopeLabelsAndTar
 ]
 
 { #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesAtMostOneTargetInfoMetric [
+
+	| firstMetric firstPoint secondMetric secondPoint snapshot text |
+	firstPoint := OTNumberDataPoint
+		              attributes: { ('http.method' -> 'GET') }
+		              value: 4
+		              startTimestamp: DateAndTime unixEpoch
+		              timestamp: DateAndTime unixEpoch.
+	secondPoint := OTNumberDataPoint
+		               attributes: { ('queue.name' -> 'critical') }
+		               value: 2
+		               startTimestamp: DateAndTime unixEpoch
+		               timestamp: DateAndTime unixEpoch.
+	firstMetric := OTSumMetricData new.
+	firstMetric
+		instrumentationScope: self sampleScope;
+		name: 'http.requests';
+		description: 'Request count';
+		unit: '1';
+		points: { firstPoint };
+		monotonic: true;
+		temporality: #cumulative.
+	secondMetric := OTGaugeMetricData new.
+	secondMetric
+		instrumentationScope: self sampleScope;
+		name: 'queue.depth';
+		description: 'Queue depth';
+		unit: '1';
+		points: { secondPoint }.
+	snapshot := OTMetricSnapshot
+		            resource: self sampleResource
+		            measurements: #(  )
+		            metrics: {
+				            firstMetric.
+				            secondMetric }
+		            collectedAt: DateAndTime unixEpoch.
+	text := encoder encodeSnapshot: snapshot.
+	self assert: (self occurrencesOfSubstring: 'target_info{' in: text) equals: 1
+]
+
+{ #category : 'tests' }
 OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesHistogramBucketsCumulatively [
 
 	| metric point snapshot text |
@@ -794,6 +835,39 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesHistogramBucketsCumulativ
 	self assert: (text includesSubstring: '} 10').
 	self assert: (text includesSubstring: 'request_duration_milliseconds_sum{').
 	self assert: (text includesSubstring: 'request_duration_milliseconds_count{')
+]
+
+{ #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotWritesNoExplicitMetricTimestampsForPullFormats [
+
+	| metric openMetricsText point prometheusText snapshot timestamp |
+	timestamp := DateAndTime unixEpoch + (Duration seconds: 1520879607) + (Duration milliSeconds: 789).
+	point := OTNumberDataPoint
+		         attributes: { ('method' -> 'GET') }
+		         value: 7
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: timestamp.
+	metric := OTGaugeMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'requests';
+		description: 'Requests';
+		unit: '1';
+		points: { point }.
+	snapshot := OTMetricSnapshot
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: timestamp.
+	encoder
+		scopeInfoEnabled: false;
+		targetInfoEnabled: false.
+	prometheusText := encoder encodeSnapshot: snapshot format: #prometheusText100.
+	openMetricsText := encoder encodeSnapshot: snapshot format: #openMetricsText100.
+	self assert: (prometheusText includesSubstring: 'requests{method="GET"} 7').
+	self assert: (openMetricsText includesSubstring: 'requests{method="GET"} 7').
+	self deny: (prometheusText includesSubstring: 'requests{method="GET"} 7 1520879607.789').
+	self deny: (openMetricsText includesSubstring: 'requests{method="GET"} 7 1520879607.789')
 ]
 
 { #category : 'tests' }
