@@ -87,6 +87,40 @@ OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusTranslati
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentTreatsEmptyEnvironmentValuesAsUnset [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_SDK_DISABLED' put: '';
+						 at: 'OTEL_METRICS_EXPORTER' put: '';
+						 at: 'OTEL_METRIC_EXPORT_INTERVAL' put: '';
+						 at: 'OTEL_METRIC_EXPORT_TIMEOUT' put: '';
+						 yourself)
+				during: [
+						| provider reader |
+						provider := OTMeterProvider current.
+						self assert: provider class identicalTo: OTMeterProvider.
+						self assert: provider metricReaders size equals: 1.
+						reader := provider metricReaders first.
+						self assert: reader class identicalTo: OTPeriodicExportingMetricReader.
+						self assert: reader exporter class identicalTo: OTOtlpHttpProtobufMetricExporter.
+						self assert: reader exportIntervalMillis equals: 60000.
+						self assert: reader exportTimeoutMillis equals: 30000 ].
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentTreatsNonTrueSdkDisabledValueAsFalse [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_SDK_DISABLED' put: '1';
+				 yourself)
+		during: [ self deny: OTMeterProvider current class identicalTo: OTNoopMeterProvider ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredExemplarFilter [
 
 	self
@@ -110,16 +144,6 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredMetricReaderInt
 				reader := OTMeterProvider current metricReaders first.
 				self assert: reader exportIntervalMillis equals: 12345.
 				self assert: reader exportTimeoutMillis equals: 54321 ]
-]
-
-{ #category : 'tests' }
-OTMetricEnvironmentConfigurationTest >> testCurrentUsesNoopMeterProviderWhenSdkIsDisabled [
-
-	self
-		withEnvironmentValues: (Dictionary new
-				 at: 'OTEL_SDK_DISABLED' put: 'TRUE';
-				 yourself)
-		during: [ self assert: OTMeterProvider current class identicalTo: OTNoopMeterProvider ]
 ]
 
 { #category : 'tests' }
@@ -232,6 +256,22 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesExplicitBucketHistogramAg
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggregationWhenConfiguredForOtlpExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+				 at: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION' put: 'base2_exponential_bucket_histogram';
+				 yourself)
+		during: [
+				| histogram provider reader |
+				provider := OTMeterProvider current.
+				reader := provider metricReaders first.
+				histogram := (provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration'.
+				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggregationWhenConfiguredForPrometheusExporter [
 
 	self
@@ -248,22 +288,6 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggre
 				histogram := (provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration'.
 				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram.
 				self assert: (reader aggregationFor: counter) equals: #default ]
-]
-
-{ #category : 'tests' }
-OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggregationWhenConfiguredForOtlpExporter [
-
-	self
-		withEnvironmentValues: (Dictionary new
-				 at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
-				 at: 'OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION' put: 'base2_exponential_bucket_histogram';
-				 yourself)
-		during: [
-				| histogram provider reader |
-				provider := OTMeterProvider current.
-				reader := provider metricReaders first.
-				histogram := (provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration'.
-				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram ]
 ]
 
 { #category : 'tests' }
@@ -335,6 +359,16 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesNoReadersWhenMetricExport
 				 at: 'OTEL_METRICS_EXPORTER' put: 'none';
 				 yourself)
 		during: [ self assert: OTMeterProvider current metricReaders isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesNoopMeterProviderWhenSdkIsDisabled [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_SDK_DISABLED' put: 'TRUE';
+				 yourself)
+		during: [ self assert: OTMeterProvider current class identicalTo: OTNoopMeterProvider ]
 ]
 
 { #category : 'tests' }
