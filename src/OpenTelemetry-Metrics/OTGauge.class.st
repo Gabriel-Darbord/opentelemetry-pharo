@@ -31,7 +31,7 @@ OTGauge >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggrega
 				                   attributes: each key
 				                   value: lastMeasurement value
 				                   startTimestamp: (anOTMetricAggregationContext startTimestamp ifNil: [ each value first timestamp ])
-				                   timestamp: lastMeasurement timestamp.
+				                   timestamp: anOTMetricAggregationContext collectedAt.
 			          point
 				          exemplars:
 					          (self exemplarsFromMeasurements: each value pointAttributes: each key using: anOTMetricAggregationContext);

@@ -418,6 +418,23 @@ OTMeterProviderTest >> testForceFlushReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testGaugeAggregationUsesCollectionTimeAsPointTimestamp [
+
+	| collectedAt context gauge measurement metric point provider |
+	provider := OTMeterProvider new.
+	gauge := (provider meterNamed: 'demo.metrics') gaugeNamed: 'queue.depth'.
+	measurement := OTMetricMeasurement instrument: gauge value: 7 attributes: { ('queue' -> 'main') }.
+	measurement timestamp: DateAndTime unixEpoch + (Duration seconds: 5).
+	collectedAt := DateAndTime unixEpoch + (Duration seconds: 10).
+	context := OTMetricAggregationContext collectedAt: collectedAt startTimestamp: nil temporality: #cumulative.
+	metric := gauge metricDataFromMeasurements: { measurement } using: context.
+	point := metric points first.
+	self assert: point value equals: 7.
+	self assert: point startTimestamp equals: measurement timestamp.
+	self assert: point timestamp equals: collectedAt
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testInMemoryMetricReaderCollectsRecordedMeasurements [
 
 	| counter measurement provider reader |
@@ -880,6 +897,28 @@ OTMeterProviderTest >> testNoopTypesDoNotDeclareInstanceState [
 	self assert: OTNoopObservableCounter allInstVarNames isEmpty.
 	self assert: OTNoopObservableUpDownCounter allInstVarNames isEmpty.
 	self assert: OTNoopObservableGauge allInstVarNames isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testObservableGaugeAggregationUsesCollectionTimeAsPointTimestamp [
+
+	| collectedAt context gauge measurement metric point provider |
+	provider := OTMeterProvider new.
+	gauge := (provider meterNamed: 'demo.metrics')
+		         observableGaugeNamed: 'runtime.memory'
+		         callbacks: #(  )
+		         unit: 'By'
+		         description: 'Runtime memory'
+		         advice: Dictionary new.
+	measurement := OTMetricMeasurement instrument: gauge value: 42 attributes: { ('state' -> 'used') }.
+	measurement timestamp: DateAndTime unixEpoch + (Duration seconds: 5).
+	collectedAt := DateAndTime unixEpoch + (Duration seconds: 10).
+	context := OTMetricAggregationContext collectedAt: collectedAt startTimestamp: nil temporality: #cumulative.
+	metric := gauge metricDataFromMeasurements: { measurement } using: context.
+	point := metric points first.
+	self assert: point value equals: 42.
+	self assert: point startTimestamp equals: measurement timestamp.
+	self assert: point timestamp equals: collectedAt
 ]
 
 { #category : 'tests' }
