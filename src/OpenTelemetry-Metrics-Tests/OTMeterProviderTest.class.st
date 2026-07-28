@@ -1369,6 +1369,39 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesCumulativeTemporalit
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesCumulativeTemporalityFromInMemoryExporterByDefault [
+
+	| exporter metric provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	metric := reader collect metrics first.
+	self assert: metric temporality equals: #cumulative.
+	self assert: metric points first value equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesDefaultAggregationFromInMemoryExporterByDefault [
+
+	| exporter metric provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 2;
+		record: 3.
+	metric := reader collect metrics first.
+	self assert: metric class identicalTo: OTHistogramMetricData.
+	self assert: metric points first count equals: 2.
+	self assert: metric points first sum equals: 5
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReadersSerializeSharedExporterExports [
 
 	| done errors exporter firstReader firstSnapshot provider secondReader secondSnapshot |
