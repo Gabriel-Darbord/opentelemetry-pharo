@@ -6,6 +6,30 @@ Class {
 }
 
 { #category : 'private' }
+OTMeterProviderTest >> runConcurrentOperations: someAssociations [
+
+	| done errors gate lock results |
+	results := OrderedCollection new.
+	errors := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	someAssociations do: [ :eachOperation |
+			[
+				[
+					gate wait.
+					lock critical: [ results add: eachOperation key -> eachOperation value value ] ]
+					on: Error
+					do: [ :anError | lock critical: [ errors add: anError ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	someAssociations size timesRepeat: [ gate signal ].
+	someAssociations size timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	^ {
+		  results.
+		  errors }
+]
+
+{ #category : 'private' }
 OTMeterProviderTest >> sampleAttributes [
 
 	^ OrderedDictionary new
@@ -948,6 +972,35 @@ OTMeterProviderTest >> testNoopAsyncInstrumentDoesNotRetainCallbacks [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testNoopInstrumentOperationsAreSafeConcurrently [
+
+	| counter errors gauge histogram observableGauge operations outcome results upDownCounter |
+	counter := OTCounter noop.
+	upDownCounter := OTUpDownCounter noop.
+	histogram := OTHistogram noop.
+	gauge := OTGauge noop.
+	observableGauge := OTObservableGauge noop.
+	operations := {
+		              (#bind -> [ counter bind: { ('method' -> 'GET') } ]).
+		              (#enabled -> [ counter enabled ]).
+		              (#add -> [ counter add: 1 ]).
+		              (#addAttributes -> [ counter add: 1 attributes: { ('method' -> 'GET') } ]).
+		              (#upDown -> [ upDownCounter add: -1 ]).
+		              (#recordHistogram -> [ histogram record: 12.5 ]).
+		              (#recordGauge -> [ gauge record: 7 ]).
+		              (#observe -> [ observableGauge observe: 42 ]).
+		              (#observeAttributes -> [ observableGauge observe: 42 attributes: { ('state' -> 'used') } ]).
+		              (#callbacks -> [ observableGauge callbacks ]) }.
+	outcome := self runConcurrentOperations: operations.
+	results := outcome first.
+	errors := outcome second.
+	self assert: errors isEmpty.
+	self assert: ((results select: [ :each | each key = #bind ]) allSatisfy: [ :each | each value == counter ]).
+	self assert: ((results select: [ :each | each key = #enabled ]) allSatisfy: [ :each | each value not ]).
+	self assert: ((results select: [ :each | each key = #callbacks ]) allSatisfy: [ :each | each value isEmpty ])
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testNoopMeterDoesNotWarnOnInvalidInstrumentNames [
 
 	self withInstrumentWarningsDo: [ :warnings |
@@ -975,6 +1028,74 @@ OTMeterProviderTest >> testNoopMeterDoesNotWarnOnInvalidInstrumentNames [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testNoopMeterInstrumentCreationIsSafeConcurrently [
+
+	| errors meter operations outcome results |
+	meter := OTNoopMeter instance.
+	operations := {
+		              (#counter -> [
+			               meter
+				               counterNamed: '1 requests'
+				               unit: nil
+				               description: nil
+				               advice: { ('attributes' -> #( 'bad key' )) } asDictionary ]).
+		              (#upDownCounter -> [
+			               meter
+				               upDownCounterNamed: nil
+				               unit: nil
+				               description: nil
+				               advice: nil ]).
+		              (#histogram -> [
+			               meter
+				               histogramNamed: ''
+				               unit: nil
+				               description: nil
+				               advice: nil ]).
+		              (#gauge -> [
+			               meter
+				               gaugeNamed: nil
+				               unit: nil
+				               description: nil
+				               advice: nil ]).
+		              (#observableCounter -> [
+			               meter
+				               observableCounterNamed: 'runtime.cpu'
+				               callbacks: { [ :observer | observer observe: 42 ] }
+				               unit: '1'
+				               description: 'CPU'
+				               advice: Dictionary new ]).
+		              (#observableGauge -> [
+			               meter
+				               observableGaugeNamed: ''
+				               callbacks: { [ :observer | observer observe: 7 ] }
+				               unit: nil
+				               description: nil
+				               advice: nil ]).
+		              (#observableUpDownCounter -> [
+			               meter
+				               observableUpDownCounterNamed: nil
+				               callbacks: { [ :observer | observer observe: -1 ] }
+				               unit: nil
+				               description: nil
+				               advice: nil ]) }.
+	outcome := self runConcurrentOperations: operations.
+	results := outcome first.
+	errors := outcome second.
+	self assert: errors isEmpty.
+	self assert: ((results select: [ :each | each key = #counter ]) allSatisfy: [ :each | each value == OTNoopCounter instance ]).
+	self assert:
+		((results select: [ :each | each key = #upDownCounter ]) allSatisfy: [ :each | each value == OTNoopUpDownCounter instance ]).
+	self assert: ((results select: [ :each | each key = #histogram ]) allSatisfy: [ :each | each value == OTNoopHistogram instance ]).
+	self assert: ((results select: [ :each | each key = #gauge ]) allSatisfy: [ :each | each value == OTNoopGauge instance ]).
+	self assert: ((results select: [ :each | each key = #observableCounter ]) allSatisfy: [ :each |
+			 each value == OTNoopObservableCounter instance and: [ each value callbacks isEmpty ] ]).
+	self assert: ((results select: [ :each | each key = #observableGauge ]) allSatisfy: [ :each |
+			 each value == OTNoopObservableGauge instance and: [ each value callbacks isEmpty ] ]).
+	self assert: ((results select: [ :each | each key = #observableUpDownCounter ]) allSatisfy: [ :each |
+			 each value == OTNoopObservableUpDownCounter instance and: [ each value callbacks isEmpty ] ])
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testNoopProviderDoesNotWarnOnInvalidMeterNames [
 
 	self withMeterNameWarningsDo: [ :warnings |
@@ -993,6 +1114,37 @@ OTMeterProviderTest >> testNoopProviderDoesNotWarnOnInvalidMeterNames [
 			self assert: firstMeter identicalTo: OTNoopMeter instance.
 			self assert: secondMeter identicalTo: OTNoopMeter instance.
 			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopProviderOperationsAreSafeConcurrently [
+
+	| errors operations outcome provider results |
+	provider := OTNoopMeterProvider instance.
+	operations := {
+		              (#meter -> [
+			               provider
+				               meterNamed: nil
+				               version: nil
+				               schemaUrl: nil
+				               attributes: nil ]).
+		              (#meter -> [
+			               provider
+				               meterNamed: 'demo.metrics'
+				               version: '1.2.3'
+				               schemaUrl: 'https://example.com/schema'
+				               attributes: self sampleAttributes ]).
+		              (#forceFlush -> [ provider forceFlush ]).
+		              (#forceFlush -> [ provider forceFlush ]).
+		              (#shutdown -> [ provider shutdown ]).
+		              (#shutdown -> [ provider shutdown ]) }.
+	outcome := self runConcurrentOperations: operations.
+	results := outcome first.
+	errors := outcome second.
+	self assert: errors isEmpty.
+	self assert: ((results select: [ :each | each key = #meter ]) allSatisfy: [ :each | each value == OTNoopMeter instance ]).
+	self assert: ((results select: [ :each | each key = #forceFlush ]) allSatisfy: [ :each | each value ]).
+	self assert: ((results select: [ :each | each key = #shutdown ]) allSatisfy: [ :each | each value ])
 ]
 
 { #category : 'tests' }
