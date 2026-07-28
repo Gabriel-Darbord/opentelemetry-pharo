@@ -45,7 +45,7 @@ OTOtlpHttpJsonMetricExporter class >> configuredAggregationSelector [
 
 	| preference |
 	preference := self configuredAggregationPreference.
-	^ [ :instrument | instrument otlpAggregationForPreference: preference ]
+	^ [ :instrument | instrument aggregationForPreference: preference ]
 ]
 
 { #category : 'private - configuration' }

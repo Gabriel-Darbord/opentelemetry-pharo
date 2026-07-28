@@ -937,6 +937,33 @@ meter_provider:
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusDefaultAggregation [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+meter_provider:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+            default_aggregation: base2_exponential_bucket_histogram
+'
+		environmentValues: Dictionary new
+		during: [
+				| counter histogram reader |
+				reader := OTMeterProvider current metricReaders first.
+				counter := (OTMeterProvider current meterNamed: 'config.metrics') counterNamed: 'requests.total'.
+				histogram := (OTMeterProvider current meterNamed: 'config.metrics') histogramNamed: 'request.duration'.
+				self assert: reader class identicalTo: OTPrometheusMetricReader.
+				self assert: reader host equals: 'metrics.example'.
+				self assert: reader port equals: 9564.
+				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram.
+				self assert: (reader aggregationFor: counter) equals: #default ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusTranslationStrategy [
 
 	self

@@ -185,9 +185,15 @@ OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement 
 ]
 
 { #category : 'aggregating' }
-OTMetricInstrument >> otlpAggregationForPreference: aSymbol [
+OTMetricInstrument >> aggregationForPreference: aSymbol [
 
 	^ #default
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> otlpAggregationForPreference: aSymbol [
+
+	^ self aggregationForPreference: aSymbol
 ]
 
 { #category : 'aggregating' }

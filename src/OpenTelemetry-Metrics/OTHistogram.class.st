@@ -241,10 +241,16 @@ OTHistogram >> metricDataFromMeasurements: someMeasurements using: anOTMetricAgg
 ]
 
 { #category : 'aggregating' }
-OTHistogram >> otlpAggregationForPreference: aSymbol [
+OTHistogram >> aggregationForPreference: aSymbol [
 
 	aSymbol = #base2ExponentialBucketHistogram ifTrue: [ ^ #base2ExponentialBucketHistogram ].
 	^ #explicitBucketHistogram
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> otlpAggregationForPreference: aSymbol [
+
+	^ self aggregationForPreference: aSymbol
 ]
 
 { #category : 'aggregating' }

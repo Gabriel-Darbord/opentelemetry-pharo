@@ -1531,6 +1531,7 @@ OTConfigurationSource class >> projectExporterConfigurationNode: aDictionary sig
 				from: 'port'
 				in: exporterOptions
 				into: anEnvironment.
+			self projectPrometheusDefaultAggregationFrom: exporterOptions into: anEnvironment.
 			self projectPrometheusTranslationStrategyFrom: exporterOptions into: anEnvironment.
 			self projectPrometheusResourceConstantLabelsFrom: exporterOptions into: anEnvironment.
 			^ self ].
@@ -1709,6 +1710,17 @@ OTConfigurationSource class >> projectPrometheusResourceConstantLabelsFrom: aDic
 				 included doWithIndex: [ :each :index |
 						 index > 1 ifTrue: [ stream nextPut: $, ].
 						 stream nextPutAll: each ] ])
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectPrometheusDefaultAggregationFrom: aDictionary into: anEnvironment [
+
+	| aggregationName |
+	aggregationName := self stringValueAt: 'default_aggregation' in: aDictionary.
+	aggregationName ifNil: [ ^ self ].
+	OTPrometheusMetricReader aggregationPreferenceNamed: aggregationName ifAbsent: [
+		Error signal: 'Unsupported Prometheus default_aggregation: ' , aggregationName printString ].
+	anEnvironment at: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION' put: aggregationName
 ]
 
 { #category : 'private - projection' }
@@ -1966,6 +1978,10 @@ OTConfigurationSource class >> pullMetricReaderFrom: aDictionary [
 	reader := OTPrometheusMetricReader new.
 	(self stringValueAt: 'host' in: exporterOptions) ifNotNil: [ :value | reader host: value ].
 	reader port: (self nonNegativeIntegerValueAt: 'port' in: exporterOptions default: reader port).
+	(self stringValueAt: 'default_aggregation' in: exporterOptions) ifNotNil: [ :value |
+			reader aggregationSelector: (OTPrometheusMetricReader aggregationSelectorForPreference: (OTPrometheusMetricReader
+					 aggregationPreferenceNamed: value
+					 ifAbsent: [ Error signal: 'Unsupported Prometheus default_aggregation: ' , value printString ])) ].
 	(self stringValueAt: 'translation_strategy' in: exporterOptions) ifNotNil: [ :value |
 			reader translationStrategy: (OTPrometheusTextEncoder
 					 translationStrategyNamed: value

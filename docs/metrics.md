@@ -45,6 +45,10 @@ The current metrics implementation provides:
   `OTSummaryMetricData`, `OTSummaryDataPoint`, and `OTSummaryQuantileValue`
 - metric-level metadata on `OTMetricData`, including OTLP `metadata` encoding
 - Prometheus pull export over HTTP on `/metrics`
+- Prometheus pull exporter configuration for `host`, `port`,
+  `default_aggregation`, `translation_strategy`,
+  `resource_constant_labels`, `scope_info_enabled`, and
+  `target_info_enabled`
 - OTLP metric auto-configuration through `OTEL_METRICS_EXPORTER`,
   `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`, `OTEL_METRIC_EXPORT_INTERVAL`, and
   `OTEL_METRIC_EXPORT_TIMEOUT`, plus `OTEL_METRICS_EXEMPLAR_FILTER`

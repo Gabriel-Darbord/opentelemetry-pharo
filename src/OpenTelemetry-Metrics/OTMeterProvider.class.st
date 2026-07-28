@@ -82,7 +82,8 @@ OTMeterProvider class >> configuredOtlpExporter [
 { #category : 'private - configuration' }
 OTMeterProvider class >> configuredPrometheusReader [
 
-	| filter reader translationStrategy |
+	| aggregationPreference filter reader translationStrategy |
+	aggregationPreference := self prometheusDefaultHistogramAggregationPreference.
 	filter := self prometheusResourceConstantLabels.
 	translationStrategy := self prometheusTranslationStrategy.
 	reader := OTPrometheusMetricReader new
@@ -90,6 +91,7 @@ OTMeterProvider class >> configuredPrometheusReader [
 		          port: self prometheusPort;
 		          resourceConstantLabels: filter;
 		          yourself.
+	reader aggregationSelector: (OTPrometheusMetricReader aggregationSelectorForPreference: aggregationPreference).
 	reader translationStrategy: translationStrategy.
 	^ reader
 ]
@@ -320,6 +322,21 @@ OTMeterProvider class >> prometheusHost [
 OTMeterProvider class >> prometheusPort [
 
 	^ self nonNegativeIntegerEnvironmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_PORT' default: 9464
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> prometheusDefaultHistogramAggregationPreference [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION'.
+	rawValue ifNil: [ ^ #explicitBucketHistogram ].
+	^ OTPrometheusMetricReader
+		  aggregationPreferenceNamed: rawValue
+		  ifAbsent: [
+				  self
+					  noteInvalidPrometheusEnvironmentValue: rawValue
+					  forVariable: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION'.
+				  #explicitBucketHistogram ]
 ]
 
 { #category : 'private - configuration' }

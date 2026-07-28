@@ -216,6 +216,41 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesExplicitBucketHistogramAg
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesExplicitBucketHistogramAggregationByDefaultForPrometheusExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+				 at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
+				 yourself)
+		during: [
+				| histogram provider reader |
+				provider := OTMeterProvider current.
+				reader := provider metricReaders first.
+				histogram := (provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration'.
+				self assert: (reader aggregationFor: histogram) equals: #default ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggregationWhenConfiguredForPrometheusExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+				 at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
+				 at: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION' put: 'base2_exponential_bucket_histogram';
+				 yourself)
+		during: [
+				| counter histogram provider reader |
+				provider := OTMeterProvider current.
+				reader := provider metricReaders first.
+				counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+				histogram := (provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration'.
+				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram.
+				self assert: (reader aggregationFor: counter) equals: #default ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggregationWhenConfiguredForOtlpExporter [
 
 	self

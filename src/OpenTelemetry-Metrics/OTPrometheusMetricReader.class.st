@@ -16,6 +16,22 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'private - configuration' }
+OTPrometheusMetricReader class >> aggregationPreferenceNamed: aString ifAbsent: aBlock [
+
+	| normalized |
+	normalized := aString ifNil: [ '' ] ifNotNil: [ aString asString trimBoth asLowercase ].
+	normalized = 'explicit_bucket_histogram' ifTrue: [ ^ #explicitBucketHistogram ].
+	normalized = 'base2_exponential_bucket_histogram' ifTrue: [ ^ #base2ExponentialBucketHistogram ].
+	^ aBlock value
+]
+
+{ #category : 'private - configuration' }
+OTPrometheusMetricReader class >> aggregationSelectorForPreference: aSymbol [
+
+	^ [ :instrument | instrument aggregationForPreference: aSymbol ]
+]
+
 { #category : 'private - http' }
 OTPrometheusMetricReader >> bindingAddressForHost [
 
