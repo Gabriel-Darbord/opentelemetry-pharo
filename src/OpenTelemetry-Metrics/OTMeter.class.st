@@ -9,7 +9,8 @@ Class {
 	#instVars : [
 		'provider',
 		'instrumentationScope',
-		'instruments'
+		'instruments',
+		'instrumentationNameState'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -234,7 +235,7 @@ OTMeter >> initialize [
 { #category : 'accessing' }
 OTMeter >> instrumentationName [
 
-	^ self instrumentationScope name
+	^ instrumentationNameState ifNil: [ self instrumentationScope name ] ifNotNil: [ instrumentationNameState first ]
 ]
 
 { #category : 'accessing' }
@@ -247,6 +248,7 @@ OTMeter >> instrumentationScope [
 OTMeter >> instrumentationScope: anInstrumentationScope [
 
 	instrumentationScope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ anInstrumentationScope ].
+	instrumentationNameState ifNil: [ instrumentationNameState := { instrumentationScope name } ].
 	^ instrumentationScope
 ]
 
@@ -462,6 +464,13 @@ OTMeter >> provider [
 OTMeter >> provider: anOTMeterProvider [
 
 	provider := anOTMeterProvider
+]
+
+{ #category : 'accessing' }
+OTMeter >> rawInstrumentationName: aValue [
+
+	instrumentationNameState := { aValue }.
+	^ aValue
 ]
 
 { #category : 'private' }

@@ -228,13 +228,13 @@ OTMeterProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default: 
 OTMeterProvider class >> normalizedMeterNameFrom: aValue [
 
 	| meterName |
-	aValue ifNil: [
+	meterName := self requestedMeterNameFrom: aValue.
+	meterName ifNil: [
 			self noteInvalidMeterName: aValue.
 			^ '' ].
-	meterName := aValue asString.
-	meterName trimBoth isEmpty ifTrue: [
+	meterName isEmpty ifTrue: [
 			self noteInvalidMeterName: aValue.
-			^ '' ].
+			^ meterName ].
 	^ meterName
 ]
 
@@ -255,8 +255,7 @@ OTMeterProvider class >> noteInvalidExemplarFilterName: aString [
 { #category : 'private - logging' }
 OTMeterProvider class >> noteInvalidMeterName: aValue [
 
-	self meterNameWarningSink value: 'OpenTelemetry meter name was invalid and has been normalized to an empty string: '
-		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self meterNameWarningSink value: 'OpenTelemetry meter name was invalid: ' , aValue printString
 ]
 
 { #category : 'private - logging' }
@@ -395,6 +394,12 @@ OTMeterProvider class >> readerForExporter: anExporter [
 		exportIntervalMillis: (self metricExportIntervalMillisForExporter: anExporter);
 		exportTimeoutMillis: self metricExportTimeoutMillis.
 	^ reader
+]
+
+{ #category : 'private' }
+OTMeterProvider class >> requestedMeterNameFrom: aValue [
+
+	^ aValue ifNotNil: [ aValue asString ]
 ]
 
 { #category : 'class initialization' }
@@ -605,18 +610,25 @@ OTMeterProvider >> meterNamed: aString [
 { #category : 'accessing' }
 OTMeterProvider >> meterNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
-	| meter scope |
+	| meter meterKey requestedName scope |
+	requestedName := self class requestedMeterNameFrom: aString.
 	scope := OTInstrumentationScope
-		         named: (self class normalizedMeterNameFrom: aString)
+		         named: (self class normalizedMeterNameFrom: requestedName)
 		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
 		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
 		         attributes: aCollection.
+	meterKey := {
+		            requestedName.
+		            scope version.
+		            scope schemaUrl.
+		            scope allAttributes }.
 	^ stateLock critical: [
 			  (shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ ^ OTNoopMeter instance ].
-			  meter := meters at: scope ifAbsent: [ nil ].
+			  meter := meters at: meterKey ifAbsent: [ nil ].
 			  meter ifNotNil: [ ^ meter ].
 			  meter := OTMeter forProvider: self instrumentationScope: scope.
-			  meters at: scope put: meter.
+			  meter rawInstrumentationName: requestedName.
+			  meters at: meterKey put: meter.
 			  meter ]
 ]
 

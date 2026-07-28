@@ -441,6 +441,17 @@ OTMeterProviderTest >> testDistinctMeterRequestsReturnDistinctMeters [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testEmptyMeterNameWarnsAndReturnsFallbackMeter [
+
+	self withMeterNameWarningsDo: [ :warnings |
+			| meter provider |
+			provider := OTMeterProvider new.
+			meter := provider meterNamed: ''.
+			self assert: meter instrumentationName equals: ''.
+			self assert: warnings asArray equals: { ('OpenTelemetry meter name was invalid: ' , '' printString) } ]
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testExplicitMeterProviderCanBeInstalledGlobally [
 
 	| provider |
@@ -896,6 +907,29 @@ OTMeterProviderTest >> testMetricSnapshotUsesAdvisedAttributeSubsetWhenAggregati
 OTMeterProviderTest >> testNewProviderDefaultsResourceToEmpty [
 
 	self assert: OTMeterProvider new resource equals: OTResource empty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNilAndEmptyMeterNamesReturnDistinctMeters [
+
+	| emptyMeter nilMeter provider |
+	provider := OTMeterProvider new.
+	nilMeter := provider meterNamed: nil.
+	emptyMeter := provider meterNamed: ''.
+	self deny: nilMeter identicalTo: emptyMeter.
+	self assert: nilMeter instrumentationName isNil.
+	self assert: emptyMeter instrumentationName equals: ''
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNilMeterNameReturnsFallbackMeterAndWarns [
+
+	self withMeterNameWarningsDo: [ :warnings |
+			| meter provider |
+			provider := OTMeterProvider new.
+			meter := provider meterNamed: nil.
+			self assert: meter instrumentationName isNil.
+			self assert: warnings asArray equals: #( 'OpenTelemetry meter name was invalid: nil' ) ]
 ]
 
 { #category : 'tests' }
@@ -1367,16 +1401,14 @@ OTMeterProviderTest >> testSynchronousNoopInstrumentOperationsAreSafe [
 ]
 
 { #category : 'tests' }
-OTMeterProviderTest >> testWarnsAndNormalizesInvalidMeterNames [
+OTMeterProviderTest >> testWhitespaceMeterNameIsPreservedWithoutWarning [
 
 	self withMeterNameWarningsDo: [ :warnings |
 			| meter provider |
 			provider := OTMeterProvider new.
 			meter := provider meterNamed: '   '.
-			self assert: meter instrumentationName equals: ''.
-			self
-				assert: warnings asArray
-				equals: { 'OpenTelemetry meter name was invalid and has been normalized to an empty string: ''   ''' } ]
+			self assert: meter instrumentationName equals: '   '.
+			self assert: warnings isEmpty ]
 ]
 
 { #category : 'private' }
