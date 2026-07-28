@@ -948,6 +948,54 @@ OTMeterProviderTest >> testNoopAsyncInstrumentDoesNotRetainCallbacks [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testNoopMeterDoesNotWarnOnInvalidInstrumentNames [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| counter gauge histogram meter |
+			meter := OTNoopMeter instance.
+			counter := meter
+				           counterNamed: '1 requests'
+				           unit: nil
+				           description: nil
+				           advice: { ('attributes' -> #( 'bad key' )) } asDictionary.
+			gauge := meter
+				         gaugeNamed: nil
+				         unit: nil
+				         description: nil
+				         advice: nil.
+			histogram := meter
+				             histogramNamed: ''
+				             unit: nil
+				             description: nil
+				             advice: nil.
+			self assert: counter identicalTo: OTNoopCounter instance.
+			self assert: gauge identicalTo: OTNoopGauge instance.
+			self assert: histogram identicalTo: OTNoopHistogram instance.
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopProviderDoesNotWarnOnInvalidMeterNames [
+
+	self withMeterNameWarningsDo: [ :warnings |
+			| firstMeter secondMeter provider |
+			provider := OTNoopMeterProvider instance.
+			firstMeter := provider
+				              meterNamed: nil
+				              version: nil
+				              schemaUrl: nil
+				              attributes: nil.
+			secondMeter := provider
+				               meterNamed: ''
+				               version: nil
+				               schemaUrl: nil
+				               attributes: { ('scope.answer' -> 42) }.
+			self assert: firstMeter identicalTo: OTNoopMeter instance.
+			self assert: secondMeter identicalTo: OTNoopMeter instance.
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testNoopProviderReturnsStatelessNoopMeter [
 
 	| meter noopProvider |
