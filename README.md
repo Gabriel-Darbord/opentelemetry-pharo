@@ -5,10 +5,28 @@
 
 # OpenTelemetry-Pharo
 
-[OpenTelemetry](https://opentelemetry.io/) SDK and instrumentations for [Pharo](https://pharo.org/).  
-Use it to instrument, generate, collect, and export telemetry data (<s>metrics, logs, and </s>traces) to help you analyze your software’s performance and behavior.
+[OpenTelemetry](https://opentelemetry.io/) SDK and instrumentation building
+blocks for [Pharo](https://pharo.org/).
 
-Disclaimer: This is still in early development!
+The repository currently ships:
+
+- instrumentation building blocks
+- tracing API and SDK
+- logging API and SDK
+- metrics API and SDK
+- baggage and text-map propagation
+- OTLP exporters over HTTP JSON, HTTP protobuf, and gRPC
+- Zipkin export
+
+## Specification Compliance
+
+`opentelemetry-pharo` is developed spec-first.
+
+For the repository features currently shipped, the audited applicable
+OpenTelemetry `MUST`, `MUST NOT`, `SHOULD`, and `SHOULD NOT` requirements are
+implemented against OpenTelemetry Specification `v1.58.0`.
+
+The remaining known gaps are optional Prometheus native histogram `MAY` items.
 
 ## Installation
 
