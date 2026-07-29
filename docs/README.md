@@ -34,9 +34,9 @@ Supported Pharo range in the baseline:
 
 The CI currently exercises Pharo 12 and Pharo 13.
 
-There is also a separate collector-backed integration job for OTLP/gRPC trace,
-log, and metric export on Pharo 13. It runs outside the unit-test packages and
-uses a real OpenTelemetry Collector fixture.
+The Pharo 13 coverage-bearing CI run also includes a collector-backed OTLP/gRPC
+integration step for trace, log, and metric export. It runs outside the
+unit-test packages and uses a real OpenTelemetry Collector fixture.
 
 ## Testing Note
 
