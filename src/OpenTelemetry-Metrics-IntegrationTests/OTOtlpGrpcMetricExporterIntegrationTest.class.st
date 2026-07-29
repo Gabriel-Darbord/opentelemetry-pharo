@@ -1,8 +1,8 @@
 Class {
 	#name : 'OTOtlpGrpcMetricExporterIntegrationTest',
 	#superclass : 'OTOtlpGrpcIntegrationTest',
-	#category : 'OpenTelemetry-Metrics-Integration-Tests',
-	#package : 'OpenTelemetry-Metrics-Integration-Tests'
+	#category : 'OpenTelemetry-Metrics-IntegrationTests',
+	#package : 'OpenTelemetry-Metrics-IntegrationTests'
 }
 
 { #category : 'private' }

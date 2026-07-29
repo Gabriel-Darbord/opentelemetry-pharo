@@ -1,8 +1,8 @@
 Class {
 	#name : 'OTOtlpGrpcIntegrationTest',
 	#superclass : 'TestCase',
-	#category : 'OpenTelemetry-Instrumentation-Integration-Tests',
-	#package : 'OpenTelemetry-Instrumentation-Integration-Tests'
+	#category : 'OpenTelemetry-Instrumentation-IntegrationTests',
+	#package : 'OpenTelemetry-Instrumentation-IntegrationTests'
 }
 
 { #category : 'private' }
