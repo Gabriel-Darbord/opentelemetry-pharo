@@ -96,7 +96,9 @@ OTOtlpJsonTraceEncoderTest >> buildSiblingSpanNamed: aString scopeName: aScopeNa
 	| provider span tracer |
 	provider := OTTracerProvider new.
 	provider
-		spanProcessor: OTSimpleSpanProcessor new;
+		spanProcessor: (OTSimpleSpanProcessor new
+				 exporter: OTNoopSpanExporter new;
+				 yourself);
 		idGenerator: (OTFixedIdGenerator
 				 traceIdHex: 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 				 spanIdHex: (aScopeName = 'scope-a'
@@ -207,7 +209,9 @@ OTOtlpJsonTraceEncoderTest >> testEncodeSpansWithoutErrorStatusOmitsStatusMessag
 	| payload provider span tracer |
 	provider := OTTracerProvider new.
 	provider
-		spanProcessor: OTSimpleSpanProcessor new;
+		spanProcessor: (OTSimpleSpanProcessor new
+				 exporter: OTNoopSpanExporter new;
+				 yourself);
 		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	tracer := provider tracerNamed: 'encoder.test'.
 	span := (tracer spanBuilderNamed: 'testSpan')
