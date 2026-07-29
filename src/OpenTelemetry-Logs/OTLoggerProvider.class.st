@@ -94,10 +94,7 @@ OTLoggerProvider class >> configurationWarningSink [
 { #category : 'private - logging' }
 OTLoggerProvider class >> configurationWarningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otLoggerProviderConfigurationWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
+	OTClassStateStore valueAt: #otLoggerProviderConfigurationWarningSink forClass: self putOrRemoveIfNil: aBlock.
 	^ self configurationWarningSink
 ]
 
@@ -157,10 +154,7 @@ OTLoggerProvider class >> current [
 { #category : 'accessing' }
 OTLoggerProvider class >> current: anOTLoggerProvider [
 
-	OTClassStateStore
-		valueAt: #otCurrent
-		forClass: self
-		putOrRemoveIfNil: anOTLoggerProvider
+	OTClassStateStore valueAt: #otCurrent forClass: self putOrRemoveIfNil: anOTLoggerProvider
 ]
 
 { #category : 'accessing' }
@@ -441,11 +435,10 @@ OTLoggerProvider >> ensureOpenLocked [
 { #category : 'processing' }
 OTLoggerProvider >> forceFlush [
 
-	| processors allFlushed stopping |
+	| processors allFlushed |
 	processors := stateLock critical: [
-			              stopping := shutdownRequested = true or: [ shutdown = true ].
+			              (shutdownRequested = true or: [ shutdown = true ]) ifTrue: [ ^ false ].
 			              logRecordProcessors copy ].
-	stopping ifTrue: [ ^ false ].
 	processors isEmpty ifTrue: [ ^ true ].
 	allFlushed := true.
 	processors do: [ :each |

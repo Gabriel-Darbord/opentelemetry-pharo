@@ -45,7 +45,7 @@ OTOtlpHttpJsonMetricExporter class >> configuredAggregationSelector [
 
 	| preference |
 	preference := self configuredAggregationPreference.
-	^ [ :instrument | instrument otlpAggregationForPreference: preference ]
+	^ [ :instrument | instrument aggregationForPreference: preference ]
 ]
 
 { #category : 'private - configuration' }
@@ -229,8 +229,15 @@ OTOtlpHttpJsonMetricExporter >> executeHttpRequestForPayloadString: payloadStrin
 { #category : 'exporting' }
 OTOtlpHttpJsonMetricExporter >> export: anOTMetricSnapshot [
 
-	self isShutdown ifTrue: [ ^ false ].
-	^ self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: anOTMetricSnapshot)
+	| payloadString |
+	^ self withSynchronizedExportDo: [
+			  self isStopping ifTrue: [ ^ false ].
+			  payloadString := [ self payloadStringFrom: anOTMetricSnapshot ]
+				                   on: Error
+				                   do: [ :error |
+						                   self notePayloadEncodingFailure: error.
+						                   ^ false ].
+			  self exportAttemptNumber: 1 payloadString: payloadString ]
 ]
 
 { #category : 'exporting' }
@@ -316,6 +323,13 @@ OTOtlpHttpJsonMetricExporter >> noteInvalidSuccessResponse: anError [
 OTOtlpHttpJsonMetricExporter >> notePartialSuccess: aDictionary [
 
 	^ self httpJsonExportSupport notePartialSuccess: aDictionary
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonMetricExporter >> notePayloadEncodingFailure: anError [
+
+	self warningSink value:
+		(OTOtlpExportSupport payloadEncodingFailureMessageForSignal: self otlpSignalName transport: 'HTTP' error: anError)
 ]
 
 { #category : 'private - logging' }

@@ -30,15 +30,21 @@ OTSumMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
 ]
 
 { #category : 'accessing' }
+OTSumMetricData >> kind [
+
+	^ #sum
+]
+
+{ #category : 'accessing' }
 OTSumMetricData >> monotonic [
 
-	^ monotonic = true
+	^ monotonic ifNil: [ false ] ifNotNil: [ monotonic ]
 ]
 
 { #category : 'accessing' }
 OTSumMetricData >> monotonic: aBoolean [
 
-	monotonic := aBoolean = true
+	monotonic := aBoolean ifNil: [ false ] ifNotNil: [ aBoolean ]
 ]
 
 { #category : 'prometheus - encoding' }

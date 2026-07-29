@@ -1,5 +1,8 @@
 "
-A no-op asynchronous Gauge instrument.
+An asynchronous Gauge instrument.
+
+I collect callback observations and export the latest point-in-time value for
+each attribute set.
 "
 Class {
 	#name : 'OTObservableGauge',
@@ -7,6 +10,12 @@ Class {
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'instance creation' }
+OTObservableGauge class >> noop [
+
+	^ OTNoopObservableGauge instance
+]
 
 { #category : 'accessing' }
 OTObservableGauge >> instrumentType [
@@ -24,8 +33,12 @@ OTObservableGauge >> metricDataFromMeasurements: someMeasurements using: anOTMet
 			          point := OTNumberDataPoint
 				                   attributes: each key
 				                   value: lastMeasurement value
-				                   startTimestamp: (anOTMetricAggregationContext startTimestamp ifNil: [ each value first timestamp ])
-				                   timestamp: lastMeasurement timestamp.
+				                   startTimestamp:
+				                   (anOTMetricAggregationContext
+					                    pointStartTimestampForInstrument: self
+					                    pointAttributes: each key
+					                    measurements: each value)
+				                   timestamp: anOTMetricAggregationContext collectedAt.
 			          point
 				          exemplars:
 					          (self exemplarsFromMeasurements: each value pointAttributes: each key using: anOTMetricAggregationContext);

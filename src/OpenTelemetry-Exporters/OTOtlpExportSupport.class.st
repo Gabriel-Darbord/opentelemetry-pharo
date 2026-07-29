@@ -34,6 +34,19 @@ OTOtlpExportSupport class >> partialSuccessMessageForSignal: aString details: an
 ]
 
 { #category : 'messages' }
+OTOtlpExportSupport class >> payloadEncodingFailureMessageForSignal: aString transport: transportName error: anError [
+
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'OpenTelemetry OTLP ';
+				  nextPutAll: aString;
+				  nextPutAll: ' export failed to encode ';
+				  nextPutAll: transportName;
+				  nextPutAll: ' payload: ';
+				  nextPutAll: anError messageText ]
+]
+
+{ #category : 'messages' }
 OTOtlpExportSupport class >> retryExhaustedForGrpcStatusMessageForSignal: aString status: aStatus [
 
 	^ String streamContents: [ :stream |

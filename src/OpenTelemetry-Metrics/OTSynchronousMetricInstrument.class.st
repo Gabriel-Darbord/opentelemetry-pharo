@@ -1,5 +1,8 @@
 "
-Abstract no-op synchronous metric instrument.
+Abstract synchronous metric instrument.
+
+Concrete subclasses accept direct recordings and can also create bound
+instruments for pre-bound attributes.
 "
 Class {
 	#name : 'OTSynchronousMetricInstrument',
@@ -11,11 +14,7 @@ Class {
 { #category : 'instance creation' }
 OTSynchronousMetricInstrument class >> noop [
 
-	^ OTClassStateStore valueAt: #otNoopMetricInstrument forClass: self ifAbsent: [
-			  | instrument |
-			  instrument := self new.
-			  OTClassStateStore valueAt: #otNoopMetricInstrument forClass: self put: instrument.
-			  instrument ]
+	self subclassResponsibility
 ]
 
 { #category : 'binding' }
@@ -29,4 +28,15 @@ OTSynchronousMetricInstrument >> bind: aCollection [
 OTSynchronousMetricInstrument >> enabled [
 
 	^ meter notNil and: [ meter enablesSynchronousInstrument: self ]
+]
+
+{ #category : 'recording' }
+OTSynchronousMetricInstrument >> recordMeasurementValue: aNumber attributes: aCollection [
+
+	| value |
+	meter ifNil: [ ^ self ].
+	value := self recordableMeasurementValueFrom: aNumber.
+	value ifNil: [ ^ self ].
+	meter provider ifNotNil: [ meter provider recordMeasurementFor: self value: value attributes: aCollection ].
+	self
 ]

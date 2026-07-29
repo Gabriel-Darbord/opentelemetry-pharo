@@ -1,5 +1,8 @@
 "
-A no-op synchronous UpDownCounter instrument.
+A synchronous UpDownCounter instrument.
+
+I record additive measurements that may go up or down and are exported as
+non-monotonic sums.
 "
 Class {
 	#name : 'OTUpDownCounter',
@@ -7,6 +10,12 @@ Class {
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'instance creation' }
+OTUpDownCounter class >> noop [
+
+	^ OTNoopUpDownCounter instance
+]
 
 { #category : 'recording' }
 OTUpDownCounter >> add: aNumber [
@@ -17,9 +26,7 @@ OTUpDownCounter >> add: aNumber [
 { #category : 'recording' }
 OTUpDownCounter >> add: aNumber attributes: aCollection [
 
-	meter ifNil: [ ^ self ].
-	meter provider ifNotNil: [ meter provider recordMeasurementFor: self value: aNumber attributes: aCollection ].
-	self
+	^ self recordMeasurementValue: aNumber attributes: aCollection
 ]
 
 { #category : 'accessing' }

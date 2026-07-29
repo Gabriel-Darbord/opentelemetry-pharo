@@ -1,5 +1,7 @@
 "
-A no-op asynchronous Counter instrument.
+An asynchronous Counter instrument.
+
+I collect callback observations and export them as monotonic sums.
 "
 Class {
 	#name : 'OTObservableCounter',
@@ -7,6 +9,12 @@ Class {
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'instance creation' }
+OTObservableCounter class >> noop [
+
+	^ OTNoopObservableCounter instance
+]
 
 { #category : 'accessing' }
 OTObservableCounter >> instrumentType [
@@ -23,7 +31,11 @@ OTObservableCounter >> metricDataFromMeasurements: someMeasurements using: anOTM
 			          point := OTNumberDataPoint
 				                   attributes: each key
 				                   value: (each value inject: 0 into: [ :sum :measurement | sum + measurement value ])
-				                   startTimestamp: (anOTMetricAggregationContext startTimestamp ifNil: [ each value first timestamp ])
+				                   startTimestamp:
+				                   (anOTMetricAggregationContext
+					                    pointStartTimestampForInstrument: self
+					                    pointAttributes: each key
+					                    measurements: each value)
 				                   timestamp: anOTMetricAggregationContext collectedAt.
 			          point
 				          exemplars:
@@ -43,26 +55,28 @@ OTObservableCounter >> otlpTemporalityForDeltaPreference [
 { #category : 'collecting' }
 OTObservableCounter >> preparedMeasurementsFrom: someMeasurements forReader: anOTMetricReader using: anOTMetricAggregationContext [
 
-	| currentValues deltaMeasurements previousValues |
+	| currentValues |
 	anOTMetricAggregationContext temporality = #delta ifFalse: [ ^ someMeasurements ].
 	currentValues := Dictionary new.
 	(self groupedMeasurementsByAttributes: someMeasurements) associations do: [ :each |
 		currentValues at: each key put: (each value inject: 0 into: [ :sum :measurement | sum + measurement value ]) ].
-	previousValues := anOTMetricReader lastAsynchronousValuesFor: self.
-	deltaMeasurements := OrderedCollection new.
-	currentValues associations do: [ :each |
-			| currentValue deltaValue previousValue |
-			currentValue := each value.
-			previousValue := previousValues at: each key ifAbsent: [ nil ].
-			deltaValue := previousValue ifNil: [ currentValue ] ifNotNil: [
-					              currentValue >= previousValue
-						              ifTrue: [ currentValue - previousValue ]
-						              ifFalse: [ currentValue ] ].
-			deltaMeasurements add: ((OTMetricMeasurement instrument: self value: deltaValue attributes: each key)
-					 timestamp: anOTMetricAggregationContext collectedAt;
-					 yourself).
-			previousValues at: each key put: currentValue ].
-	^ deltaMeasurements asArray
+	^ anOTMetricReader withLastAsynchronousValuesFor: self do: [ :previousValues |
+			  | deltaMeasurements |
+			  deltaMeasurements := OrderedCollection new.
+			  currentValues associations do: [ :each |
+					  | currentValue deltaValue previousValue |
+					  currentValue := each value.
+					  previousValue := previousValues at: each key ifAbsent: [ nil ].
+					  deltaValue := previousValue ifNil: [ currentValue ] ifNotNil: [
+							                currentValue >= previousValue
+								                ifTrue: [ currentValue - previousValue ]
+								                ifFalse: [ currentValue ] ].
+					  deltaMeasurements add: ((OTMetricMeasurement instrument: self value: deltaValue attributes: each key)
+							   timestamp: anOTMetricAggregationContext collectedAt;
+							   yourself).
+					  previousValues at: each key put: currentValue ].
+			  anOTMetricReader pruneMissingAsynchronousState: previousValues keepingOnly: currentValues.
+			  deltaMeasurements asArray ]
 ]
 
 { #category : 'aggregating' }

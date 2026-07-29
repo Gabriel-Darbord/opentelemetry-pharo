@@ -45,6 +45,10 @@ The current metrics implementation provides:
   `OTSummaryMetricData`, `OTSummaryDataPoint`, and `OTSummaryQuantileValue`
 - metric-level metadata on `OTMetricData`, including OTLP `metadata` encoding
 - Prometheus pull export over HTTP on `/metrics`
+- Prometheus pull exporter configuration for `host`, `port`,
+  `default_aggregation`, `translation_strategy`,
+  `resource_constant_labels`, `scope_info_enabled`, and
+  `target_info_enabled`
 - OTLP metric auto-configuration through `OTEL_METRICS_EXPORTER`,
   `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`, `OTEL_METRIC_EXPORT_INTERVAL`, and
   `OTEL_METRIC_EXPORT_TIMEOUT`, plus `OTEL_METRICS_EXEMPLAR_FILTER`
@@ -212,6 +216,23 @@ Meters do already preserve instrument registration identity:
 That means you can start writing Pharo code against the metrics API now, and we
 can evolve the implementation underneath it without redesigning the public
 surface.
+
+## Callbacks And Concurrency
+
+Callback guidance for instrumentation authors:
+
+- callback blocks should be reentrant-safe because each `OTMetricReader` may evaluate them independently
+- callback blocks should finish in bounded time; a reader may time them out and ignore that callback's observations for the current collection
+- callback blocks should avoid duplicate observations with the same attributes across all registered callbacks for one instrument set
+- all observations emitted by one callback invocation are recorded with one shared timestamp
+
+Concurrency guarantees in the current API:
+
+- `OTMeterProvider` meter creation messages, `forceFlush`, and `shutdown` are safe to call from concurrent Pharo processes
+- `OTMeter` instrument creation messages are safe to call concurrently
+- synchronous instrument messages such as `enabled`, `bind:`, `add:`, and `record:` are safe to call concurrently
+- asynchronous instrument creation is safe to call concurrently, and registered callbacks are collected once per reader collection
+- no-op meter providers, meters, and instruments remain safe to call concurrently while discarding all work
 
 ## Views
 

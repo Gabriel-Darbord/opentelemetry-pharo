@@ -21,6 +21,14 @@ OTOtlpJsonLineMetricExporterTest >> setUp [
 	exporter := OTRecordingOtlpJsonLineMetricExporter new
 ]
 
+{ #category : 'running' }
+OTOtlpJsonLineMetricExporterTest >> tearDown [
+
+	exporter ifNotNil: [ exporter class warningSink: nil ].
+	OTOtlpJsonLineMetricExporter warningSink: nil.
+	super tearDown
+]
+
 { #category : 'tests' }
 OTOtlpJsonLineMetricExporterTest >> testFileExporterAppendsOneJsonLinePerExport [
 
@@ -37,6 +45,67 @@ OTOtlpJsonLineMetricExporterTest >> testFileExporterAppendsOneJsonLinePerExport 
 ]
 
 { #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testFileExporterReturnsFalseAfterShutdownAndDoesNotCreateFile [
+
+	| fileExporter outputFile |
+	outputFile := FileLocator temp / ('otlp-json-lines-metrics-' , UUID new asString36 , '.jsonl').
+	[
+		fileExporter := OTOtlpJsonFileMetricExporter new.
+		fileExporter fileReference: outputFile.
+		self assert: fileExporter shutdown.
+		self deny: (fileExporter export: self sampleSnapshot).
+		self deny: outputFile exists ] ensure: [ outputFile ensureDelete ]
+]
+
+{ #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterEncodesNonFiniteNumbersAsJsonStrings [
+
+	| line payload point scopeMetrics snapshot |
+	snapshot := self sampleSnapshot.
+	point := snapshot metrics second points first.
+	point value: Float infinity.
+	self assert: (exporter export: snapshot).
+	line := exporter writtenLines first.
+	payload := STONJSON fromString: line allButLast.
+	scopeMetrics := ((payload at: 'resourceMetrics') first at: 'scopeMetrics') first.
+	self assert: ((((scopeMetrics at: 'metrics') second at: 'gauge') at: 'dataPoints') first at: 'asDouble') equals: 'Infinity'
+]
+
+{ #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseForUnsupportedTemporalityWithoutWritingOutput [
+
+	self withExporterWarningsDo: [ :warnings |
+			| snapshot |
+			snapshot := self sampleSnapshot.
+			snapshot metrics first temporality: #sideways.
+			self deny: (exporter export: snapshot).
+			self assert: exporter writtenLines isEmpty.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'failed to encode').
+			self assert: (warnings first includesSubstring: 'unsupported') ]
+]
+
+{ #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self assert: exporter writtenLines isEmpty
+]
+
+{ #category : 'tests' }
+OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterReturnsFalseWhenWriteFailsAndWarns [
+
+	exporter := OTFailingOtlpJsonLineMetricExporter new.
+	self withExporterWarningsDo: [ :warnings |
+			self deny: (exporter export: self sampleSnapshot).
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'during export').
+			self assert: (warnings first includesSubstring: 'OTFailingOtlpJsonLineMetricExporter').
+			self assert: (warnings first includesSubstring: 'json-line write failure') ]
+]
+
+{ #category : 'tests' }
 OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterWritesOneValidJsonLinePerExport [
 
 	| line payload |
@@ -46,4 +115,13 @@ OTOtlpJsonLineMetricExporterTest >> testJsonLineExporterWritesOneValidJsonLinePe
 	self assert: line last equals: Character lf.
 	payload := STONJSON fromString: line allButLast.
 	self assert: (payload at: 'resourceMetrics') size equals: 1
+]
+
+{ #category : 'private' }
+OTOtlpJsonLineMetricExporterTest >> withExporterWarningsDo: aBlock [
+
+	| warnings |
+	warnings := OrderedCollection new.
+	exporter class warningSink: [ :message | warnings add: message ].
+	^ aBlock value: warnings
 ]

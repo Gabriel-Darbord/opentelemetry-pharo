@@ -37,7 +37,7 @@ OTMetricAttributeFilter >> excludedKeys [
 { #category : 'accessing' }
 OTMetricAttributeFilter >> excludedKeys: aCollection [
 
-	excludedKeys := aCollection ifNil: [ nil ] ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+	excludedKeys := aCollection ifNotNil: [ aCollection collect: [ :each | each asString ] ]
 ]
 
 { #category : 'accessing' }
@@ -49,7 +49,7 @@ OTMetricAttributeFilter >> includedKeys [
 { #category : 'accessing' }
 OTMetricAttributeFilter >> includedKeys: aCollection [
 
-	includedKeys := aCollection ifNil: [ nil ] ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+	includedKeys := aCollection ifNotNil: [ aCollection collect: [ :each | each asString ] ]
 ]
 
 { #category : 'testing' }

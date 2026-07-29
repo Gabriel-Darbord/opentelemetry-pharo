@@ -6,6 +6,30 @@ Class {
 }
 
 { #category : 'private' }
+OTMeterProviderTest >> runConcurrentOperations: someAssociations [
+
+	| done errors gate lock results |
+	results := OrderedCollection new.
+	errors := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	someAssociations do: [ :eachOperation |
+			[
+				[
+					gate wait.
+					lock critical: [ results add: eachOperation key -> eachOperation value value ] ]
+					on: Error
+					do: [ :anError | lock critical: [ errors add: anError ] ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	someAssociations size timesRepeat: [ gate signal ].
+	someAssociations size timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	^ {
+		  results.
+		  errors }
+]
+
+{ #category : 'private' }
 OTMeterProviderTest >> sampleAttributes [
 
 	^ OrderedDictionary new
@@ -74,10 +98,41 @@ OTMeterProviderTest >> testAsynchronousNoopInstrumentOperationsAreSafe [
 
 	| instrument |
 	instrument := OTObservableGauge noop.
+	self assert: instrument class identicalTo: OTNoopObservableGauge.
 	self deny: instrument enabled.
 	self assert: (instrument bind: { ('key' -> 'value') }) identicalTo: instrument.
 	self shouldnt: [ instrument observe: 42 ] raise: Error.
 	self shouldnt: [ instrument observe: 42 attributes: { ('key' -> 'value') } ] raise: Error
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObservableCounterCumulativeLateSeriesUsesPriorCollectionTimestampAsStartTimestamp [
+
+	| callbackValues firstPoint latePoint provider reader secondSnapshot |
+	callbackValues := OrderedDictionary new
+		                  at: '1001' put: 5;
+		                  yourself.
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableCounterNamed: 'runtime.page_faults'
+		callbacks:
+		{ [ :observer | callbackValues associationsDo: [ :each | observer observe: each value attributes: { ('pid' -> each key) } ] ] }
+		unit: '1'
+		description: 'Page faults'
+		advice: Dictionary new.
+	firstPoint := reader collectSnapshot metrics first points first.
+	callbackValues := OrderedDictionary new
+		                  at: '1001' put: 8;
+		                  at: '1002' put: 3;
+		                  yourself.
+	secondSnapshot := reader collectSnapshot.
+	latePoint := secondSnapshot metrics first points
+		             detect: [ :each | (each attributes at: 'pid') = '1002' ]
+		             ifNone: [ self fail: 'Expected late cumulative asynchronous series' ].
+	self assert: latePoint value equals: 3.
+	self assert: latePoint startTimestamp equals: firstPoint timestamp
 ]
 
 { #category : 'tests' }
@@ -165,6 +220,52 @@ OTMeterProviderTest >> testAsynchronousObservationOutsideCallbacksIsIgnored [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObserverAppliesOneTimestampPerCallback [
+
+	| measurements provider reader timestamps |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableGaugeNamed: 'runtime.memory'
+		callbacks: { [ :observer |
+				observer observe: 42 attributes: { ('state' -> 'used') }.
+				observer observe: 7 attributes: { ('state' -> 'free') } ] }
+		unit: 'By'
+		description: 'Runtime memory'
+		advice: Dictionary new.
+	measurements := reader collect.
+	self assert: measurements size equals: 2.
+	timestamps := measurements collect: [ :each | each timestamp ].
+	self assert: timestamps asSet size equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAsynchronousObserverIgnoresNonFiniteMeasurements [
+
+	| measurement measurements provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	(provider meterNamed: 'demo.metrics')
+		observableGaugeNamed: 'runtime.memory'
+		callbacks: { [ :observer |
+				observer observe: Float nan.
+				observer observe: Float infinity.
+				observer observe: Float negativeInfinity.
+				observer observe: 42 attributes: { ('state' -> 'used') } ] }
+		unit: 'By'
+		description: 'Runtime memory'
+		advice: Dictionary new.
+	measurements := reader collect.
+	self assert: measurements size equals: 1.
+	measurement := measurements first.
+	self assert: measurement instrument name equals: 'runtime.memory'.
+	self assert: measurement value equals: 42.
+	self assert: (measurement attributes at: 'state') equals: 'used'
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testBoundWrapperAcceptsAdditionalAttributes [
 
 	| bound counter meter |
@@ -186,6 +287,126 @@ OTMeterProviderTest >> testBoundWrapperRecordsMergedMeasurements [
 	measurement := provider measurements first.
 	self assert: (measurement attributes at: 'method') equals: 'GET'.
 	self assert: (measurement attributes at: 'status') equals: 200
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testConcurrentDeltaReadersDoNotShareCollectionState [
+
+	| done errors firstDeltaReader firstResults gate lock provider secondDeltaReader secondResults |
+	provider := OTMeterProvider new.
+	firstDeltaReader := OTInMemoryMetricReader new.
+	firstDeltaReader temporalitySelector: [ :instrument | #delta ].
+	secondDeltaReader := OTInMemoryMetricReader new.
+	secondDeltaReader temporalitySelector: [ :instrument | #delta ].
+	provider
+		addMetricReader: firstDeltaReader;
+		addMetricReader: secondDeltaReader.
+	lock := Semaphore forMutualExclusion.
+	errors := OrderedCollection new.
+	firstResults := OrderedCollection new.
+	secondResults := OrderedCollection new.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	2 timesRepeat: [
+			gate := Semaphore new.
+			done := Semaphore new.
+			[
+				[
+					| snapshot |
+					gate wait.
+					snapshot := firstDeltaReader collectSnapshot.
+					lock critical: [ firstResults add: snapshot ] ]
+					on: Error
+					do: [ :anError | lock critical: [ errors add: anError ] ].
+				done signal ] forkAt: Processor userBackgroundPriority.
+			[
+				[
+					| snapshot |
+					gate wait.
+					snapshot := secondDeltaReader collectSnapshot.
+					lock critical: [ secondResults add: snapshot ] ]
+					on: Error
+					do: [ :anError | lock critical: [ errors add: anError ] ].
+				done signal ] forkAt: Processor userBackgroundPriority.
+			2 timesRepeat: [ gate signal ].
+			2 timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+			firstResults size = 1 ifTrue: [ ((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 2 ] ].
+	self assert: errors isEmpty.
+	self assert: firstResults size equals: 2.
+	self assert: secondResults size equals: 2.
+	self assert: firstResults first metrics first points first value equals: 1.
+	self assert: secondResults first metrics first points first value equals: 1.
+	self assert: firstResults second metrics first points first value equals: 2.
+	self assert: secondResults second metrics first points first value equals: 2
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testConcurrentForceFlushIsSafe [
+
+	| done gate lock provider reader results workerCount |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: provider forceFlush ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: (results allSatisfy: [ :each | each ]).
+	self assert: reader forceFlushCount equals: workerCount
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testConcurrentMeterCreationReturnsIdenticalMeter [
+
+	| done gate lock provider results workerCount |
+	provider := OTMeterProvider new.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: (provider meterNamed: 'demo.metrics') ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: results notEmpty.
+	self assert: results asSet size equals: 1.
+	self assert: results first class identicalTo: OTMeter
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testConcurrentShutdownReturnsTrueOnce [
+
+	| done gate lock provider reader results workerCount |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	results := OrderedCollection new.
+	lock := Semaphore forMutualExclusion.
+	gate := Semaphore new.
+	done := Semaphore new.
+	workerCount := 8.
+	workerCount timesRepeat: [
+			[
+				gate wait.
+				lock critical: [ results add: provider shutdown ].
+				done signal ] forkAt: Processor userBackgroundPriority ].
+	workerCount timesRepeat: [ gate signal ].
+	workerCount timesRepeat: [ self assert: (done waitTimeoutMilliseconds: 1000) not ].
+	self assert: (results count: [ :each | each ]) equals: 1.
+	self assert: (results count: [ :each | each not ]) equals: workerCount - 1.
+	self assert: provider isShutdown.
+	self assert: reader shutdownCount equals: 1
 ]
 
 { #category : 'tests' }
@@ -274,6 +495,17 @@ OTMeterProviderTest >> testDistinctMeterRequestsReturnDistinctMeters [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testEmptyMeterNameWarnsAndReturnsFallbackMeter [
+
+	self withMeterNameWarningsDo: [ :warnings |
+			| meter provider |
+			provider := OTMeterProvider new.
+			meter := provider meterNamed: ''.
+			self assert: meter instrumentationName equals: ''.
+			self assert: warnings asArray equals: { ('OpenTelemetry meter name was invalid: ' , '' printString) } ]
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testExplicitMeterProviderCanBeInstalledGlobally [
 
 	| provider |
@@ -286,6 +518,35 @@ OTMeterProviderTest >> testExplicitMeterProviderCanBeInstalledGlobally [
 OTMeterProviderTest >> testForceFlushAnswersSuccess [
 
 	self assert: OTMeterProvider new forceFlush
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testForceFlushReturnsFalseAfterShutdown [
+
+	| provider reader |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	self assert: provider shutdown.
+	self deny: provider forceFlush.
+	self assert: reader forceFlushCount equals: 0
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testGaugeAggregationUsesCollectionTimeAsPointTimestamp [
+
+	| collectedAt context gauge measurement metric point provider |
+	provider := OTMeterProvider new.
+	gauge := (provider meterNamed: 'demo.metrics') gaugeNamed: 'queue.depth'.
+	measurement := OTMetricMeasurement instrument: gauge value: 7 attributes: { ('queue' -> 'main') }.
+	measurement timestamp: DateAndTime unixEpoch + (Duration seconds: 5).
+	collectedAt := DateAndTime unixEpoch + (Duration seconds: 10).
+	context := OTMetricAggregationContext collectedAt: collectedAt startTimestamp: nil temporality: #cumulative.
+	metric := gauge metricDataFromMeasurements: { measurement } using: context.
+	point := metric points first.
+	self assert: point value equals: 7.
+	self assert: point startTimestamp equals: measurement timestamp.
+	self assert: point timestamp equals: collectedAt
 ]
 
 { #category : 'tests' }
@@ -462,6 +723,32 @@ OTMeterProviderTest >> testMeterProviderCachesByFullInstrumentationScope [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMeterProviderForceFlushResultCombinesReaderResults [
+
+	| provider reader result |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	result := provider forceFlushResult.
+	self assert: result isSuccess.
+	self assert: reader forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterProviderShutdownResultReturnsFailureOnSecondCall [
+
+	| first provider reader second |
+	provider := OTMeterProvider new.
+	reader := OTRecordingMetricReader new.
+	provider addMetricReader: reader.
+	first := provider shutdownResult.
+	second := provider shutdownResult.
+	self assert: first isSuccess.
+	self assert: second isFailure.
+	self assert: reader shutdownCount equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterReturnsIdenticalInstrumentForIdenticalRegistration [
 
 	| first second meter |
@@ -494,6 +781,71 @@ OTMeterProviderTest >> testMeterReturnsRealInstrumentMetadata [
 	self assert: instrument unit equals: 'ms'.
 	self assert: instrument description equals: 'Request duration'.
 	self assert: (instrument advice at: 'attributes') equals: #( 'method' )
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForDescriptionConflictIncludesViewResolutionHint [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: 'First'
+				advice: Dictionary new.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: 'Second'
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'streamDescription:').
+			self assert: (warnings first includesSubstring: 'Second') ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForKindConflictIncludesRenamingViewRecipe [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: '1'
+				description: ''
+				advice: Dictionary new.
+			meter
+				gaugeNamed: 'requests.total'
+				unit: '1'
+				description: ''
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'streamName:').
+			self assert: (warnings first includesSubstring: 'instrumentType:').
+			self assert: (warnings first includesSubstring: 'gauge') ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testMeterWarningForUnitConflictFallsBackToGenericMessage [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| meter |
+			meter := OTMeterProvider current meterNamed: 'demo.metrics'.
+			meter
+				counterNamed: 'requests.total'
+				unit: 's'
+				description: ''
+				advice: Dictionary new.
+			meter
+				counterNamed: 'requests.total'
+				unit: 'ms'
+				description: ''
+				advice: Dictionary new.
+			self assert: warnings size equals: 1.
+			self deny: (warnings first includesSubstring: 'streamDescription:').
+			self deny: (warnings first includesSubstring: 'streamName:').
+			self assert: (warnings first includesSubstring: 'Requested instrument:') ]
 ]
 
 { #category : 'tests' }
@@ -676,6 +1028,32 @@ OTMeterProviderTest >> testMetricSnapshotAggregatesHistogramMeasurementsWithExpl
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testMetricSnapshotIgnoresInvalidExplicitBucketBoundariesAdviceAndWarns [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| histogramMetric instrument point provider reader snapshot |
+			provider := OTMeterProvider new.
+			reader := OTInMemoryMetricReader new.
+			provider addMetricReader: reader.
+			instrument := (provider meterNamed: 'demo.metrics')
+				              histogramNamed: 'request.duration'
+				              unit: 'ms'
+				              description: 'Request duration'
+				              advice: { ('ExplicitBucketBoundaries' -> #( 10 5 )) } asDictionary.
+			instrument record: 7.
+			snapshot := reader collectSnapshot.
+			histogramMetric := snapshot metrics first.
+			point := histogramMetric points first.
+			self deny: (instrument advice includesKey: 'ExplicitBucketBoundaries').
+			self
+				assert: point explicitBounds
+				equals: #( 0.0 5.0 10.0 25.0 50.0 75.0 100.0 250.0 500.0 750.0 1000.0 2500.0 5000.0 7500.0 10000.0 ).
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'ExplicitBucketBoundaries').
+			self assert: (warnings first includesSubstring: 'invalid and has been ignored') ]
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMetricSnapshotUsesAdvisedAttributeSubsetWhenAggregating [
 
 	| metric point provider reader snapshot |
@@ -700,6 +1078,278 @@ OTMeterProviderTest >> testMetricSnapshotUsesAdvisedAttributeSubsetWhenAggregati
 OTMeterProviderTest >> testNewProviderDefaultsResourceToEmpty [
 
 	self assert: OTMeterProvider new resource equals: OTResource empty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNilAndEmptyMeterNamesReturnDistinctMeters [
+
+	| emptyMeter nilMeter provider |
+	provider := OTMeterProvider new.
+	nilMeter := provider meterNamed: nil.
+	emptyMeter := provider meterNamed: ''.
+	self deny: nilMeter identicalTo: emptyMeter.
+	self assert: nilMeter instrumentationName isNil.
+	self assert: emptyMeter instrumentationName equals: ''
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNilMeterNameReturnsFallbackMeterAndWarns [
+
+	self withMeterNameWarningsDo: [ :warnings |
+			| meter provider |
+			provider := OTMeterProvider new.
+			meter := provider meterNamed: nil.
+			self assert: meter instrumentationName isNil.
+			self assert: warnings asArray equals: #( 'OpenTelemetry meter name was invalid: nil' ) ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopAsyncInstrumentDoesNotRetainCallbacks [
+
+	| instrument meter |
+	meter := OTNoopMeter instance.
+	instrument := meter
+		              observableGaugeNamed: 'runtime.memory'
+		              callbacks: { [ :observer | observer observe: 42 ] }
+		              unit: 'By'
+		              description: 'Runtime memory'
+		              advice: Dictionary new.
+	self assert: instrument class identicalTo: OTNoopObservableGauge.
+	self assert: instrument callbacks isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopInstrumentOperationsAreSafeConcurrently [
+
+	| counter errors gauge histogram observableGauge operations outcome results upDownCounter |
+	counter := OTCounter noop.
+	upDownCounter := OTUpDownCounter noop.
+	histogram := OTHistogram noop.
+	gauge := OTGauge noop.
+	observableGauge := OTObservableGauge noop.
+	operations := {
+		              (#bind -> [ counter bind: { ('method' -> 'GET') } ]).
+		              (#enabled -> [ counter enabled ]).
+		              (#add -> [ counter add: 1 ]).
+		              (#addAttributes -> [ counter add: 1 attributes: { ('method' -> 'GET') } ]).
+		              (#upDown -> [ upDownCounter add: -1 ]).
+		              (#recordHistogram -> [ histogram record: 12.5 ]).
+		              (#recordGauge -> [ gauge record: 7 ]).
+		              (#observe -> [ observableGauge observe: 42 ]).
+		              (#observeAttributes -> [ observableGauge observe: 42 attributes: { ('state' -> 'used') } ]).
+		              (#callbacks -> [ observableGauge callbacks ]) }.
+	outcome := self runConcurrentOperations: operations.
+	results := outcome first.
+	errors := outcome second.
+	self assert: errors isEmpty.
+	self assert: ((results select: [ :each | each key = #bind ]) allSatisfy: [ :each | each value == counter ]).
+	self assert: ((results select: [ :each | each key = #enabled ]) allSatisfy: [ :each | each value not ]).
+	self assert: ((results select: [ :each | each key = #callbacks ]) allSatisfy: [ :each | each value isEmpty ])
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopMeterDoesNotWarnOnInvalidInstrumentNames [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| counter gauge histogram meter |
+			meter := OTNoopMeter instance.
+			counter := meter
+				           counterNamed: '1 requests'
+				           unit: nil
+				           description: nil
+				           advice: { ('attributes' -> #( 'bad key' )) } asDictionary.
+			gauge := meter
+				         gaugeNamed: nil
+				         unit: nil
+				         description: nil
+				         advice: nil.
+			histogram := meter
+				             histogramNamed: ''
+				             unit: nil
+				             description: nil
+				             advice: nil.
+			self assert: counter identicalTo: OTNoopCounter instance.
+			self assert: gauge identicalTo: OTNoopGauge instance.
+			self assert: histogram identicalTo: OTNoopHistogram instance.
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopMeterInstrumentCreationIsSafeConcurrently [
+
+	| errors meter operations outcome results |
+	meter := OTNoopMeter instance.
+	operations := {
+		              (#counter -> [
+			               meter
+				               counterNamed: '1 requests'
+				               unit: nil
+				               description: nil
+				               advice: { ('attributes' -> #( 'bad key' )) } asDictionary ]).
+		              (#upDownCounter -> [
+			               meter
+				               upDownCounterNamed: nil
+				               unit: nil
+				               description: nil
+				               advice: nil ]).
+		              (#histogram -> [
+			               meter
+				               histogramNamed: ''
+				               unit: nil
+				               description: nil
+				               advice: nil ]).
+		              (#gauge -> [
+			               meter
+				               gaugeNamed: nil
+				               unit: nil
+				               description: nil
+				               advice: nil ]).
+		              (#observableCounter -> [
+			               meter
+				               observableCounterNamed: 'runtime.cpu'
+				               callbacks: { [ :observer | observer observe: 42 ] }
+				               unit: '1'
+				               description: 'CPU'
+				               advice: Dictionary new ]).
+		              (#observableGauge -> [
+			               meter
+				               observableGaugeNamed: ''
+				               callbacks: { [ :observer | observer observe: 7 ] }
+				               unit: nil
+				               description: nil
+				               advice: nil ]).
+		              (#observableUpDownCounter -> [
+			               meter
+				               observableUpDownCounterNamed: nil
+				               callbacks: { [ :observer | observer observe: -1 ] }
+				               unit: nil
+				               description: nil
+				               advice: nil ]) }.
+	outcome := self runConcurrentOperations: operations.
+	results := outcome first.
+	errors := outcome second.
+	self assert: errors isEmpty.
+	self assert: ((results select: [ :each | each key = #counter ]) allSatisfy: [ :each | each value == OTNoopCounter instance ]).
+	self assert:
+		((results select: [ :each | each key = #upDownCounter ]) allSatisfy: [ :each | each value == OTNoopUpDownCounter instance ]).
+	self assert: ((results select: [ :each | each key = #histogram ]) allSatisfy: [ :each | each value == OTNoopHistogram instance ]).
+	self assert: ((results select: [ :each | each key = #gauge ]) allSatisfy: [ :each | each value == OTNoopGauge instance ]).
+	self assert: ((results select: [ :each | each key = #observableCounter ]) allSatisfy: [ :each |
+			 each value == OTNoopObservableCounter instance and: [ each value callbacks isEmpty ] ]).
+	self assert: ((results select: [ :each | each key = #observableGauge ]) allSatisfy: [ :each |
+			 each value == OTNoopObservableGauge instance and: [ each value callbacks isEmpty ] ]).
+	self assert: ((results select: [ :each | each key = #observableUpDownCounter ]) allSatisfy: [ :each |
+			 each value == OTNoopObservableUpDownCounter instance and: [ each value callbacks isEmpty ] ])
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopProviderDoesNotWarnOnInvalidMeterNames [
+
+	self withMeterNameWarningsDo: [ :warnings |
+			| firstMeter secondMeter provider |
+			provider := OTNoopMeterProvider instance.
+			firstMeter := provider
+				              meterNamed: nil
+				              version: nil
+				              schemaUrl: nil
+				              attributes: nil.
+			secondMeter := provider
+				               meterNamed: ''
+				               version: nil
+				               schemaUrl: nil
+				               attributes: { ('scope.answer' -> 42) }.
+			self assert: firstMeter identicalTo: OTNoopMeter instance.
+			self assert: secondMeter identicalTo: OTNoopMeter instance.
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopProviderOperationsAreSafeConcurrently [
+
+	| errors operations outcome provider results |
+	provider := OTNoopMeterProvider instance.
+	operations := {
+		              (#meter -> [
+			               provider
+				               meterNamed: nil
+				               version: nil
+				               schemaUrl: nil
+				               attributes: nil ]).
+		              (#meter -> [
+			               provider
+				               meterNamed: 'demo.metrics'
+				               version: '1.2.3'
+				               schemaUrl: 'https://example.com/schema'
+				               attributes: self sampleAttributes ]).
+		              (#forceFlush -> [ provider forceFlush ]).
+		              (#forceFlush -> [ provider forceFlush ]).
+		              (#shutdown -> [ provider shutdown ]).
+		              (#shutdown -> [ provider shutdown ]) }.
+	outcome := self runConcurrentOperations: operations.
+	results := outcome first.
+	errors := outcome second.
+	self assert: errors isEmpty.
+	self assert: ((results select: [ :each | each key = #meter ]) allSatisfy: [ :each | each value == OTNoopMeter instance ]).
+	self assert: ((results select: [ :each | each key = #forceFlush ]) allSatisfy: [ :each | each value ]).
+	self assert: ((results select: [ :each | each key = #shutdown ]) allSatisfy: [ :each | each value ])
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopProviderReturnsStatelessNoopMeter [
+
+	| meter noopProvider |
+	noopProvider := OTNoopMeterProvider instance.
+	meter := noopProvider
+		         meterNamed: 'demo.metrics'
+		         version: '1.2.3'
+		         schemaUrl: 'https://example.com/schema'
+		         attributes: self sampleAttributes.
+	self assert: meter class identicalTo: OTNoopMeter.
+	self assert: meter provider isNil.
+	self assert: meter instrumentationName equals: ''.
+	self assert: meter instrumentationVersion equals: ''.
+	self assert: meter schemaUrl equals: ''.
+	self assert: meter scopeAttributes isEmpty.
+	self assert: meter registeredMetricInstruments isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testNoopTypesDoNotDeclareInstanceState [
+
+	self assert: OTNoopMeterProvider allInstVarNames isEmpty.
+	self assert: OTNoopMeter allInstVarNames isEmpty.
+	self assert: OTNoopMetricInstrument allInstVarNames isEmpty.
+	self assert: OTNoopSynchronousMetricInstrument allInstVarNames isEmpty.
+	self assert: OTNoopAsynchronousMetricInstrument allInstVarNames isEmpty.
+	self assert: OTNoopCounter allInstVarNames isEmpty.
+	self assert: OTNoopUpDownCounter allInstVarNames isEmpty.
+	self assert: OTNoopHistogram allInstVarNames isEmpty.
+	self assert: OTNoopGauge allInstVarNames isEmpty.
+	self assert: OTNoopObservableCounter allInstVarNames isEmpty.
+	self assert: OTNoopObservableUpDownCounter allInstVarNames isEmpty.
+	self assert: OTNoopObservableGauge allInstVarNames isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testObservableGaugeAggregationUsesCollectionTimeAsPointTimestamp [
+
+	| collectedAt context gauge measurement metric point provider |
+	provider := OTMeterProvider new.
+	gauge := (provider meterNamed: 'demo.metrics')
+		         observableGaugeNamed: 'runtime.memory'
+		         callbacks: #(  )
+		         unit: 'By'
+		         description: 'Runtime memory'
+		         advice: Dictionary new.
+	measurement := OTMetricMeasurement instrument: gauge value: 42 attributes: { ('state' -> 'used') }.
+	measurement timestamp: DateAndTime unixEpoch + (Duration seconds: 5).
+	collectedAt := DateAndTime unixEpoch + (Duration seconds: 10).
+	context := OTMetricAggregationContext collectedAt: collectedAt startTimestamp: nil temporality: #cumulative.
+	metric := gauge metricDataFromMeasurements: { measurement } using: context.
+	point := metric points first.
+	self assert: point value equals: 42.
+	self assert: point startTimestamp equals: measurement timestamp.
+	self assert: point timestamp equals: collectedAt
 ]
 
 { #category : 'tests' }
@@ -738,6 +1388,85 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectExportsSnapshot [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectHonorsExportTimeoutMillis [
+
+	| durationMillis exporter provider reader snapshot startedAt |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		exportTimeoutMillis: 50.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	startedAt := Time millisecondClockValue.
+	[ snapshot := reader collect ] ensure: [ exporter allowExportToContinue ].
+	durationMillis := Time millisecondClockValue - startedAt.
+	self assert: (exporter waitForExportEntryWithin: 10).
+	self assert: snapshot metrics size equals: 1.
+	self assert: durationMillis < 500
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectReturnsEmptySnapshotAfterShutdown [
+
+	| exporter provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	self assert: reader shutdown.
+	snapshot := reader collect.
+	self assert: snapshot metrics isEmpty.
+	self assert: snapshot measurements isEmpty.
+	self assert: exporter exports isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectSplitsExportBatchesByMetricDataPointCount [
+
+	| exporter metric provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		maxExportBatchSize: 2.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total')
+		add: 1 attributes: { ('method' -> 'GET') };
+		add: 1 attributes: { ('method' -> 'POST') };
+		add: 1 attributes: { ('method' -> 'PUT') }.
+	snapshot := reader collect.
+	metric := snapshot metrics first.
+	self assert: metric points size equals: 3.
+	self assert: exporter exports size equals: 2.
+	self assert: exporter exports first metrics first name equals: 'requests.total'.
+	self assert: exporter exports first metrics first points size equals: 2.
+	self assert: exporter exports second metrics first points size equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderDefaultsAggregationFromExporter [
+
+	| exporter metric provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	exporter aggregationSelector: [ :instrument | #sum ].
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 2;
+		record: 3.
+	snapshot := reader collect.
+	metric := snapshot metrics first.
+	self assert: metric class identicalTo: OTSumMetricData.
+	self assert: metric points first value equals: 5
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderDefaultsTemporalityFromExporter [
 
 	| exporter metric provider reader snapshot |
@@ -769,6 +1498,67 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushDelegatesToExp
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushHonorsExportTimeoutMillis [
+
+	| exporter provider reader |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		exportTimeoutMillis: 50.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	[
+		self deny: reader forceFlush.
+		self assert: exporter forceFlushCount equals: 1 ] ensure: [ exporter allowExportToContinue ]
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderForceFlushSplitsExportBatchesByMetricDataPointCount [
+
+	| exporter provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		maxExportBatchSize: 2.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total')
+		add: 1 attributes: { ('method' -> 'GET') };
+		add: 1 attributes: { ('method' -> 'POST') };
+		add: 1 attributes: { ('method' -> 'PUT') }.
+	self assert: reader forceFlush.
+	self assert: exporter exports size equals: 2.
+	self assert: exporter exports first metrics first points size equals: 2.
+	self assert: exporter exports second metrics first points size equals: 1.
+	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderOverrideWinsOverExporterAggregation [
+
+	| exporter metric provider reader snapshot |
+	exporter := OTInMemoryMetricExporter new.
+	exporter aggregationSelector: [ :instrument | #sum ].
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		aggregationSelector: [ :instrument | #default ].
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 2;
+		record: 3.
+	snapshot := reader collect.
+	metric := snapshot metrics first.
+	self assert: metric class identicalTo: OTHistogramMetricData.
+	self assert: metric points first count equals: 2.
+	self assert: metric points first sum equals: 5
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderOverrideWinsOverExporterTemporality [
 
 	| exporter metric provider reader snapshot |
@@ -787,6 +1577,40 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderOverrideWinsOverExporter
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderSerializesConcurrentCollectExports [
+
+	| done errors exporter firstSnapshot secondSnapshot provider reader |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	done := Semaphore new.
+	errors := OrderedCollection new.
+	[
+		[ firstSnapshot := reader collect ]
+			on: Error
+			do: [ :anError | errors add: anError ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForExportEntryWithin: 100).
+	[
+		[ secondSnapshot := reader collect ]
+			on: Error
+			do: [ :anError | errors add: anError ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForExportEntryWithin: 20) not.
+	exporter allowExportToContinue.
+	self assert: (exporter waitForExportEntryWithin: 100).
+	exporter allowExportToContinue.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: errors isEmpty.
+	self assert: firstSnapshot metrics size equals: 1.
+	self assert: secondSnapshot metrics size equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownShutsDownExporter [
 
 	| exporter provider reader |
@@ -800,6 +1624,118 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownShutsDownExporte
 	self assert: exporter isShutdown.
 	self assert: reader isShutdown.
 	self assert: reader exportProcess isNil
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesConfiguredTemporalityFromConsoleExporter [
+
+	| exporter firstPoint provider reader secondPoint stream |
+	exporter := OTConsoleMetricExporter new.
+	stream := String new writeStream.
+	exporter
+		outputStream: stream;
+		temporalitySelector: [ :instrument | #delta ].
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	firstPoint := reader collect metrics first points first.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 2.
+	secondPoint := reader collect metrics first points first.
+	self assert: firstPoint value equals: 1.
+	self assert: secondPoint value equals: 2.
+	self assert: secondPoint startTimestamp equals: firstPoint timestamp.
+	self assert: stream contents isNotEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesCumulativeTemporalityFromConsoleExporterByDefault [
+
+	| exporter metric provider reader stream |
+	exporter := OTConsoleMetricExporter new.
+	stream := String new writeStream.
+	exporter outputStream: stream.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	metric := reader collect metrics first.
+	self assert: metric temporality equals: #cumulative.
+	self assert: metric points first value equals: 1.
+	self assert: stream contents isNotEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesCumulativeTemporalityFromInMemoryExporterByDefault [
+
+	| exporter metric provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	metric := reader collect metrics first.
+	self assert: metric temporality equals: #cumulative.
+	self assert: metric points first value equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderUsesDefaultAggregationFromInMemoryExporterByDefault [
+
+	| exporter metric provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 1000000.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration' unit: 'ms' description: 'Request duration')
+		record: 2;
+		record: 3.
+	metric := reader collect metrics first.
+	self assert: metric class identicalTo: OTHistogramMetricData.
+	self assert: metric points first count equals: 2.
+	self assert: metric points first sum equals: 5
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReadersSerializeSharedExporterExports [
+
+	| done errors exporter firstReader firstSnapshot provider secondReader secondSnapshot |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	firstReader := OTPeriodicExportingMetricReader exporter: exporter.
+	secondReader := OTPeriodicExportingMetricReader exporter: exporter.
+	firstReader exportIntervalMillis: 1000000.
+	secondReader exportIntervalMillis: 1000000.
+	provider
+		addMetricReader: firstReader;
+		addMetricReader: secondReader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	done := Semaphore new.
+	errors := OrderedCollection new.
+	[
+		[ firstSnapshot := firstReader collect ]
+			on: Error
+			do: [ :anError | errors add: anError ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForExportEntryWithin: 100).
+	[
+		[ secondSnapshot := secondReader collect ]
+			on: Error
+			do: [ :anError | errors add: anError ].
+		done signal ] forkAt: Processor userBackgroundPriority.
+	self assert: (exporter waitForExportEntryWithin: 20) not.
+	exporter allowExportToContinue.
+	self assert: (exporter waitForExportEntryWithin: 100).
+	exporter allowExportToContinue.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: (done waitTimeoutMilliseconds: 1000) not.
+	self assert: errors isEmpty.
+	self assert: firstSnapshot metrics size equals: 1.
+	self assert: secondSnapshot metrics size equals: 1
 ]
 
 { #category : 'tests' }
@@ -866,7 +1802,7 @@ OTMeterProviderTest >> testProviderShutdownShutsDownMetricReaders [
 ]
 
 { #category : 'tests' }
-OTMeterProviderTest >> testShutdownMakesFutureMetersNoopButPreservesScope [
+OTMeterProviderTest >> testShutdownMakesFutureMetersNoop [
 
 	| meter provider |
 	provider := OTMeterProvider new.
@@ -876,9 +1812,10 @@ OTMeterProviderTest >> testShutdownMakesFutureMetersNoopButPreservesScope [
 		         version: '1.2.3'
 		         schemaUrl: 'https://opentelemetry.io/schemas/1.0.0'
 		         attributes: self sampleAttributes.
+	self assert: meter class identicalTo: OTNoopMeter.
 	self assert: meter isNoop.
-	self assert: meter instrumentationName equals: 'demo.metrics'.
-	self assert: meter instrumentationVersion equals: '1.2.3'
+	self assert: meter instrumentationName equals: ''.
+	self assert: meter instrumentationVersion equals: ''
 ]
 
 { #category : 'tests' }
@@ -914,6 +1851,35 @@ OTMeterProviderTest >> testSynchronousInstrumentStaysEnabledWhenAnyMatchingViewE
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testSynchronousInstrumentsIgnoreNonFiniteMeasurements [
+
+	| measurements meter provider valuesByName |
+	provider := OTMeterProvider new.
+	meter := provider meterNamed: 'demo.metrics'.
+	(meter counterNamed: 'requests.total')
+		add: Float nan;
+		add: 3.
+	(meter upDownCounterNamed: 'queue.depth')
+		add: Float infinity;
+		add: -2.
+	(meter gaugeNamed: 'temperature')
+		record: Float negativeInfinity;
+		record: 7.
+	(meter histogramNamed: 'latency')
+		record: Float nan;
+		record: 5.
+	measurements := provider measurements.
+	self assert: measurements size equals: 4.
+	valuesByName := measurements inject: Dictionary new into: [ :dictionary :each |
+			                dictionary at: each instrument name put: each value.
+			                dictionary ].
+	self assert: (valuesByName at: 'requests.total') equals: 3.
+	self assert: (valuesByName at: 'queue.depth') equals: -2.
+	self assert: (valuesByName at: 'temperature') equals: 7.
+	self assert: (valuesByName at: 'latency') equals: 5
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testSynchronousNoopInstrumentOperationsAreSafe [
 
 	| counter gauge histogram upDownCounter |
@@ -921,6 +1887,10 @@ OTMeterProviderTest >> testSynchronousNoopInstrumentOperationsAreSafe [
 	upDownCounter := OTUpDownCounter noop.
 	histogram := OTHistogram noop.
 	gauge := OTGauge noop.
+	self assert: counter class identicalTo: OTNoopCounter.
+	self assert: upDownCounter class identicalTo: OTNoopUpDownCounter.
+	self assert: histogram class identicalTo: OTNoopHistogram.
+	self assert: gauge class identicalTo: OTNoopGauge.
 	self deny: counter enabled.
 	self assert: (counter bind: { ('method' -> 'GET') }) identicalTo: counter.
 	self shouldnt: [ counter add: 1 ] raise: Error.
@@ -931,16 +1901,14 @@ OTMeterProviderTest >> testSynchronousNoopInstrumentOperationsAreSafe [
 ]
 
 { #category : 'tests' }
-OTMeterProviderTest >> testWarnsAndNormalizesInvalidMeterNames [
+OTMeterProviderTest >> testWhitespaceMeterNameIsPreservedWithoutWarning [
 
 	self withMeterNameWarningsDo: [ :warnings |
 			| meter provider |
 			provider := OTMeterProvider new.
 			meter := provider meterNamed: '   '.
-			self assert: meter instrumentationName equals: ''.
-			self
-				assert: warnings asArray
-				equals: { 'OpenTelemetry meter name was invalid and has been normalized to an empty string: ''   ''' } ]
+			self assert: meter instrumentationName equals: '   '.
+			self assert: warnings isEmpty ]
 ]
 
 { #category : 'private' }

@@ -9,6 +9,12 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
+{ #category : 'accessing' }
+OTGaugeMetricData >> kind [
+
+	^ #gauge
+]
+
 { #category : 'otlp - encoding' }
 OTGaugeMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
 

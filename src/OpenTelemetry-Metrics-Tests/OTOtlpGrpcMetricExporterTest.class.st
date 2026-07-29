@@ -71,12 +71,6 @@ OTOtlpGrpcMetricExporterTest >> setUp [
 	exporter := OTOtlpGrpcMetricExporter configuration: configuration
 ]
 
-{ #category : 'running' }
-OTOtlpGrpcMetricExporterTest >> tearDown [
-
-	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
-]
-
 { #category : 'private' }
 OTOtlpGrpcMetricExporterTest >> successResponseWithRejectedDataPoints: aCount message: aString [
 
@@ -93,6 +87,12 @@ OTOtlpGrpcMetricExporterTest >> successResponseWithRejectedDataPoints: aCount me
 							writeTag: 2 wireType: 2;
 							writeString: aString ] ].
 	^ writer contents
+]
+
+{ #category : 'running' }
+OTOtlpGrpcMetricExporterTest >> tearDown [
+
+	[ OTGrpcTestSupport removeFakeGrpcResolvers ] ensure: [ super tearDown ]
 ]
 
 { #category : 'tests' }
@@ -127,6 +127,51 @@ OTOtlpGrpcMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 	self assert: capturedRequest messageEncoding equals: 'gzip'.
 	reader := OTProtobufReader on: (GZipReadStream on: capturedRequest payload readStream) upToEnd.
 	self assertReader: reader readsField: 1 wireType: 2
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcMetricExporterTest >> testExportReturnsFalseForUnsupportedTemporalityWithoutExecutingGrpcRequest [
+
+	| executed snapshot warnings |
+	executed := false.
+	warnings := OrderedCollection new.
+	snapshot := self sampleSnapshot.
+	snapshot metrics first temporality: #sideways.
+	exporter
+		warningSink: [ :message | warnings add: message ];
+		requestExecutor: [ :request |
+				executed := true.
+				OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self deny: (exporter export: snapshot).
+	self deny: executed.
+	self assert: warnings size equals: 1.
+	self assert: (warnings first includesSubstring: 'failed to encode').
+	self assert: (warnings first includesSubstring: 'unsupported')
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcMetricExporterTest >> testExportReturnsFalseAfterShutdown [
+
+	| executed |
+	executed := false.
+	exporter requestExecutor: [ :request |
+			executed := true.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self deny: executed
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcMetricExporterTest >> testExportUsesDefaultTimeoutWhenConfigurationTimeoutIsNil [
+
+	| capturedRequest |
+	configuration timeoutMillis: nil.
+	exporter requestExecutor: [ :request |
+			capturedRequest := request.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self assert: (exporter export: self sampleSnapshot).
+	self assert: capturedRequest timeoutNanos equals: 10000000000
 ]
 
 { #category : 'tests' }

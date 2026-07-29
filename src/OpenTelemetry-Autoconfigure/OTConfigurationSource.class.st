@@ -679,6 +679,14 @@ OTConfigurationSource class >> declarativeServiceResource [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> decodedResourceAttributeFromListEntry: entry separator: separator [
+
+	^ [ (entry copyFrom: 1 to: separator - 1) urlDecoded -> (entry copyFrom: separator + 1 to: entry size) urlDecoded ]
+		  on: Error
+		  do: [ Error signal: 'Failed to percent-decode resource.attributes_list entry ' , entry printString ]
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> dictionaryValueAt: aKey in: aDictionary [
 
 	| value |
@@ -822,6 +830,18 @@ OTConfigurationSource class >> headersListStringFrom: aCollection [
 								  nextPutAll: key urlEncoded;
 								  nextPut: $=;
 								  nextPutAll: value urlEncoded ] ] ]
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> includeExcludeStringFilterFrom: aDictionary [
+
+	| excluded filter included |
+	aDictionary ifNil: [ ^ nil ].
+	included := self stringCollectionValueAt: 'included' in: aDictionary.
+	excluded := self stringCollectionValueAt: 'excluded' in: aDictionary.
+	filter := OTMetricAttributeFilter included: included excluded: excluded.
+	filter isAll ifTrue: [ ^ nil ].
+	^ filter
 ]
 
 { #category : 'private - projection' }
@@ -1023,24 +1043,26 @@ OTConfigurationSource class >> loggerSeverityValueAt: aKey in: aDictionary [
 ]
 
 { #category : 'private - projection' }
+OTConfigurationSource class >> mergeResourceAttributeFromListEntry: entry into: anOrderedDictionary [
+
+	| decodedEntry separator |
+	separator := entry indexOf: $=.
+	separator > 0 ifFalse: [ Error signal: 'Invalid format for resource.attributes_list entry' ].
+	((entry copyFrom: separator + 1 to: entry size) includes: $=) ifTrue: [
+		Error signal: 'Invalid format for resource.attributes_list entry' ].
+	decodedEntry := self decodedResourceAttributeFromListEntry: entry separator: separator.
+	decodedEntry key isEmpty ifTrue: [ Error signal: 'Empty attribute name in resource.attributes_list entry' ].
+	anOrderedDictionary at: decodedEntry key put: decodedEntry value
+]
+
+{ #category : 'private - projection' }
 OTConfigurationSource class >> mergeResourceAttributesFromListValue: aString into: anOrderedDictionary [
 
 	aString ifNil: [ ^ anOrderedDictionary ].
 	(aString substrings: ',') do: [ :each |
-			| entry key separator value |
+			| entry |
 			entry := each trimBoth.
-			entry ifNotEmpty: [
-					separator := entry indexOf: $=.
-					separator > 0 ifFalse: [ Error signal: 'Invalid format for resource.attributes_list entry' ].
-					((entry copyFrom: separator + 1 to: entry size) includes: $=) ifTrue: [
-						Error signal: 'Invalid format for resource.attributes_list entry' ].
-					[
-						key := (entry copyFrom: 1 to: separator - 1) urlDecoded.
-						value := (entry copyFrom: separator + 1 to: entry size) urlDecoded ]
-						on: Error
-						do: [ Error signal: 'Failed to percent-decode resource.attributes_list entry ' , entry printString ].
-					key isEmpty ifTrue: [ Error signal: 'Empty attribute name in resource.attributes_list entry' ].
-					anOrderedDictionary at: key put: value ] ].
+			entry ifNotEmpty: [ self mergeResourceAttributeFromListEntry: entry into: anOrderedDictionary ] ].
 	^ anOrderedDictionary
 ]
 
@@ -1146,14 +1168,9 @@ OTConfigurationSource class >> metricViewAggregationParametersFor: anAssociation
 { #category : 'private - projection' }
 OTConfigurationSource class >> metricViewAttributeFilterFrom: aDictionary [
 
-	| attributeKeys excluded filter included |
+	| attributeKeys |
 	attributeKeys := self dictionaryValueAt: 'attribute_keys' in: aDictionary.
-	attributeKeys ifNil: [ ^ nil ].
-	included := self stringCollectionValueAt: 'included' in: attributeKeys.
-	excluded := self stringCollectionValueAt: 'excluded' in: attributeKeys.
-	filter := OTMetricAttributeFilter included: included excluded: excluded.
-	filter isAll ifTrue: [ ^ nil ].
-	^ filter
+	^ self includeExcludeStringFilterFrom: attributeKeys
 ]
 
 { #category : 'private - projection' }
@@ -1524,6 +1541,9 @@ OTConfigurationSource class >> projectExporterConfigurationNode: aDictionary sig
 				from: 'port'
 				in: exporterOptions
 				into: anEnvironment.
+			self projectPrometheusDefaultAggregationFrom: exporterOptions into: anEnvironment.
+			self projectPrometheusTranslationStrategyFrom: exporterOptions into: anEnvironment.
+			self projectPrometheusResourceConstantLabelsFrom: exporterOptions into: anEnvironment.
 			^ self ].
 	exporterName := exporterType = 'otlp_grpc'
 		                ifTrue: [ 'grpc' ]
@@ -1573,7 +1593,7 @@ OTConfigurationSource class >> projectExporterNode: aDictionary signalNamed: aSt
 	exporterName := self projectedExporterEnvironmentNameFrom: aDictionary signalNamed: aString.
 	anEnvironment at: (self exportEnvironmentNameForSignalNamed: aString) put: exporterName.
 	self projectExporterConfigurationNode: aDictionary signalNamed: aString into: anEnvironment.
-	^ self
+	self
 ]
 
 { #category : 'private - projection' }
@@ -1658,10 +1678,10 @@ OTConfigurationSource class >> projectMetricReadersFrom: aDictionary into: anEnv
 					in: metricExporterSettings
 					into: anEnvironment ].
 		anEnvironment at: 'OTEL_METRICS_EXPORTER' put: (self projectedExporterSelectionFrom: exporters).
-		exporters values do: [ :each | self projectExporterConfigurationNode: each signalNamed: 'METRICS' into: anEnvironment ] ]
+		exporters valuesDo: [ :each | self projectExporterConfigurationNode: each signalNamed: 'METRICS' into: anEnvironment ] ]
 		on: Error
 		do: [ :error | (self shouldIgnoreProjectionError: error) ifFalse: [ error pass ] ].
-	^ self
+	self
 ]
 
 { #category : 'private - projection' }
@@ -1679,10 +1699,51 @@ OTConfigurationSource class >> projectProcessorSequenceFrom: aDictionary signalN
 		batchSettings ifNotNil: [
 			self projectBatchProcessorEnvironmentSettings: batchSettings prefix: anotherString into: anEnvironment ].
 		anEnvironment at: (self exportEnvironmentNameForSignalNamed: aString) put: (self projectedExporterSelectionFrom: exporters).
-		exporters values do: [ :each | self projectExporterConfigurationNode: each signalNamed: aString into: anEnvironment ] ]
+		exporters valuesDo: [ :each | self projectExporterConfigurationNode: each signalNamed: aString into: anEnvironment ] ]
 		on: Error
 		do: [ :error | (self shouldIgnoreProjectionError: error) ifFalse: [ error pass ] ].
-	^ self
+	self
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectPrometheusDefaultAggregationFrom: aDictionary into: anEnvironment [
+
+	| aggregationName |
+	aggregationName := self stringValueAt: 'default_aggregation' in: aDictionary.
+	aggregationName ifNil: [ ^ self ].
+	OTPrometheusMetricReader
+		aggregationPreferenceNamed: aggregationName
+		ifAbsent: [ Error signal: 'Unsupported Prometheus default_aggregation: ' , aggregationName printString ].
+	anEnvironment at: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION' put: aggregationName
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectPrometheusResourceConstantLabelsFrom: aDictionary into: anEnvironment [
+
+	| included resourceConstantLabels |
+	resourceConstantLabels := self dictionaryValueAt: 'resource_constant_labels' in: aDictionary.
+	resourceConstantLabels ifNil: [ ^ self ].
+	(self stringCollectionValueAt: 'excluded' in: resourceConstantLabels) ifNotNil: [
+			Error signal:
+				'Declarative Prometheus exporter resource_constant_labels exclusions are not representable via SDK environment variables' ].
+	included := self stringCollectionValueAt: 'included' in: resourceConstantLabels.
+	included ifNil: [ ^ self ].
+	anEnvironment at: 'OTEL_EXPORTER_PROMETHEUS_RESOURCE_CONSTANT_LABELS' put: (String streamContents: [ :stream |
+				 included doWithIndex: [ :each :index |
+						 index > 1 ifTrue: [ stream nextPut: $, ].
+						 stream nextPutAll: each ] ])
+]
+
+{ #category : 'private - projection' }
+OTConfigurationSource class >> projectPrometheusTranslationStrategyFrom: aDictionary into: anEnvironment [
+
+	| strategyName |
+	strategyName := self stringValueAt: 'translation_strategy' in: aDictionary.
+	strategyName ifNil: [ ^ self ].
+	OTPrometheusTextEncoder
+		translationStrategyNamed: strategyName
+		ifAbsent: [ Error signal: 'Unsupported Prometheus translation_strategy: ' , strategyName printString ].
+	anEnvironment at: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY' put: strategyName
 ]
 
 { #category : 'private - projection' }
@@ -1769,7 +1830,7 @@ OTConfigurationSource class >> projectTraceSamplerFrom: aDictionary into: anEnvi
 		samplerPair second ifNotNil: [ anEnvironment at: 'OTEL_TRACES_SAMPLER_ARG' put: samplerPair second ] ]
 		on: Error
 		do: [ :error | (self shouldIgnoreProjectionError: error) ifFalse: [ error pass ] ].
-	^ self
+	self
 ]
 
 { #category : 'private - projection' }
@@ -1929,6 +1990,16 @@ OTConfigurationSource class >> pullMetricReaderFrom: aDictionary [
 	reader := OTPrometheusMetricReader new.
 	(self stringValueAt: 'host' in: exporterOptions) ifNotNil: [ :value | reader host: value ].
 	reader port: (self nonNegativeIntegerValueAt: 'port' in: exporterOptions default: reader port).
+	(self stringValueAt: 'default_aggregation' in: exporterOptions) ifNotNil: [ :value |
+			reader aggregationSelector: (OTPrometheusMetricReader aggregationSelectorForPreference: (OTPrometheusMetricReader
+						  aggregationPreferenceNamed: value
+						  ifAbsent: [ Error signal: 'Unsupported Prometheus default_aggregation: ' , value printString ])) ].
+	(self stringValueAt: 'translation_strategy' in: exporterOptions) ifNotNil: [ :value |
+			reader translationStrategy: (OTPrometheusTextEncoder
+					 translationStrategyNamed: value
+					 ifAbsent: [ Error signal: 'Unsupported Prometheus translation_strategy: ' , value printString ]) ].
+	reader resourceConstantLabels:
+		(self includeExcludeStringFilterFrom: (self dictionaryValueAt: 'resource_constant_labels' in: exporterOptions)).
 	^ reader
 ]
 

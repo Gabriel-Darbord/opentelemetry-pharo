@@ -15,6 +15,12 @@ OTSummaryMetricData >> addOtlpJsonDataTo: aDictionary encoder: anEncoder [
 	aDictionary at: 'summary' put: (anEncoder summaryDataFor: self)
 ]
 
+{ #category : 'accessing' }
+OTSummaryMetricData >> kind [
+
+	^ #summary
+]
+
 { #category : 'prometheus - encoding' }
 OTSummaryMetricData >> prometheusMetricTypeWith: anEncoder format: aFormatSymbol [
 

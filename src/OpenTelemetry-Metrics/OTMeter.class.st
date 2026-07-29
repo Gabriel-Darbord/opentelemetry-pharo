@@ -1,7 +1,8 @@
 "
 A backend-agnostic Meter responsible for creating metric instruments.
 
-The current implementation is a spec-shaped no-op meter.
+I normalize instrument creation requests, keep scope metadata, and delegate
+recording and collection decisions to my provider.
 "
 Class {
 	#name : 'OTMeter',
@@ -9,7 +10,8 @@ Class {
 	#instVars : [
 		'provider',
 		'instrumentationScope',
-		'instruments'
+		'instruments',
+		'instrumentationNameState'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -50,11 +52,7 @@ OTMeter class >> instrumentWarningSink: aBlock [
 { #category : 'instance creation' }
 OTMeter class >> noop [
 
-	^ OTClassStateStore valueAt: #otNoopMeter forClass: self ifAbsent: [
-			  | meter |
-			  meter := self forProvider: nil instrumentationScope: (OTInstrumentationScope named: '').
-			  OTClassStateStore valueAt: #otNoopMeter forClass: self put: meter.
-			  meter ]
+	^ OTNoopMeter instance
 ]
 
 { #category : 'private' }
@@ -238,7 +236,7 @@ OTMeter >> initialize [
 { #category : 'accessing' }
 OTMeter >> instrumentationName [
 
-	^ self instrumentationScope name
+	^ instrumentationNameState ifNil: [ self instrumentationScope name ] ifNotNil: [ instrumentationNameState first ]
 ]
 
 { #category : 'accessing' }
@@ -251,6 +249,7 @@ OTMeter >> instrumentationScope [
 OTMeter >> instrumentationScope: anInstrumentationScope [
 
 	instrumentationScope := anInstrumentationScope ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ anInstrumentationScope ].
+	instrumentationNameState ifNil: [ instrumentationNameState := { instrumentationScope name } ].
 	^ instrumentationScope
 ]
 
@@ -273,10 +272,57 @@ OTMeter >> isNoop [
 ]
 
 { #category : 'private' }
+OTMeter >> normalizedExplicitBucketBoundariesFrom: anObject [
+
+	| boundaries previousValue |
+	(anObject isCollection and: [ anObject isString not ]) ifFalse: [
+			self
+				noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
+				value: anObject
+				reason: 'expected an increasing collection of finite numbers'.
+			^ nil ].
+	boundaries := anObject asArray.
+	previousValue := nil.
+	boundaries do: [ :each |
+			| numericValue |
+			each isNumber ifFalse: [
+					self
+						noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
+						value: anObject
+						reason: 'expected an increasing collection of finite numbers'.
+					^ nil ].
+			numericValue := each asFloat.
+			(numericValue isNaN or: [ numericValue isInfinite ]) ifTrue: [
+					self
+						noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
+						value: anObject
+						reason: 'expected an increasing collection of finite numbers'.
+					^ nil ].
+			(previousValue notNil and: [ previousValue >= numericValue ]) ifTrue: [
+					self
+						noteInvalidInstrumentAdviceNamed: 'ExplicitBucketBoundaries'
+						value: anObject
+						reason: 'expected an increasing collection of finite numbers'.
+					^ nil ].
+			previousValue := numericValue ].
+	^ boundaries copy
+]
+
+{ #category : 'private' }
 OTMeter >> normalizedInstrumentAdviceFrom: aDictionary [
 
+	| normalized |
 	aDictionary ifNil: [ ^ Dictionary new ].
-	^ aDictionary asDictionary copy
+	normalized := Dictionary new.
+	aDictionary asDictionary associationsDo: [ :each |
+			| keyString |
+			keyString := each key asString.
+			(keyString sameAs: 'ExplicitBucketBoundaries')
+				ifTrue: [
+						(self normalizedExplicitBucketBoundariesFrom: each value) ifNotNil: [ :boundaries |
+							normalized at: 'ExplicitBucketBoundaries' put: boundaries ] ]
+				ifFalse: [ normalized at: each key put: each value ] ].
+	^ normalized
 ]
 
 { #category : 'private' }
@@ -342,16 +388,35 @@ OTMeter >> noteDuplicateInstrumentRegistrationBetween: anExistingInstrument requ
 { #category : 'private - logging' }
 OTMeter >> noteDuplicateInstrumentRegistrationFor: anExistingInstrument conflictingAdvice: aDictionary [
 
-	self class instrumentWarningSink value:
-		'OpenTelemetry metric instrument registration reused first-seen advisory parameters for ' , anExistingInstrument class name
-		, ' ' , anExistingInstrument name printString , ': ' , aDictionary printString
+	self class instrumentWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry metric instrument registration reused first-seen advisory parameters for ';
+					 nextPutAll: anExistingInstrument class name;
+					 nextPut: Character space;
+					 print: anExistingInstrument name;
+					 nextPutAll: ': ';
+					 print: aDictionary ])
+]
+
+{ #category : 'private - logging' }
+OTMeter >> noteInvalidInstrumentAdviceNamed: aString value: anObject reason: aReasonString [
+
+	self class instrumentWarningSink value: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry metric instrument advisory parameter was invalid and has been ignored: ';
+					 nextPutAll: aString;
+					 nextPutAll: ' value=';
+					 print: anObject;
+					 nextPutAll: ' (';
+					 nextPutAll: aReasonString;
+					 nextPut: $) ])
 ]
 
 { #category : 'private - logging' }
 OTMeter >> noteInvalidInstrumentName: aValue [
 
-	self class instrumentWarningSink value: 'OpenTelemetry metric instrument name was invalid and has been left unchanged: '
-		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self class instrumentWarningSink value:
+		'OpenTelemetry metric instrument name was invalid and has been left unchanged: ' , aValue printString
 ]
 
 { #category : 'accessing' }
@@ -466,6 +531,13 @@ OTMeter >> provider [
 OTMeter >> provider: anOTMeterProvider [
 
 	provider := anOTMeterProvider
+]
+
+{ #category : 'accessing' }
+OTMeter >> rawInstrumentationName: aValue [
+
+	instrumentationNameState := { aValue }.
+	^ aValue
 ]
 
 { #category : 'private' }

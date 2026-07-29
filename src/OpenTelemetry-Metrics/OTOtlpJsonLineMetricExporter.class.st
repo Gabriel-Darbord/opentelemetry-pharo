@@ -26,15 +26,30 @@ OTOtlpJsonLineMetricExporter >> encoder: anEncoder [
 { #category : 'exporting' }
 OTOtlpJsonLineMetricExporter >> export: anOTMetricSnapshot [
 
-	self isShutdown ifTrue: [ ^ false ].
-	self writeJsonLine: (self jsonLineFrom: anOTMetricSnapshot).
-	^ true
+	| jsonLine |
+	^ self withSynchronizedExportDo: [
+			  self isStopping ifTrue: [ ^ false ].
+			  jsonLine := [ self jsonLineFrom: anOTMetricSnapshot ]
+				              on: Error
+				              do: [ :error |
+						              self notePayloadEncodingFailure: error.
+						              ^ false ].
+			  self withOperationNamed: 'export' default: false do: [
+					  self writeJsonLine: jsonLine.
+					  true ] ]
 ]
 
 { #category : 'private' }
 OTOtlpJsonLineMetricExporter >> jsonLineFrom: anOTMetricSnapshot [
 
 	^ (ZnUtils defaultJSONWriter toString: (self encoder encodeSnapshot: anOTMetricSnapshot)) , String lf
+]
+
+{ #category : 'private - logging' }
+OTOtlpJsonLineMetricExporter >> notePayloadEncodingFailure: anError [
+
+	self warningSink value:
+		(OTOtlpExportSupport payloadEncodingFailureMessageForSignal: 'metric' transport: 'JSON-line' error: anError)
 ]
 
 { #category : 'private' }

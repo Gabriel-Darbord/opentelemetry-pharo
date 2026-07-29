@@ -121,28 +121,13 @@ OTSeverity class >> severityAtBase: aBase variant: anInteger [
 { #category : 'severity' }
 OTSeverity class >> shortNameFor: anObject [
 
-	| value baseName offset |
+	| baseName index offset value |
 	value := self normalize: anObject.
 	value = 0 ifTrue: [ ^ '' ].
-	value <= 4 ifTrue: [
-			baseName := 'TRACE'.
-			offset := value - 1 ].
-	(value between: 5 and: 8) ifTrue: [
-			baseName := 'DEBUG'.
-			offset := value - 5 ].
-	(value between: 9 and: 12) ifTrue: [
-			baseName := 'INFO'.
-			offset := value - 9 ].
-	(value between: 13 and: 16) ifTrue: [
-			baseName := 'WARN'.
-			offset := value - 13 ].
-	(value between: 17 and: 20) ifTrue: [
-			baseName := 'ERROR'.
-			offset := value - 17 ].
-	(value between: 21 and: 24) ifTrue: [
-			baseName := 'FATAL'.
-			offset := value - 21 ].
-	offset ifNil: [ Error signal: 'Unsupported OpenTelemetry severity number' ].
+	index := value - 1 // 4 + 1.
+	(index between: 1 and: 6) ifFalse: [ Error signal: 'Unsupported OpenTelemetry severity number' ].
+	baseName := #( 'TRACE' 'DEBUG' 'INFO' 'WARN' 'ERROR' 'FATAL' ) at: index.
+	offset := value - 1 \\ 4.
 	offset = 0 ifTrue: [ ^ baseName ].
 	^ baseName , (offset + 1) asString
 ]

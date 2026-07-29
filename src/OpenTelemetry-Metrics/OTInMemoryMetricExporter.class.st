@@ -16,9 +16,10 @@ Class {
 { #category : 'exporting' }
 OTInMemoryMetricExporter >> export: anOTMetricSnapshot [
 
-	self isShutdown ifTrue: [ ^ false ].
-	self exports add: anOTMetricSnapshot.
-	^ true
+	^ self withSynchronizedExportDo: [
+			  self withActiveStateDo: [
+					  self exports add: anOTMetricSnapshot.
+					  true ] ]
 ]
 
 { #category : 'accessing' }
@@ -30,9 +31,9 @@ OTInMemoryMetricExporter >> exports [
 { #category : 'exporting' }
 OTInMemoryMetricExporter >> forceFlush [
 
-	self isShutdown ifTrue: [ ^ false ].
-	forceFlushCount := self forceFlushCount + 1.
-	^ true
+	^ self withActiveStateDo: [
+			  forceFlushCount := self forceFlushCount + 1.
+			  true ]
 ]
 
 { #category : 'accessing' }

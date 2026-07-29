@@ -1,5 +1,7 @@
 "
-A no-op synchronous Gauge instrument.
+A synchronous Gauge instrument.
+
+I record point-in-time values that are exported using last-value aggregation.
 "
 Class {
 	#name : 'OTGauge',
@@ -7,6 +9,12 @@ Class {
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'instance creation' }
+OTGauge class >> noop [
+
+	^ OTNoopGauge instance
+]
 
 { #category : 'accessing' }
 OTGauge >> instrumentType [
@@ -25,7 +33,7 @@ OTGauge >> metricDataFromMeasurements: someMeasurements using: anOTMetricAggrega
 				                   attributes: each key
 				                   value: lastMeasurement value
 				                   startTimestamp: (anOTMetricAggregationContext startTimestamp ifNil: [ each value first timestamp ])
-				                   timestamp: lastMeasurement timestamp.
+				                   timestamp: anOTMetricAggregationContext collectedAt.
 			          point
 				          exemplars:
 					          (self exemplarsFromMeasurements: each value pointAttributes: each key using: anOTMetricAggregationContext);
@@ -42,9 +50,7 @@ OTGauge >> record: aNumber [
 { #category : 'recording' }
 OTGauge >> record: aNumber attributes: aCollection [
 
-	meter ifNil: [ ^ self ].
-	meter provider ifNotNil: [ meter provider recordMeasurementFor: self value: aNumber attributes: aCollection ].
-	self
+	^ self recordMeasurementValue: aNumber attributes: aCollection
 ]
 
 { #category : 'aggregating' }

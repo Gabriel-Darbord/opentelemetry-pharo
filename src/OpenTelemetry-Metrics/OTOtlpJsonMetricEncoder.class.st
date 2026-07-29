@@ -26,7 +26,7 @@ OTOtlpJsonMetricEncoder >> exemplarDataFor: anOTMetricExemplar [
 		at: 'filteredAttributes' put: (self keyValueDataFrom: anOTMetricExemplar filteredAttributes).
 	anOTMetricExemplar value isInteger
 		ifTrue: [ data at: 'asInt' put: anOTMetricExemplar value asString ]
-		ifFalse: [ data at: 'asDouble' put: anOTMetricExemplar value asFloat ].
+		ifFalse: [ data at: 'asDouble' put: (self jsonDoubleValueFor: anOTMetricExemplar value) ].
 	anOTMetricExemplar spanId ifNotNil: [ data at: 'spanId' put: anOTMetricExemplar spanId ].
 	anOTMetricExemplar traceId ifNotNil: [ data at: 'traceId' put: anOTMetricExemplar traceId ].
 	^ data
@@ -63,16 +63,18 @@ OTOtlpJsonMetricEncoder >> exponentialHistogramDataPointDataFor: anOTExponential
 	data
 		at: 'timeUnixNano' put: (self unixNanosecondsStringFor: anOTExponentialHistogramDataPoint timestamp);
 		at: 'count' put: anOTExponentialHistogramDataPoint count asString;
-		at: 'sum' put: anOTExponentialHistogramDataPoint sum asFloat;
+		at: 'sum' put: (self jsonDoubleValueFor: anOTExponentialHistogramDataPoint sum);
 		at: 'scale' put: anOTExponentialHistogramDataPoint scale;
 		at: 'zeroCount' put: anOTExponentialHistogramDataPoint zeroCount asString;
 		at: 'positive' put: (self exponentialBucketRangeDataFor: anOTExponentialHistogramDataPoint positiveBuckets);
 		at: 'negative' put: (self exponentialBucketRangeDataFor: anOTExponentialHistogramDataPoint negativeBuckets);
 		at: 'attributes' put: (self keyValueDataFrom: anOTExponentialHistogramDataPoint attributes).
-	anOTExponentialHistogramDataPoint min ifNotNil: [ data at: 'min' put: anOTExponentialHistogramDataPoint min asFloat ].
-	anOTExponentialHistogramDataPoint max ifNotNil: [ data at: 'max' put: anOTExponentialHistogramDataPoint max asFloat ].
+	anOTExponentialHistogramDataPoint min ifNotNil: [
+		data at: 'min' put: (self jsonDoubleValueFor: anOTExponentialHistogramDataPoint min) ].
+	anOTExponentialHistogramDataPoint max ifNotNil: [
+		data at: 'max' put: (self jsonDoubleValueFor: anOTExponentialHistogramDataPoint max) ].
 	anOTExponentialHistogramDataPoint zeroThreshold = 0 ifFalse: [
-		data at: 'zeroThreshold' put: anOTExponentialHistogramDataPoint zeroThreshold asFloat ].
+		data at: 'zeroThreshold' put: (self jsonDoubleValueFor: anOTExponentialHistogramDataPoint zeroThreshold) ].
 	anOTExponentialHistogramDataPoint exemplars ifNotEmpty: [
 		data at: 'exemplars' put: (anOTExponentialHistogramDataPoint exemplars collect: [ :each | self exemplarDataFor: each ]) asArray ].
 	^ data
@@ -117,12 +119,12 @@ OTOtlpJsonMetricEncoder >> histogramDataPointDataFor: anOTHistogramDataPoint [
 	data
 		at: 'timeUnixNano' put: (self unixNanosecondsStringFor: anOTHistogramDataPoint timestamp);
 		at: 'count' put: anOTHistogramDataPoint count asString;
-		at: 'sum' put: anOTHistogramDataPoint sum asFloat;
+		at: 'sum' put: (self jsonDoubleValueFor: anOTHistogramDataPoint sum);
 		at: 'attributes' put: (self keyValueDataFrom: anOTHistogramDataPoint attributes);
 		at: 'bucketCounts' put: (anOTHistogramDataPoint bucketCounts collect: [ :each | each asString ]) asArray;
-		at: 'explicitBounds' put: (anOTHistogramDataPoint explicitBounds collect: [ :each | each asFloat ]) asArray.
-	anOTHistogramDataPoint min ifNotNil: [ data at: 'min' put: anOTHistogramDataPoint min asFloat ].
-	anOTHistogramDataPoint max ifNotNil: [ data at: 'max' put: anOTHistogramDataPoint max asFloat ].
+		at: 'explicitBounds' put: (anOTHistogramDataPoint explicitBounds collect: [ :each | self jsonDoubleValueFor: each ]) asArray.
+	anOTHistogramDataPoint min ifNotNil: [ data at: 'min' put: (self jsonDoubleValueFor: anOTHistogramDataPoint min) ].
+	anOTHistogramDataPoint max ifNotNil: [ data at: 'max' put: (self jsonDoubleValueFor: anOTHistogramDataPoint max) ].
 	anOTHistogramDataPoint exemplars ifNotEmpty: [
 		data at: 'exemplars' put: (anOTHistogramDataPoint exemplars collect: [ :each | self exemplarDataFor: each ]) asArray ].
 	^ data
@@ -154,7 +156,7 @@ OTOtlpJsonMetricEncoder >> numberDataPointDataFor: anOTNumberDataPoint [
 		at: 'attributes' put: (self keyValueDataFrom: anOTNumberDataPoint attributes).
 	anOTNumberDataPoint value isInteger
 		ifTrue: [ data at: 'asInt' put: anOTNumberDataPoint value asString ]
-		ifFalse: [ data at: 'asDouble' put: anOTNumberDataPoint value asFloat ].
+		ifFalse: [ data at: 'asDouble' put: (self jsonDoubleValueFor: anOTNumberDataPoint value) ].
 	anOTNumberDataPoint exemplars ifNotEmpty: [
 		data at: 'exemplars' put: (anOTNumberDataPoint exemplars collect: [ :each | self exemplarDataFor: each ]) asArray ].
 	^ data
@@ -218,7 +220,7 @@ OTOtlpJsonMetricEncoder >> summaryDataPointDataFor: anOTSummaryDataPoint [
 	data
 		at: 'timeUnixNano' put: (self unixNanosecondsStringFor: anOTSummaryDataPoint timestamp);
 		at: 'count' put: anOTSummaryDataPoint count asString;
-		at: 'sum' put: anOTSummaryDataPoint sum asFloat;
+		at: 'sum' put: (self jsonDoubleValueFor: anOTSummaryDataPoint sum);
 		at: 'attributes' put: (self keyValueDataFrom: anOTSummaryDataPoint attributes);
 		at: 'quantileValues'
 		put: (anOTSummaryDataPoint quantileValues collect: [ :each | self summaryValueAtQuantileDataFor: each ]) asArray.
@@ -229,15 +231,15 @@ OTOtlpJsonMetricEncoder >> summaryDataPointDataFor: anOTSummaryDataPoint [
 OTOtlpJsonMetricEncoder >> summaryValueAtQuantileDataFor: anOTSummaryQuantileValue [
 
 	^ OrderedDictionary new
-		  at: 'quantile' put: anOTSummaryQuantileValue quantile asFloat;
-		  at: 'value' put: anOTSummaryQuantileValue value asFloat;
+		  at: 'quantile' put: (self jsonDoubleValueFor: anOTSummaryQuantileValue quantile);
+		  at: 'value' put: (self jsonDoubleValueFor: anOTSummaryQuantileValue value);
 		  yourself
 ]
 
 { #category : 'private - encoding' }
 OTOtlpJsonMetricEncoder >> temporalityCodeFor: aSymbol [
 
-	^ aSymbol = #delta
-		  ifTrue: [ 1 ]
-		  ifFalse: [ 2 ]
+	aSymbol = #delta ifTrue: [ ^ 1 ].
+	aSymbol = #cumulative ifTrue: [ ^ 2 ].
+	Error signal: 'OpenTelemetry metric aggregation temporality is unsupported: ' , aSymbol printString
 ]

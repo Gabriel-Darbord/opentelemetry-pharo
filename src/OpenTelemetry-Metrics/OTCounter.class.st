@@ -1,5 +1,7 @@
 "
-A no-op synchronous Counter instrument.
+A synchronous Counter instrument.
+
+I record non-negative additive measurements that are exported as monotonic sums.
 "
 Class {
 	#name : 'OTCounter',
@@ -7,6 +9,12 @@ Class {
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
 }
+
+{ #category : 'instance creation' }
+OTCounter class >> noop [
+
+	^ OTNoopCounter instance
+]
 
 { #category : 'recording' }
 OTCounter >> add: aNumber [
@@ -17,9 +25,7 @@ OTCounter >> add: aNumber [
 { #category : 'recording' }
 OTCounter >> add: aNumber attributes: aCollection [
 
-	meter ifNil: [ ^ self ].
-	meter provider ifNotNil: [ meter provider recordMeasurementFor: self value: aNumber attributes: aCollection ].
-	self
+	^ self recordMeasurementValue: aNumber attributes: aCollection
 ]
 
 { #category : 'accessing' }

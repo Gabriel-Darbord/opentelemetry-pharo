@@ -43,7 +43,15 @@ OTSummaryQuantileValue >> value [
 ]
 
 { #category : 'accessing' }
-OTSummaryQuantileValue >> value: aNumber [
+OTSummaryQuantileValue >> value: anObject [
 
-	value := aNumber ifNil: [ 0.0 ] ifNotNil: [ aNumber ]
+	value := anObject ifNil: [ 0.0 ] ifNotNil: [
+			         anObject isNumber
+				         ifFalse: [ 0.0 ]
+				         ifTrue: [
+						         | numericValue |
+						         numericValue := anObject asFloat.
+						         (numericValue isNaN or: [ numericValue negative ])
+							         ifTrue: [ 0.0 ]
+							         ifFalse: [ anObject ] ] ]
 ]

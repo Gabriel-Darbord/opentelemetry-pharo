@@ -23,13 +23,13 @@ OTSimpleFixedSizeMetricExemplarReservoir class >> size: anInteger [
 ]
 
 { #category : 'collecting' }
-OTSimpleFixedSizeMetricExemplarReservoir >> collectForPointAttributes: aCollection [
+OTSimpleFixedSizeMetricExemplarReservoir >> collectForPointAttributesUnlocked: aCollection [
 
 	| exemplars |
-	exemplars := self measurements
+	exemplars := self measurementsUnlocked
 		             select: [ :each | each notNil ]
 		             thenCollect: [ :each | OTMetricExemplar measurement: each pointAttributes: aCollection ].
-	self reset.
+	self resetUnlocked.
 	^ exemplars asArray
 ]
 
@@ -44,41 +44,61 @@ OTSimpleFixedSizeMetricExemplarReservoir >> initialize [
 { #category : 'accessing' }
 OTSimpleFixedSizeMetricExemplarReservoir >> measurements [
 
-	^ measurements ifNil: [ measurements := Array new: self size withAll: nil ]
+	^ self stateLock critical: [ self measurementsUnlocked copy ]
+]
+
+{ #category : 'private' }
+OTSimpleFixedSizeMetricExemplarReservoir >> measurementsUnlocked [
+
+	^ measurements ifNil: [ measurements := Array new: self sizeUnlocked withAll: nil ]
 ]
 
 { #category : 'offering' }
-OTSimpleFixedSizeMetricExemplarReservoir >> offerMeasurement: anOTMetricMeasurement [
+OTSimpleFixedSizeMetricExemplarReservoir >> offerMeasurementUnlocked: anOTMetricMeasurement [
 
 	| bucket |
-	(anOTMetricMeasurement exemplarEligible not or: [ self size <= 0 ]) ifTrue: [ ^ self ].
+	(anOTMetricMeasurement exemplarEligible not or: [ self sizeUnlocked <= 0 ]) ifTrue: [ ^ self ].
 	measurementsSeen := measurementsSeen + 1.
-	measurementsSeen <= self size ifTrue: [
-			measurements at: measurementsSeen put: anOTMetricMeasurement.
-			^ self ].
-	bucket := SharedRandom globalGenerator nextInteger: measurementsSeen.
-	bucket <= self size ifTrue: [ measurements at: bucket put: anOTMetricMeasurement ].
-	^ self
+	measurementsSeen <= self sizeUnlocked
+		ifTrue: [ measurements at: measurementsSeen put: anOTMetricMeasurement ]
+		ifFalse: [
+				bucket := SharedRandom globalGenerator nextInteger: measurementsSeen.
+				bucket <= self sizeUnlocked ifTrue: [ measurements at: bucket put: anOTMetricMeasurement ] ].
+	self
 ]
 
 { #category : 'private' }
 OTSimpleFixedSizeMetricExemplarReservoir >> reset [
 
+	^ self stateLock critical: [ self resetUnlocked ]
+]
+
+{ #category : 'private' }
+OTSimpleFixedSizeMetricExemplarReservoir >> resetUnlocked [
+
 	measurementsSeen := 0.
-	measurements := Array new: self size withAll: nil
+	measurements := Array new: self sizeUnlocked withAll: nil
 ]
 
 { #category : 'accessing' }
 OTSimpleFixedSizeMetricExemplarReservoir >> size [
 
-	^ size ifNil: [ 1 ]
+	^ self stateLock critical: [ self sizeUnlocked ]
 ]
 
 { #category : 'accessing' }
 OTSimpleFixedSizeMetricExemplarReservoir >> size: anInteger [
 
-	size := (anInteger isInteger and: [ anInteger > 0 ])
-		        ifTrue: [ anInteger ]
-		        ifFalse: [ 1 ].
-	self reset
+	^ self stateLock critical: [
+			  size := (anInteger isInteger and: [ anInteger > 0 ])
+				          ifTrue: [ anInteger ]
+				          ifFalse: [ 1 ].
+			  self resetUnlocked.
+			  size ]
+]
+
+{ #category : 'private' }
+OTSimpleFixedSizeMetricExemplarReservoir >> sizeUnlocked [
+
+	^ size ifNil: [ 1 ]
 ]

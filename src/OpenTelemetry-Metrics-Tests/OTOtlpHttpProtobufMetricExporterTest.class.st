@@ -120,6 +120,37 @@ OTOtlpHttpProtobufMetricExporterTest >> testExportAppliesHttpProtobufConfigurati
 ]
 
 { #category : 'tests' }
+OTOtlpHttpProtobufMetricExporterTest >> testExportReturnsFalseForUnsupportedTemporalityWithoutExecutingHttpRequest [
+
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			| snapshot |
+			snapshot := self sampleSnapshot.
+			snapshot metrics first temporality: #sideways.
+			self deny: (exporter export: snapshot).
+			self assert: client executionCount equals: 0.
+			self assert: retrySleeps isEmpty.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'failed to encode').
+			self assert: (warnings first includesSubstring: 'unsupported') ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpProtobufMetricExporterTest >> testExportReturnsFalseAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
+OTOtlpHttpProtobufMetricExporterTest >> testExportUsesDefaultTimeoutWhenConfigurationTimeoutIsNil [
+
+	configuration timeoutMillis: nil.
+	self assert: (exporter export: self sampleSnapshot).
+	self assert: client timeout equals: 10000
+]
+
+{ #category : 'tests' }
 OTOtlpHttpProtobufMetricExporterTest >> testExportWarnsOnPartialSuccessResponse [
 
 	client responseContents: (self successResponseWithRejectedDataPoints: 2 message: 'collector dropped data points').

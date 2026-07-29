@@ -50,6 +50,15 @@ OTMetricData >> description: aString [
 ]
 
 { #category : 'accessing' }
+OTMetricData >> copyWithPoints: someMetricPoints [
+
+	| metricCopy |
+	metricCopy := self copy.
+	metricCopy points: someMetricPoints.
+	^ metricCopy
+]
+
+{ #category : 'accessing' }
 OTMetricData >> instrumentationScope [
 
 	^ instrumentationScope ifNil: [ OTInstrumentationScope named: '' ]
@@ -73,6 +82,12 @@ OTMetricData >> metadata [
 OTMetricData >> metadata: aCollection [
 
 	metadata := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'accessing' }
+OTMetricData >> kind [
+
+	self subclassResponsibility
 ]
 
 { #category : 'accessing' }

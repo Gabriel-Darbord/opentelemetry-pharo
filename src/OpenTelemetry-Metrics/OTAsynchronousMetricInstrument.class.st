@@ -1,5 +1,8 @@
 "
-Abstract no-op asynchronous metric instrument.
+Abstract asynchronous metric instrument.
+
+Concrete subclasses manage callback registration and turn callback observations
+into measurements during collection.
 "
 Class {
 	#name : 'OTAsynchronousMetricInstrument',
@@ -28,11 +31,7 @@ OTAsynchronousMetricInstrument class >> forMeter: anOTMeter name: aString callba
 { #category : 'instance creation' }
 OTAsynchronousMetricInstrument class >> noop [
 
-	^ OTClassStateStore valueAt: #otNoopMetricInstrument forClass: self ifAbsent: [
-			  | instrument |
-			  instrument := self new.
-			  OTClassStateStore valueAt: #otNoopMetricInstrument forClass: self put: instrument.
-			  instrument ]
+	self subclassResponsibility
 ]
 
 { #category : 'accessing' }

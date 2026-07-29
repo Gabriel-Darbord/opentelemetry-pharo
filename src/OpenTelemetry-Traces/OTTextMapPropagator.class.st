@@ -26,10 +26,7 @@ OTTextMapPropagator class >> current [
 { #category : 'accessing' }
 OTTextMapPropagator class >> current: aPropagator [
 
-	^ OTClassStateStore
-		  valueAt: #otCurrent
-		  forClass: self
-		  putOrRemoveIfNil: aPropagator
+	^ OTClassStateStore valueAt: #otCurrent forClass: self putOrRemoveIfNil: aPropagator
 ]
 
 { #category : 'accessing' }

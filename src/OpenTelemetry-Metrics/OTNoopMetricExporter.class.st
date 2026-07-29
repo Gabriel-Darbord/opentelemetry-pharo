@@ -12,6 +12,7 @@ Class {
 { #category : 'exporting' }
 OTNoopMetricExporter >> export: anOTMetricSnapshot [
 
-	self isShutdown ifTrue: [ ^ false ].
-	^ true
+	^ self withSynchronizedExportDo: [
+			  self isStopping ifTrue: [ ^ false ].
+			  true ]
 ]

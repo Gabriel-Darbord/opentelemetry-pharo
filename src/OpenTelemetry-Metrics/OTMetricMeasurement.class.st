@@ -27,7 +27,6 @@ OTMetricMeasurement class >> instrument: anOTMetricInstrument value: aNumber att
 		instrument: anOTMetricInstrument;
 		value: aNumber;
 		attributes: aCollection;
-		exemplarAttributes: aCollection;
 		timestamp: DateAndTime now asUTC.
 	^ measurement
 ]
@@ -59,13 +58,13 @@ OTMetricMeasurement >> exemplarAttributes: aCollection [
 { #category : 'accessing' }
 OTMetricMeasurement >> exemplarEligible [
 
-	^ exemplarEligible = true
+	^ exemplarEligible ifNil: [ false ] ifNotNil: [ exemplarEligible ]
 ]
 
 { #category : 'accessing' }
 OTMetricMeasurement >> exemplarEligible: aBoolean [
 
-	exemplarEligible := aBoolean = true
+	exemplarEligible := aBoolean ifNil: [ false ] ifNotNil: [ aBoolean ]
 ]
 
 { #category : 'accessing' }
@@ -77,7 +76,7 @@ OTMetricMeasurement >> exemplarSpanId [
 { #category : 'accessing' }
 OTMetricMeasurement >> exemplarSpanId: aString [
 
-	exemplarSpanId := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	exemplarSpanId := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -89,7 +88,7 @@ OTMetricMeasurement >> exemplarTraceId [
 { #category : 'accessing' }
 OTMetricMeasurement >> exemplarTraceId: aString [
 
-	exemplarTraceId := aString ifNil: [ nil ] ifNotNil: [ aString asString ]
+	exemplarTraceId := aString ifNotNil: [ aString asString ]
 ]
 
 { #category : 'accessing' }
@@ -138,9 +137,9 @@ OTMetricMeasurement >> withAttributes: aCollection [
 		value: self value;
 		attributes: aCollection;
 		exemplarEligible: self exemplarEligible;
-		exemplarAttributes: self exemplarAttributes;
 		exemplarTraceId: self exemplarTraceId;
 		exemplarSpanId: self exemplarSpanId;
 		timestamp: self timestamp.
+	exemplarAttributes ifNotNil: [ measurement exemplarAttributes: exemplarAttributes ].
 	^ measurement
 ]

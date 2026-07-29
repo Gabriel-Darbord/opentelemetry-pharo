@@ -16,13 +16,29 @@ Class {
 	#package : 'OpenTelemetry-Metrics'
 }
 
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> bindingAddressForHost [
+{ #category : 'private - configuration' }
+OTPrometheusMetricReader class >> aggregationPreferenceNamed: aString ifAbsent: aBlock [
 
-	host ifNil: [ ^ #[ 127 0 0 1 ] ].
-	(host sameAs: 'localhost') ifTrue: [ ^ #[ 127 0 0 1 ] ].
-	host = '0.0.0.0' ifTrue: [ ^ nil ].
-	^ [ NetNameResolver addressForName: host timeout: 5 ]
+	| normalized |
+	normalized := aString ifNil: [ '' ] ifNotNil: [ aString asString trimBoth asLowercase ].
+	normalized = 'explicit_bucket_histogram' ifTrue: [ ^ #explicitBucketHistogram ].
+	normalized = 'base2_exponential_bucket_histogram' ifTrue: [ ^ #base2ExponentialBucketHistogram ].
+	^ aBlock value
+]
+
+{ #category : 'private - configuration' }
+OTPrometheusMetricReader class >> aggregationSelectorForPreference: aSymbol [
+
+	^ [ :instrument | instrument aggregationForPreference: aSymbol ]
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> bindingAddressForHost: aHostString [
+
+	aHostString ifNil: [ ^ #[ 127 0 0 1 ] ].
+	(aHostString sameAs: 'localhost') ifTrue: [ ^ #[ 127 0 0 1 ] ].
+	aHostString = '0.0.0.0' ifTrue: [ ^ nil ].
+	^ [ NetNameResolver addressForName: aHostString timeout: 5 ]
 		  on: NameLookupFailure
 		  do: [ #[ 127 0 0 1 ] ]
 ]
@@ -34,24 +50,35 @@ OTPrometheusMetricReader >> collect [
 ]
 
 { #category : 'private - http' }
-OTPrometheusMetricReader >> contentTypeString [
+OTPrometheusMetricReader >> contentTypeStringForResponseFormat: aDictionary [
 
-	^ self contentTypeStringForFormat: #prometheusText004
+	| escaping format |
+	format := aDictionary at: #format.
+	escaping := aDictionary at: #escaping ifAbsent: [ #underscores ].
+	format = #openMetricsText100 ifTrue: [
+		^ 'application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=' , (self prometheusEscapingHeaderValueFor: escaping) ].
+	format = #prometheusText100 ifTrue: [
+		^ 'text/plain; version=1.0.0; charset=utf-8; escaping=' , (self prometheusEscapingHeaderValueFor: escaping) ].
+	^ 'text/plain; version=0.0.4; charset=utf-8'
 ]
 
 { #category : 'private - http' }
-OTPrometheusMetricReader >> contentTypeStringForFormat: aFormatSymbol [
+OTPrometheusMetricReader >> defaultEscapingModeForFormat: aFormatSymbol [
 
-	aFormatSymbol = #openMetricsText100 ifTrue: [
-		^ 'application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=underscores' ].
-	aFormatSymbol = #prometheusText100 ifTrue: [ ^ 'text/plain; version=1.0.0; charset=utf-8; escaping=underscores' ].
-	^ 'text/plain; version=0.0.4; charset=utf-8'
+	aFormatSymbol = #prometheusText004 ifTrue: [ ^ #underscores ].
+	^ #underscores
 ]
 
 { #category : 'private - http' }
 OTPrometheusMetricReader >> defaultResponseFormat [
 
 	^ #prometheusText004
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> defaultResponseFormatDescriptor [
+
+	^ self responseFormatDescriptorFor: self defaultResponseFormat
 ]
 
 { #category : 'callbacks' }
@@ -63,33 +90,55 @@ OTPrometheusMetricReader >> didRegisterWithProvider [
 { #category : 'accessing' }
 OTPrometheusMetricReader >> encoder [
 
-	^ encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]
+	^ stateLock critical: [ encoder ifNil: [ encoder := OTPrometheusTextEncoder new ] ]
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> encoder: anOTPrometheusTextEncoder [
 
-	encoder := anOTPrometheusTextEncoder
+	stateLock critical: [
+			| currentEncoder |
+			self ensureOpenLocked.
+			currentEncoder := encoder.
+			currentEncoder ifNotNil: [
+					anOTPrometheusTextEncoder
+						resourceConstantLabels: currentEncoder resourceConstantLabels;
+						scopeInfoEnabled: currentEncoder scopeInfoEnabled;
+						targetInfoEnabled: currentEncoder targetInfoEnabled;
+						translationStrategy: currentEncoder translationStrategy ].
+			encoder := anOTPrometheusTextEncoder ]
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> escapingModeFromAcceptParameters: someParameters [
+
+	| value |
+	value := self valueForAcceptParameterNamed: 'escaping' in: someParameters.
+	value = 'allow-utf-8' ifTrue: [ ^ #allowUtf8 ].
+	value = 'underscores' ifTrue: [ ^ #underscores ].
+	^ nil
 ]
 
 { #category : 'private - http' }
 OTPrometheusMetricReader >> handleRequest: aZnRequest [
 
 	(aZnRequest method = #GET and: [ aZnRequest uri pathPrintString = self path ]) ifTrue: [
-		^ self metricsResponseForFormat: (self responseFormatForAcceptHeader: aZnRequest accept) ].
+		^ self metricsResponseForResponseFormat: (self responseFormatDescriptorForAcceptHeader: aZnRequest accept) ].
 	^ ZnResponse notFound: aZnRequest uri
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> host [
 
-	^ host ifNil: [ 'localhost' ]
+	^ stateLock critical: [ host ifNil: [ 'localhost' ] ]
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> host: aString [
 
-	host := aString ifNil: [ 'localhost' ] ifNotNil: [ aString asString ]
+	stateLock critical: [
+			self ensureOpenLocked.
+			host := aString ifNil: [ 'localhost' ] ifNotNil: [ aString asString ] ]
 ]
 
 { #category : 'initialization' }
@@ -99,30 +148,23 @@ OTPrometheusMetricReader >> initialize [
 	host := 'localhost'.
 	port := 9464.
 	path := '/metrics'.
-	encoder := OTPrometheusTextEncoder new.
-	server := nil
+	encoder := OTPrometheusTextEncoder new
 ]
 
 { #category : 'private - http' }
-OTPrometheusMetricReader >> metricsResponse [
-
-	^ self metricsResponseForFormat: self defaultResponseFormat
-]
-
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> metricsResponseForFormat: aFormatSymbol [
+OTPrometheusMetricReader >> metricsResponseForResponseFormat: aDictionary [
 
 	| entity response |
-	entity := ZnEntity text: (self scrapeTextForFormat: aFormatSymbol).
+	entity := ZnEntity text: (self scrapeTextForResponseFormat: aDictionary).
 	response := ZnResponse ok: entity.
-	response setContentType: (self contentTypeStringForFormat: aFormatSymbol).
+	response setContentType: (self contentTypeStringForResponseFormat: aDictionary).
 	^ response
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> path [
 
-	^ path ifNil: [ '/metrics' ]
+	^ stateLock critical: [ path ifNil: [ '/metrics' ] ]
 ]
 
 { #category : 'accessing' }
@@ -130,31 +172,76 @@ OTPrometheusMetricReader >> path: aString [
 
 	| normalized |
 	normalized := aString ifNil: [ '/metrics' ] ifNotNil: [ aString asString ].
-	path := normalized isEmpty
-		        ifTrue: [ '/metrics' ]
-		        ifFalse: [
-				        normalized first = $/
-					        ifTrue: [ normalized ]
-					        ifFalse: [ '/' , normalized ] ]
+	stateLock critical: [
+			self ensureOpenLocked.
+			path := normalized isEmpty
+				        ifTrue: [ '/metrics' ]
+				        ifFalse: [
+						        normalized first = $/
+							        ifTrue: [ normalized ]
+							        ifFalse: [ '/' , normalized ] ] ]
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> port [
 
-	^ port ifNil: [ 9464 ]
+	^ stateLock critical: [ port ifNil: [ 9464 ] ]
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> port: anInteger [
 
-	port := anInteger ifNil: [ 9464 ] ifNotNil: [ anInteger max: 0 ]
+	stateLock critical: [
+			self ensureOpenLocked.
+			port := anInteger ifNil: [ 9464 ] ifNotNil: [ anInteger max: 0 ] ]
 ]
 
 { #category : 'private - http' }
-OTPrometheusMetricReader >> responseFormatForAcceptHeader: aString [
+OTPrometheusMetricReader >> prometheusEscapingHeaderValueFor: aSymbol [
+
+	aSymbol = #allowUtf8 ifTrue: [ ^ 'allow-utf-8' ].
+	^ 'underscores'
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> resourceConstantLabels [
+
+	^ stateLock critical: [
+			  encoder ifNil: [ encoder := OTPrometheusTextEncoder new ].
+			  encoder resourceConstantLabels ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> resourceConstantLabels: anOTMetricAttributeFilterOrNil [
+
+	stateLock critical: [
+			self ensureOpenLocked.
+			(encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) resourceConstantLabels: anOTMetricAttributeFilterOrNil ]
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> responseFormatDescriptorFor: aFormatSymbol [
+
+	^ Dictionary new
+		  at: #format put: aFormatSymbol;
+		  at: #escaping put: (self defaultEscapingModeForFormat: aFormatSymbol);
+		  yourself
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> responseFormatDescriptorFor: aFormatSymbol escaping: aSymbol [
+
+	^ Dictionary new
+		  at: #format put: aFormatSymbol;
+		  at: #escaping put: aSymbol;
+		  yourself
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> responseFormatDescriptorForAcceptHeader: aString [
 
 	| bestFormat bestOrder bestWeight |
-	bestFormat := self defaultResponseFormat.
+	bestFormat := self defaultResponseFormatDescriptor.
 	bestWeight := -1.
 	bestOrder := Float infinity.
 	(self supportedResponseFormatsForAcceptHeader: aString) do: [ :each |
@@ -165,55 +252,110 @@ OTPrometheusMetricReader >> responseFormatForAcceptHeader: aString [
 	^ bestFormat
 ]
 
-{ #category : 'collecting' }
-OTPrometheusMetricReader >> scrapeText [
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> responseFormatForAcceptHeader: aString [
 
-	^ self scrapeTextForFormat: self defaultResponseFormat
+	^ (self responseFormatDescriptorForAcceptHeader: aString) at: #format
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> scopeInfoEnabled [
+
+	^ stateLock critical: [ (encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) scopeInfoEnabled ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> scopeInfoEnabled: aBoolean [
+
+	stateLock critical: [
+			self ensureOpenLocked.
+			(encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) scopeInfoEnabled: aBoolean ]
+]
+
+{ #category : 'private - http' }
+OTPrometheusMetricReader >> scrapeEncoder [
+
+	| configuredEncoder template |
+	template := self encoder.
+	configuredEncoder := OTPrometheusTextEncoder new.
+	configuredEncoder
+		resourceConstantLabels: template resourceConstantLabels;
+		scopeInfoEnabled: template scopeInfoEnabled;
+		targetInfoEnabled: template targetInfoEnabled;
+		translationStrategy: template translationStrategy;
+		warningSink: template warningSink.
+	^ configuredEncoder
 ]
 
 { #category : 'collecting' }
-OTPrometheusMetricReader >> scrapeTextForFormat: aFormatSymbol [
+OTPrometheusMetricReader >> scrapeTextForResponseFormat: aDictionary [
 
-	^ self encoder encodeSnapshot: self collectSnapshot format: aFormatSymbol
+	| configuredEncoder |
+	configuredEncoder := self scrapeEncoder.
+	configuredEncoder escapingMode: (aDictionary at: #escaping ifAbsent: [ nil ]).
+	^ configuredEncoder encodeSnapshot: self collectSnapshot format: (aDictionary at: #format)
 ]
 
 { #category : 'accessing' }
 OTPrometheusMetricReader >> server [
 
-	^ server
+	^ stateLock critical: [ server ]
 ]
 
 { #category : 'lifecycle' }
 OTPrometheusMetricReader >> shutdown [
 
-	| result |
+	self beginShutdown ifFalse: [ ^ false ].
 	self stopServer.
-	result := super shutdown.
-	^ result
+	self finishShutdown.
+	^ true
 ]
 
 { #category : 'private - http' }
 OTPrometheusMetricReader >> startServer [
 
-	| bindingAddress newServer |
-	self isShutdown ifTrue: [ ^ nil ].
-	server ifNotNil: [ ^ server ].
-	newServer := ZnServer defaultServerClass on: self port.
+	| bindingAddress hostValue newServer portValue runningServer snapshot |
+	snapshot := stateLock critical: [
+			            (shutdownRequested or: [ shutdown ]) ifTrue: [ ^ nil ].
+			            server ifNotNil: [ ^ server ].
+			            {
+				            (host ifNil: [ 'localhost' ]).
+				            (port ifNil: [ 9464 ]) } ].
+	hostValue := snapshot first.
+	portValue := snapshot second.
+	newServer := ZnServer defaultServerClass on: portValue.
 	newServer delegate: self.
-	bindingAddress := self bindingAddressForHost.
+	bindingAddress := self bindingAddressForHost: hostValue.
 	bindingAddress ifNotNil: [ newServer bindingAddress: bindingAddress ].
 	newServer start.
-	server := newServer.
-	port := newServer port.
-	^ server
+	runningServer := stateLock critical: [
+			                 shutdownRequested
+				                 ifTrue: [ nil ]
+				                 ifFalse: [
+						                 server
+							                 ifNil: [
+									                 server := newServer.
+									                 port := newServer port.
+									                 server ]
+							                 ifNotNil: [ server ] ] ].
+	runningServer ifNil: [
+			newServer stop.
+			^ nil ].
+	runningServer == newServer ifTrue: [ ^ runningServer ].
+	newServer stop.
+	^ runningServer
 ]
 
 { #category : 'private - http' }
 OTPrometheusMetricReader >> stopServer [
 
-	server ifNotNil: [
-			server stop.
-			server := nil ].
+	| runningServer |
+	runningServer := stateLock critical: [
+			                 | previousServer |
+			                 previousServer := server.
+			                 server := nil.
+			                 previousServer ].
+	runningServer ifNotNil: [ runningServer stop ].
 	^ nil
 ]
 
@@ -223,26 +365,32 @@ OTPrometheusMetricReader >> supportedResponseFormatsForAcceptHeader: aString [
 	| acceptedFormats formats results |
 	acceptedFormats := self supportedResponseFormatsFromHeader: aString.
 	formats := OrderedCollection new
-		           add: #openMetricsText100 -> ('application/openmetrics-text' -> '1.0.0');
-		           add: #prometheusText100 -> ('text/plain' -> '1.0.0');
-		           add: #prometheusText004 -> ('text/plain' -> '0.0.4');
+		           add: #openMetricsText100 -> ('application/openmetrics-text' -> '1.0.0') -> #( #underscores #allowUtf8 );
+		           add: #prometheusText100 -> ('text/plain' -> '1.0.0') -> #( #underscores #allowUtf8 );
+		           add: #prometheusText004 -> ('text/plain' -> '0.0.4') -> #( #underscores );
 		           yourself.
 	results := OrderedCollection new.
 	acceptedFormats do: [ :eachHeader |
-			| headerMime headerOrder headerVersion headerWeight |
+			| headerEscaping headerMime headerOrder headerVersion headerWeight |
 			headerMime := eachHeader at: #mime.
 			headerVersion := eachHeader at: #version ifAbsent: [ nil ].
+			headerEscaping := eachHeader at: #escaping ifAbsent: [ nil ].
 			headerWeight := eachHeader at: #q.
 			headerOrder := eachHeader at: #order.
 			formats do: [ :eachFormat |
-					| formatMime formatVersion |
-					formatMime := eachFormat value key.
-					formatVersion := eachFormat value value.
+					| descriptor formatEscapings formatMime formatVersion |
+					descriptor := eachFormat key.
+					formatEscapings := eachFormat value.
+					formatMime := descriptor value key.
+					formatVersion := descriptor value value.
 					(headerMime = '*/*' or: [ headerMime = formatMime and: [ headerVersion = formatVersion ] ]) ifTrue: [
-							results add: {
-									eachFormat key.
-									headerOrder.
-									headerWeight } ] ] ].
+							(headerEscaping isNil or: [ formatEscapings includes: headerEscaping ]) ifTrue: [
+									results add: {
+											(self
+												 responseFormatDescriptorFor: descriptor key
+												 escaping: (headerEscaping ifNil: [ self defaultEscapingModeForFormat: descriptor key ])).
+											headerOrder.
+											headerWeight } ] ] ] ].
 	^ results
 ]
 
@@ -261,8 +409,37 @@ OTPrometheusMetricReader >> supportedResponseFormatsFromHeader: aString [
 							   at: #mime put: mime;
 							   at: #order put: index;
 							   at: #q put: (self weightFromAcceptParameters: parameters);
+							   at: #escaping put: (self escapingModeFromAcceptParameters: parameters);
 							   at: #version put: (self valueForAcceptParameterNamed: 'version' in: parameters);
 							   yourself) ] ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> targetInfoEnabled [
+
+	^ stateLock critical: [ (encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) targetInfoEnabled ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> targetInfoEnabled: aBoolean [
+
+	stateLock critical: [
+			self ensureOpenLocked.
+			(encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) targetInfoEnabled: aBoolean ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> translationStrategy [
+
+	^ stateLock critical: [ (encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) translationStrategy ]
+]
+
+{ #category : 'accessing' }
+OTPrometheusMetricReader >> translationStrategy: aSymbol [
+
+	stateLock critical: [
+			self ensureOpenLocked.
+			(encoder ifNil: [ encoder := OTPrometheusTextEncoder new ]) translationStrategy: aSymbol ]
 ]
 
 { #category : 'private - http' }

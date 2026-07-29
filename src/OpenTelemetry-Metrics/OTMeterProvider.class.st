@@ -7,6 +7,8 @@ Class {
 	#instVars : [
 		'meters',
 		'shutdown',
+		'stateLock',
+		'shutdownRequested',
 		'meterConfigurator',
 		'resource',
 		'measurements',
@@ -36,10 +38,7 @@ OTMeterProvider class >> configurationWarningSink [
 { #category : 'private - logging' }
 OTMeterProvider class >> configurationWarningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otMetricConfigurationWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
+	OTClassStateStore valueAt: #otMetricConfigurationWarningSink forClass: self putOrRemoveIfNil: aBlock.
 	^ self configurationWarningSink
 ]
 
@@ -83,10 +82,18 @@ OTMeterProvider class >> configuredOtlpExporter [
 { #category : 'private - configuration' }
 OTMeterProvider class >> configuredPrometheusReader [
 
-	^ OTPrometheusMetricReader new
-		  host: self prometheusHost;
-		  port: self prometheusPort;
-		  yourself
+	| aggregationPreference filter reader translationStrategy |
+	aggregationPreference := self prometheusDefaultHistogramAggregationPreference.
+	filter := self prometheusResourceConstantLabels.
+	translationStrategy := self prometheusTranslationStrategy.
+	reader := OTPrometheusMetricReader new
+		          host: self prometheusHost;
+		          port: self prometheusPort;
+		          resourceConstantLabels: filter;
+		          yourself.
+	reader aggregationSelector: (OTPrometheusMetricReader aggregationSelectorForPreference: aggregationPreference).
+	reader translationStrategy: translationStrategy.
+	^ reader
 ]
 
 { #category : 'accessing' }
@@ -98,10 +105,7 @@ OTMeterProvider class >> current [
 { #category : 'accessing' }
 OTMeterProvider class >> current: anOTMeterProvider [
 
-	OTClassStateStore
-		valueAt: #otCurrent
-		forClass: self
-		putOrRemoveIfNil: anOTMeterProvider
+	OTClassStateStore valueAt: #otCurrent forClass: self putOrRemoveIfNil: anOTMeterProvider
 ]
 
 { #category : 'accessing' }
@@ -175,10 +179,7 @@ OTMeterProvider class >> meterNameWarningSink [
 { #category : 'private' }
 OTMeterProvider class >> meterNameWarningSink: aBlock [
 
-	OTClassStateStore
-		valueAt: #otMeterNameWarningSink
-		forClass: self
-		putOrRemoveIfNil: aBlock.
+	OTClassStateStore valueAt: #otMeterNameWarningSink forClass: self putOrRemoveIfNil: aBlock.
 	^ self meterNameWarningSink
 ]
 
@@ -227,13 +228,13 @@ OTMeterProvider class >> nonNegativeIntegerEnvironmentValueAt: aString default: 
 OTMeterProvider class >> normalizedMeterNameFrom: aValue [
 
 	| meterName |
-	aValue ifNil: [
+	meterName := self requestedMeterNameFrom: aValue.
+	meterName ifNil: [
 			self noteInvalidMeterName: aValue.
 			^ '' ].
-	meterName := aValue asString.
-	meterName trimBoth isEmpty ifTrue: [
+	meterName isEmpty ifTrue: [
 			self noteInvalidMeterName: aValue.
-			^ '' ].
+			^ meterName ].
 	^ meterName
 ]
 
@@ -254,8 +255,7 @@ OTMeterProvider class >> noteInvalidExemplarFilterName: aString [
 { #category : 'private - logging' }
 OTMeterProvider class >> noteInvalidMeterName: aValue [
 
-	self meterNameWarningSink value: 'OpenTelemetry meter name was invalid and has been normalized to an empty string: '
-		, (aValue ifNil: [ 'nil' ] ifNotNil: [ aValue printString ])
+	self meterNameWarningSink value: 'OpenTelemetry meter name was invalid: ' , aValue printString
 ]
 
 { #category : 'private - logging' }
@@ -282,14 +282,6 @@ OTMeterProvider class >> noteUnknownExporterName: aString [
 ]
 
 { #category : 'private - logging' }
-OTMeterProvider class >> noteUnsupportedExporterName: aString [
-
-	self configurationWarningSink value:
-		'OpenTelemetry metrics exporter name is recognized but not supported by this SDK yet and has been ignored: '
-		, aString printString
-]
-
-{ #category : 'private - logging' }
 OTMeterProvider class >> noteUnsupportedOtlpProtocol: aString [
 
 	self configurationWarningSink value:
@@ -310,6 +302,17 @@ OTMeterProvider class >> positiveIntegerEnvironmentValueAt: aString default: aDe
 ]
 
 { #category : 'private - configuration' }
+OTMeterProvider class >> prometheusDefaultHistogramAggregationPreference [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION'.
+	rawValue ifNil: [ ^ #explicitBucketHistogram ].
+	^ OTPrometheusMetricReader aggregationPreferenceNamed: rawValue ifAbsent: [
+			  self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION'.
+			  #explicitBucketHistogram ]
+]
+
+{ #category : 'private - configuration' }
 OTMeterProvider class >> prometheusHost [
 
 	| rawValue |
@@ -323,10 +326,33 @@ OTMeterProvider class >> prometheusPort [
 	^ self nonNegativeIntegerEnvironmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_PORT' default: 9464
 ]
 
+{ #category : 'private - configuration' }
+OTMeterProvider class >> prometheusResourceConstantLabels [
+
+	| included rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_RESOURCE_CONSTANT_LABELS'.
+	rawValue ifNil: [ ^ nil ].
+	included := self stringCollectionFrom: rawValue.
+	included ifNil: [ ^ nil ].
+	^ OTMetricAttributeFilter included: included excluded: nil
+]
+
+{ #category : 'private - configuration' }
+OTMeterProvider class >> prometheusTranslationStrategy [
+
+	| rawValue |
+	rawValue := self environmentValueAt: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY'.
+	rawValue ifNil: [ ^ OTPrometheusTextEncoder defaultTranslationStrategy ].
+	^ OTPrometheusTextEncoder translationStrategyNamed: rawValue ifAbsent: [
+			  self noteInvalidPrometheusEnvironmentValue: rawValue forVariable: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY'.
+			  OTPrometheusTextEncoder defaultTranslationStrategy ]
+]
+
 { #category : 'instance creation' }
 OTMeterProvider class >> readConfiguration [
 
 	| configurationSourceClass exporterNames provider readers views |
+	OTTracerProvider sdkDisabled ifTrue: [ ^ OTNoopMeterProvider instance ].
 	provider := self new.
 	configurationSourceClass := self configurationSourceClass.
 	provider
@@ -335,7 +361,6 @@ OTMeterProvider class >> readConfiguration [
 		meterConfigurator: (configurationSourceClass ifNotNil: [ configurationSourceClass configuredMeterConfigurator ]).
 	views := configurationSourceClass ifNotNil: [ configurationSourceClass configuredMetricViews ] ifNil: [ #(  ) ].
 	views do: [ :each | provider addView: each ].
-	OTTracerProvider sdkDisabled ifTrue: [ ^ provider ].
 	readers := configurationSourceClass ifNotNil: [ configurationSourceClass configuredMetricReaders ].
 	readers ifNotNil: [
 			readers do: [ :each | provider addMetricReader: each ].
@@ -363,6 +388,12 @@ OTMeterProvider class >> readerForExporter: anExporter [
 	^ reader
 ]
 
+{ #category : 'private' }
+OTMeterProvider class >> requestedMeterNameFrom: aValue [
+
+	^ aValue ifNotNil: [ aValue asString ]
+]
+
 { #category : 'class initialization' }
 OTMeterProvider class >> reset [
 
@@ -387,13 +418,32 @@ OTMeterProvider class >> strictPositiveIntegerFrom: aString [
 	^ value
 ]
 
+{ #category : 'private' }
+OTMeterProvider class >> stringCollectionFrom: aString [
+
+	| entries trimmed |
+	trimmed := aString trimBoth.
+	trimmed isEmpty ifTrue: [ ^ nil ].
+	(trimmed size >= 2 and: [ trimmed first = $[ and: [ trimmed last = $] ] ]) ifTrue: [
+		trimmed := (trimmed copyFrom: 2 to: trimmed size - 1) trimBoth ].
+	trimmed ifEmpty: [ ^ #(  ) ].
+	entries := OrderedCollection new.
+	(trimmed substrings: ',') do: [ :each |
+			| entry |
+			entry := each trimBoth.
+			entry ifNotEmpty: [ entries add: entry ] ].
+	^ entries asArray
+]
+
 { #category : 'accessing' }
 OTMeterProvider >> addMetricReader: anOTMetricReader [
 
 	anOTMetricReader ifNil: [ ^ self metricReaders ].
-	anOTMetricReader attachToProvider: self.
+	stateLock critical: [
+			self ensureOpenLocked.
+			anOTMetricReader attachToProvider: self.
+			metricReaders add: anOTMetricReader ].
 	anOTMetricReader didRegisterWithProvider.
-	self metricReaders add: anOTMetricReader.
 	^ self metricReaders
 ]
 
@@ -401,36 +451,62 @@ OTMeterProvider >> addMetricReader: anOTMetricReader [
 OTMeterProvider >> addView: anOTMetricView [
 
 	anOTMetricView ifNil: [ ^ self views ].
-	self views add: anOTMetricView.
+	stateLock critical: [
+			self ensureOpenLocked.
+			views add: anOTMetricView ].
 	^ self views
 ]
 
 { #category : 'collecting' }
 OTMeterProvider >> collectMeasurementsFor: anOTMetricReader [
 
-	| collected |
-	collected := self measurements copy.
-	self meters valuesDo: [ :each | each collectMeasurementsFor: anOTMetricReader into: collected ].
-	^ collected
+	| snapshot |
+	snapshot := stateLock critical: [
+			            {
+				            measurements copy.
+				            meters values asArray } ].
+	snapshot second do: [ :each | each collectMeasurementsFor: anOTMetricReader into: snapshot first ].
+	^ snapshot first
+]
+
+{ #category : 'private - lifecycle' }
+OTMeterProvider >> ensureOpenLocked [
+
+	(shutdownRequested or: [ shutdown ]) ifTrue: [ Error signal: 'This meter provider has been shut down' ].
+	self
 ]
 
 { #category : 'accessing' }
 OTMeterProvider >> exemplarFilter [
 
-	^ exemplarFilter ifNil: [ exemplarFilter := OTMetricExemplarFilter traceBased ]
+	^ stateLock critical: [ exemplarFilter ifNil: [ exemplarFilter := OTMetricExemplarFilter traceBased ] ]
 ]
 
 { #category : 'accessing' }
 OTMeterProvider >> exemplarFilter: anOTMetricExemplarFilter [
 
-	exemplarFilter := anOTMetricExemplarFilter ifNil: [ OTMetricExemplarFilter traceBased ] ifNotNil: [ anOTMetricExemplarFilter ].
+	stateLock critical: [
+			self ensureOpenLocked.
+			exemplarFilter := anOTMetricExemplarFilter ifNil: [ OTMetricExemplarFilter traceBased ] ifNotNil: [ anOTMetricExemplarFilter ] ].
 	^ self exemplarFilter
 ]
 
 { #category : 'lifecycle' }
 OTMeterProvider >> forceFlush [
 
-	^ self metricReaders allSatisfy: [ :each | each forceFlush ]
+	^ self forceFlushResult isSuccess
+]
+
+{ #category : 'lifecycle' }
+OTMeterProvider >> forceFlushResult [
+
+	| snapshot |
+	snapshot := stateLock critical: [
+			            {
+				            (shutdownRequested or: [ shutdown ]).
+				            metricReaders copy } ].
+	snapshot first ifTrue: [ ^ OTLifecycleResult failure ].
+	^ snapshot second inject: OTLifecycleResult success into: [ :allFlushed :each | allFlushed combinedWith: each forceFlushResult ]
 ]
 
 { #category : 'initialization' }
@@ -443,20 +519,29 @@ OTMeterProvider >> initialize [
 	views := OrderedCollection new.
 	exemplarFilter := OTMetricExemplarFilter traceBased.
 	shutdown := false.
-	meterConfigurator := nil.
+	shutdownRequested := false.
+	stateLock := Semaphore forMutualExclusion.
 	resource := OTResource empty
 ]
 
 { #category : 'testing' }
 OTMeterProvider >> isShutdown [
 
-	^ shutdown
+	^ stateLock critical: [ shutdown ]
+]
+
+{ #category : 'testing' }
+OTMeterProvider >> isStopping [
+
+	^ stateLock critical: [ shutdownRequested ]
 ]
 
 { #category : 'configuration' }
 OTMeterProvider >> matchingViewsFor: anOTMetricInstrument [
 
-	^ self views select: [ :each | each matchesInstrument: anOTMetricInstrument ]
+	| currentViews |
+	currentViews := stateLock critical: [ views copy ].
+	^ currentViews select: [ :each | each matchesInstrument: anOTMetricInstrument ]
 ]
 
 { #category : 'recording' }
@@ -471,6 +556,7 @@ OTMeterProvider >> measurementFor: anOTMetricInstrument value: aNumber attribute
 	spanId := spanContext ifNotNil: [ spanContext spanId ].
 	measurement
 		exemplarEligible: (self exemplarFilter isMeasurementEligibleWithSpanContext: spanContext);
+		exemplarAttributes: aCollection;
 		exemplarTraceId: traceId;
 		exemplarSpanId: spanId.
 	^ measurement
@@ -479,31 +565,34 @@ OTMeterProvider >> measurementFor: anOTMetricInstrument value: aNumber attribute
 { #category : 'accessing' }
 OTMeterProvider >> measurements [
 
-	^ measurements ifNil: [ measurements := OrderedCollection new ]
+	^ stateLock critical: [ measurements copy ]
 ]
 
 { #category : 'configuration' }
 OTMeterProvider >> meterConfigFor: anOTInstrumentationScope [
 
-	| configured |
-	meterConfigurator ifNil: [ ^ OTMeterConfig default ].
-	configured := meterConfigurator value: anOTInstrumentationScope.
+	| configured configurator |
+	configurator := stateLock critical: [ meterConfigurator ].
+	configurator ifNil: [ ^ OTMeterConfig default ].
+	configured := configurator value: anOTInstrumentationScope.
 	configured ifNil: [ ^ OTMeterConfig default ].
 	configured class = OTMeterConfig ifTrue: [ ^ configured copy ].
-	(configured == true or: [ configured == false ]) ifTrue: [ ^ OTMeterConfig enabled: configured ].
+	(configured isKindOf: Boolean) ifTrue: [ ^ OTMeterConfig enabled: configured ].
 	^ OTMeterConfig default
 ]
 
 { #category : 'configuration' }
 OTMeterProvider >> meterConfigurator [
 
-	^ meterConfigurator
+	^ stateLock critical: [ meterConfigurator ]
 ]
 
 { #category : 'configuration' }
 OTMeterProvider >> meterConfigurator: aBlockOrNil [
 
-	meterConfigurator := aBlockOrNil
+	stateLock critical: [
+			self ensureOpenLocked.
+			meterConfigurator := aBlockOrNil ]
 ]
 
 { #category : 'accessing' }
@@ -519,68 +608,105 @@ OTMeterProvider >> meterNamed: aString [
 { #category : 'accessing' }
 OTMeterProvider >> meterNamed: aString version: aVersionString schemaUrl: aSchemaUrlString attributes: aCollection [
 
-	| scope |
+	| meter meterKey requestedName scope |
+	requestedName := self class requestedMeterNameFrom: aString.
 	scope := OTInstrumentationScope
-		         named: (self class normalizedMeterNameFrom: aString)
+		         named: (self class normalizedMeterNameFrom: requestedName)
 		         version: (aVersionString ifNil: [ '' ] ifNotNil: [ aVersionString asString ])
 		         schemaUrl: (aSchemaUrlString ifNil: [ '' ] ifNotNil: [ aSchemaUrlString asString ])
 		         attributes: aCollection.
-	self isShutdown ifTrue: [ ^ OTMeter forProvider: nil instrumentationScope: scope ].
-	^ self meters at: scope ifAbsentPut: [ OTMeter forProvider: self instrumentationScope: scope ]
+	meterKey := {
+		            requestedName.
+		            scope version.
+		            scope schemaUrl.
+		            scope allAttributes }.
+	^ stateLock critical: [
+			  (shutdownRequested or: [ shutdown ]) ifTrue: [ ^ OTNoopMeter instance ].
+			  meter := meters at: meterKey ifAbsent: [ nil ].
+			  meter ifNotNil: [ ^ meter ].
+			  meter := OTMeter forProvider: self instrumentationScope: scope.
+			  meter rawInstrumentationName: requestedName.
+			  meters at: meterKey put: meter.
+			  meter ]
 ]
 
 { #category : 'accessing' }
 OTMeterProvider >> meters [
 
-	^ meters ifNil: [ meters := OrderedDictionary new ]
+	^ stateLock critical: [ meters copy ]
 ]
 
 { #category : 'accessing' }
 OTMeterProvider >> metricReaders [
 
-	^ metricReaders ifNil: [ metricReaders := OrderedCollection new ]
+	^ stateLock critical: [ metricReaders copy ]
 ]
 
 { #category : 'recording' }
 OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber attributes: aCollection [
 
+	| measurement |
 	anOTMetricInstrument enabled ifFalse: [ ^ false ].
-	self measurements add: (self measurementFor: anOTMetricInstrument value: aNumber attributes: aCollection).
-	^ true
+	measurement := self measurementFor: anOTMetricInstrument value: aNumber attributes: aCollection.
+	^ stateLock critical: [
+			  (shutdownRequested or: [ shutdown ])
+				  ifTrue: [ false ]
+				  ifFalse: [
+						  measurements add: measurement.
+						  true ] ]
 ]
 
 { #category : 'accessing' }
 OTMeterProvider >> registeredMetricInstruments [
 
-	| instruments |
+	| instruments registeredMeters |
 	instruments := OrderedCollection new.
-	self meters valuesDo: [ :each | instruments addAll: each registeredMetricInstruments ].
+	registeredMeters := stateLock critical: [ meters values asArray ].
+	registeredMeters do: [ :each | instruments addAll: each registeredMetricInstruments ].
 	^ instruments asArray
 ]
 
 { #category : 'accessing' }
 OTMeterProvider >> resource [
 
-	^ resource ifNil: [ OTResource empty ]
+	^ stateLock critical: [ resource ifNil: [ OTResource empty ] ]
 ]
 
 { #category : 'accessing' }
 OTMeterProvider >> resource: anOTResource [
 
-	resource := anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ].
+	stateLock critical: [
+			self ensureOpenLocked.
+			resource := anOTResource ifNil: [ OTResource empty ] ifNotNil: [ anOTResource ] ].
 	^ self resource
 ]
 
 { #category : 'lifecycle' }
 OTMeterProvider >> shutdown [
 
-	self metricReaders do: [ :each | each shutdown ].
-	shutdown := true.
-	^ true
+	^ self shutdownResult isSuccess
+]
+
+{ #category : 'lifecycle' }
+OTMeterProvider >> shutdownResult [
+
+	| alreadyStopping allShutdown readers |
+	readers := #(  ).
+	alreadyStopping := stateLock critical: [
+			                   | stopping |
+			                   stopping := shutdownRequested or: [ shutdown ].
+			                   stopping ifFalse: [
+					                   shutdownRequested := true.
+					                   readers := metricReaders copy ].
+			                   stopping ].
+	alreadyStopping ifTrue: [ ^ OTLifecycleResult failure ].
+	allShutdown := readers inject: OTLifecycleResult success into: [ :combined :each | combined combinedWith: each shutdownResult ].
+	stateLock critical: [ shutdown := true ].
+	^ allShutdown
 ]
 
 { #category : 'accessing' }
 OTMeterProvider >> views [
 
-	^ views ifNil: [ views := OrderedCollection new ]
+	^ stateLock critical: [ views copy ]
 ]

@@ -1,5 +1,8 @@
 "
-Abstract no-op metric instrument foundation.
+Abstract metric instrument foundation.
+
+I hold the shared metadata and aggregation hooks used by concrete metric
+instruments.
 "
 Class {
 	#name : 'OTMetricInstrument',
@@ -41,6 +44,12 @@ OTMetricInstrument >> advice [
 OTMetricInstrument >> advice: aDictionary [
 
 	advice := aDictionary
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> aggregationForPreference: aSymbol [
+
+	^ #default
 ]
 
 { #category : 'aggregating' }
@@ -187,7 +196,7 @@ OTMetricInstrument >> normalizedAttributesForMeasurement: anOTMetricMeasurement 
 { #category : 'aggregating' }
 OTMetricInstrument >> otlpAggregationForPreference: aSymbol [
 
-	^ #default
+	^ self aggregationForPreference: aSymbol
 ]
 
 { #category : 'aggregating' }
@@ -220,6 +229,16 @@ OTMetricInstrument >> otlpTemporalityForPreference: aSymbol [
 OTMetricInstrument >> preparedMeasurementsFrom: someMeasurements forReader: anOTMetricReader using: anOTMetricAggregationContext [
 
 	^ someMeasurements
+]
+
+{ #category : 'recording' }
+OTMetricInstrument >> recordableMeasurementValueFrom: anObject [
+
+	| value |
+	anObject isNumber ifFalse: [ ^ nil ].
+	value := anObject asFloat.
+	(value isNaN or: [ value isInfinite ]) ifTrue: [ ^ nil ].
+	^ anObject
 ]
 
 { #category : 'aggregating' }

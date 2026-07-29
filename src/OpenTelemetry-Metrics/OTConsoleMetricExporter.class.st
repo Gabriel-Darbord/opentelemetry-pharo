@@ -15,13 +15,14 @@ Class {
 { #category : 'exporting' }
 OTConsoleMetricExporter >> export: anOTMetricSnapshot [
 
-	| stream |
-	self isShutdown ifTrue: [ ^ false ].
-	stream := self outputStream.
-	stream
-		nextPutAll: anOTMetricSnapshot metrics printString;
-		lf.
-	^ true
+	^ self withSynchronizedExportDo: [
+			  | stream |
+			  self isStopping ifTrue: [ ^ false ].
+			  stream := self outputStream.
+			  stream
+				  nextPutAll: anOTMetricSnapshot metrics printString;
+				  lf.
+			  true ]
 ]
 
 { #category : 'accessing' }

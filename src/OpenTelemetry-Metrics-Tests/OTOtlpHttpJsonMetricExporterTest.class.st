@@ -113,6 +113,37 @@ OTOtlpHttpJsonMetricExporterTest >> testExportCompressesPayloadWhenConfigured [
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testExportReturnsFalseForUnsupportedTemporalityWithoutExecutingHttpRequest [
+
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			| snapshot |
+			snapshot := self sampleSnapshot.
+			snapshot metrics first temporality: #sideways.
+			self deny: (exporter export: snapshot).
+			self assert: client executionCount equals: 0.
+			self assert: retrySleeps isEmpty.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'failed to encode').
+			self assert: (warnings first includesSubstring: 'unsupported') ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testExportEncodesNonFiniteNumbersAsJsonStrings [
+
+	| payload point resourceMetrics scopeMetrics snapshot |
+	snapshot := self sampleSnapshot.
+	point := snapshot metrics first points first.
+	point value: Float nan.
+	snapshot metrics first metadata: { ('limit' -> Float negativeInfinity) }.
+	self assert: (exporter export: snapshot).
+	payload := self payloadFromClientEntity.
+	resourceMetrics := (payload at: 'resourceMetrics') first.
+	scopeMetrics := (resourceMetrics at: 'scopeMetrics') first.
+	self assert: ((((scopeMetrics at: 'metrics') first at: 'sum') at: 'dataPoints') first at: 'asDouble') equals: 'NaN'.
+	self assert: ((((scopeMetrics at: 'metrics') first at: 'metadata') first at: 'value') at: 'doubleValue') equals: '-Infinity'
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonMetricExporterTest >> testExportRetriesRetryableHttpResponsesUntilSuccess [
 
 	client
@@ -129,6 +160,22 @@ OTOtlpHttpJsonMetricExporterTest >> testExportRetriesRetryableHttpResponsesUntil
 			self assert: client executionCount equals: 2.
 			self assert: retrySleeps asArray equals: #( 2000 ).
 			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testExportReturnsFalseAfterShutdown [
+
+	self assert: exporter shutdown.
+	self deny: (exporter export: self sampleSnapshot).
+	self assert: client executionCount equals: 0
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testExportUsesDefaultTimeoutWhenConfigurationTimeoutIsNil [
+
+	configuration timeoutMillis: nil.
+	self assert: (exporter export: self sampleSnapshot).
+	self assert: client timeout equals: 10000
 ]
 
 { #category : 'tests' }

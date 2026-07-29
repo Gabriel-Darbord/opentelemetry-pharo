@@ -49,6 +49,78 @@ OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusMetricRea
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusResourceConstantLabels [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+						 at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
+						 at: 'OTEL_EXPORTER_PROMETHEUS_RESOURCE_CONSTANT_LABELS' put: 'service.name, service.namespace';
+						 yourself)
+				during: [
+						| filter metricReader |
+						metricReader := OTMeterProvider current metricReaders first.
+						filter := metricReader resourceConstantLabels.
+						self assert: filter class identicalTo: OTMetricAttributeFilter.
+						self assert: filter includedKeys equals: #( 'service.name' 'service.namespace' ).
+						self assert: filter excludedKeys isNil ].
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentConfiguresPrometheusTranslationStrategy [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+						 at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
+						 at: 'OTEL_EXPORTER_PROMETHEUS_TRANSLATION_STRATEGY' put: 'NoTranslation';
+						 yourself)
+				during: [
+						| metricReader |
+						metricReader := OTMeterProvider current metricReaders first.
+						self assert: metricReader class identicalTo: OTPrometheusMetricReader.
+						self assert: metricReader translationStrategy equals: #noTranslation ].
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentTreatsEmptyEnvironmentValuesAsUnset [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_SDK_DISABLED' put: '';
+						 at: 'OTEL_METRICS_EXPORTER' put: '';
+						 at: 'OTEL_METRIC_EXPORT_INTERVAL' put: '';
+						 at: 'OTEL_METRIC_EXPORT_TIMEOUT' put: '';
+						 yourself)
+				during: [
+						| provider reader |
+						provider := OTMeterProvider current.
+						self assert: provider class identicalTo: OTMeterProvider.
+						self assert: provider metricReaders size equals: 1.
+						reader := provider metricReaders first.
+						self assert: reader class identicalTo: OTPeriodicExportingMetricReader.
+						self assert: reader exporter class identicalTo: OTOtlpHttpProtobufMetricExporter.
+						self assert: reader exportIntervalMillis equals: 60000.
+						self assert: reader exportTimeoutMillis equals: 30000 ].
+			self assert: warnings isEmpty ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentTreatsNonTrueSdkDisabledValueAsFalse [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_SDK_DISABLED' put: '1';
+				 yourself)
+		during: [ self deny: OTMeterProvider current class identicalTo: OTNoopMeterProvider ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredExemplarFilter [
 
 	self
@@ -168,6 +240,22 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesExplicitBucketHistogramAg
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesExplicitBucketHistogramAggregationByDefaultForPrometheusExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+				 at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
+				 yourself)
+		during: [
+				| histogram provider reader |
+				provider := OTMeterProvider current.
+				reader := provider metricReaders first.
+				histogram := (provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration'.
+				self assert: (reader aggregationFor: histogram) equals: #default ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggregationWhenConfiguredForOtlpExporter [
 
 	self
@@ -181,6 +269,25 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggre
 				reader := provider metricReaders first.
 				histogram := (provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration'.
 				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesExponentialHistogramAggregationWhenConfiguredForPrometheusExporter [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
+				 at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '0';
+				 at: 'OTEL_EXPORTER_PROMETHEUS_DEFAULT_HISTOGRAM_AGGREGATION' put: 'base2_exponential_bucket_histogram';
+				 yourself)
+		during: [
+				| counter histogram provider reader |
+				provider := OTMeterProvider current.
+				reader := provider metricReaders first.
+				counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+				histogram := (provider meterNamed: 'demo.metrics') histogramNamed: 'request.duration'.
+				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram.
+				self assert: (reader aggregationFor: counter) equals: #default ]
 ]
 
 { #category : 'tests' }
@@ -255,6 +362,16 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesNoReadersWhenMetricExport
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesNoopMeterProviderWhenSdkIsDisabled [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_SDK_DISABLED' put: 'TRUE';
+				 yourself)
+		during: [ self assert: OTMeterProvider current class identicalTo: OTNoopMeterProvider ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesOtlpGrpcMetricExporterWhenConfigured [
 
 	self
@@ -288,6 +405,21 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesTraceBasedExemplarFilterB
 	self
 		withEnvironmentValues: Dictionary new
 		during: [ self assert: OTMeterProvider current exemplarFilter class identicalTo: OTTraceBasedMetricExemplarFilter ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidExemplarFilterAndFallsBackToTraceBased [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_METRICS_EXEMPLAR_FILTER' put: 'loudly_maybe';
+						 yourself)
+				during: [ self assert: OTMeterProvider current exemplarFilter class identicalTo: OTTraceBasedMetricExemplarFilter ].
+			self assert: warnings size equals: 1.
+			self
+				assert: warnings first
+				equals: 'OpenTelemetry metrics exemplar filter was invalid and defaulted to trace_based: ''loudly_maybe''' ]
 ]
 
 { #category : 'tests' }
