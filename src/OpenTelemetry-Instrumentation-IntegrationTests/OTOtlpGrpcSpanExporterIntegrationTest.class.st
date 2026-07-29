@@ -1,42 +1,9 @@
 Class {
 	#name : 'OTOtlpGrpcSpanExporterIntegrationTest',
-	#superclass : 'TestCase',
+	#superclass : 'OTOtlpGrpcIntegrationTest',
 	#category : 'OpenTelemetry-Instrumentation-IntegrationTests',
 	#package : 'OpenTelemetry-Instrumentation-IntegrationTests'
 }
-
-{ #category : 'private' }
-OTOtlpGrpcSpanExporterIntegrationTest >> collectorEndpoint [
-
-	^ self environmentValueAt: 'OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT' ifAbsent: [ 'http://127.0.0.1:4317' ]
-]
-
-{ #category : 'private' }
-OTOtlpGrpcSpanExporterIntegrationTest >> collectorOutputFile [
-
-	^ (self environmentValueAt: 'OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE' ifAbsent: [ ^ nil ]) asFileReference
-]
-
-{ #category : 'private' }
-OTOtlpGrpcSpanExporterIntegrationTest >> environmentValueAt: aKey ifAbsent: aBlock [
-
-	| environment value |
-	environment := Smalltalk os environment.
-	value := environment at: aKey ifAbsent: [ ^ aBlock value ].
-	value := value asString trimBoth.
-	^ value isEmpty
-		  ifTrue: [ aBlock value ]
-		  ifFalse: [ value ]
-]
-
-{ #category : 'private' }
-OTOtlpGrpcSpanExporterIntegrationTest >> integrationEnabled [
-
-	| value |
-	value := self environmentValueAt: 'OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED' ifAbsent: [ ^ false ].
-	value := value asLowercase.
-	^ #( '1' 'true' 'yes' 'on' ) includes: value
-]
 
 { #category : 'private' }
 OTOtlpGrpcSpanExporterIntegrationTest >> sampleSpanNamed: aString [
@@ -61,8 +28,8 @@ OTOtlpGrpcSpanExporterIntegrationTest >> sampleSpanNamed: aString [
 OTOtlpGrpcSpanExporterIntegrationTest >> testExportSucceedsAgainstRealCollectorUsingOtlpGrpc [
 
 	| configuration exporter outputFile span spanName |
-	(self integrationEnabled and: [ self collectorOutputFile notNil ]) ifFalse: [ self skip ].
-	outputFile := self collectorOutputFile.
+	(self integrationEnabled and: [ (self collectorOutputFileForSignalNamed: 'TRACES') notNil ]) ifFalse: [ self skip ].
+	outputFile := self collectorOutputFileForSignalNamed: 'TRACES'.
 	spanName := 'pharo.otlp.grpc.integration.' , UUID new asString36.
 	span := self sampleSpanNamed: spanName.
 	configuration := OTOtlpExporterConfiguration forSignalNamed: 'TRACES' relativePath: 'v1/traces'.
@@ -79,22 +46,4 @@ OTOtlpGrpcSpanExporterIntegrationTest >> testExportSucceedsAgainstRealCollectorU
 					 spanName.
 					 span traceId }
 			 timeoutSeconds: 10)
-]
-
-{ #category : 'private' }
-OTOtlpGrpcSpanExporterIntegrationTest >> waitForCollectorOutputFile: aFileReference toContainAll: someStrings timeoutSeconds: anInteger [
-
-	| deadlineMillis |
-	deadlineMillis := Time millisecondClockValue + (anInteger * 1000).
-	[ Time millisecondClockValue <= deadlineMillis ] whileTrue: [
-			| contents |
-			contents := aFileReference exists
-				            ifTrue: [
-						            [ aFileReference contents ]
-							            on: Error
-							            do: [ '' ] ]
-				            ifFalse: [ '' ].
-			(someStrings allSatisfy: [ :each | contents includesSubstring: each ]) ifTrue: [ ^ true ].
-			(Delay forMilliseconds: 100) wait ].
-	^ false
 ]

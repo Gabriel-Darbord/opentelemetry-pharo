@@ -40,7 +40,10 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 				spec requires:
 						#( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Traces'
 						   'OpenTelemetry-Autoconfigure' ) ];
-		package: 'OpenTelemetry-Instrumentation-IntegrationTests' with: [ spec requires: #( 'OpenTelemetry-Traces' ) ];
+		package: 'OpenTelemetry-Instrumentation-IntegrationTests' with: [
+				spec requires:
+						#( 'OpenTelemetry-Autoconfigure' 'OpenTelemetry-Exporters' 'OpenTelemetry-Traces' 'OpenTelemetry-Logs'
+						   'OpenTelemetry-Metrics' 'OpenTelemetry-Instrumentation-Tests' ) ];
 		package: 'OpenTelemetry-Logs-IntegrationTests'
 		with: [ spec requires: #( 'OpenTelemetry-Logs' 'OpenTelemetry-Instrumentation-IntegrationTests' ) ];
 		package: 'OpenTelemetry-Metrics-IntegrationTests'
