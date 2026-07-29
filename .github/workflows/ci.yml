@@ -10,7 +10,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -24,7 +24,21 @@ jobs:
       - run: smalltalkci -s ${{ matrix.smalltalk }}
         shell: bash
         timeout-minutes: 15
+
+  coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Pharo64-13 Coverage
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hpi-swa/setup-smalltalkCI@v1
+        with:
+          smalltalk-image: Pharo64-13
+      - run: smalltalkci -s Pharo64-13 .smalltalk.coverage.ston
+        shell: bash
+        timeout-minutes: 25
       - name: Coveralls
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage/lcov.info

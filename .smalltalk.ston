@@ -8,17 +8,5 @@ SmalltalkCISpec {
     }
   ],
   #testing : {
-    #coverage : {
-      #packages : [
-        'OpenTelemetry-Exporters',
-        'OpenTelemetry-Instrumentation',
-        'OpenTelemetry-Instrumentation-MetaLink',
-        'OpenTelemetry-Instrumentation-MethodProxy',
-        'OpenTelemetry-Matchers',
-        'OpenTelemetry-SDK',
-        'OpenTelemetry-Traces'
-      ],
-      #format : #lcov
-    }
   }
 }
