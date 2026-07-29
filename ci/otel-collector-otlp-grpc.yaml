@@ -1,0 +1,21 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+
+exporters:
+  file:
+    path: /otel-output/otlp-grpc-traces.json
+    format: json
+    flush_interval: 100ms
+    create_directory: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [file]

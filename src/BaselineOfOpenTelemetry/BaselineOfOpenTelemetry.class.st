@@ -17,13 +17,16 @@ BaselineOfOpenTelemetry >> baseline: spec [
 { #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselineCommon: spec [
 
+	spec baseline: 'GRPC' with: [ spec repository: 'github://Gabriel-Darbord/grpc-pharo:main/src' ].
+
 	spec
 		package: 'OpenTelemetry-Matchers';
 		package: 'OpenTelemetry-SDK';
 		package: 'OpenTelemetry-Instrumentation' with: [ spec requires: #( 'OpenTelemetry-Matchers' ) ];
 		package: 'OpenTelemetry-Exporters';
 		package: 'OpenTelemetry-Traces'
-		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' ) ];
+		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters'
+				   'GRPC' ) ];
 		package: 'OpenTelemetry-Logs'
 		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Traces' 'OpenTelemetry-Exporters' ) ];
 		package: 'OpenTelemetry-Metrics'
@@ -37,6 +40,7 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 				spec requires:
 						#( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Traces'
 						   'OpenTelemetry-Autoconfigure' ) ];
+		package: 'OpenTelemetry-Instrumentation-Integration-Tests' with: [ spec requires: #( 'OpenTelemetry-Traces' ) ];
 		package: 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Instrumentation-MetaLink' ) ];
 		package: 'OpenTelemetry-Logs-Tests'
@@ -51,13 +55,15 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'metrics' with: #( 'OpenTelemetry-Metrics' );
 		group: 'autoconfigure' with: #( 'OpenTelemetry-Autoconfigure' );
 		group: 'traces-tests' with: #( 'OpenTelemetry-Instrumentation-Tests' );
+		group: 'traces-integration-tests' with: #( 'OpenTelemetry-Instrumentation-Integration-Tests' );
 		group: 'instrumentation-tests' with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' );
 		group: 'logs-tests' with: #( 'OpenTelemetry-Logs-Tests' );
 		group: 'metrics-tests' with: #( 'OpenTelemetry-Metrics-Tests' );
 		group: 'core' with: #( 'traces' 'instrumentation' 'logs' 'metrics' 'autoconfigure' );
-		group: 'tests' with: #( 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
+		group: 'tests' with: #( 'core' 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
+		group: 'integration-tests' with: #( 'traces-integration-tests' );
 		group: 'default' with: #( 'core' );
-		group: 'all' with: #( 'core' 'tests' )
+		group: 'all' with: #( 'tests' 'integration-tests' )
 ]
 
 { #category : 'baselines' }
@@ -68,6 +74,8 @@ BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
 
 	spec
 		package: 'OpenTelemetry-Compatibility-Pharo12Plus';
+		package: 'OpenTelemetry-Instrumentation'
+		with: [ spec requires: #( 'OpenTelemetry-Matchers' 'OpenTelemetry-Compatibility-Pharo12Plus' ) ];
 		package: 'OpenTelemetry-Instrumentation-MethodProxy'
 		with: [ spec requires: #( 'MethodProxies' 'OpenTelemetry-Instrumentation' ) ];
 		package: 'OpenTelemetry-Instrumentation-MethodProxy-Tests'

@@ -1,1 +1,4 @@
 **/.DS_Store
+PharoDebug.log
+Pharo*.xml
+ci/otlp-grpc-traces*.json

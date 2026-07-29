@@ -36,3 +36,65 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: coverage/lcov.info
+
+  integration-test:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Pharo64-13 integration
+    env:
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hpi-swa/setup-smalltalkCI@v1
+        with:
+          smalltalk-image: Pharo64-13
+      - name: Start OpenTelemetry Collector
+        run: |
+          mkdir -p "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE")"
+          chmod 777 "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE")"
+          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE" ] && unlink "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE" || true
+          docker run -d \
+            --name otelcol-integration \
+            -p 4317:4317 \
+            -v "$GITHUB_WORKSPACE/ci/otel-collector-otlp-grpc.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+            -v "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE"):/otel-output" \
+            ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.157.0 \
+            --config /etc/otelcol-contrib/config.yaml
+          ready=false
+          while [ "$ready" != true ]; do
+            if docker logs otelcol-integration 2>&1 | grep -q "Everything is ready. Begin running and processing data." \
+              && bash -c 'echo > /dev/tcp/127.0.0.1/4317' 2>/dev/null; then
+              ready=true
+              break
+            fi
+            if ! docker ps --format '{{.Names}}' | grep -qx otelcol-integration; then
+              docker logs otelcol-integration || true
+              exit 1
+            fi
+            retries="${retries:-0}"
+            retries=$((retries + 1))
+            if [ "$retries" -ge 30 ]; then
+              docker logs otelcol-integration || true
+              exit 1
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            docker logs otelcol-integration || true
+            exit 1
+          fi
+        shell: bash
+      - run: smalltalkci -s Pharo64-13 .smalltalk.integration.ston
+        shell: bash
+        timeout-minutes: 15
+      - name: Dump collector output
+        if: ${{ always() }}
+        run: |
+          if [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE" ]; then
+            cat "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE"
+          fi
+          docker logs otelcol-integration || true
+          docker rm -f otelcol-integration || true
+        shell: bash
