@@ -2,10 +2,10 @@
 
 This guide covers the current Pharo-facing metrics API.
 
-The current implementation is an early SDK foundation. It gives you the global
-entry points, meters, instrument objects, provider-owned measurements,
-reader-owned metric aggregation, OTLP metric exporters, and callback-driven
-asynchronous collection, plus a first view layer for reshaping metric streams.
+The current implementation gives you the global entry points, meters,
+instrument objects, provider-owned measurements, reader-owned metric
+aggregation, OTLP metric exporters, callback-driven asynchronous collection,
+views, exemplars, and Prometheus pull export.
 
 ## Current Scope
 
@@ -158,7 +158,7 @@ Asynchronous instruments:
 ```smalltalk
 memoryGauge := meter
 	observableGaugeNamed: 'runtime.memory'
-	callbacks: { [ "future SDK callback work will live here" ] }
+	callbacks: { [ :observer | observer observe: 1234 ] }
 	unit: 'By'
 	description: 'Runtime memory'
 	advice: Dictionary new.

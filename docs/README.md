@@ -19,6 +19,18 @@ Start here:
 - [Instrumentation API](instrumentation.md): build reusable Pharo
   instrumentations and choose an installation backend.
 
+## Compliance Status
+
+The current documentation and standing audit are based on OpenTelemetry
+Specification `v1.58.0`.
+
+For the repository features documented here, the audited applicable
+OpenTelemetry `MUST`, `MUST NOT`, `SHOULD`, and `SHOULD NOT` requirements are
+implemented.
+
+The remaining known spec deltas are optional Prometheus native histogram `MAY`
+items, tracked in [Prometheus Future Work](prometheus-future-work.md).
+
 Current scope:
 
 - traces: supported
