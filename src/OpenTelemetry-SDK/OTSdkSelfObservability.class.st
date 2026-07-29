@@ -106,7 +106,9 @@ OTSdkSelfObservability class >> lifecycleErrorTypeFor: anOTLifecycleResult [
 { #category : 'private' }
 OTSdkSelfObservability class >> newCurrentWithinLock [
 
-	(self enabled and: [ Factory notNil ]) ifFalse: [ ^ self new ].
+	| enabled |
+	enabled := Enabled ifNil: [ Enabled := self defaultEnabled ].
+	(enabled and: [ Factory notNil ]) ifFalse: [ ^ self new ].
 	^ Factory value ifNil: [ self new ]
 ]
 

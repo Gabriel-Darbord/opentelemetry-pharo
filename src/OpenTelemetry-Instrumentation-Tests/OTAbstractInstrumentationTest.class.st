@@ -25,6 +25,12 @@ OTAbstractInstrumentationTest >> setUp [
 { #category : 'running' }
 OTAbstractInstrumentationTest >> tearDown [
 
-	[ self instrumentation uninstall ] ensure: [ super tearDown ]
+	[
+		self instrumentation uninstall.
+		OpenTelemetry resetCurrentContext.
+		OTTracerProvider current: nil.
+		OTSpanProcessor current: nil.
+		OTSpanExporter current: nil.
+		OTTextMapPropagator reset.
+		OTSpan reset ] ensure: [ super tearDown ]
 ]
-

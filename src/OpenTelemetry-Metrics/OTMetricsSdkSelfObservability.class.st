@@ -46,9 +46,11 @@ OTMetricsSdkSelfObservability class >> componentTypeForExporter: anObject signal
 { #category : 'private' }
 OTMetricsSdkSelfObservability class >> componentTypeForLogProcessor: anObject [
 
-	anObject class == OTSimpleLogRecordProcessor ifTrue: [ ^ 'simple_log_processor' ].
-	anObject class == OTBatchLogRecordProcessor ifTrue: [ ^ 'batching_log_processor' ].
-	^ anObject class name
+	| className |
+	className := anObject class name.
+	className = 'OTSimpleLogRecordProcessor' ifTrue: [ ^ 'simple_log_processor' ].
+	className = 'OTBatchLogRecordProcessor' ifTrue: [ ^ 'batching_log_processor' ].
+	^ className
 ]
 
 { #category : 'private' }

@@ -25,7 +25,9 @@ OTEventToSpanEventLogRecordProcessorTest >> setUp [
 				 exporter: exporter;
 				 yourself).
 	tracerProvider := OTTracerProvider new.
-	tracerProvider spanProcessor: OTSimpleSpanProcessor new.
+	tracerProvider spanProcessor: (OTSimpleSpanProcessor new
+			 exporter: OTNoopSpanExporter new;
+			 yourself).
 	tracer := tracerProvider tracerNamed: 'spec.logs.bridge'.
 	OpenTelemetry resetCurrentContext
 ]
