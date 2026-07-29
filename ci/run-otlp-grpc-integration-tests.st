@@ -1,6 +1,6 @@
 | result spec |
 
-(TestCase respondsTo: #defaultTimeLimitSecs:) ifTrue: [ TestCase defaultTimeLimitSecs: 30 ].
+TestCase defaultTimeLimitSecs: 30.
 
 spec := SmalltalkCISpec new
 	name: 'OTLP gRPC Integration Tests';
@@ -15,6 +15,4 @@ result := SmalltalkCI testRunnerClass
 
 SCITestReporterStdout report: result spec: spec on: SmalltalkCI stdout.
 
-result isSuccessful
-	ifTrue: [ Smalltalk snapshot: false andQuit: true ]
-	ifFalse: [ Error signal: 'OTLP gRPC integration tests failed' ]
+result isSuccessful ifFalse: [ Error signal: 'OTLP gRPC integration tests failed' ]
