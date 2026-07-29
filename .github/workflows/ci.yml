@@ -12,13 +12,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-logs.json"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-metrics.json"
     strategy:
       matrix:
         include:
@@ -45,6 +38,13 @@ jobs:
           file: coverage/lcov.info
       - name: Start OpenTelemetry Collector
         if: ${{ matrix.coverage }}
+        env:
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-logs.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-metrics.json"
         run: |
           mkdir -p "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE")"
           chmod 777 "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE")"
@@ -84,11 +84,25 @@ jobs:
         shell: bash
       - name: Run OTLP gRPC Integration Tests
         if: ${{ matrix.coverage }}
+        env:
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-logs.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-metrics.json"
         run: smalltalkci -s ${{ matrix.smalltalk }} .smalltalk.integration.ston
         shell: bash
         timeout-minutes: 15
       - name: Dump collector output
         if: ${{ matrix.coverage && always() }}
+        env:
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-logs.json"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-metrics.json"
         run: |
           [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE" ] && cat "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE" || true
           [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE" ] && cat "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE" || true
