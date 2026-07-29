@@ -41,6 +41,10 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 						#( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Traces'
 						   'OpenTelemetry-Autoconfigure' ) ];
 		package: 'OpenTelemetry-Instrumentation-Integration-Tests' with: [ spec requires: #( 'OpenTelemetry-Traces' ) ];
+		package: 'OpenTelemetry-Logs-Integration-Tests'
+		with: [ spec requires: #( 'OpenTelemetry-Logs' 'OpenTelemetry-Instrumentation-Integration-Tests' ) ];
+		package: 'OpenTelemetry-Metrics-Integration-Tests'
+		with: [ spec requires: #( 'OpenTelemetry-Metrics' 'OpenTelemetry-Instrumentation-Integration-Tests' ) ];
 		package: 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Instrumentation-MetaLink' ) ];
 		package: 'OpenTelemetry-Logs-Tests'
@@ -56,12 +60,17 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'autoconfigure' with: #( 'OpenTelemetry-Autoconfigure' );
 		group: 'traces-tests' with: #( 'OpenTelemetry-Instrumentation-Tests' );
 		group: 'traces-integration-tests' with: #( 'OpenTelemetry-Instrumentation-Integration-Tests' );
+		group: 'logs-integration-tests' with: #( 'OpenTelemetry-Logs-Integration-Tests' );
+		group: 'metrics-integration-tests' with: #( 'OpenTelemetry-Metrics-Integration-Tests' );
 		group: 'instrumentation-tests' with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' );
 		group: 'logs-tests' with: #( 'OpenTelemetry-Logs-Tests' );
 		group: 'metrics-tests' with: #( 'OpenTelemetry-Metrics-Tests' );
 		group: 'core' with: #( 'traces' 'instrumentation' 'logs' 'metrics' 'autoconfigure' );
 		group: 'tests' with: #( 'core' 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
-		group: 'integration-tests' with: #( 'traces-integration-tests' );
+		group: 'integration-tests'
+		with:
+			#( 'OpenTelemetry-Instrumentation-Integration-Tests' 'OpenTelemetry-Logs-Integration-Tests'
+			   'OpenTelemetry-Metrics-Integration-Tests' );
 		group: 'default' with: #( 'core' );
 		group: 'all' with: #( 'tests' 'integration-tests' )
 ]

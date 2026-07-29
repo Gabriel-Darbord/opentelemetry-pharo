@@ -7,8 +7,18 @@ receivers:
 processors:
 
 exporters:
-  file:
+  file/traces:
     path: /otel-output/otlp-grpc-traces.json
+    format: json
+    flush_interval: 100ms
+    create_directory: true
+  file/logs:
+    path: /otel-output/otlp-grpc-logs.json
+    format: json
+    flush_interval: 100ms
+    create_directory: true
+  file/metrics:
+    path: /otel-output/otlp-grpc-metrics.json
     format: json
     flush_interval: 100ms
     create_directory: true
@@ -18,4 +28,12 @@ service:
     traces:
       receivers: [otlp]
       processors: []
-      exporters: [file]
+      exporters: [file/traces]
+    logs:
+      receivers: [otlp]
+      processors: []
+      exporters: [file/logs]
+    metrics:
+      receivers: [otlp]
+      processors: []
+      exporters: [file/metrics]
