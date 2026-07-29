@@ -556,7 +556,7 @@ OTMeterProvider >> measurementFor: anOTMetricInstrument value: aNumber attribute
 	spanId := spanContext ifNotNil: [ spanContext spanId ].
 	measurement
 		exemplarEligible: (self exemplarFilter isMeasurementEligibleWithSpanContext: spanContext);
-		exemplarAttributes: aCollection;
+		exemplarAttributesNormalized: measurement attributes;
 		exemplarTraceId: traceId;
 		exemplarSpanId: spanId.
 	^ measurement
