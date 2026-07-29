@@ -93,7 +93,7 @@ jobs:
           SMALLTALK_CI_HOME="$(cd "$(dirname "$SMALLTALK_CI_BIN")/.." && pwd)"
           export SMALLTALK_CI_HOME
           source "$SMALLTALK_CI_HOME/env_vars"
-          "$SMALLTALK_CI_VM" "$SMALLTALK_CI_IMAGE" --no-default-preferences st ci/run-otlp-grpc-integration-tests.st
+          "$SMALLTALK_CI_VM" "$SMALLTALK_CI_IMAGE" --no-default-preferences st --quit ci/run-otlp-grpc-integration-tests.st
         shell: bash
         timeout-minutes: 15
       - name: Dump collector output
