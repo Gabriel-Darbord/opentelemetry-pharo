@@ -26,9 +26,9 @@ OTSimpleFixedSizeMetricExemplarReservoir class >> size: anInteger [
 OTSimpleFixedSizeMetricExemplarReservoir >> collectForPointAttributesUnlocked: aCollection [
 
 	| exemplars |
-	exemplars := self measurementsUnlocked
-		             select: [ :each | each notNil ]
-		             thenCollect: [ :each | OTMetricExemplar measurement: each pointAttributes: aCollection ].
+	exemplars := OrderedCollection new: self sizeUnlocked.
+	self measurementsUnlocked do: [ :each |
+		each ifNotNil: [ exemplars add: (OTMetricExemplar measurement: each normalizedPointAttributes: aCollection) ] ].
 	self resetUnlocked.
 	^ exemplars asArray
 ]

@@ -52,9 +52,9 @@ OTAlignedHistogramBucketMetricExemplarReservoir >> bucketIndexForValue: aNumber 
 OTAlignedHistogramBucketMetricExemplarReservoir >> collectForPointAttributesUnlocked: aCollection [
 
 	| exemplars |
-	exemplars := self measurementsByBucketUnlocked
-		             select: [ :each | each notNil ]
-		             thenCollect: [ :each | OTMetricExemplar measurement: each pointAttributes: aCollection ].
+	exemplars := OrderedCollection new: self boundariesUnlocked size + 1.
+	self measurementsByBucketUnlocked do: [ :each |
+		each ifNotNil: [ exemplars add: (OTMetricExemplar measurement: each normalizedPointAttributes: aCollection) ] ].
 	measurementsByBucket := Array new: self boundariesUnlocked size + 1 withAll: nil.
 	^ exemplars asArray
 ]

@@ -55,6 +55,12 @@ OTMetricMeasurement >> exemplarAttributes: aCollection [
 	exemplarAttributes := OTAttributeNormalizer normalizeAttributes: aCollection
 ]
 
+{ #category : 'private' }
+OTMetricMeasurement >> exemplarAttributesNormalized: aCollection [
+
+	exemplarAttributes := aCollection
+]
+
 { #category : 'accessing' }
 OTMetricMeasurement >> exemplarEligible [
 
@@ -140,6 +146,6 @@ OTMetricMeasurement >> withAttributes: aCollection [
 		exemplarTraceId: self exemplarTraceId;
 		exemplarSpanId: self exemplarSpanId;
 		timestamp: self timestamp.
-	exemplarAttributes ifNotNil: [ measurement exemplarAttributes: exemplarAttributes ].
+	exemplarAttributes ifNotNil: [ measurement exemplarAttributesNormalized: exemplarAttributes ].
 	^ measurement
 ]

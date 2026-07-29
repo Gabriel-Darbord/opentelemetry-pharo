@@ -26,20 +26,25 @@ OTMetricExemplar class >> filteredAttributesFrom: someMeasurementAttributes poin
 	^ filtered
 ]
 
-{ #category : 'instance creation' }
-OTMetricExemplar class >> measurement: anOTMetricMeasurement pointAttributes: aCollection [
+{ #category : 'private' }
+OTMetricExemplar class >> measurement: anOTMetricMeasurement normalizedPointAttributes: aCollection [
 
-	| exemplar measurementAttributes pointAttributes |
+	| exemplar |
 	exemplar := self new.
-	measurementAttributes := OTAttributeNormalizer normalizeAttributes: anOTMetricMeasurement exemplarAttributes.
-	pointAttributes := OTAttributeNormalizer normalizeAttributes: aCollection.
 	exemplar
 		value: anOTMetricMeasurement value;
 		timestamp: anOTMetricMeasurement timestamp;
-		filteredAttributes: (self filteredAttributesFrom: measurementAttributes pointAttributes: pointAttributes);
+		filteredAttributesNormalized:
+			(self filteredAttributesFrom: anOTMetricMeasurement exemplarAttributes pointAttributes: aCollection);
 		traceId: anOTMetricMeasurement exemplarTraceId;
 		spanId: anOTMetricMeasurement exemplarSpanId.
 	^ exemplar
+]
+
+{ #category : 'instance creation' }
+OTMetricExemplar class >> measurement: anOTMetricMeasurement pointAttributes: aCollection [
+
+	^ self measurement: anOTMetricMeasurement normalizedPointAttributes: (OTAttributeNormalizer normalizeAttributes: aCollection)
 ]
 
 { #category : 'accessing' }
@@ -52,6 +57,12 @@ OTMetricExemplar >> filteredAttributes [
 OTMetricExemplar >> filteredAttributes: aCollection [
 
 	filteredAttributes := OTAttributeNormalizer normalizeAttributes: aCollection
+]
+
+{ #category : 'private' }
+OTMetricExemplar >> filteredAttributesNormalized: aCollection [
+
+	filteredAttributes := aCollection
 ]
 
 { #category : 'accessing' }
