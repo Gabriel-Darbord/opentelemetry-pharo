@@ -89,7 +89,19 @@ OTPeriodicExportingMetricReader >> exportProcess [
 OTPeriodicExportingMetricReader >> exportSnapshotResult: anOTMetricSnapshot [
 
 	^ (self exportSnapshotsFrom: anOTMetricSnapshot) inject: OTLifecycleResult success into: [ :allExported :each |
-		  allExported combinedWith: (self runExporterOperationResultNamed: 'export' do: [ self exporter export: each ]) ]
+			  | durationSeconds itemCount result startedMillis |
+			  itemCount := each metrics inject: 0 into: [ :sum :metric | sum + metric points size ].
+			  startedMillis := Time millisecondClockValue.
+			  OTSdkSelfObservability current recordExportStartedFor: self exporter signal: #metric itemCount: itemCount.
+			  result := self runExporterOperationResultNamed: 'export' do: [ self exporter export: each ].
+			  durationSeconds := OTSdkSelfObservability elapsedSecondsSinceMillisecondClockValue: startedMillis.
+			  OTSdkSelfObservability current
+				  recordExportFinishedFor: self exporter
+				  signal: #metric
+				  itemCount: itemCount
+				  result: result
+				  durationSeconds: durationSeconds.
+			  allExported combinedWith: result ]
 ]
 
 { #category : 'private - exporting' }

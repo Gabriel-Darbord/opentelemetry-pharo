@@ -87,14 +87,28 @@ OTSimpleSpanProcessor >> initialize [
 OTSimpleSpanProcessor >> onEnd: span [
 	"Directly export sampled spans and treat record-only spans as accepted without exporting"
 
-	| snapshot |
+	| durationSeconds result snapshot startedMillis |
 	self isStopping ifTrue: [ ^ false ].
 	(self shouldExport: span) ifFalse: [ ^ true ].
 	snapshot := OTSpanSnapshot fromSpan: span.
 	self beforeOnEndExportingSnapshot: snapshot.
 	^ exportLock critical: [
 			  self isStopping ifTrue: [ ^ false ].
-			  self runExporterOperation: [ self exporter export: { snapshot } ] ]
+			  startedMillis := Time millisecondClockValue.
+			  OTSdkSelfObservability current recordExportStartedFor: self exporter signal: #span itemCount: 1.
+			  result := self runExporterOperationResultNamed: 'export' do: [ self exporter export: { snapshot } ].
+			  durationSeconds := OTSdkSelfObservability elapsedSecondsSinceMillisecondClockValue: startedMillis.
+			  OTSdkSelfObservability current
+				  recordExportFinishedFor: self exporter
+				  signal: #span
+				  itemCount: 1
+				  result: result
+				  durationSeconds: durationSeconds;
+				  recordProcessedCount: 1
+				  forProcessor: self
+				  signal: #span
+				  errorType: (OTSdkSelfObservability lifecycleErrorTypeFor: result).
+			  result isSuccess ]
 ]
 
 { #category : 'private - processing' }

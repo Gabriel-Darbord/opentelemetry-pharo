@@ -720,6 +720,7 @@ OTSpan >> end: aDateAndTime [
 	provider ifNil: [ ^ self ].
 	[ provider processEndingSpan: self ] ensure: [ self finishEndingFromProcess: currentProcess ].
 	provider processEndedSpan: self.
+	OTSdkSelfObservability current recordEndedSpan: self.
 	self
 ]
 

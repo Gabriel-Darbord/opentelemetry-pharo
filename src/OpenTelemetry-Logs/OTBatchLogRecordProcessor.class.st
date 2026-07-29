@@ -78,9 +78,25 @@ OTBatchLogRecordProcessor >> exportInProgress: aBoolean [
 { #category : 'private - processing' }
 OTBatchLogRecordProcessor >> exportLogRecords: someLogRecords [
 
+	| durationSeconds result startedMillis |
 	^ exportLock critical: [
 			  self exportInProgress: true.
-			  [ self runExporterOperation: [ self exporter export: someLogRecords ] ] ensure: [ self exportInProgress: false ] ]
+			  [
+				  startedMillis := Time millisecondClockValue.
+				  OTSdkSelfObservability current recordExportStartedFor: self exporter signal: #log itemCount: someLogRecords size.
+				  result := self runExporterOperation: [ self exporter export: someLogRecords ].
+				  durationSeconds := OTSdkSelfObservability elapsedSecondsSinceMillisecondClockValue: startedMillis.
+				  OTSdkSelfObservability current
+					  recordExportFinishedFor: self exporter
+					  signal: #log
+					  itemCount: someLogRecords size
+					  result: (OTLifecycleResult fromBoolean: result)
+					  durationSeconds: durationSeconds;
+					  recordProcessedCount: someLogRecords size
+					  forProcessor: self
+					  signal: #log
+					  errorType: (OTSdkSelfObservability lifecycleErrorTypeFor: (OTLifecycleResult fromBoolean: result)).
+				  result ] ensure: [ self exportInProgress: false ] ]
 ]
 
 { #category : 'accessing' }
@@ -226,6 +242,11 @@ OTBatchLogRecordProcessor >> nextBatchForExportAllowPartial: allowPartial [
 			  queue isEmpty
 				  ifTrue: [ queueBecameNonEmptyAt := nil ]
 				  ifFalse: [ queue size < maxExportBatchSize ifTrue: [ queueBecameNonEmptyAt := Time millisecondClockValue ] ].
+			  OTSdkSelfObservability current
+				  adjustQueueSizeBy: exportCount negated
+				  forProcessor: self
+				  signal: #log
+				  capacity: maxQueueSize.
 			  records ]
 ]
 
@@ -254,12 +275,24 @@ OTBatchLogRecordProcessor >> onEmit: anOTLogRecord context: anOTContext [
 	self ensureFlushProcess.
 	queueLock critical: [
 			| wasEmpty |
-			queue size >= maxQueueSize ifTrue: [ ^ self ].
+			queue size >= maxQueueSize ifTrue: [
+					OTSdkSelfObservability current
+						recordProcessedCount: 1
+						forProcessor: self
+						signal: #log
+						errorType: 'queue_full'.
+					^ self ].
 			wasEmpty := queue isEmpty.
 			queue add: anOTLogRecord copy.
 			wasEmpty ifTrue: [ queueBecameNonEmptyAt := Time millisecondClockValue ].
 			accepted := true.
 			shouldWakeWorker := wasEmpty or: [ queue size >= maxExportBatchSize ] ].
+	accepted ifTrue: [
+			OTSdkSelfObservability current
+				adjustQueueSizeBy: 1
+				forProcessor: self
+				signal: #log
+				capacity: maxQueueSize ].
 	accepted ifTrue: [ shouldWakeWorker ifTrue: [ workAvailable signal ] ].
 	self
 ]

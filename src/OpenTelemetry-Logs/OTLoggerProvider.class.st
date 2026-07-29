@@ -404,6 +404,7 @@ OTLoggerProvider >> emitForLogger: anOTLogger timestamp: aTimestamp observedTime
 	context := self effectiveContextFrom: anOTContext.
 	config := self loggerConfigFor: anOTLogger instrumentationScope.
 	(self shouldEmitInContext: context severityNumber: aSeverityNumber loggerConfig: config) ifFalse: [ ^ false ].
+	OTSdkSelfObservability current recordCreatedLog.
 	logRecord := self
 		             newLogRecordForLogger: anOTLogger
 		             timestamp: aTimestamp

@@ -58,8 +58,25 @@ OTSimpleLogRecordProcessor >> initialize [
 { #category : 'processing' }
 OTSimpleLogRecordProcessor >> onEmit: anOTLogRecord context: anOTContext [
 
+	| durationSeconds result startedMillis |
 	shutdown = true ifTrue: [ ^ self ].
-	exportLock critical: [ self exporter export: { anOTLogRecord copy } ].
+	exportLock critical: [
+			startedMillis := Time millisecondClockValue.
+			OTSdkSelfObservability current recordExportStartedFor: self exporter signal: #log itemCount: 1.
+			result := [ self exporter export: { anOTLogRecord copy } ]
+				          on: Error
+				          do: [ false ].
+			durationSeconds := OTSdkSelfObservability elapsedSecondsSinceMillisecondClockValue: startedMillis.
+			OTSdkSelfObservability current
+				recordExportFinishedFor: self exporter
+				signal: #log
+				itemCount: 1
+				result: (OTLifecycleResult fromBoolean: result)
+				durationSeconds: durationSeconds;
+				recordProcessedCount: 1
+				forProcessor: self
+				signal: #log
+				errorType: (OTSdkSelfObservability lifecycleErrorTypeFor: (OTLifecycleResult fromBoolean: result)) ].
 	self
 ]
 
