@@ -44,7 +44,7 @@ jobs:
     env:
       OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
       OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "${{ runner.temp }}/otel-output/otlp-grpc-traces.json"
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
     steps:
       - uses: actions/checkout@v4
       - uses: hpi-swa/setup-smalltalkCI@v1
@@ -63,13 +63,19 @@ jobs:
             ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.157.0 \
             --config /etc/otelcol-contrib/config.yaml
           ready=false
-          for attempt in $(seq 1 30); do
+          while [ "$ready" != true ]; do
             if docker logs otelcol-integration 2>&1 | grep -q "Everything is ready. Begin running and processing data." \
               && bash -c 'echo > /dev/tcp/127.0.0.1/4317' 2>/dev/null; then
               ready=true
               break
             fi
             if ! docker ps --format '{{.Names}}' | grep -qx otelcol-integration; then
+              docker logs otelcol-integration || true
+              exit 1
+            fi
+            retries="${retries:-0}"
+            retries=$((retries + 1))
+            if [ "$retries" -ge 30 ]; then
               docker logs otelcol-integration || true
               exit 1
             fi
