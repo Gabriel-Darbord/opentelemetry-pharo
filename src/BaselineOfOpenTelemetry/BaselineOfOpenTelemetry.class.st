@@ -40,7 +40,14 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 				spec requires:
 						#( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'OpenTelemetry-Traces'
 						   'OpenTelemetry-Autoconfigure' ) ];
-		package: 'OpenTelemetry-Instrumentation-Integration-Tests' with: [ spec requires: #( 'OpenTelemetry-Traces' ) ];
+		package: 'OpenTelemetry-Instrumentation-IntegrationTests' with: [
+				spec requires:
+						#( 'OpenTelemetry-Autoconfigure' 'OpenTelemetry-Exporters' 'OpenTelemetry-Traces' 'OpenTelemetry-Logs'
+						   'OpenTelemetry-Metrics' 'OpenTelemetry-Instrumentation-Tests' ) ];
+		package: 'OpenTelemetry-Logs-IntegrationTests'
+		with: [ spec requires: #( 'OpenTelemetry-Logs' 'OpenTelemetry-Instrumentation-IntegrationTests' ) ];
+		package: 'OpenTelemetry-Metrics-IntegrationTests'
+		with: [ spec requires: #( 'OpenTelemetry-Metrics' 'OpenTelemetry-Instrumentation-IntegrationTests' ) ];
 		package: 'OpenTelemetry-Instrumentation-MetaLink-Tests'
 		with: [ spec requires: #( 'OpenTelemetry-Instrumentation-Tests' 'OpenTelemetry-Instrumentation-MetaLink' ) ];
 		package: 'OpenTelemetry-Logs-Tests'
@@ -55,13 +62,14 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'metrics' with: #( 'OpenTelemetry-Metrics' );
 		group: 'autoconfigure' with: #( 'OpenTelemetry-Autoconfigure' );
 		group: 'traces-tests' with: #( 'OpenTelemetry-Instrumentation-Tests' );
-		group: 'traces-integration-tests' with: #( 'OpenTelemetry-Instrumentation-Integration-Tests' );
 		group: 'instrumentation-tests' with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' );
 		group: 'logs-tests' with: #( 'OpenTelemetry-Logs-Tests' );
 		group: 'metrics-tests' with: #( 'OpenTelemetry-Metrics-Tests' );
 		group: 'core' with: #( 'traces' 'instrumentation' 'logs' 'metrics' 'autoconfigure' );
 		group: 'tests' with: #( 'core' 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
-		group: 'integration-tests' with: #( 'traces-integration-tests' );
+		group: 'integration-tests'
+		with:
+			#( 'OpenTelemetry-Instrumentation-IntegrationTests' 'OpenTelemetry-Logs-IntegrationTests' 'OpenTelemetry-Metrics-IntegrationTests' );
 		group: 'default' with: #( 'core' );
 		group: 'all' with: #( 'tests' 'integration-tests' )
 ]

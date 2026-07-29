@@ -12,6 +12,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-logs.json"
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-metrics.json"
     strategy:
       matrix:
         include:
@@ -36,30 +41,22 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: coverage/lcov.info
-
-  integration-test:
-    needs: test
-    runs-on: ubuntu-latest
-    name: Pharo64-13 integration
-    env:
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-traces.json"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hpi-swa/setup-smalltalkCI@v1
-        with:
-          smalltalk-image: Pharo64-13
       - name: Start OpenTelemetry Collector
+        if: ${{ matrix.coverage }}
+        env:
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
         run: |
-          mkdir -p "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE")"
-          chmod 777 "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE")"
-          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE" ] && unlink "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE" || true
+          mkdir -p "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE")"
+          chmod 777 "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE")"
+          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE" ] && unlink "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE" || true
+          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE" ] && unlink "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE" || true
+          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE" ] && unlink "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE" || true
           docker run -d \
             --name otelcol-integration \
             -p 4317:4317 \
             -v "$GITHUB_WORKSPACE/ci/otel-collector-otlp-grpc.yaml:/etc/otelcol-contrib/config.yaml:ro" \
-            -v "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE"):/otel-output" \
+            -v "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE"):/otel-output" \
             ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.157.0 \
             --config /etc/otelcol-contrib/config.yaml
           ready=false
@@ -86,15 +83,25 @@ jobs:
             exit 1
           fi
         shell: bash
-      - run: smalltalkci -s Pharo64-13 .smalltalk.integration.ston
+      - name: Run OTLP gRPC Integration Tests
+        if: ${{ matrix.coverage }}
+        env:
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
+          OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
+        run: |
+          SMALLTALK_CI_BIN="$(command -v smalltalkci)"
+          SMALLTALK_CI_HOME="$(cd "$(dirname "$SMALLTALK_CI_BIN")/.." && pwd)"
+          export SMALLTALK_CI_HOME
+          source "$SMALLTALK_CI_HOME/env_vars"
+          "$SMALLTALK_CI_VM" "$SMALLTALK_CI_IMAGE" --no-default-preferences st --quit ci/run-otlp-grpc-integration-tests.st
         shell: bash
         timeout-minutes: 15
       - name: Dump collector output
-        if: ${{ always() }}
+        if: ${{ matrix.coverage && always() }}
         run: |
-          if [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE" ]; then
-            cat "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE"
-          fi
+          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE" ] && cat "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_TRACE_OUTPUT_FILE" || true
+          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE" ] && cat "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE" || true
+          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE" ] && cat "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE" || true
           docker logs otelcol-integration || true
           docker rm -f otelcol-integration || true
         shell: bash

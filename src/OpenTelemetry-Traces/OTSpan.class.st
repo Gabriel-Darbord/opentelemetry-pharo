@@ -1130,7 +1130,7 @@ OTSpan >> restoreLinks: aCollection [
 { #category : 'private' }
 OTSpan >> restoreName: aString [
 
-	name := aString
+	name := aString ifNil: [ '' ] ifNotNil: [ aString asString ]
 ]
 
 { #category : 'private' }
