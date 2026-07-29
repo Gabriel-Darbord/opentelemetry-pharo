@@ -16,6 +16,26 @@ OTCompositeSamplerTest >> contextWithTraceFlags: aTraceFlags traceState: aTraceS
 			   remote: false) asNonRecordingSpan
 ]
 
+{ #category : 'private' }
+OTCompositeSamplerTest >> fullThresholdStringFor: aThreshold [
+
+	^ String streamContents: [ :stream | OTConsistentProbability writeThreshold: aThreshold on: stream ]
+]
+
+{ #category : 'private' }
+OTCompositeSamplerTest >> sampleWith: aSampler traceFlags: aTraceFlags otelTraceState: otelTraceState traceId: aTraceId [
+
+	| traceState |
+	traceState := otelTraceState ifNotNil: [ 'ot=' , otelTraceState ].
+	^ aSampler
+		  shouldSampleIn: (self contextWithTraceFlags: aTraceFlags traceState: traceState)
+		  traceId: aTraceId
+		  name: 'operation'
+		  kind: OTSpan internal
+		  attributes: #(  )
+		  links: #(  )
+]
+
 { #category : 'tests' }
 OTCompositeSamplerTest >> testComposableProbabilityZeroReturnsComposableAlwaysOff [
 
@@ -119,6 +139,44 @@ OTCompositeSamplerTest >> testCompositeProbabilitySamplerAddsThresholdAndPreserv
 	self assert: result isRecordAndSample.
 	self assert: (result traceState otelValueAt: 'rv') equals: '80000000000000'.
 	self assert: (result traceState otelValueAt: 'th') equals: '8'
+]
+
+{ #category : 'tests' }
+OTCompositeSamplerTest >> testCompositeProbabilitySamplerMatchesJavaExactThresholdExamples [
+
+	| examples traceId |
+	traceId := '00112233445566778800000000000000'.
+	examples := {
+		            { 1.0. 0 }.
+		            { 0.5. 36028797018963968 }.
+		            { 0.25. 54043195528445952 }.
+		            { 0.125. 63050394783186944 } }.
+	examples do: [ :each |
+			| droppedResult droppedRv expectedThreshold expectedThresholdString probability sampledResult sampledRv sampler |
+			probability := each first.
+			expectedThreshold := each second.
+			expectedThresholdString := OTConsistentProbability thresholdStringFor: expectedThreshold.
+			self assert: (OTConsistentProbability thresholdForProbability: probability) equals: expectedThreshold.
+			sampler := OTSampler composite: (OTComposableSampler probability: probability).
+			sampledRv := self fullThresholdStringFor: expectedThreshold.
+			sampledResult := self
+				                 sampleWith: sampler
+				                 traceFlags: '00'
+				                 otelTraceState: 'rv:' , sampledRv
+				                 traceId: traceId.
+			self assert: sampledResult isRecordAndSample.
+			self assert: (sampledResult traceState otelValueAt: 'rv') equals: sampledRv.
+			self assert: (sampledResult traceState otelValueAt: 'th') equals: expectedThresholdString.
+			expectedThreshold = 0 ifFalse: [
+					droppedRv := self fullThresholdStringFor: expectedThreshold - 1.
+					droppedResult := self
+						                 sampleWith: sampler
+						                 traceFlags: '00'
+						                 otelTraceState: 'rv:' , droppedRv
+						                 traceId: traceId.
+					self assert: droppedResult isDrop.
+					self assert: (droppedResult traceState otelValueAt: 'rv') equals: droppedRv.
+					self assert: (droppedResult traceState otelValueAt: 'th') equals: nil ] ]
 ]
 
 { #category : 'tests' }
@@ -257,7 +315,7 @@ OTCompositeSamplerTest >> testCompositeSamplerIgnoresInjectedOtelEntriesWhenNoPa
 ]
 
 { #category : 'tests' }
-OTCompositeSamplerTest >> testCompositeSamplerMatchesJavaScriptReferenceVectors [
+OTCompositeSamplerTest >> testCompositeSamplerMatchesJavaReferenceVectors [
 
 	| cases traceId |
 	traceId := '00112233445566778800000000000000'.
@@ -293,6 +351,12 @@ OTCompositeSamplerTest >> testCompositeSamplerMatchesJavaScriptReferenceVectors 
 			         true.
 			         nil }.
 		         {
+			         [ OTSampler composite: (OTComposableSampler parentThreshold: OTComposableSampler alwaysOn) ].
+			         '00'.
+			         nil.
+			         false.
+			         nil }.
+		         {
 			         [ OTSampler composite: (OTComposableSampler probability: 0.5) ].
 			         '01'.
 			         'rv:7fffffffffffff'.
@@ -305,22 +369,31 @@ OTCompositeSamplerTest >> testCompositeSamplerMatchesJavaScriptReferenceVectors 
 			         true.
 			         'th:8;rv:80000000000000' }.
 		         {
+			         [ OTSampler composite: (OTComposableSampler probability: 0.25) ].
+			         '00'.
+			         'rv:bfffffffffffff'.
+			         false.
+			         'rv:bfffffffffffff' }.
+		         {
+			         [ OTSampler composite: (OTComposableSampler probability: 0.25) ].
+			         '00'.
+			         'rv:c0000000000000'.
+			         true.
+			         'th:c;rv:c0000000000000' }.
+		         {
 			         [ OTSampler composite: (OTComposableSampler probability: 1.0) ].
 			         '00'.
 			         'th:80000000000000;rv:80000000000000'.
 			         true.
 			         'th:0;rv:80000000000000' } }.
 	cases do: [ :each |
-			| expectedTraceState result sampler traceState |
+			| expectedTraceState result sampler |
 			sampler := each first value.
-			traceState := each third ifNotNil: [ 'ot=' , each third ].
-			result := sampler
-				          shouldSampleIn: (self contextWithTraceFlags: each second traceState: traceState)
-				          traceId: traceId
-				          name: 'operation'
-				          kind: OTSpan internal
-				          attributes: #(  )
-				          links: #(  ).
+			result := self
+				          sampleWith: sampler
+				          traceFlags: each second
+				          otelTraceState: each third
+				          traceId: traceId.
 			each fourth
 				ifTrue: [ self assert: result isRecordAndSample ]
 				ifFalse: [ self assert: result isDrop ].
