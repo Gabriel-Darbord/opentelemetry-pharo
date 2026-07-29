@@ -62,9 +62,6 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'metrics' with: #( 'OpenTelemetry-Metrics' );
 		group: 'autoconfigure' with: #( 'OpenTelemetry-Autoconfigure' );
 		group: 'traces-tests' with: #( 'OpenTelemetry-Instrumentation-Tests' );
-		group: 'traces-integration-tests' with: #( 'OpenTelemetry-Instrumentation-IntegrationTests' );
-		group: 'logs-integration-tests' with: #( 'OpenTelemetry-Logs-IntegrationTests' );
-		group: 'metrics-integration-tests' with: #( 'OpenTelemetry-Metrics-IntegrationTests' );
 		group: 'instrumentation-tests' with: #( 'OpenTelemetry-Instrumentation-MetaLink-Tests' );
 		group: 'logs-tests' with: #( 'OpenTelemetry-Logs-Tests' );
 		group: 'metrics-tests' with: #( 'OpenTelemetry-Metrics-Tests' );
