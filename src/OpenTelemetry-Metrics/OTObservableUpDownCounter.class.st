@@ -1,5 +1,7 @@
 "
-A no-op asynchronous UpDownCounter instrument.
+An asynchronous UpDownCounter instrument.
+
+I collect callback observations and export them as non-monotonic sums.
 "
 Class {
 	#name : 'OTObservableUpDownCounter',

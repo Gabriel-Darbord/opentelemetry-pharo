@@ -1,5 +1,7 @@
 "
-A no-op asynchronous Counter instrument.
+An asynchronous Counter instrument.
+
+I collect callback observations and export them as monotonic sums.
 "
 Class {
 	#name : 'OTObservableCounter',

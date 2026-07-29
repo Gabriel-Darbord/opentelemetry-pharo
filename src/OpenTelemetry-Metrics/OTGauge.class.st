@@ -1,5 +1,7 @@
 "
-A no-op synchronous Gauge instrument.
+A synchronous Gauge instrument.
+
+I record point-in-time values that are exported using last-value aggregation.
 "
 Class {
 	#name : 'OTGauge',

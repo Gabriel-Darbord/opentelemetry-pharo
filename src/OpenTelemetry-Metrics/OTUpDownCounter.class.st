@@ -1,5 +1,8 @@
 "
-A no-op synchronous UpDownCounter instrument.
+A synchronous UpDownCounter instrument.
+
+I record additive measurements that may go up or down and are exported as
+non-monotonic sums.
 "
 Class {
 	#name : 'OTUpDownCounter',

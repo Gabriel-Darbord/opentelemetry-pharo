@@ -1,5 +1,8 @@
 "
-Abstract no-op asynchronous metric instrument.
+Abstract asynchronous metric instrument.
+
+Concrete subclasses manage callback registration and turn callback observations
+into measurements during collection.
 "
 Class {
 	#name : 'OTAsynchronousMetricInstrument',

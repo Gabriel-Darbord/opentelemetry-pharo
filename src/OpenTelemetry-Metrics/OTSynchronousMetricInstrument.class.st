@@ -1,5 +1,8 @@
 "
-Abstract no-op synchronous metric instrument.
+Abstract synchronous metric instrument.
+
+Concrete subclasses accept direct recordings and can also create bound
+instruments for pre-bound attributes.
 "
 Class {
 	#name : 'OTSynchronousMetricInstrument',

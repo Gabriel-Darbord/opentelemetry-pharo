@@ -1,7 +1,8 @@
 "
 A backend-agnostic Meter responsible for creating metric instruments.
 
-The current implementation is a spec-shaped no-op meter.
+I normalize instrument creation requests, keep scope metadata, and delegate
+recording and collection decisions to my provider.
 "
 Class {
 	#name : 'OTMeter',

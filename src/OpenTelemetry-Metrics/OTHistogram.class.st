@@ -1,5 +1,8 @@
 "
-A no-op synchronous Histogram instrument.
+A synchronous Histogram instrument.
+
+I record sampled values that are aggregated into explicit-bucket or exponential
+histogram streams.
 "
 Class {
 	#name : 'OTHistogram',

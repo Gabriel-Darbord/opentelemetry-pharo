@@ -1,5 +1,8 @@
 "
-Abstract no-op metric instrument foundation.
+Abstract metric instrument foundation.
+
+I hold the shared metadata and aggregation hooks used by concrete metric
+instruments.
 "
 Class {
 	#name : 'OTMetricInstrument',

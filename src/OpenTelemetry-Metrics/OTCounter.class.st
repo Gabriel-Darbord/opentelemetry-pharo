@@ -1,5 +1,7 @@
 "
-A no-op synchronous Counter instrument.
+A synchronous Counter instrument.
+
+I record non-negative additive measurements that are exported as monotonic sums.
 "
 Class {
 	#name : 'OTCounter',

@@ -1,5 +1,8 @@
 "
-A no-op asynchronous Gauge instrument.
+An asynchronous Gauge instrument.
+
+I collect callback observations and export the latest point-in-time value for
+each attribute set.
 "
 Class {
 	#name : 'OTObservableGauge',
