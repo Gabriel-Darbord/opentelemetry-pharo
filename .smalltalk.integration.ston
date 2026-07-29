@@ -3,10 +3,8 @@ SmalltalkCISpec {
     SCIMetacelloLoadSpec {
       #baseline : 'OpenTelemetry',
       #directory : 'src',
-      #load : [ 'tests' ],
+      #load : [ 'integration-tests' ],
       #platforms : [ #pharo ]
     }
-  ],
-  #testing : {
-  }
+  ]
 }
