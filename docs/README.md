@@ -33,3 +33,16 @@ Supported Pharo range in the baseline:
 - Pharo 14
 
 The CI currently exercises Pharo 12 and Pharo 13.
+
+## Testing Note
+
+Run the test suite in a fresh image.
+
+The tests intentionally exercise OpenTelemetry runtime reconfiguration. They
+reset global providers and current context, rewrite `OTEL_*` environment
+variables, install and uninstall instrumentations, and start and stop
+background readers, samplers, and local HTTP endpoints.
+
+That means running the suite is expected to disturb any observability already
+active in the same image. The supported testing workflow is to run tests in an
+isolated image, not alongside a live instrumented application.
