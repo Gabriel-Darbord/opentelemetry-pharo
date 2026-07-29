@@ -44,7 +44,7 @@ jobs:
     env:
       OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENABLED: "true"
       OTEL_PHARO_OTLP_GRPC_INTEGRATION_ENDPOINT: "http://127.0.0.1:4317"
-      OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "${{ github.workspace }}/ci/otlp-grpc-traces.json"
+      OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE: "${{ runner.temp }}/otel-output/otlp-grpc-traces.json"
     steps:
       - uses: actions/checkout@v4
       - uses: hpi-swa/setup-smalltalkCI@v1
@@ -52,13 +52,16 @@ jobs:
           smalltalk-image: Pharo64-13
       - name: Start OpenTelemetry Collector
         run: |
-          rm -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE"
+          mkdir -p "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE")"
+          chmod 777 "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE")"
+          [ -f "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE" ] && unlink "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE" || true
           docker run -d \
             --name otelcol-integration \
             -p 4317:4317 \
-            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$GITHUB_WORKSPACE/ci/otel-collector-otlp-grpc.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+            -v "$(dirname "$OTEL_PHARO_OTLP_GRPC_INTEGRATION_OUTPUT_FILE"):/otel-output" \
             ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.157.0 \
-            --config /workspace/ci/otel-collector-otlp-grpc.yaml
+            --config /etc/otelcol-contrib/config.yaml
           ready=false
           for attempt in $(seq 1 30); do
             if docker logs otelcol-integration 2>&1 | grep -q "Everything is ready. Begin running and processing data." \

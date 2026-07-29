@@ -8,7 +8,7 @@ processors:
 
 exporters:
   file:
-    path: /workspace/ci/otlp-grpc-traces.json
+    path: /otel-output/otlp-grpc-traces.json
     format: json
     flush_interval: 100ms
     create_directory: true
