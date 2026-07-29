@@ -26,12 +26,7 @@ OTUpDownCounter >> add: aNumber [
 { #category : 'recording' }
 OTUpDownCounter >> add: aNumber attributes: aCollection [
 
-	| value |
-	meter ifNil: [ ^ self ].
-	value := self recordableMeasurementValueFrom: aNumber.
-	value ifNil: [ ^ self ].
-	meter provider ifNotNil: [ meter provider recordMeasurementFor: self value: value attributes: aCollection ].
-	self
+	^ self recordMeasurementValue: aNumber attributes: aCollection
 ]
 
 { #category : 'accessing' }

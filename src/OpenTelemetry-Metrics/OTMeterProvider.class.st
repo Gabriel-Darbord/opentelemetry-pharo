@@ -282,14 +282,6 @@ OTMeterProvider class >> noteUnknownExporterName: aString [
 ]
 
 { #category : 'private - logging' }
-OTMeterProvider class >> noteUnsupportedExporterName: aString [
-
-	self configurationWarningSink value:
-		'OpenTelemetry metrics exporter name is recognized but not supported by this SDK yet and has been ignored: '
-		, aString printString
-]
-
-{ #category : 'private - logging' }
 OTMeterProvider class >> noteUnsupportedOtlpProtocol: aString [
 
 	self configurationWarningSink value:

@@ -33,12 +33,6 @@ OTPrometheusMetricReader class >> aggregationSelectorForPreference: aSymbol [
 ]
 
 { #category : 'private - http' }
-OTPrometheusMetricReader >> bindingAddressForHost [
-
-	^ self bindingAddressForHost: self host
-]
-
-{ #category : 'private - http' }
 OTPrometheusMetricReader >> bindingAddressForHost: aHostString [
 
 	aHostString ifNil: [ ^ #[ 127 0 0 1 ] ].
@@ -53,18 +47,6 @@ OTPrometheusMetricReader >> bindingAddressForHost: aHostString [
 OTPrometheusMetricReader >> collect [
 
 	^ self collectSnapshot
-]
-
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> contentTypeString [
-
-	^ self contentTypeStringForResponseFormat: self defaultResponseFormatDescriptor
-]
-
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> contentTypeStringForFormat: aFormatSymbol [
-
-	^ self contentTypeStringForResponseFormat: (self responseFormatDescriptorFor: aFormatSymbol)
 ]
 
 { #category : 'private - http' }
@@ -167,18 +149,6 @@ OTPrometheusMetricReader >> initialize [
 	port := 9464.
 	path := '/metrics'.
 	encoder := OTPrometheusTextEncoder new
-]
-
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> metricsResponse [
-
-	^ self metricsResponseForResponseFormat: self defaultResponseFormatDescriptor
-]
-
-{ #category : 'private - http' }
-OTPrometheusMetricReader >> metricsResponseForFormat: aFormatSymbol [
-
-	^ self metricsResponseForResponseFormat: (self responseFormatDescriptorFor: aFormatSymbol)
 ]
 
 { #category : 'private - http' }
@@ -315,18 +285,6 @@ OTPrometheusMetricReader >> scrapeEncoder [
 		translationStrategy: template translationStrategy;
 		warningSink: template warningSink.
 	^ configuredEncoder
-]
-
-{ #category : 'collecting' }
-OTPrometheusMetricReader >> scrapeText [
-
-	^ self scrapeTextForFormat: self defaultResponseFormat
-]
-
-{ #category : 'collecting' }
-OTPrometheusMetricReader >> scrapeTextForFormat: aFormatSymbol [
-
-	^ self scrapeTextForResponseFormat: (self responseFormatDescriptorFor: aFormatSymbol)
 ]
 
 { #category : 'collecting' }

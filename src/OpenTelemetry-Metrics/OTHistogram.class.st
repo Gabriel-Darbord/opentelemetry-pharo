@@ -217,14 +217,6 @@ OTHistogram >> exponentialHistogramRangeWidthAtScale: anInteger forAbsoluteValue
 ]
 
 { #category : 'aggregating' }
-OTHistogram >> exponentialHistogramScaleForMeasurements: someMeasurements [
-
-	^ self
-		  exponentialHistogramScaleForMeasurements: someMeasurements
-		  using: (OTMetricAggregationContext collectedAt: DateAndTime now asUTC startTimestamp: nil temporality: #cumulative)
-]
-
-{ #category : 'aggregating' }
 OTHistogram >> exponentialHistogramScaleForMeasurements: someMeasurements using: anOTMetricAggregationContext [
 
 	| maxScale maxSize negativeValues positiveValues |
@@ -291,12 +283,7 @@ OTHistogram >> record: aNumber [
 { #category : 'recording' }
 OTHistogram >> record: aNumber attributes: aCollection [
 
-	| value |
-	meter ifNil: [ ^ self ].
-	value := self recordableMeasurementValueFrom: aNumber.
-	value ifNil: [ ^ self ].
-	meter provider ifNotNil: [ meter provider recordMeasurementFor: self value: value attributes: aCollection ].
-	self
+	^ self recordMeasurementValue: aNumber attributes: aCollection
 ]
 
 { #category : 'aggregating' }

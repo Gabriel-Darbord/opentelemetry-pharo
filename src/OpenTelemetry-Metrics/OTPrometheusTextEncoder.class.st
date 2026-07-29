@@ -439,12 +439,6 @@ OTPrometheusTextEncoder >> prometheusMetricStemFor: anOTMetricData type: aTypeSy
 ]
 
 { #category : 'private - formatting' }
-OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData [
-
-	^ self prometheusMetricTypeFor: anOTMetricData format: #prometheusText004
-]
-
-{ #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusMetricTypeFor: anOTMetricData format: aFormatSymbol [
 
 	^ anOTMetricData prometheusMetricTypeWith: self format: aFormatSymbol
@@ -925,24 +919,6 @@ OTPrometheusTextEncoder >> writeLabels: someLabels on: aStream [
 ]
 
 { #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeMetric: anOTMetricData format: aFormatSymbol on: aStream [
-
-	| type |
-	type := self prometheusMetricTypeFor: anOTMetricData format: aFormatSymbol.
-	anOTMetricData
-		writePrometheusWith: self
-		type: type
-		format: aFormatSymbol
-		on: aStream
-]
-
-{ #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeMetric: anOTMetricData on: aStream [
-
-	^ self writeMetric: anOTMetricData format: #prometheusText004 on: aStream
-]
-
-{ #category : 'private - writing' }
 OTPrometheusTextEncoder >> writeMetricFamilyNamed: aMetricName metrics: someMetrics format: aFormatSymbol on: aStream [
 
 	| chosenDescription chosenType chosenUnit descriptions sampleIdentity typeSymbols types unitValues writtenSampleIdentities |
@@ -1125,12 +1101,6 @@ OTPrometheusTextEncoder >> writeSampleNamed: aMetricName labels: someLabels valu
 		space;
 		nextPutAll: (self prometheusValueStringFor: aValue);
 		lf
-]
-
-{ #category : 'private - writing' }
-OTPrometheusTextEncoder >> writeSampleSpecification: aSampleSpecification on: aStream [
-
-	self writeSampleSpecification: aSampleSpecification on: aStream format: #prometheusText004
 ]
 
 { #category : 'private - writing' }

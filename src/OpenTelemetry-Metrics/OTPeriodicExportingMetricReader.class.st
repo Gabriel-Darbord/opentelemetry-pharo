@@ -86,12 +86,6 @@ OTPeriodicExportingMetricReader >> exportProcess [
 ]
 
 { #category : 'private - exporting' }
-OTPeriodicExportingMetricReader >> exportSnapshot: anOTMetricSnapshot [
-
-	^ (self exportSnapshotResult: anOTMetricSnapshot) isSuccess
-]
-
-{ #category : 'private - exporting' }
 OTPeriodicExportingMetricReader >> exportSnapshotResult: anOTMetricSnapshot [
 
 	^ (self exportSnapshotsFrom: anOTMetricSnapshot) inject: OTLifecycleResult success into: [ :allExported :each |

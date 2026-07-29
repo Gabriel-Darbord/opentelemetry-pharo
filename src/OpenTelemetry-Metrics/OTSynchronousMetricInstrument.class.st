@@ -29,3 +29,14 @@ OTSynchronousMetricInstrument >> enabled [
 
 	^ meter notNil and: [ meter enablesSynchronousInstrument: self ]
 ]
+
+{ #category : 'recording' }
+OTSynchronousMetricInstrument >> recordMeasurementValue: aNumber attributes: aCollection [
+
+	| value |
+	meter ifNil: [ ^ self ].
+	value := self recordableMeasurementValueFrom: aNumber.
+	value ifNil: [ ^ self ].
+	meter provider ifNotNil: [ meter provider recordMeasurementFor: self value: value attributes: aCollection ].
+	self
+]

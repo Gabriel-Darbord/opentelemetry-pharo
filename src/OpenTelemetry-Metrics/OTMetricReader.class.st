@@ -452,12 +452,6 @@ OTMetricReader >> lastAsynchronousValuesByInstrument [
 ]
 
 { #category : 'collecting' }
-OTMetricReader >> lastAsynchronousValuesFor: anOTMetricInstrument [
-
-	^ self withLastAsynchronousValuesFor: anOTMetricInstrument do: [ :values | values copy ]
-]
-
-{ #category : 'collecting' }
 OTMetricReader >> lastCollectionTimestampByInstrument [
 
 	^ lastCollectionTimestampByInstrument ifNil: [ lastCollectionTimestampByInstrument := WeakIdentityKeyDictionary new ]
@@ -678,26 +672,12 @@ OTMetricReader >> normalizedProducerSnapshot: anOTMetricSnapshot producer: anOTM
 		  collectedAt: anOTMetricSnapshot collectedAt
 ]
 
-{ #category : 'collecting' }
-OTMetricReader >> normalizedProducerSnapshotFrom: anObject [
-
-	anObject ifNil: [ ^ OTMetricSnapshot empty ].
-	(anObject isKindOf: OTMetricSnapshot) ifTrue: [ ^ anObject ].
-	Error signal: 'OpenTelemetry metric producers must answer an OTMetricSnapshot'
-]
-
 { #category : 'private - logging' }
 OTMetricReader >> noteAsynchronousCallbackError: anError for: anOTAsynchronousMetricInstrument [
 
 	self callbackWarningSink value:
 		'OpenTelemetry asynchronous metric callback failed for instrument ' , anOTAsynchronousMetricInstrument name printString , ': '
 		, anError messageText
-]
-
-{ #category : 'private - logging' }
-OTMetricReader >> noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument [
-
-	self noteAsynchronousCallbackTimeoutFor: anOTAsynchronousMetricInstrument timeoutMillis: self callbackTimeoutMillis
 ]
 
 { #category : 'private - logging' }
@@ -778,14 +758,6 @@ OTMetricReader >> producerFailureMessageFor: anOTMetricProducer error: anError [
 ]
 
 { #category : 'collecting' }
-OTMetricReader >> producerMetrics [
-
-	| currentProvider |
-	currentProvider := self provider.
-	^ self producerMetricsForResource: (currentProvider ifNil: [ OTResource empty ] ifNotNil: [ currentProvider resource ])
-]
-
-{ #category : 'collecting' }
 OTMetricReader >> producerMetricsForResource: anOTResource [
 
 	| filter |
@@ -854,14 +826,6 @@ OTMetricReader >> pruneMissingAsynchronousState: aDictionary keepingOnly: curren
 ]
 
 { #category : 'collecting' }
-OTMetricReader >> pruneMissingLastAsynchronousValuesFor: anOTMetricInstrument keepingOnly: currentValues [
-
-	^ self
-		  withLastAsynchronousValuesFor: anOTMetricInstrument
-		  do: [ :previousValues | self pruneMissingAsynchronousState: previousValues keepingOnly: currentValues ]
-]
-
-{ #category : 'collecting' }
 OTMetricReader >> recordCollectionFailure: aString [
 
 	currentCollectionIssues ifNotNil: [ currentCollectionIssues first add: aString ]
@@ -883,12 +847,6 @@ OTMetricReader >> selectedAttributeSetMatching: someAttributes within: selectedA
 OTMetricReader >> selectedAttributeSetsByStream [
 
 	^ selectedAttributeSetsByStream ifNil: [ selectedAttributeSetsByStream := Dictionary new ]
-]
-
-{ #category : 'collecting' }
-OTMetricReader >> selectedAttributeSetsForStateKey: aStateKey [
-
-	^ self withSelectedAttributeSetsForStateKey: aStateKey do: [ :selectedAttributeSets | selectedAttributeSets copy ]
 ]
 
 { #category : 'collecting' }
