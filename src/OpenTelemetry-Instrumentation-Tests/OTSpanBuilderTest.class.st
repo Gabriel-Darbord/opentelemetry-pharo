@@ -22,7 +22,7 @@ OTSpanBuilderTest >> setUp [
 	super setUp.
 	OTTracerProvider current: nil.
 	OTSpanProcessor current: nil.
-	OTSpanExporter current: nil.
+	OTSpanExporter current: OTNoopSpanExporter new.
 	OTSpanBuilder parentContextWarningSink: nil.
 	OTSpan reset
 ]

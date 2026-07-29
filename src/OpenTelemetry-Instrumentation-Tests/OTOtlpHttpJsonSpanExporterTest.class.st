@@ -26,7 +26,9 @@ OTOtlpHttpJsonSpanExporterTest >> sampleSpan [
 	| parentContext provider span tracer |
 	provider := OTTracerProvider new.
 	provider
-		spanProcessor: OTSimpleSpanProcessor new;
+		spanProcessor: (OTSimpleSpanProcessor new
+				 exporter: OTNoopSpanExporter new;
+				 yourself);
 		idGenerator: (OTFixedIdGenerator traceIdHex: '12345678876543211234567887654321' spanIdHex: '8765432112345678' random: false).
 	parentContext := OTContext new withSpan: (OTSpanContext
 			                  traceId: '12345678876543211234567887654321'

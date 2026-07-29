@@ -6,9 +6,17 @@ Class {
 }
 
 { #category : 'running' }
+OTCurrentContextTest >> setUp [
+
+	super setUp.
+	OTSpanExporter current: OTNoopSpanExporter new
+]
+
+{ #category : 'running' }
 OTCurrentContextTest >> tearDown [
 
 	OpenTelemetry resetCurrentContext.
+	OTSpanExporter current: nil.
 	super tearDown
 ]
 

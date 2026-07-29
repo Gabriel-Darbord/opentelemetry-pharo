@@ -18,7 +18,7 @@ OTMetricEnvironmentConfigurationTest >> setEnvironmentValue: aValue forKey: aKey
 OTMetricEnvironmentConfigurationTest >> setUp [
 
 	super setUp.
-	OTMeterProvider current: nil
+	OTMeterProvider reset
 ]
 
 { #category : 'running' }
@@ -26,7 +26,6 @@ OTMetricEnvironmentConfigurationTest >> tearDown [
 
 	[
 		OTMeterProvider configurationWarningSink: nil.
-		OTMeterProvider current: nil.
 		OTMeterProvider reset ] ensure: [ super tearDown ]
 ]
 
@@ -524,10 +523,16 @@ OTMetricEnvironmentConfigurationTest >> testCurrentWarnsWhenNoneIsCombinedWithOt
 { #category : 'private' }
 OTMetricEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary during: aBlock [
 
-	| absent effectiveValues environment managedKeys snapshot |
+	| absent effectiveValues environment existingPeriodicReaders existingPrometheusReaders existingProviders managedKeys snapshot |
 	absent := Object new.
 	environment := Smalltalk os environment.
 	effectiveValues := aDictionary copy.
+	existingProviders := IdentitySet new.
+	OTMeterProvider allInstancesDo: [ :each | existingProviders add: each ].
+	existingPeriodicReaders := IdentitySet new.
+	OTPeriodicExportingMetricReader allInstancesDo: [ :each | existingPeriodicReaders add: each ].
+	existingPrometheusReaders := IdentitySet new.
+	OTPrometheusMetricReader allInstancesDo: [ :each | existingPrometheusReaders add: each ].
 	managedKeys := (environment keys select: [ :each | each beginsWith: 'OTEL_' ]) asOrderedCollection.
 	effectiveValues keysDo: [ :each | (managedKeys includes: each) ifFalse: [ managedKeys add: each ] ].
 	snapshot := Dictionary new.
@@ -537,7 +542,7 @@ OTMetricEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary durin
 			snapshot at: key put: (environment at: key ifAbsent: [ absent ]).
 			self setEnvironmentValue: value forKey: key ].
 	[
-		OTMeterProvider current: nil.
+		OTMeterProvider reset.
 		^ aBlock value ] ensure: [
 			managedKeys do: [ :key |
 					| value |
@@ -547,7 +552,10 @@ OTMetricEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary durin
 								 ifTrue: [ nil ]
 								 ifFalse: [ value ])
 						forKey: key ].
-			OTMeterProvider current: nil ]
+			OTMeterProvider allInstancesDo: [ :each | (existingProviders includes: each) ifFalse: [ each shutdown ] ].
+			OTPeriodicExportingMetricReader allInstancesDo: [ :each | (existingPeriodicReaders includes: each) ifFalse: [ each shutdown ] ].
+			OTPrometheusMetricReader allInstancesDo: [ :each | (existingPrometheusReaders includes: each) ifFalse: [ each shutdown ] ].
+			OTMeterProvider reset ]
 ]
 
 { #category : 'private' }

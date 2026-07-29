@@ -67,7 +67,9 @@ OTMetricExemplarTest >> setUp [
 	provider addMetricReader: reader.
 	tracerProvider := OTTracerProvider new
 		                  sampler: OTAlwaysOnSampler new;
-		                  spanProcessor: OTSimpleSpanProcessor new;
+		                  spanProcessor: (OTSimpleSpanProcessor new
+				                   exporter: OTNoopSpanExporter new;
+				                   yourself);
 		                  yourself.
 	tracer := tracerProvider tracerNamed: 'metrics-tests'
 ]
@@ -91,6 +93,48 @@ OTMetricExemplarTest >> testAlignedHistogramBucketReservoirIsSafeUnderConcurrent
 			| value |
 			value := #( 5 15 25 ) at: (offererIndex + measurementIndex - 1 rem: 3) + 1.
 			OTMetricMeasurement instrument: counter value: value attributes: { ('worker' -> offererIndex asString) } ]
+]
+
+{ #category : 'tests' }
+OTMetricExemplarTest >> testAlwaysOffFilterSkipsCustomExemplarReservoirCreation [
+
+	| counter factoryCallCount point |
+	factoryCallCount := 0.
+	provider
+		exemplarFilter: OTMetricExemplarFilter alwaysOff;
+		addView: ((OTMetricView named: 'requests.total')
+				 exemplarReservoirFactory: [ :context :instrument :pointAttributes |
+						 factoryCallCount := factoryCallCount + 1.
+						 OTRecordingMetricExemplarReservoir new ];
+				 yourself).
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 1 attributes: { ('status' -> '200') }.
+	point := self currentMetricPoint.
+	self assert: factoryCallCount equals: 0.
+	self assert: point exemplars isEmpty
+]
+
+{ #category : 'tests' }
+OTMetricExemplarTest >> testAlwaysOnFilterCapturesDroppedAttributesAsExemplarFilteredAttributes [
+
+	| counter exemplar point |
+	provider
+		exemplarFilter: OTMetricExemplarFilter alwaysOn;
+		addView: ((OTMetricView named: 'requests.total')
+				 attributeKeys: #( 'status' );
+				 yourself).
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 1 attributes: {
+			('status' -> '200').
+			('user' -> 'alice') }.
+	point := self currentMetricPoint.
+	exemplar := point exemplars first.
+	self assert: point value equals: 1.
+	self assert: point attributes size equals: 1.
+	self assert: (point attributes at: 'status') equals: '200'.
+	self assert: exemplar value equals: 1.
+	self assert: exemplar filteredAttributes size equals: 1.
+	self assert: (exemplar filteredAttributes at: 'user') equals: 'alice'
 ]
 
 { #category : 'tests' }
@@ -143,66 +187,6 @@ OTMetricExemplarTest >> testDefaultExemplarReservoirUsesConfiguredSimpleReservoi
 ]
 
 { #category : 'tests' }
-OTMetricExemplarTest >> testAlwaysOffFilterSkipsCustomExemplarReservoirCreation [
-
-	| counter factoryCallCount point |
-	factoryCallCount := 0.
-	provider
-		exemplarFilter: OTMetricExemplarFilter alwaysOff;
-		addView: ((OTMetricView named: 'requests.total')
-				 exemplarReservoirFactory: [ :context :instrument :pointAttributes |
-						 factoryCallCount := factoryCallCount + 1.
-						 OTRecordingMetricExemplarReservoir new ];
-				 yourself).
-	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
-	counter add: 1 attributes: { ('status' -> '200') }.
-	point := self currentMetricPoint.
-	self assert: factoryCallCount equals: 0.
-	self assert: point exemplars isEmpty
-]
-
-{ #category : 'tests' }
-OTMetricExemplarTest >> testAlwaysOnFilterCapturesDroppedAttributesAsExemplarFilteredAttributes [
-
-	| counter exemplar point |
-	provider
-		exemplarFilter: OTMetricExemplarFilter alwaysOn;
-		addView: ((OTMetricView named: 'requests.total')
-				 attributeKeys: #( 'status' );
-				 yourself).
-	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
-	counter add: 1 attributes: {
-			('status' -> '200').
-			('user' -> 'alice') }.
-	point := self currentMetricPoint.
-	exemplar := point exemplars first.
-	self assert: point value equals: 1.
-	self assert: point attributes size equals: 1.
-	self assert: (point attributes at: 'status') equals: '200'.
-	self assert: exemplar value equals: 1.
-	self assert: exemplar filteredAttributes size equals: 1.
-	self assert: (exemplar filteredAttributes at: 'user') equals: 'alice'
-]
-
-{ #category : 'tests' }
-OTMetricExemplarTest >> testExplicitHistogramUsesOneExemplarPerBucket [
-
-	| histogram point values |
-	provider exemplarFilter: OTMetricExemplarFilter alwaysOn.
-	histogram := (provider meterNamed: 'demo.metrics')
-		             histogramNamed: 'request.duration'
-		             unit: 'ms'
-		             description: 'Request duration'
-		             advice: { ('ExplicitBucketBoundaries' -> #( 10 20 )) } asDictionary.
-	histogram record: 5.
-	histogram record: 7.
-	histogram record: 15.
-	point := self currentMetricPoint.
-	values := (point exemplars collect: [ :each | each value ]) asSortedCollection asArray.
-	self assert: values equals: #( 7 15 )
-]
-
-{ #category : 'tests' }
 OTMetricExemplarTest >> testDefaultExemplarReservoirUsesSizeOneSimpleReservoirForNonHistogramAggregation [
 
 	| context counter reservoir |
@@ -221,6 +205,24 @@ OTMetricExemplarTest >> testDefaultExemplarReservoirUsesSizeOneSimpleReservoirFo
 	reservoir := context newExemplarReservoirForInstrument: counter pointAttributes: { ('status' -> '200') }.
 	self assert: reservoir class identicalTo: OTSimpleFixedSizeMetricExemplarReservoir.
 	self assert: reservoir size equals: 1
+]
+
+{ #category : 'tests' }
+OTMetricExemplarTest >> testExplicitHistogramUsesOneExemplarPerBucket [
+
+	| histogram point values |
+	provider exemplarFilter: OTMetricExemplarFilter alwaysOn.
+	histogram := (provider meterNamed: 'demo.metrics')
+		             histogramNamed: 'request.duration'
+		             unit: 'ms'
+		             description: 'Request duration'
+		             advice: { ('ExplicitBucketBoundaries' -> #( 10 20 )) } asDictionary.
+	histogram record: 5.
+	histogram record: 7.
+	histogram record: 15.
+	point := self currentMetricPoint.
+	values := (point exemplars collect: [ :each | each value ]) asSortedCollection asArray.
+	self assert: values equals: #( 7 15 )
 ]
 
 { #category : 'tests' }

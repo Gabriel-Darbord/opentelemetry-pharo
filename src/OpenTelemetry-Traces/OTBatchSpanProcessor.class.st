@@ -142,10 +142,25 @@ OTBatchSpanProcessor >> exportSpans: spans [
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> exportSpansResult: spans [
 
+	| durationSeconds result startedMillis |
 	^ exportLock critical: [
 			  self exportInProgress: true.
-			  [ self runExporterOperationResultNamed: 'export' do: [ self exporter export: spans ] ] ensure: [
-				  self exportInProgress: false ] ]
+			  [
+				  startedMillis := Time millisecondClockValue.
+				  OTSdkSelfObservability current recordExportStartedFor: self exporter signal: #span itemCount: spans size.
+				  result := self runExporterOperationResultNamed: 'export' do: [ self exporter export: spans ].
+				  durationSeconds := OTSdkSelfObservability elapsedSecondsSinceMillisecondClockValue: startedMillis.
+				  OTSdkSelfObservability current
+					  recordExportFinishedFor: self exporter
+					  signal: #span
+					  itemCount: spans size
+					  result: result
+					  durationSeconds: durationSeconds;
+					  recordProcessedCount: spans size
+					  forProcessor: self
+					  signal: #span
+					  errorType: (OTSdkSelfObservability lifecycleErrorTypeFor: result).
+				  result ] ensure: [ self exportInProgress: false ] ]
 ]
 
 { #category : 'accessing' }
@@ -285,6 +300,11 @@ OTBatchSpanProcessor >> nextBatchForExportAllowPartial: allowPartial [
 			  batch isEmpty
 				  ifTrue: [ queueBecameNonEmptyAt := nil ]
 				  ifFalse: [ batch size < batchSize ifTrue: [ queueBecameNonEmptyAt := Time millisecondClockValue ] ].
+			  OTSdkSelfObservability current
+				  adjustQueueSizeBy: exportCount negated
+				  forProcessor: self
+				  signal: #span
+				  capacity: maxQueueSize.
 			  spans ]
 ]
 
@@ -317,12 +337,24 @@ OTBatchSpanProcessor >> onEnd: span [
 	queueLock critical: [
 			| wasEmpty |
 			self isStopping ifTrue: [ ^ false ].
-			batch size >= maxQueueSize ifTrue: [ ^ false ].
+			batch size >= maxQueueSize ifTrue: [
+					OTSdkSelfObservability current
+						recordProcessedCount: 1
+						forProcessor: self
+						signal: #span
+						errorType: 'queue_full'.
+					^ false ].
 			wasEmpty := batch isEmpty.
 			batch add: snapshot.
 			wasEmpty ifTrue: [ queueBecameNonEmptyAt := Time millisecondClockValue ].
 			accepted := true.
 			shouldWakeWorker := wasEmpty or: [ batch size >= batchSize ] ].
+	accepted ifTrue: [
+			OTSdkSelfObservability current
+				adjustQueueSizeBy: 1
+				forProcessor: self
+				signal: #span
+				capacity: maxQueueSize ].
 	shouldWakeWorker ifTrue: [ workAvailable signal ].
 	^ accepted
 ]

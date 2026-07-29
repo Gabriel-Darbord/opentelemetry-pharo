@@ -277,6 +277,7 @@ OTSpanBuilder >> startSpan [
 		                  kind: spanKind
 		                  attributes: attributes
 		                  links: links.
+	OTSdkSelfObservability current recordStartedSpanWithParentSpanContext: parentSpanContext samplingResult: samplingResult.
 	samplingResult isRecording ifFalse: [
 			^ provider
 				  nonRecordingSpanIn: effectiveParentContext

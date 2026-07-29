@@ -269,32 +269,44 @@ OTMetricReader >> collectSnapshot [
 { #category : 'collecting' }
 OTMetricReader >> collectSnapshotResult [
 
-	| collectedAt currentProvider instruments measurements metrics producerMetrics snapshot |
-	self isStopping ifTrue: [
-		^ OTMetricBatchResult failureSnapshot: OTMetricSnapshot empty failedReasons: { 'OpenTelemetry metric reader is shutdown' } ].
-	^ collectLock critical: [
-			  self isStopping ifTrue: [
-				  ^ OTMetricBatchResult failureSnapshot: OTMetricSnapshot empty failedReasons: { 'OpenTelemetry metric reader is shutdown' } ].
-			  currentCollectionIssues := {
-				                             OrderedCollection new.
-				                             OrderedCollection new }.
-			  [
-				  collectedAt := DateAndTime now asUTC.
-				  currentProvider := self provider.
-				  currentProvider ifNil: [ ^ self metricBatchResultForSnapshot: OTMetricSnapshot empty ].
-				  instruments := currentProvider registeredMetricInstruments.
-				  measurements := currentProvider collectMeasurementsFor: self.
-				  metrics := self filteredMetricsFrom:
-					             (self metricDataFromMeasurements: measurements instruments: instruments collectedAt: collectedAt).
-				  producerMetrics := self producerMetricsForResource: currentProvider resource.
-				  producerMetrics ifNotEmpty: [ metrics := metrics , producerMetrics ].
-				  self markCollectedAt: collectedAt forInstruments: instruments.
-				  snapshot := OTMetricSnapshot
-					              resource: currentProvider resource
-					              measurements: measurements
-					              metrics: metrics
-					              collectedAt: collectedAt.
-				  ^ self metricBatchResultForSnapshot: snapshot ] ensure: [ currentCollectionIssues := nil ] ]
+	| collectedAt currentProvider durationSeconds instruments measurements metrics producerMetrics result snapshot startedMillis |
+	startedMillis := Time millisecondClockValue.
+	result := self isStopping
+		          ifTrue: [
+		          OTMetricBatchResult
+			          failureSnapshot: OTMetricSnapshot empty
+			          failedReasons: { 'OpenTelemetry metric reader is shutdown' } ]
+		          ifFalse: [
+				          collectLock critical: [
+						          self isStopping
+							          ifTrue: [
+							          OTMetricBatchResult
+								          failureSnapshot: OTMetricSnapshot empty
+								          failedReasons: { 'OpenTelemetry metric reader is shutdown' } ]
+							          ifFalse: [
+									          currentCollectionIssues := {
+										                                     OrderedCollection new.
+										                                     OrderedCollection new }.
+									          [
+										          collectedAt := DateAndTime now asUTC.
+										          currentProvider := self provider.
+										          currentProvider ifNil: [ self metricBatchResultForSnapshot: OTMetricSnapshot empty ] ifNotNil: [
+												          instruments := currentProvider registeredMetricInstruments.
+												          measurements := currentProvider collectMeasurementsFor: self.
+												          metrics := self filteredMetricsFrom:
+													                     (self metricDataFromMeasurements: measurements instruments: instruments collectedAt: collectedAt).
+												          producerMetrics := self producerMetricsForResource: currentProvider resource.
+												          producerMetrics ifNotEmpty: [ metrics := metrics , producerMetrics ].
+												          self markCollectedAt: collectedAt forInstruments: instruments.
+												          snapshot := OTMetricSnapshot
+													                      resource: currentProvider resource
+													                      measurements: measurements
+													                      metrics: metrics
+													                      collectedAt: collectedAt.
+												          self metricBatchResultForSnapshot: snapshot ] ] ensure: [ currentCollectionIssues := nil ] ] ] ].
+	durationSeconds := OTSdkSelfObservability elapsedSecondsSinceMillisecondClockValue: startedMillis.
+	OTSdkSelfObservability current recordCollectionResult: result forMetricReader: self durationSeconds: durationSeconds.
+	^ result
 ]
 
 { #category : 'collecting' }
