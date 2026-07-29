@@ -60,10 +60,10 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 		group: 'logs-tests' with: #( 'OpenTelemetry-Logs-Tests' );
 		group: 'metrics-tests' with: #( 'OpenTelemetry-Metrics-Tests' );
 		group: 'core' with: #( 'traces' 'instrumentation' 'logs' 'metrics' 'autoconfigure' );
-		group: 'tests' with: #( 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
+		group: 'tests' with: #( 'core' 'traces-tests' 'instrumentation-tests' 'logs-tests' 'metrics-tests' );
 		group: 'integration-tests' with: #( 'traces-integration-tests' );
 		group: 'default' with: #( 'core' );
-		group: 'all' with: #( 'core' 'tests' 'integration-tests' )
+		group: 'all' with: #( 'tests' 'integration-tests' )
 ]
 
 { #category : 'baselines' }
@@ -74,6 +74,8 @@ BaselineOfOpenTelemetry >> baselinePharo12Plus: spec [
 
 	spec
 		package: 'OpenTelemetry-Compatibility-Pharo12Plus';
+		package: 'OpenTelemetry-Instrumentation'
+		with: [ spec requires: #( 'OpenTelemetry-Matchers' 'OpenTelemetry-Compatibility-Pharo12Plus' ) ];
 		package: 'OpenTelemetry-Instrumentation-MethodProxy'
 		with: [ spec requires: #( 'MethodProxies' 'OpenTelemetry-Instrumentation' ) ];
 		package: 'OpenTelemetry-Instrumentation-MethodProxy-Tests'
