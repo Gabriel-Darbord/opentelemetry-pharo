@@ -28,10 +28,11 @@ Use `OTMetaLinkInstrumentation` when you want the mature MetaLink-based path.
 
 Tradeoffs:
 
-- richer and older integration path
-- debugger interaction can still be surprising on instrumented methods
-- one method cannot be instrumented multiple times in the same MetaLink-based
-  style
+- instruments methods by injecting bytecode into their compiled representation
+- generally the preferred backend for regular Pharo methods
+- cannot instrument primitive methods, which execute directly in the VM
+- modifies the method's bytecode, which can make debugging behavior surprising
+- a method can only be instrumented once using this backend
 
 ### MethodProxy Backend
 
@@ -39,10 +40,13 @@ Use `OTMethodProxyInstrumentation` when you want a MethodProxy-based backend.
 
 Tradeoffs:
 
-- different hook shape
-- useful when MetaLink is not the right fit
-- now has exit-hook parity for abnormal exits, but it is still a separate
-  backend with its own runtime behavior
+- instruments methods by wrapping their execution instead of modifying
+  their bytecode
+- works for both bytecode methods and primitive methods
+- adds an extra level of indirection on every call
+- replaces the method installed in the class's `MethodDictionary` with a proxy
+  that dispatches to the original method
+- has different runtime and debugging behavior than bytecode instrumentation
 
 ## Organizing Instrumentations With Modules
 
@@ -91,11 +95,11 @@ packageMatcher
 
 classMatcher
 
-  ^ OTMatcher name: #MyLibraryClient
+  ^ OTMatcher hierarchyOf: #MyLibraryClient
 
 methodMatcher
 
-  ^ OTMatcher name: #performRequest:
+  ^ OTMatcher anyName: #( connect performRequest: disconnect )
 ```
 
 The installer iterates in this order:
