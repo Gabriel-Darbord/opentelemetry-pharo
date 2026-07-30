@@ -22,9 +22,9 @@ The repository currently ships:
 
 `opentelemetry-pharo` is developed spec-first.
 
-For the repository features currently shipped, the audited applicable
-OpenTelemetry `MUST`, `MUST NOT`, `SHOULD`, and `SHOULD NOT` requirements are
-implemented against OpenTelemetry Specification `v1.58.0`.
+For the repository features currently shipped, the applicable OpenTelemetry
+`MUST`, `MUST NOT`, `SHOULD`, and `SHOULD NOT` requirements are implemented
+against OpenTelemetry Specification `v1.58.0`.
 
 The remaining known gaps are optional Prometheus native histogram `MAY` items.
 
@@ -39,7 +39,7 @@ Metacello new
 
 ## Documentation
 
-The user manual now lives in [`docs/`](docs/README.md).
+See the user manual in [`docs`](docs/).
 
 Start with:
 
@@ -56,4 +56,5 @@ Start with:
 ## Contributing
 
 Contributions are welcome!
-If you find any issues, have suggestions, or want to contribute new features, please create an issue or submit a pull request.
+If you find any issues, have suggestions, or want to contribute new features,
+please create an issue or submit a pull request.

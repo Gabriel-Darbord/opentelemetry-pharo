@@ -13,11 +13,11 @@ Start here:
   processors and exporters.
 - [Metrics API](metrics.md): get meters, create instruments, and understand the
   current metrics SDK, OTLP exporters, and Prometheus pull endpoint.
+- [Instrumentation API](instrumentation.md): build reusable Pharo
+  instrumentations and choose an installation backend.
 - [Prometheus Future Work](prometheus-future-work.md): optional and
   development-status Prometheus/OpenMetrics follow-up work that is intentionally
   deferred while strict spec compliance stays the priority.
-- [Instrumentation API](instrumentation.md): build reusable Pharo
-  instrumentations and choose an installation backend.
 
 ## Compliance Status
 
@@ -34,9 +34,11 @@ items, tracked in [Prometheus Future Work](prometheus-future-work.md).
 Current scope:
 
 - traces: supported
-- logs: API, batch processing, OTLP export, stdout export, and TinyLogger/Beacon bridging supported
+- logs: API, batch processing, OTLP export, stdout export, and TinyLogger/Beacon
+  bridging supported
 - baggage and text-map propagation: supported
-- metrics: synchronous/asynchronous instruments, views, OTLP export, and Prometheus pull export supported
+- metrics: synchronous/asynchronous instruments, views, OTLP export, and
+  Prometheus pull export supported
 
 Supported Pharo range in the baseline:
 
