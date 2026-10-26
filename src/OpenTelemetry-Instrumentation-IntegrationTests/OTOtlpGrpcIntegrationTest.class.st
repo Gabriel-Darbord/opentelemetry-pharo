@@ -92,14 +92,21 @@ OTOtlpGrpcIntegrationTest >> resetTelemetryConfiguration [
 ]
 
 { #category : 'running' }
+OTOtlpGrpcIntegrationTest >> restoreOtelEnvironment [
+
+	| environment |
+	environment := Smalltalk os environment.
+	environment keys select: [ :each | each beginsWith: 'OTEL_' ] thenDo: [ :each | environment removeKey: each ].
+	otelEnvironmentSnapshot associationsDo: [ :each | self setEnvironmentValue: each value forKey: each key ]
+]
+
+{ #category : 'running' }
 OTOtlpGrpcIntegrationTest >> setEnvironmentValue: aValue forKey: aKey [
 
 	| currentValue environment |
 	environment := Smalltalk os environment.
 	currentValue := environment at: aKey ifAbsent: [ nil ].
-	aValue
-		ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ]
-		ifNotNil: [ environment at: aKey put: aValue ]
+	aValue ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ] ifNotNil: [ environment at: aKey put: aValue ]
 ]
 
 { #category : 'running' }
@@ -130,17 +137,6 @@ OTOtlpGrpcIntegrationTest >> tearDown [
 		OTGrpcTestSupport removeFakeGrpcResolvers.
 		self resetTelemetryConfiguration.
 		self restoreOtelEnvironment ] ensure: [ super tearDown ]
-]
-
-{ #category : 'running' }
-OTOtlpGrpcIntegrationTest >> restoreOtelEnvironment [
-
-	| environment |
-	environment := Smalltalk os environment.
-	environment keys
-		select: [ :each | each beginsWith: 'OTEL_' ]
-		thenDo: [ :each | environment removeKey: each ].
-	otelEnvironmentSnapshot associationsDo: [ :each | self setEnvironmentValue: each value forKey: each key ].
 ]
 
 { #category : 'private' }

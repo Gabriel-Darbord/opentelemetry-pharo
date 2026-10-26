@@ -189,6 +189,13 @@ Current metric behavior:
 - synchronous `bind:` returns an `OTBoundMetricInstrument` that retains pre-bound attributes
 - `OTMeterProvider>>shutdown` makes future meter requests return scoped no-op meters and shuts down registered readers
 - `OTMeterProvider>>forceFlush` delegates to registered readers
+- periodic-reader shutdown performs a final collection, exports its batches in
+  order, and flushes the exporter before shutting it down; export failure or
+  timeout is reported while exporter shutdown is still attempted
+- `OTPeriodicExportingMetricReader>>maxExportBatchSize:` limits each batch by
+  metric data-point count; `exportTimeoutMillis:` applies to each batch export
+- later batches are still attempted after an earlier batch fails or times out;
+  force-flush reports the combined unsuccessful result and still flushes the exporter
 - OTLP metric exporters accept gzip compression, signal-specific headers, and per-reader temporality
 - OTLP/gRPC metric exporters also accept bare `host[:port]` authorities and the shared or metrics-specific `OTEL_EXPORTER_OTLP_*_INSECURE` switches
 - OTLP exporters also read the shared or metrics-specific TLS file options for trusted server certificates and client key/certificate pairs when the runtime can honor them

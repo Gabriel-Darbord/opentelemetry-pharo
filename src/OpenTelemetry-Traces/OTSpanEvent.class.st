@@ -193,8 +193,18 @@ OTSpanEvent >> timestamp [
 { #category : 'copying' }
 OTSpanEvent >> withAttributeCountLimit: aCountLimit valueLengthLimit: aLengthLimit [
 
+	^ self withAttributeCountLimit: aCountLimit valueLengthLimit: aLengthLimit valueDepthLimit: nil
+]
+
+{ #category : 'copying' }
+OTSpanEvent >> withAttributeCountLimit: aCountLimit valueLengthLimit: aLengthLimit valueDepthLimit: aDepthLimit [
+
 	| result |
-	result := OTAttributeNormalizer normalizeAttributes: self attributes countLimit: aCountLimit valueLengthLimit: aLengthLimit.
+	result := OTAttributeNormalizer
+		          normalizeAttributes: self attributes
+		          countLimit: aCountLimit
+		          valueLengthLimit: aLengthLimit
+		          valueDepthLimit: aDepthLimit.
 	^ self class
 		  named: self name
 		  attributes: result first

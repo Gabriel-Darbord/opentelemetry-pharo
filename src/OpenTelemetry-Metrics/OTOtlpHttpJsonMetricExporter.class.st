@@ -143,19 +143,7 @@ OTOtlpHttpJsonMetricExporter class >> warningSink: aBlock [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonMetricExporter >> applyConfigurationToHttpClient [
 
-	| client timeoutMillis |
-	client := self httpClient.
-	client
-		url: self configuration endpoint;
-		method: #POST.
-	timeoutMillis := self configuredRequestTimeoutMillisOrNil.
-	timeoutMillis ifNotNil: [ client timeout: timeoutMillis ].
-	self configuration headers associationsDo: [ :each | client headerAt: each key put: each value ].
-	(self hasUserAgentHeaderConfigured: self configuration headers) ifFalse: [
-		client headerAt: 'User-Agent' put: self configuration userAgent ].
-	client
-		headerAt: 'Content-Type' put: 'application/json';
-		headerAt: 'Accept-Encoding' put: 'gzip'
+	self httpJsonExportSupport applyConfigurationToHttpClient
 ]
 
 { #category : 'accessing' }
@@ -173,7 +161,7 @@ OTOtlpHttpJsonMetricExporter >> configuration: anOtlpConfiguration [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonMetricExporter >> configuredRequestTimeoutMillisOrNil [
 
-	^ self configuration timeoutMillis
+	^ self configuration timeoutMillisOrNil
 ]
 
 { #category : 'private - decoding' }
@@ -230,14 +218,15 @@ OTOtlpHttpJsonMetricExporter >> executeHttpRequestForPayloadString: payloadStrin
 OTOtlpHttpJsonMetricExporter >> export: anOTMetricSnapshot [
 
 	| payloadString |
-	^ self withSynchronizedExportDo: [
-			  self isStopping ifTrue: [ ^ false ].
-			  payloadString := [ self payloadStringFrom: anOTMetricSnapshot ]
-				                   on: Error
-				                   do: [ :error |
-						                   self notePayloadEncodingFailure: error.
-						                   ^ false ].
-			  self exportAttemptNumber: 1 payloadString: payloadString ]
+	^ OTOtlpExportSupport exportFor: self do: [
+			  self withSynchronizedExportDo: [
+					  self isStopping ifTrue: [ ^ false ].
+					  payloadString := [ self payloadStringFrom: anOTMetricSnapshot ]
+						                   on: Error
+						                   do: [ :error |
+								                   self notePayloadEncodingFailure: error.
+								                   ^ false ].
+					  self exportAttemptNumber: 1 payloadString: payloadString ] ]
 ]
 
 { #category : 'exporting' }

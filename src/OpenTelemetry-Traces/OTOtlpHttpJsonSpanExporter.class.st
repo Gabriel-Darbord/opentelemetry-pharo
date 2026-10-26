@@ -76,19 +76,7 @@ OTOtlpHttpJsonSpanExporter class >> warningSink [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonSpanExporter >> applyConfigurationToHttpClient [
 
-	| client timeoutMillis |
-	client := self httpClient.
-	client
-		url: self configuration endpoint;
-		method: #POST.
-	timeoutMillis := self configuredRequestTimeoutMillisOrNil.
-	timeoutMillis ifNotNil: [ client timeout: timeoutMillis ].
-	self configuration headers associationsDo: [ :each | client headerAt: each key put: each value ].
-	(self hasUserAgentHeaderConfigured: self configuration headers) ifFalse: [
-		client headerAt: 'User-Agent' put: self configuration userAgent ].
-	client
-		headerAt: 'Content-Type' put: 'application/json';
-		headerAt: 'Accept-Encoding' put: 'gzip'
+	self httpJsonExportSupport applyConfigurationToHttpClient
 ]
 
 { #category : 'private - configuration' }
@@ -168,9 +156,10 @@ OTOtlpHttpJsonSpanExporter >> executeHttpRequestForPayloadString: payloadString 
 { #category : 'exporting' }
 OTOtlpHttpJsonSpanExporter >> export: spans [
 
-	^ self withExportLockDo: [
-			  self isShutdown ifTrue: [ ^ false ].
-			  self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: spans) ]
+	^ OTOtlpExportSupport exportFor: self do: [
+			  self withExportLockDo: [
+					  self isShutdown ifTrue: [ ^ false ].
+					  self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: spans) ] ]
 ]
 
 { #category : 'exporting' }

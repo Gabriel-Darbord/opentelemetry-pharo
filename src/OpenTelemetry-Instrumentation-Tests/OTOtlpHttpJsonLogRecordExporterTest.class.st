@@ -76,7 +76,7 @@ OTOtlpHttpJsonLogRecordExporterTest >> testExportAppliesHttpJsonConfigurationAnd
 			self assert: (exporter export: { self sampleLogRecord }).
 			self assert: client url equals: 'http://collector:4318/v1/logs'.
 			self assert: client method equals: #POST.
-			self assert: client timeout equals: 1234.
+			self assert: client timeout equals: 1.234.
 			self assert: (client headers at: 'authorization') equals: 'Bearer 123'.
 			self assert: (client headers at: 'User-Agent') equals: 'OTel-OTLP-Exporter-Pharo/test'.
 			self assert: (client headers at: 'Content-Type') equals: 'application/json'.

@@ -65,6 +65,7 @@ OTCompositeSampler >> sanitizedTraceStateFrom: aTraceState preservingParentOtelE
 OTCompositeSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| decision intent parentTraceState randomness sampled traceState |
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	intent := delegate
 		          samplingIntentIn: aContext
 		          name: aString
@@ -106,7 +107,8 @@ OTCompositeSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString k
 { #category : 'lifecycle' }
 OTCompositeSampler >> shutdown [
 
-	^ delegate shutdown
+	self beginShutdown ifFalse: [ ^ false ].
+	^ OTSampler shutdownSamplers: { delegate }
 ]
 
 { #category : 'lifecycle' }

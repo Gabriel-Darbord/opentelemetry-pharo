@@ -460,9 +460,7 @@ OTPrometheusTextEncoder >> prometheusMetricTypeStringFor: aTypeSymbol [
 { #category : 'private - formatting' }
 OTPrometheusTextEncoder >> prometheusStringValueFor: anObject [
 
-	anObject ifNil: [ ^ '' ].
-	anObject isString ifTrue: [ ^ anObject ].
-	^ anObject printString
+	^ OTAnyValueStringEncoder stringFor: anObject
 ]
 
 { #category : 'private - formatting' }

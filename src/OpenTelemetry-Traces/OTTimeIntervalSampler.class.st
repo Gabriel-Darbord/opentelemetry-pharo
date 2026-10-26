@@ -61,6 +61,7 @@ OTTimeIntervalSampler >> reset [
 { #category : 'asserting' }
 OTTimeIntervalSampler >> shouldSample [
 
+	self isShutdown ifTrue: [ ^ false ].
 	^ stateLock critical: [
 			  | now previous |
 			  now := Time millisecondClockValue.

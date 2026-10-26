@@ -156,8 +156,18 @@ OTSpanLink >> stonOn: stonWriter [
 { #category : 'copying' }
 OTSpanLink >> withAttributeCountLimit: aCountLimit valueLengthLimit: aLengthLimit [
 
+	^ self withAttributeCountLimit: aCountLimit valueLengthLimit: aLengthLimit valueDepthLimit: nil
+]
+
+{ #category : 'copying' }
+OTSpanLink >> withAttributeCountLimit: aCountLimit valueLengthLimit: aLengthLimit valueDepthLimit: aDepthLimit [
+
 	| result |
-	result := OTAttributeNormalizer normalizeAttributes: self attributes countLimit: aCountLimit valueLengthLimit: aLengthLimit.
+	result := OTAttributeNormalizer
+		          normalizeAttributes: self attributes
+		          countLimit: aCountLimit
+		          valueLengthLimit: aLengthLimit
+		          valueDepthLimit: aDepthLimit.
 	^ self class
 		  spanContext: self spanContext
 		  attributes: result first

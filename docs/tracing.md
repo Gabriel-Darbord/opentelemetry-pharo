@@ -151,6 +151,21 @@ span := (tracer spanBuilderNamed: 'db.query')
   startSpan.
 ```
 
+## Attribute Limits
+
+Span, event, and link attributes use `OTSpanLimits`. Nested arrays and maps
+default to a maximum depth of 64. Count the top-level attribute value as depth
+1; containers beyond the limit become `nil`, while scalar values are preserved.
+Configure a non-negative depth programmatically before starting spans:
+
+```smalltalk
+provider spanLimits: (OTSpanLimits new
+	attributeValueDepthLimit: 32;
+	yourself).
+```
+
+Resource and metric attributes are exempt from this limit.
+
 ## Working With Current Context
 
 `OpenTelemetry` exposes the implicit current context API:
@@ -320,6 +335,23 @@ each configured exporter. Console export and `otlp/stdout` use
 `OTBatchSpanProcessor`. `OTEL_TRACES_EXPORTER=logging` is accepted as the
 deprecated console-exporter alias.
 
+OTLP exporters share `OTOtlpExporterConfiguration`. Its `timeoutMillis` bounds the
+whole batch export, including encoding, request attempts, and retry waits; an
+earlier caller deadline takes precedence. HTTP socket timeouts are converted to
+seconds for Zinc. HTTP uses one-shot connections so Zinc's connection-reuse
+recovery cannot swallow timeout notifications.
+
+`timeoutMillis: 0` disables the overall export deadline. Native connection and
+I/O timeouts still apply to individual transport operations.
+
+Configure message limits programmatically with `maxRequestSize:` (default
+67,108,864 bytes / 64 MiB) and `maxResponseSize:` (default 4,194,304 bytes / 4 MiB).
+Limits count encoded bytes, including the uncompressed size for gzip payloads.
+An oversized request is discarded before sending; an oversized response fails
+without retry. HTTP reading and decompression, and gRPC DATA-frame reading,
+enforce the response limit before accumulating the complete body. The gRPC
+transport requires the matching response-limit support in `grpc-pharo`.
+
 For OTLP/gRPC, `OTOtlpExporterConfiguration` accepts both full `http(s)` URLs
 and bare `host[:port]` authorities. Bare authorities default to a secure
 `https` connection unless `OTEL_EXPORTER_OTLP_INSECURE=true` or
@@ -426,6 +458,12 @@ queued, it starts a fresh `scheduledDelayMillis` window from that export
 completion before exporting the partial batch.
 
 ## Lifecycle Operations
+
+Providers shut down their sampler as well as their processors. Built-in regular
+and composable samplers perform cleanup once under repeated or concurrent
+`shutdown` calls, close their delegates, and return a drop decision after
+shutdown begins. Processor `onEnding:` callbacks are skipped after the
+processor starts shutdown.
 
 The shortest lifecycle API is still boolean:
 
@@ -565,6 +603,32 @@ Configured names are parsed case-insensitively, deduplicated in order, and
 unknown values fall back to the default W3C composite with a diagnostic
 warning. `none` selects `OTNoopTextMapPropagator`; mixing `none` with other
 propagators is treated as invalid and falls back to the default composite.
+
+### Environment variable carriers
+
+Use `OTEnvironmentVariableTextMapGetter` and
+`OTEnvironmentVariableTextMapSetter` with an explicit environment dictionary.
+They normalize keys to ASCII environment names and treat values as opaque
+strings. They do not implicitly access the host environment or spawn child
+processes.
+
+```st
+childEnvironment := originalEnvironment copy.
+OpenTelemetry textMapPropagator
+  inject: OpenTelemetry currentContext
+  into: childEnvironment
+  setter: OTEnvironmentVariableTextMapSetter current.
+```
+
+Application code passes this dictionary to its own process-spawning API. Give
+each child its own copy when contexts differ. A child can extract context from
+its environment at startup with the corresponding getter; extracting once at
+initialization avoids treating environment variables as a live context store.
+
+Keep sensitive baggage out of environment variables: they may be readable by
+other code in the process and by other processes or users with sufficient
+permissions. These are operational recommendations for applications; the
+carrier itself only reads and writes the dictionary it receives.
 
 ## Practical Advice
 

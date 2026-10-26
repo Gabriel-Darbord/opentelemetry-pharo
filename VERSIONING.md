@@ -18,23 +18,26 @@ release.
 
 For the repository features currently shipped, `opentelemetry-pharo` implements
 the audited applicable OpenTelemetry `MUST`, `MUST NOT`, `SHOULD`, and
-`SHOULD NOT` requirements against OpenTelemetry Specification `v1.58.0`.
+`SHOULD NOT` requirements against OpenTelemetry Specification `v1.62.0`.
 
 Known remaining gaps are limited to optional Prometheus native histogram `MAY`
 work.
 
 ## Pharo Version Support
 
-The baseline currently supports:
+The supported Pharo targets are:
 
 - Pharo 12
 - Pharo 13
 - Pharo 14
+- Pharo 15
 
-The CI currently exercises:
+Development uses Pharo 14. The CI matrix targets:
 
 - Pharo 12
 - Pharo 13
+- Pharo 14 (coverage and collector integration)
+- Pharo 15
 
 Dropping support for a previously supported Pharo version is a breaking
 compatibility change.

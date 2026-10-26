@@ -46,11 +46,11 @@ OTConsoleLogRecordExporter >> formattedLogRecord: anOTLogRecord [
 			  anOTLogRecord body ifNotNil: [
 					  stream
 						  nextPutAll: ': ';
-						  nextPutAll: anOTLogRecord body printString ].
+						  nextPutAll: (OTAnyValueStringEncoder stringFor: anOTLogRecord body) ].
 			  anOTLogRecord attributes ifNotEmpty: [
 					  stream
 						  nextPutAll: ' attributes=';
-						  nextPutAll: anOTLogRecord attributes printString ] ]
+						  nextPutAll: (OTAnyValueStringEncoder stringFor: anOTLogRecord attributes) ] ]
 ]
 
 { #category : 'accessing' }

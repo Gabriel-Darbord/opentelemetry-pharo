@@ -56,7 +56,10 @@ OTLogRecord >> attributeNamed: aKey put: aValue [
 
 	| normalizedKey normalizedValue |
 	normalizedKey := OTAttributeNormalizer normalizeAttributeKey: aKey.
-	normalizedValue := OTAttributeNormalizer normalizeAttributeValue: aValue lengthLimit: self limits attributeValueLengthLimit.
+	normalizedValue := OTAttributeNormalizer
+		                   normalizeAttributeValue: aValue
+		                   lengthLimit: self limits attributeValueLengthLimit
+		                   depthLimit: self limits attributeValueDepthLimit.
 	((attributes includesKey: normalizedKey) or: [
 		 self attributeCountWithinLimit: self attributeCountLimit currentSize: attributes size ]) ifTrue: [
 			attributes at: normalizedKey put: normalizedValue.
@@ -79,7 +82,8 @@ OTLogRecord >> attributes: aCollection [
 	normalized := OTAttributeNormalizer
 		              normalizeAttributes: aCollection
 		              countLimit: self attributeCountLimit
-		              valueLengthLimit: self limits attributeValueLengthLimit.
+		              valueLengthLimit: self limits attributeValueLengthLimit
+		              valueDepthLimit: self limits attributeValueDepthLimit.
 	attributes := normalized first.
 	droppedAttributesCount := normalized second.
 	droppedAttributesCount > 0 ifTrue: [ self warnOnceAboutDiscardedData ].

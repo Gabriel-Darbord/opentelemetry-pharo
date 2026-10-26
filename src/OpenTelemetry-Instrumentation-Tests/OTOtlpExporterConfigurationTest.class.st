@@ -217,6 +217,41 @@ OTOtlpExporterConfigurationTest >> testInvalidSignalSpecificScalarSettingsFallBa
 ]
 
 { #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testMessageSizeLimitsDefaultAndParticipateInEquality [
+
+	| configuration other |
+	configuration := OTOtlpExporterConfiguration new.
+	self assert: configuration maxRequestSize equals: 67108864.
+	self assert: configuration maxResponseSize equals: 4194304.
+	other := configuration copy.
+	self assert: configuration equals: other.
+	self assert: configuration hash equals: other hash.
+	other maxRequestSize: 12.
+	self deny: configuration = other.
+	configuration maxRequestSize: 12.
+	other maxResponseSize: 6.
+	self deny: configuration = other.
+	configuration maxResponseSize: 6.
+	self assert: configuration equals: other.
+	self assert: configuration hash equals: other hash
+]
+
+{ #category : 'tests' }
+OTOtlpExporterConfigurationTest >> testMessageSizeLimitsRejectInvalidValuesAndAllowZero [
+
+	| configuration |
+	configuration := OTOtlpExporterConfiguration new.
+	#( -1 1.5 '1' ) do: [ :value |
+			self should: [ configuration maxRequestSize: value ] raise: Error.
+			self should: [ configuration maxResponseSize: value ] raise: Error ].
+	configuration
+		maxRequestSize: 0;
+		maxResponseSize: 0.
+	self assert: configuration maxRequestSize equals: 0.
+	self assert: configuration maxResponseSize equals: 0
+]
+
+{ #category : 'tests' }
 OTOtlpExporterConfigurationTest >> testSharedEndpointAppendsTracePath [
 
 	self

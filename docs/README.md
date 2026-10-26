@@ -22,7 +22,7 @@ Start here:
 ## Compliance Status
 
 The current documentation and standing audit are based on OpenTelemetry
-Specification `v1.58.0`.
+Specification `v1.62.0`.
 
 For the repository features documented here, the audited applicable
 OpenTelemetry `MUST`, `MUST NOT`, `SHOULD`, and `SHOULD NOT` requirements are
@@ -45,10 +45,11 @@ Supported Pharo range in the baseline:
 - Pharo 12
 - Pharo 13
 - Pharo 14
+- Pharo 15
 
-The CI currently exercises Pharo 12 and Pharo 13.
+Development uses Pharo 14. The CI matrix targets Pharo 12, 13, 14, and 15.
 
-The Pharo 13 coverage-bearing CI run also includes a collector-backed OTLP/gRPC
+The Pharo 14 coverage-bearing CI run also includes a collector-backed OTLP/gRPC
 integration step for trace, log, and metric export. It runs outside the
 unit-test packages and uses a real OpenTelemetry Collector fixture.
 

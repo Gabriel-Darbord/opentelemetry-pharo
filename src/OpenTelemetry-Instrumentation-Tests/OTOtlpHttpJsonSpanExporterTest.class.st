@@ -86,7 +86,7 @@ OTOtlpHttpJsonSpanExporterTest >> testExportAppliesHttpJsonConfigurationAndSends
 			self assert: (exporter export: { self sampleSpan }) description: warnings printString.
 			self assert: client url = 'http://collector:4318/v1/traces' description: 'endpoint was not applied'.
 			self assert: client method = #POST description: 'request method was not POST'.
-			self assert: client timeout = 1234 description: 'timeout was not applied'.
+			self assert: client timeout = 1.234 description: 'timeout was not applied'.
 			self assert: (client headers at: 'authorization') = 'Bearer 123' description: 'authorization header missing'.
 			self assert: (client headers at: 'User-Agent') = 'OTel-OTLP-Exporter-Pharo/test' description: 'default user-agent missing'.
 			self assert: (client headers at: 'Content-Type') = 'application/json' description: 'content type missing'.

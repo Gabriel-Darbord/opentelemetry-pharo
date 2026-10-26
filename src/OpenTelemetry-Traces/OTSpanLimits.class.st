@@ -6,6 +6,7 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'attributeCountLimit',
+		'attributeValueDepthLimit',
 		'attributeValueLengthLimit',
 		'eventCountLimit',
 		'linkCountLimit',
@@ -27,12 +28,13 @@ OTSpanLimits >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class = self class ifFalse: [ ^ false ].
-	^ attributeCountLimit = anObject attributeCountLimit and: [
-			  attributeValueLengthLimit = anObject attributeValueLengthLimit and: [
-					  eventCountLimit = anObject eventCountLimit and: [
-							  linkCountLimit = anObject linkCountLimit and: [
-									  attributePerEventCountLimit = anObject attributePerEventCountLimit and: [
-										  attributePerLinkCountLimit = anObject attributePerLinkCountLimit ] ] ] ] ]
+	^ self attributeValueDepthLimit = anObject attributeValueDepthLimit and: [
+			  attributeCountLimit = anObject attributeCountLimit and: [
+					  attributeValueLengthLimit = anObject attributeValueLengthLimit and: [
+							  eventCountLimit = anObject eventCountLimit and: [
+									  linkCountLimit = anObject linkCountLimit and: [
+											  attributePerEventCountLimit = anObject attributePerEventCountLimit and: [
+												  attributePerLinkCountLimit = anObject attributePerLinkCountLimit ] ] ] ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -75,6 +77,19 @@ OTSpanLimits >> attributePerLinkCountLimit: anInteger [
 ]
 
 { #category : 'accessing' }
+OTSpanLimits >> attributeValueDepthLimit [
+
+	^ attributeValueDepthLimit ifNil: [ 64 ]
+]
+
+{ #category : 'accessing' }
+OTSpanLimits >> attributeValueDepthLimit: anInteger [
+
+	attributeValueDepthLimit := self normalizedLimit: anInteger allowNil: false.
+	^ attributeValueDepthLimit
+]
+
+{ #category : 'accessing' }
 OTSpanLimits >> attributeValueLengthLimit [
 
 	^ attributeValueLengthLimit
@@ -109,7 +124,8 @@ OTSpanLimits >> hash [
 		  eventCountLimit.
 		  linkCountLimit.
 		  attributePerEventCountLimit.
-		  attributePerLinkCountLimit } hash
+		  attributePerLinkCountLimit.
+		  self attributeValueDepthLimit } hash
 ]
 
 { #category : 'initialization' }
@@ -117,6 +133,7 @@ OTSpanLimits >> initialize [
 
 	super initialize.
 	attributeCountLimit := 128.
+	attributeValueDepthLimit := 64.
 	attributeValueLengthLimit := nil.
 	eventCountLimit := 128.
 	linkCountLimit := 128.

@@ -1,5 +1,7 @@
 [![Pharo version](https://img.shields.io/badge/Pharo-12-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
 [![Pharo version](https://img.shields.io/badge/Pharo-13-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
+[![Pharo version](https://img.shields.io/badge/Pharo-14-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
+[![Pharo version](https://img.shields.io/badge/Pharo-15-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
 ![Build Info](https://github.com/Gabriel-Darbord/opentelemetry-pharo/workflows/CI/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/Gabriel-Darbord/opentelemetry-pharo/badge.svg?branch=main)](https://coveralls.io/github/Gabriel-Darbord/opentelemetry-pharo?branch=main)
 
@@ -24,7 +26,7 @@ The repository currently ships:
 
 For the repository features currently shipped, the applicable OpenTelemetry
 `MUST`, `MUST NOT`, `SHOULD`, and `SHOULD NOT` requirements are implemented
-against OpenTelemetry Specification `v1.58.0`.
+against OpenTelemetry Specification `v1.62.0`.
 
 The remaining known gaps are optional Prometheus native histogram `MAY` items.
 

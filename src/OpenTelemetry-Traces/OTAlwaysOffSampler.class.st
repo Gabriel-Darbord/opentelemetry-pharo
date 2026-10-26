@@ -17,11 +17,13 @@ OTAlwaysOffSampler >> description [
 { #category : 'asserting' }
 OTAlwaysOffSampler >> shouldSample [
 
+	self isShutdown ifTrue: [ ^ false ].
 	^ false
 ]
 
 { #category : 'sampling' }
 OTAlwaysOffSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	^ OTSamplingResult drop
 ]

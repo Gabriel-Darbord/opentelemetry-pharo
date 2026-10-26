@@ -76,6 +76,7 @@ OTTraceIdRatioBasedSampler >> shouldEmitCompatibilityWarningForParentSpan: aSpan
 { #category : 'asserting' }
 OTTraceIdRatioBasedSampler >> shouldSample [
 
+	self isShutdown ifTrue: [ ^ false ].
 	^ self shouldSampleTraceId: OTSpanContext newTraceId
 ]
 
@@ -83,6 +84,7 @@ OTTraceIdRatioBasedSampler >> shouldSample [
 OTTraceIdRatioBasedSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| parentSpan |
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	parentSpan := aContext ifNotNil: [ aContext span ].
 	(self shouldEmitCompatibilityWarningForParentSpan: parentSpan) ifTrue: [
 		self class noteCompatibilityWarning: (self warningMessageForParentSpan: parentSpan) kind: #childSampler for: self ].

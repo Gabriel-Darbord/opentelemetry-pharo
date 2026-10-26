@@ -84,6 +84,7 @@ OTPerOperationSampler >> samplerForOperationNamed: aString [
 { #category : 'sampling' }
 OTPerOperationSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	^ (self samplerForOperationNamed: aString)
 		  shouldSampleIn: aContext
 		  traceId: aTraceId
@@ -91,4 +92,14 @@ OTPerOperationSampler >> shouldSampleIn: aContext traceId: aTraceId name: aStrin
 		  kind: aSpanKind
 		  attributes: someAttributes
 		  links: someLinks
+]
+
+{ #category : 'lifecycle' }
+OTPerOperationSampler >> shutdown [
+
+	self beginShutdown ifFalse: [ ^ false ].
+	^ OTSampler shutdownSamplers: (IdentitySet new
+			   add: self defaultSampler;
+			   addAll: self perOperationSamplers values;
+			   yourself)
 ]

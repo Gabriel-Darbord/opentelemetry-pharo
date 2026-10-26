@@ -24,7 +24,9 @@ OTMethodProxySpanInstrumentationTest >> setUp [
 
 	super setUp.
 	currentProcessor := OTSpanProcessor current.
-	OTBatchSpanProcessor new beCurrent
+	OTBatchSpanProcessor new
+		exporter: OTNoopSpanExporter new;
+		beCurrent
 ]
 
 { #category : 'running' }

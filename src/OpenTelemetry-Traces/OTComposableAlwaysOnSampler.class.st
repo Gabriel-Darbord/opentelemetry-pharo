@@ -18,5 +18,6 @@ OTComposableAlwaysOnSampler >> description [
 { #category : 'sampling' }
 OTComposableAlwaysOnSampler >> samplingIntentIn: aContext name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
+	self isShutdown ifTrue: [ ^ OTSamplingIntent drop ].
 	^ OTSamplingIntent threshold: 0 adjustedCountReliable: true
 ]

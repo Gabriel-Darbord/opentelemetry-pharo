@@ -9,6 +9,34 @@ Class {
 	#package : 'OpenTelemetry-Exporters'
 }
 
+{ #category : 'size limits' }
+OTOtlpExportSupport class >> allowsRequest: aStringOrBytes for: anExporter [
+
+	(self byteSizeOf: aStringOrBytes) <= anExporter configuration maxRequestSize ifTrue: [ ^ true ].
+	anExporter warningSink value:
+		'OpenTelemetry OTLP ' , anExporter otlpSignalName , ' request discarded: maximum request size exceeded'.
+	^ false
+]
+
+{ #category : 'size limits' }
+OTOtlpExportSupport class >> byteSizeOf: aStringOrBytes [
+
+	^ aStringOrBytes isString
+		  ifTrue: [ aStringOrBytes utf8Encoded size ]
+		  ifFalse: [ aStringOrBytes size ]
+]
+
+{ #category : 'exporting' }
+OTOtlpExportSupport class >> exportFor: anExporter do: aBlock [
+
+	| timeoutMillis |
+	timeoutMillis := anExporter configuration timeoutMillisOrNil.
+	timeoutMillis ifNil: [ ^ aBlock value ].
+	^ aBlock valueWithinMilliseconds: timeoutMillis onTimeout: [
+			  anExporter warningSink value: 'OpenTelemetry OTLP ' , anExporter otlpSignalName , ' export timed out'.
+			  false ]
+]
+
 { #category : 'messages' }
 OTOtlpExportSupport class >> invalidSuccessResponseMessageForSignal: aString transport: transportName error: anError [
 
@@ -20,6 +48,13 @@ OTOtlpExportSupport class >> invalidSuccessResponseMessageForSignal: aString tra
 				  nextPutAll: transportName;
 				  nextPutAll: ' success response: ';
 				  nextPutAll: anError messageText ]
+]
+
+{ #category : 'size limits' }
+OTOtlpExportSupport class >> noteResponseSizeExceededFor: anExporter [
+
+	anExporter warningSink value:
+		'OpenTelemetry OTLP ' , anExporter otlpSignalName , ' response discarded: maximum response size exceeded'
 ]
 
 { #category : 'messages' }

@@ -56,10 +56,13 @@ OTAttributeNormalizer class >> normalizeArrayValue: aCollection [
 { #category : 'normalizing' }
 OTAttributeNormalizer class >> normalizeArrayValue: aCollection lengthLimit: aLengthLimit [
 
-	| normalized |
-	normalized := OrderedCollection new: aCollection size.
-	aCollection do: [ :each | normalized add: (self normalizeAttributeValue: each lengthLimit: aLengthLimit) ].
-	^ normalized asArray
+	^ self normalizeArrayValue: aCollection lengthLimit: aLengthLimit depthLimit: nil
+]
+
+{ #category : 'normalizing' }
+OTAttributeNormalizer class >> normalizeArrayValue: aCollection lengthLimit: aLengthLimit depthLimit: aDepthLimit [
+
+	^ aCollection collect: [ :each | self normalizeAttributeValue: each lengthLimit: aLengthLimit depthLimit: aDepthLimit ] as: Array
 ]
 
 { #category : 'normalizing' }
@@ -82,15 +85,24 @@ OTAttributeNormalizer class >> normalizeAttributeValue: anObject [
 { #category : 'normalizing' }
 OTAttributeNormalizer class >> normalizeAttributeValue: anObject lengthLimit: aLengthLimit [
 
+	^ self normalizeAttributeValue: anObject lengthLimit: aLengthLimit depthLimit: nil
+]
+
+{ #category : 'normalizing' }
+OTAttributeNormalizer class >> normalizeAttributeValue: anObject lengthLimit: aLengthLimit depthLimit: aDepthLimit [
+
+	| childDepthLimit |
 	anObject isNil ifTrue: [ ^ nil ].
 	(anObject isString or: [ anObject isSymbol ]) ifTrue: [ ^ self truncateString: anObject asString lengthLimit: aLengthLimit ].
 	(self isBoolean: anObject) ifTrue: [ ^ anObject ].
 	anObject isInteger ifTrue: [ ^ self normalizeIntegerValue: anObject ].
 	anObject isNumber ifTrue: [ ^ anObject asFloat ].
 	(anObject isKindOf: ByteArray) ifTrue: [ ^ self truncateByteArray: anObject lengthLimit: aLengthLimit ].
-	(self isMapValue: anObject) ifTrue: [ ^ self normalizeMapValue: anObject lengthLimit: aLengthLimit ].
-	anObject isCollection ifTrue: [ ^ self normalizeArrayValue: anObject lengthLimit: aLengthLimit ].
-	self signalInvalidAttributeValue: anObject
+	anObject isCollection ifFalse: [ ^ self signalInvalidAttributeValue: anObject ].
+	(aDepthLimit notNil and: [ aDepthLimit = 0 ]) ifTrue: [ ^ nil ].
+	childDepthLimit := aDepthLimit ifNotNil: [ aDepthLimit - 1 ].
+	(self isMapValue: anObject) ifTrue: [ ^ self normalizeMapValue: anObject lengthLimit: aLengthLimit depthLimit: childDepthLimit ].
+	^ self normalizeArrayValue: anObject lengthLimit: aLengthLimit depthLimit: childDepthLimit
 ]
 
 { #category : 'normalizing' }
@@ -101,6 +113,16 @@ OTAttributeNormalizer class >> normalizeAttributes: aCollection [
 
 { #category : 'normalizing' }
 OTAttributeNormalizer class >> normalizeAttributes: aCollection countLimit: aCountLimit valueLengthLimit: aLengthLimit [
+
+	^ self
+		  normalizeAttributes: aCollection
+		  countLimit: aCountLimit
+		  valueLengthLimit: aLengthLimit
+		  valueDepthLimit: nil
+]
+
+{ #category : 'normalizing' }
+OTAttributeNormalizer class >> normalizeAttributes: aCollection countLimit: aCountLimit valueLengthLimit: aLengthLimit valueDepthLimit: aDepthLimit [
 
 	| normalized droppedCount |
 	normalized := OrderedDictionary new.
@@ -114,7 +136,7 @@ OTAttributeNormalizer class >> normalizeAttributes: aCollection countLimit: aCou
 	aCollection associationsDo: [ :each |
 			| key value |
 			key := self normalizeAttributeKey: each key.
-			value := self normalizeAttributeValue: each value lengthLimit: aLengthLimit.
+			value := self normalizeAttributeValue: each value lengthLimit: aLengthLimit depthLimit: aDepthLimit.
 			((normalized includesKey: key) or: [ self mayAddAttributeNamed: key to: normalized countLimit: aCountLimit ])
 				ifTrue: [ normalized at: key put: value ]
 				ifFalse: [ droppedCount := droppedCount + 1 ] ].
@@ -139,10 +161,18 @@ OTAttributeNormalizer class >> normalizeMapValue: aCollection [
 { #category : 'normalizing' }
 OTAttributeNormalizer class >> normalizeMapValue: aCollection lengthLimit: aLengthLimit [
 
+	^ self normalizeMapValue: aCollection lengthLimit: aLengthLimit depthLimit: nil
+]
+
+{ #category : 'normalizing' }
+OTAttributeNormalizer class >> normalizeMapValue: aCollection lengthLimit: aLengthLimit depthLimit: aDepthLimit [
+
 	| normalized |
 	normalized := OrderedDictionary new.
 	aCollection associationsDo: [ :each |
-		normalized at: (self normalizeAttributeKey: each key) put: (self normalizeAttributeValue: each value lengthLimit: aLengthLimit) ].
+			normalized
+				at: (self normalizeAttributeKey: each key)
+				put: (self normalizeAttributeValue: each value lengthLimit: aLengthLimit depthLimit: aDepthLimit) ].
 	^ normalized
 ]
 

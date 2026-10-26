@@ -97,14 +97,7 @@ OTOtlpJsonTraceEncoder >> groupedSpansFrom: someSpans [
 { #category : 'private - encoding' }
 OTOtlpJsonTraceEncoder >> jsonDoubleValueFor: aNumber [
 
-	| value |
-	value := aNumber asFloat.
-	value isNaN ifTrue: [ ^ 'NaN' ].
-	value isInfinite ifTrue: [
-			^ value > 0
-				  ifTrue: [ 'Infinity' ]
-				  ifFalse: [ '-Infinity' ] ].
-	^ value
+	^ OTAnyValueStringEncoder jsonDoubleValueFor: aNumber
 ]
 
 { #category : 'private - encoding' }

@@ -11,22 +11,28 @@ BaselineOfOpenTelemetry >> baseline: spec [
 	<baseline>
 	spec for: #common do: [ self baselineCommon: spec ].
 
-	spec for: #( 'pharo12.x' 'pharo13.x' 'pharo14.x' ) do: [ self baselinePharo12Plus: spec ]
+	spec for: #( 'pharo12.x' 'pharo13.x' 'pharo14.x' 'pharo15.x' ) do: [ self baselinePharo12Plus: spec ].
+	spec for: #( 'pharo14.x' 'pharo15.x' ) do: [
+			spec package: 'OpenTelemetry-Compatibility-Pharo14Plus'.
+			spec
+				package: 'OpenTelemetry-Instrumentation-MetaLink'
+				with: [ spec requires: #( 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Compatibility-Pharo14Plus' ) ] ]
 ]
 
 { #category : 'baselines' }
 BaselineOfOpenTelemetry >> baselineCommon: spec [
 
-	spec baseline: 'GRPC' with: [ spec repository: 'github://Gabriel-Darbord/grpc-pharo:main/src' ].
+	spec baseline: 'GRPC' with: [ spec repository: 'github://Gabriel-Darbord/grpc-pharo:v0.1.0/src' ].
+	spec baseline: 'PharoBackwardCompatibility' with: [ spec repository: 'github://jecisc/PharoBackwardCompatibility:v1.x.x/src' ].
 
 	spec
 		package: 'OpenTelemetry-Matchers';
 		package: 'OpenTelemetry-SDK';
 		package: 'OpenTelemetry-Instrumentation' with: [ spec requires: #( 'OpenTelemetry-Matchers' ) ];
 		package: 'OpenTelemetry-Exporters';
-		package: 'OpenTelemetry-Traces'
-		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters'
-				   'GRPC' ) ];
+		package: 'OpenTelemetry-Traces' with: [
+				spec requires:
+						#( 'OpenTelemetry-SDK' 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Exporters' 'GRPC' 'PharoBackwardCompatibility' ) ];
 		package: 'OpenTelemetry-Logs'
 		with: [ spec requires: #( 'OpenTelemetry-SDK' 'OpenTelemetry-Traces' 'OpenTelemetry-Exporters' ) ];
 		package: 'OpenTelemetry-Metrics'
@@ -42,8 +48,8 @@ BaselineOfOpenTelemetry >> baselineCommon: spec [
 						   'OpenTelemetry-Autoconfigure' ) ];
 		package: 'OpenTelemetry-Instrumentation-IntegrationTests' with: [
 				spec requires:
-						#( 'OpenTelemetry-Autoconfigure' 'OpenTelemetry-Exporters' 'OpenTelemetry-Traces' 'OpenTelemetry-Logs'
-						   'OpenTelemetry-Metrics' 'OpenTelemetry-Instrumentation-Tests' ) ];
+						#( 'OpenTelemetry-Autoconfigure' 'OpenTelemetry-Exporters' 'OpenTelemetry-Traces' 'OpenTelemetry-Logs' 'OpenTelemetry-Metrics'
+						   'OpenTelemetry-Instrumentation-Tests' ) ];
 		package: 'OpenTelemetry-Logs-IntegrationTests'
 		with: [ spec requires: #( 'OpenTelemetry-Logs' 'OpenTelemetry-Instrumentation-IntegrationTests' ) ];
 		package: 'OpenTelemetry-Metrics-IntegrationTests'

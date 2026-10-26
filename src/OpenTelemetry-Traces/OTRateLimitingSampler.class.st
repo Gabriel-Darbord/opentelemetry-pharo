@@ -89,6 +89,7 @@ OTRateLimitingSampler >> refillBalanceAt: now [
 { #category : 'asserting' }
 OTRateLimitingSampler >> shouldSample [
 
+	self isShutdown ifTrue: [ ^ false ].
 	^ stateLock critical: [
 			  maxTracesPerSecond = 0 ifTrue: [ ^ false ].
 			  self refillBalanceAt: self currentTimeMillis.

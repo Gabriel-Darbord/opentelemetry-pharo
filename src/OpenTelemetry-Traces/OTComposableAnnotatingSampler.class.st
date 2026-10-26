@@ -47,6 +47,7 @@ OTComposableAnnotatingSampler >> description [
 OTComposableAnnotatingSampler >> samplingIntentIn: aContext name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| delegateIntent extraAttributes |
+	self isShutdown ifTrue: [ ^ OTSamplingIntent drop ].
 	delegateIntent := delegate
 		                  samplingIntentIn: aContext
 		                  name: aString
@@ -64,7 +65,8 @@ OTComposableAnnotatingSampler >> samplingIntentIn: aContext name: aString kind: 
 { #category : 'lifecycle' }
 OTComposableAnnotatingSampler >> shutdown [
 
-	^ delegate shutdown
+	self beginShutdown ifFalse: [ ^ false ].
+	^ OTSampler shutdownSamplers: { delegate }
 ]
 
 { #category : 'lifecycle' }

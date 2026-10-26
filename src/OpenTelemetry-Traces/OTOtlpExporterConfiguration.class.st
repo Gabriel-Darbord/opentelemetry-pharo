@@ -16,7 +16,9 @@ Class {
 		'insecure',
 		'certificateFile',
 		'clientKeyFile',
-		'clientCertificateFile'
+		'clientCertificateFile',
+		'maxRequestSize',
+		'maxResponseSize'
 	],
 	#category : 'OpenTelemetry-Traces',
 	#package : 'OpenTelemetry-Traces'
@@ -436,6 +438,8 @@ OTOtlpExporterConfiguration >> = anObject [
 		  self protocol.
 		  self headers.
 		  self timeoutMillis.
+		  self maxRequestSize.
+		  self maxResponseSize.
 		  self compression.
 		  self userAgent.
 		  self insecure.
@@ -448,6 +452,8 @@ OTOtlpExporterConfiguration >> = anObject [
 		  anObject protocol.
 		  anObject headers.
 		  anObject timeoutMillis.
+		  anObject maxRequestSize.
+		  anObject maxResponseSize.
 		  anObject compression.
 		  anObject userAgent.
 		  anObject insecure.
@@ -541,6 +547,8 @@ OTOtlpExporterConfiguration >> hash [
 		  self protocol.
 		  self headers.
 		  self timeoutMillis.
+		  self maxRequestSize.
+		  self maxResponseSize.
 		  self compression.
 		  self userAgent.
 		  self insecure.
@@ -577,6 +585,32 @@ OTOtlpExporterConfiguration >> insecure: aBoolean [
 OTOtlpExporterConfiguration >> isGrpcProtocol [
 
 	^ self protocol = 'grpc'
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> maxRequestSize [
+
+	^ maxRequestSize ifNil: [ 67108864 ]
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> maxRequestSize: anInteger [
+
+	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [ Error signal: 'OTLP size limits must be non-negative integers' ].
+	maxRequestSize := anInteger
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> maxResponseSize [
+
+	^ maxResponseSize ifNil: [ 4194304 ]
+]
+
+{ #category : 'accessing' }
+OTOtlpExporterConfiguration >> maxResponseSize: anInteger [
+
+	(anInteger isInteger and: [ anInteger >= 0 ]) ifFalse: [ Error signal: 'OTLP size limits must be non-negative integers' ].
+	maxResponseSize := anInteger
 ]
 
 { #category : 'accessing' }

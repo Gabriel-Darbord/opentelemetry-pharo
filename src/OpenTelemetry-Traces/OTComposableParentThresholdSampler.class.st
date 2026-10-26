@@ -58,6 +58,7 @@ OTComposableParentThresholdSampler >> rootSampler: aComposableSampler [
 OTComposableParentThresholdSampler >> samplingIntentIn: aContext name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| parentSpan parentSpanContext |
+	self isShutdown ifTrue: [ ^ OTSamplingIntent drop ].
 	parentSpan := aContext ifNotNil: [ aContext span ].
 	parentSpan ifNil: [
 			^ rootSampler
@@ -80,7 +81,8 @@ OTComposableParentThresholdSampler >> samplingIntentIn: aContext name: aString k
 { #category : 'lifecycle' }
 OTComposableParentThresholdSampler >> shutdown [
 
-	^ rootSampler shutdown
+	self beginShutdown ifFalse: [ ^ false ].
+	^ OTSampler shutdownSamplers: { rootSampler }
 ]
 
 { #category : 'lifecycle' }

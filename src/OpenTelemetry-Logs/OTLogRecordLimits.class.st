@@ -6,6 +6,7 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'attributeCountLimit',
+		'attributeValueDepthLimit',
 		'attributeValueLengthLimit'
 	],
 	#category : 'OpenTelemetry-Logs',
@@ -23,7 +24,8 @@ OTLogRecordLimits >> = anObject [
 
 	self == anObject ifTrue: [ ^ true ].
 	anObject class = self class ifFalse: [ ^ false ].
-	^ attributeCountLimit = anObject attributeCountLimit and: [ attributeValueLengthLimit = anObject attributeValueLengthLimit ]
+	^ self attributeValueDepthLimit = anObject attributeValueDepthLimit and: [
+		  attributeCountLimit = anObject attributeCountLimit and: [ attributeValueLengthLimit = anObject attributeValueLengthLimit ] ]
 ]
 
 { #category : 'accessing' }
@@ -37,6 +39,19 @@ OTLogRecordLimits >> attributeCountLimit: anInteger [
 
 	attributeCountLimit := self normalizedLimit: anInteger allowNil: false.
 	^ attributeCountLimit
+]
+
+{ #category : 'accessing' }
+OTLogRecordLimits >> attributeValueDepthLimit [
+
+	^ attributeValueDepthLimit ifNil: [ 64 ]
+]
+
+{ #category : 'accessing' }
+OTLogRecordLimits >> attributeValueDepthLimit: anInteger [
+
+	attributeValueDepthLimit := self normalizedLimit: anInteger allowNil: false.
+	^ attributeValueDepthLimit
 ]
 
 { #category : 'accessing' }
@@ -57,7 +72,8 @@ OTLogRecordLimits >> hash [
 
 	^ {
 		  attributeCountLimit.
-		  attributeValueLengthLimit } hash
+		  attributeValueLengthLimit.
+		  self attributeValueDepthLimit } hash
 ]
 
 { #category : 'initialization' }
@@ -65,6 +81,7 @@ OTLogRecordLimits >> initialize [
 
 	super initialize.
 	attributeCountLimit := 128.
+	attributeValueDepthLimit := 64.
 	attributeValueLengthLimit := nil
 ]
 

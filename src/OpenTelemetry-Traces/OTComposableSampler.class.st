@@ -52,22 +52,35 @@ OTComposableSampler class >> ruleBased: someRules [
 		  yourself
 ]
 
+{ #category : 'private - lifecycle' }
+OTComposableSampler >> beginShutdown [
+
+	^ OTSampler beginShutdown: self
+]
+
 { #category : 'accessing' }
 OTComposableSampler >> description [
 
 	^ self class name
 ]
 
+{ #category : 'testing' }
+OTComposableSampler >> isShutdown [
+
+	^ OTSampler isShutdown: self
+]
+
 { #category : 'sampling' }
 OTComposableSampler >> samplingIntentIn: aContext name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
+	self isShutdown ifTrue: [ ^ OTSamplingIntent drop ].
 	self subclassResponsibility
 ]
 
 { #category : 'lifecycle' }
 OTComposableSampler >> shutdown [
 
-	^ true
+	^ self beginShutdown
 ]
 
 { #category : 'lifecycle' }

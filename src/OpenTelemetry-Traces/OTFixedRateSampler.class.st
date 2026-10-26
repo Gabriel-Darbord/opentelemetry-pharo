@@ -40,6 +40,7 @@ OTFixedRateSampler >> rate: anInteger [
 { #category : 'asserting' }
 OTFixedRateSampler >> shouldSample [
 
+	self isShutdown ifTrue: [ ^ false ].
 	^ stateLock critical: [
 			  count := count + 1.
 			  count >= rate
