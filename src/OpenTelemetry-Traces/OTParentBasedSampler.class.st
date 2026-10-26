@@ -205,6 +205,7 @@ OTParentBasedSampler >> sampledParentSampler: aSampler [
 OTParentBasedSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| delegate parentSpan parentSpanContext result |
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	parentSpan := aContext ifNotNil: [ aContext span ].
 	parentSpan ifNil: [
 			^ rootSampler
@@ -245,10 +246,8 @@ OTParentBasedSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString
 { #category : 'lifecycle' }
 OTParentBasedSampler >> shutdown [
 
-	| allShutdown |
-	allShutdown := true.
-	self componentSamplers do: [ :each | allShutdown := each shutdown & allShutdown ].
-	^ allShutdown
+	self beginShutdown ifFalse: [ ^ false ].
+	^ OTSampler shutdownSamplers: self componentSamplers
 ]
 
 { #category : 'lifecycle' }

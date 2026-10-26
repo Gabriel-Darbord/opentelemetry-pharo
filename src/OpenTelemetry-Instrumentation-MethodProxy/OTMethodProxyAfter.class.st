@@ -10,12 +10,6 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-MethodProxy'
 }
 
-{ #category : 'class initialization' }
-OTMethodProxyAfter class >> initialize [
-
-	self buildPrototypesUpToArguments: 15
-]
-
 { #category : 'evaluating' }
 OTMethodProxyAfter class >> prototypeTrap [
 	"The unwind handler should be the first temp.

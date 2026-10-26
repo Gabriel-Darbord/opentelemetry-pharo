@@ -65,6 +65,7 @@ OTComposableRuleBasedSampler >> rules: aCollection [
 { #category : 'sampling' }
 OTComposableRuleBasedSampler >> samplingIntentIn: aContext name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
+	self isShutdown ifTrue: [ ^ OTSamplingIntent drop ].
 	rules do: [ :each |
 			(self
 				 matches: each key
@@ -85,10 +86,8 @@ OTComposableRuleBasedSampler >> samplingIntentIn: aContext name: aString kind: a
 { #category : 'lifecycle' }
 OTComposableRuleBasedSampler >> shutdown [
 
-	| allShutdown |
-	allShutdown := true.
-	rules do: [ :each | allShutdown := each value shutdown & allShutdown ].
-	^ allShutdown
+	self beginShutdown ifFalse: [ ^ false ].
+	^ OTSampler shutdownSamplers: (rules collect: #value as: IdentitySet)
 ]
 
 { #category : 'lifecycle' }

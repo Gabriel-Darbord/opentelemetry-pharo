@@ -67,7 +67,8 @@ OTMethodProxyInstaller class >> restoreMethodProxyArtifactsIn: aBehavior [
 			method selector: selector.
 			aBehavior addSelectorSilently: selector withMethod: method ].
 
-	hiddenSelectors do: [ :hiddenSelector | aBehavior removeSelectorSilently: hiddenSelector ].
+	"Removing a selector through Behavior also removes its restored method aliases on Pharo 14+."
+	hiddenSelectors do: [ :hiddenSelector | aBehavior methodDict removeKey: hiddenSelector ].
 	aBehavior flushCache
 ]
 

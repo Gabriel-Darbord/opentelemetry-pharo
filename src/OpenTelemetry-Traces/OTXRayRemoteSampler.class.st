@@ -364,6 +364,7 @@ OTXRayRemoteSampler >> serviceType: aString [
 OTXRayRemoteSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| rule sampled traceState |
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	self refreshIfNeeded.
 	rule := self matchingRuleForAttributes: someAttributes.
 	sampled := rule shouldSampleTraceId: aTraceId atTimeMillis: self currentTimeMillis.

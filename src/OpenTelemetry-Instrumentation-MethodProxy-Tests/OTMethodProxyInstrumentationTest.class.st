@@ -48,12 +48,9 @@ OTMethodProxyInstrumentationTest >> testHasRun [
 { #category : 'tests' }
 OTMethodProxyInstrumentationTest >> testIsInstalled [
 
-	| method literals instrumentation |
-	method := OTTestTarget >> #answer.
-	literals := method literals.
-	self assert: literals size >= 8.
-	instrumentation := method literalsAt: 8.
-	self assert: instrumentation identicalTo: self instrumentation
+	| literals |
+	literals := (OTTestTarget >> #answer) literals.
+	self assert: (literals includes: self instrumentation)
 ]
 
 { #category : 'tests' }

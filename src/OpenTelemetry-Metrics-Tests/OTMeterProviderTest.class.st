@@ -1420,7 +1420,7 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectReturnsEmptySnaps
 	snapshot := reader collect.
 	self assert: snapshot metrics isEmpty.
 	self assert: snapshot measurements isEmpty.
-	self assert: exporter exports isEmpty
+	self assert: exporter exports size equals: 1
 ]
 
 { #category : 'tests' }
@@ -1611,6 +1611,31 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderSerializesConcurrentColl
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownFlushesPendingBatches [
+
+	| exporter provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		maxExportBatchSize: 2.
+	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total')
+		add: 1 attributes: { ('method' -> 'GET') };
+		add: 1 attributes: { ('method' -> 'POST') };
+		add: 1 attributes: { ('method' -> 'PUT') }.
+	[ self assert: reader shutdown ] ensure: [ provider shutdown ].
+	self assert: exporter exports size equals: 2.
+	self assert: (exporter exports collect: [ :each | each metrics first points size ]) asArray equals: #( 2 1 ).
+	self assert: exporter forceFlushCount equals: 1.
+	self assert: exporter isShutdown.
+	self deny: reader shutdown.
+	self assert: exporter exports size equals: 2.
+	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownShutsDownExporter [
 
 	| exporter provider reader |
@@ -1621,6 +1646,25 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownShutsDownExporte
 	provider addMetricReader: reader.
 	self assert: reader exportProcess notNil.
 	self assert: reader shutdown.
+	self assert: exporter isShutdown.
+	self assert: reader isShutdown.
+	self assert: reader exportProcess isNil
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownStillClosesExporterAfterExportTimeout [
+
+	| exporter provider reader result |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		exportTimeoutMillis: 50.
+	provider addMetricReader: reader.
+	[ result := provider shutdownResult ] ensure: [ reader shutdown ].
+	self assert: result isTimeout.
+	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter isShutdown.
 	self assert: reader isShutdown.
 	self assert: reader exportProcess isNil

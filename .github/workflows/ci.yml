@@ -24,8 +24,14 @@ jobs:
             spec: .smalltalk.ston
             coverage: false
           - smalltalk: Pharo64-13
+            spec: .smalltalk.ston
+            coverage: false
+          - smalltalk: Pharo64-14
             spec: .smalltalk.coverage.ston
             coverage: true
+          - smalltalk: Pharo64-15
+            spec: .smalltalk.ston
+            coverage: false
     name: ${{ matrix.smalltalk }}
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +41,9 @@ jobs:
       - run: smalltalkci -s ${{ matrix.smalltalk }} ${{ matrix.spec }}
         shell: bash
         timeout-minutes: 15
+      - name: Check coverage report
+        if: ${{ matrix.coverage }}
+        run: test -s coverage/lcov.info
       - name: Coveralls
         if: ${{ matrix.coverage }}
         uses: coverallsapp/github-action@master

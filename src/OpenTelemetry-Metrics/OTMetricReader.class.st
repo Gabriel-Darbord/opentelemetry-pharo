@@ -269,16 +269,22 @@ OTMetricReader >> collectSnapshot [
 { #category : 'collecting' }
 OTMetricReader >> collectSnapshotResult [
 
+	^ self collectSnapshotResultAllowStopping: false
+]
+
+{ #category : 'private - collecting' }
+OTMetricReader >> collectSnapshotResultAllowStopping: allowStopping [
+
 	| collectedAt currentProvider durationSeconds instruments measurements metrics producerMetrics result snapshot startedMillis |
 	startedMillis := Time millisecondClockValue.
-	result := self isStopping
+	result := (self isStopping and: [ allowStopping not ])
 		          ifTrue: [
 		          OTMetricBatchResult
 			          failureSnapshot: OTMetricSnapshot empty
 			          failedReasons: { 'OpenTelemetry metric reader is shutdown' } ]
 		          ifFalse: [
 				          collectLock critical: [
-						          self isStopping
+						          (self isStopping and: [ allowStopping not ])
 							          ifTrue: [
 							          OTMetricBatchResult
 								          failureSnapshot: OTMetricSnapshot empty

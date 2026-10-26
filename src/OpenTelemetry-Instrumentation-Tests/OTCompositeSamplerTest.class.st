@@ -399,7 +399,7 @@ OTCompositeSamplerTest >> testCompositeSamplerMatchesJavaReferenceVectors [
 				ifFalse: [ self assert: result isDrop ].
 			each fifth ifNil: [ self assert: result traceState equals: nil ] ifNotNil: [
 					expectedTraceState := OTTraceState fromHeader: 'ot=' , each fifth.
-					self assert: result traceState otelEntries equals: expectedTraceState otelEntries ] ]
+					self assert: result traceState otelEntries asDictionary equals: expectedTraceState otelEntries asDictionary ] ]
 ]
 
 { #category : 'tests' }

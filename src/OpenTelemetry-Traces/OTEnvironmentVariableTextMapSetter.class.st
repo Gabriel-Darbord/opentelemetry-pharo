@@ -29,13 +29,13 @@ OTEnvironmentVariableTextMapSetter class >> isNormalizedKey: aString [
 { #category : 'normalizing' }
 OTEnvironmentVariableTextMapSetter class >> isNormalizedLeadingCharacter: aCharacter [
 
-	^ aCharacter = $_ or: [ aCharacter isUppercase and: [ aCharacter isLetter ] ]
+	^ aCharacter = $_ or: [ aCharacter asciiValue between: 65 and: 90 ]
 ]
 
 { #category : 'normalizing' }
 OTEnvironmentVariableTextMapSetter class >> isNormalizedTrailingCharacter: aCharacter [
 
-	^ aCharacter = $_ or: [ aCharacter isDigit or: [ aCharacter isUppercase and: [ aCharacter isLetter ] ] ]
+	^ (self isNormalizedLeadingCharacter: aCharacter) or: [ aCharacter asciiValue between: 48 and: 57 ]
 ]
 
 { #category : 'normalizing' }
@@ -58,7 +58,7 @@ OTEnvironmentVariableTextMapSetter class >> normalizedCharacterFor: aCharacter [
 	| asciiValue |
 	asciiValue := aCharacter asciiValue.
 	((asciiValue between: 65 and: 90) or: [ asciiValue between: 97 and: 122 ]) ifTrue: [ ^ aCharacter asUppercase ].
-	(aCharacter isDigit or: [ aCharacter = $_ ]) ifTrue: [ ^ aCharacter ].
+	((asciiValue between: 48 and: 57) or: [ aCharacter = $_ ]) ifTrue: [ ^ aCharacter ].
 	^ $_
 ]
 

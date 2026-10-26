@@ -573,9 +573,10 @@ OTSpan >> attributeAt: key put: value [
 						                   self class noteIgnoredInvalidArgument: key forOperation: 'OTSpan>>attributeAt:put:'.
 						                   ^ self ].
 			  normalizedValue := [
-			                     OTAttributeNormalizer
-				                     normalizeAttributeValue: value
-				                     lengthLimit: self effectiveLimits attributeValueLengthLimit ]
+				                     OTAttributeNormalizer
+					                     normalizeAttributeValue: value
+					                     lengthLimit: self effectiveLimits attributeValueLengthLimit
+					                     depthLimit: self effectiveLimits attributeValueDepthLimit ]
 				                     on: Error
 				                     do: [
 						                     self class noteIgnoredInvalidArgument: value forOperation: 'OTSpan>>attributeAt:put:'.
@@ -759,7 +760,7 @@ OTSpan >> exceptionMessageFor: anException [
 { #category : 'private' }
 OTSpan >> exceptionStacktraceFor: anException [
 
-	^ anException signalerContext ifNil: [ '' ] ifNotNil: [ :aContext | aContext longStack ]
+	^ anException signalerContext ifNil: [ '' ] ifNotNil: [ :aContext | aContext stackTraceString ]
 ]
 
 { #category : 'private' }
@@ -868,7 +869,8 @@ OTSpan >> limitedEventFrom: anEvent [
 		Error signal: 'OpenTelemetry spans require OTSpanEvent instances' ].
 	limitedEvent := anEvent
 		                withAttributeCountLimit: self effectiveLimits attributePerEventCountLimit
-		                valueLengthLimit: self effectiveLimits attributeValueLengthLimit.
+		                valueLengthLimit: self effectiveLimits attributeValueLengthLimit
+		                valueDepthLimit: self effectiveLimits attributeValueDepthLimit.
 	limitedEvent droppedAttributesCount > anEvent droppedAttributesCount ifTrue: [ self warnOnceAboutDiscardedData ].
 	^ limitedEvent
 ]
@@ -881,7 +883,8 @@ OTSpan >> limitedLinkFrom: aLink [
 		Error signal: 'OpenTelemetry spans require OTSpanLink instances' ].
 	limitedLink := aLink
 		               withAttributeCountLimit: self effectiveLimits attributePerLinkCountLimit
-		               valueLengthLimit: self effectiveLimits attributeValueLengthLimit.
+		               valueLengthLimit: self effectiveLimits attributeValueLengthLimit
+		               valueDepthLimit: self effectiveLimits attributeValueDepthLimit.
 	limitedLink droppedAttributesCount > aLink droppedAttributesCount ifTrue: [ self warnOnceAboutDiscardedData ].
 	^ limitedLink
 ]
@@ -1042,7 +1045,8 @@ OTSpan >> restoreAttributes: aDictionary [
 	normalized := OTAttributeNormalizer
 		              normalizeAttributes: aDictionary
 		              countLimit: self effectiveLimits attributeCountLimit
-		              valueLengthLimit: self effectiveLimits attributeValueLengthLimit.
+		              valueLengthLimit: self effectiveLimits attributeValueLengthLimit
+		              valueDepthLimit: self effectiveLimits attributeValueDepthLimit.
 	normalized first associationsDo: [ :each | self attributeAt: each key put: each value ].
 	normalized second > 0 ifTrue: [ self warnOnceAboutDiscardedData ].
 	self restoreDroppedAttributesCount: self effectiveDroppedAttributesCount + normalized second

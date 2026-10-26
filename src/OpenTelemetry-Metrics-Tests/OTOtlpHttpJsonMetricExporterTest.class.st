@@ -89,7 +89,7 @@ OTOtlpHttpJsonMetricExporterTest >> testExportAppliesHttpJsonConfigurationAndSen
 			self assert: (exporter export: self sampleSnapshot) description: warnings printString.
 			self assert: client url equals: 'http://collector:4318/v1/metrics'.
 			self assert: client method equals: #POST.
-			self assert: client timeout equals: 1234.
+			self assert: client timeout equals: 1.234.
 			self assert: (client headers at: 'authorization') equals: 'Bearer 123'.
 			self assert: (client headers at: 'User-Agent') equals: 'OTel-OTLP-Exporter-Pharo/test'.
 			self assert: (client headers at: 'Content-Type') equals: 'application/json'.
@@ -175,7 +175,7 @@ OTOtlpHttpJsonMetricExporterTest >> testExportUsesDefaultTimeoutWhenConfiguratio
 
 	configuration timeoutMillis: nil.
 	self assert: (exporter export: self sampleSnapshot).
-	self assert: client timeout equals: 10000
+	self assert: client timeout equals: 10.0
 ]
 
 { #category : 'tests' }

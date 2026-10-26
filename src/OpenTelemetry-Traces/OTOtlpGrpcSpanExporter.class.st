@@ -68,24 +68,32 @@ OTOtlpGrpcSpanExporter >> executeGrpcRequest: aRequest [
 { #category : 'exporting' }
 OTOtlpGrpcSpanExporter >> export: anObject [
 
-	^ self withExportLockDo: [
-			  self isShutdown ifTrue: [ ^ false ].
-			  self exportAttemptNumber: 1 payloadBytes: (self payloadBytesFrom: anObject) ]
+	^ OTOtlpExportSupport exportFor: self do: [
+			  self withExportLockDo: [
+					  self isShutdown ifTrue: [ ^ false ].
+					  self exportAttemptNumber: 1 payloadBytes: (self payloadBytesFrom: anObject) ] ]
 ]
 
 { #category : 'exporting' }
 OTOtlpGrpcSpanExporter >> exportAttemptNumber: attemptNumber payloadBytes: payloadBytes [
 
 	| request response status |
+	(OTOtlpExportSupport allowsRequest: payloadBytes for: self) ifFalse: [ ^ false ].
 	request := self grpcRequestForPayloadBytes: payloadBytes.
 	[ response := self executeGrpcRequest: request ]
 		on: Error
 		do: [ :error |
+				(error isKindOf: (self grpcDependencyNamed: #GRPCMessageTooLarge)) ifTrue: [
+						OTOtlpExportSupport noteResponseSizeExceededFor: self.
+						^ false ].
 				attemptNumber >= self maxExportAttempts ifTrue: [
 						self noteRetryExhaustedForError: error.
 						^ false ].
 				self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
 				^ self exportAttemptNumber: attemptNumber + 1 payloadBytes: payloadBytes ].
+	(response payload notNil and: [ response payload size > self configuration maxResponseSize ]) ifTrue: [
+			OTOtlpExportSupport noteResponseSizeExceededFor: self.
+			^ false ].
 	status := response status.
 	status isOk ifTrue: [ ^ self handleSuccessGrpcResponse: response ].
 	(self isRetryableStatus: status) ifFalse: [ ^ false ].
@@ -154,6 +162,7 @@ OTOtlpGrpcSpanExporter >> grpcRequestForPayloadBytes: payloadBytes [
 	request := self grpcRequestClass service: self grpcServiceName method: self grpcServiceMethodName payload: requestPayload.
 	timeoutMillis := self configuration timeoutMillisOrNil.
 	timeoutMillis ifNotNil: [ request timeoutNanos: timeoutMillis * 1000000 ].
+	request maxResponseSize: self configuration maxResponseSize.
 	request metadata: self grpcMetadataFromConfigurationHeaders.
 	(self hasUserAgentHeaderConfigured: self configuration headers) ifFalse: [ request userAgent: self configuration userAgent ].
 	self configuration usesGzipCompression ifTrue: [ request messageEncoding: 'gzip' ].

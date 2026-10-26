@@ -63,6 +63,20 @@ logger logRecordBuilder
 If no explicit context is provided, the current OpenTelemetry context is used.
 That means active trace context is attached automatically when present.
 
+## Attribute Limits
+
+`OTLogRecordLimits` limits nested attribute arrays and maps to depth 64 by
+default. Top-level attribute values start at depth 1, and containers beyond
+the configured depth become `nil`. Set a non-negative limit programmatically:
+
+```smalltalk
+provider logRecordLimits: (OTLogRecordLimits new
+	attributeValueDepthLimit: 32;
+	yourself).
+```
+
+This attribute limit does not apply to the log record body.
+
 ## Configuring Filtering
 
 Filtering is owned by the provider through `OTLoggerConfig`:

@@ -68,6 +68,7 @@ OTProbabilisticSampler >> randomnessValueFromTraceId: aTraceId traceState: aTrac
 { #category : 'sampling' }
 OTProbabilisticSampler >> shouldSample [
 
+	self isShutdown ifTrue: [ ^ false ].
 	^ self shouldSampleTraceId: OTSpanContext newTraceId traceState: nil
 ]
 
@@ -75,6 +76,7 @@ OTProbabilisticSampler >> shouldSample [
 OTProbabilisticSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| parentSpan parentSpanContext resultTraceState sampled traceState |
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	parentSpan := aContext ifNotNil: [ aContext span ].
 	parentSpanContext := parentSpan ifNotNil: [ parentSpan spanContext ].
 	traceState := parentSpanContext ifNotNil: [ parentSpanContext traceState ].

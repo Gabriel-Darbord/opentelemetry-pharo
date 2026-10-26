@@ -35,6 +35,7 @@ OTAlwaysRecordSampler >> rootSampler: aSampler [
 OTAlwaysRecordSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
 	| result |
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	result := rootSampler
 		          shouldSampleIn: aContext
 		          traceId: aTraceId
@@ -49,7 +50,8 @@ OTAlwaysRecordSampler >> shouldSampleIn: aContext traceId: aTraceId name: aStrin
 { #category : 'lifecycle' }
 OTAlwaysRecordSampler >> shutdown [
 
-	^ rootSampler shutdown
+	self beginShutdown ifFalse: [ ^ false ].
+	^ OTSampler shutdownSamplers: { rootSampler }
 ]
 
 { #category : 'lifecycle' }

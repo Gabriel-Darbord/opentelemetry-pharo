@@ -449,6 +449,7 @@ OTJaegerRemoteSampler >> serviceName: aString [
 { #category : 'sampling' }
 OTJaegerRemoteSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	self refreshIfNeeded.
 	^ self currentSampler
 		  shouldSampleIn: aContext
@@ -472,7 +473,7 @@ OTJaegerRemoteSampler >> shutdown [
 						                  true ] ].
 	shouldShutdown ifFalse: [ ^ false ].
 	self stopPollingProcess.
-	^ true
+	^ OTSampler shutdownSamplers: { self currentSampler }
 ]
 
 { #category : 'lifecycle' }

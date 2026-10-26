@@ -619,7 +619,9 @@ OTConfigurationSource class >> declarativeResourceDetectorNamed: detectorName [
 		^ OTBlockResourceDetector named: 'env' detecting: [ self declarativeEnvironmentResource ] ].
 	detectorName = 'service' ifTrue: [ ^ OTBlockResourceDetector named: 'service' detecting: [ self declarativeServiceResource ] ].
 	detectorName = 'service_instance' ifTrue: [ ^ OTServiceInstanceResourceDetector new ].
-	Error signal: 'Unsupported declarative resource detector: ' , detectorName printString
+	OTTracerProvider resourceConfigurationWarningSink value:
+		'OpenTelemetry ignored unrecognized declarative resource detector: ' , detectorName printString.
+	^ OTBlockResourceDetector named: detectorName detecting: [ OTResource empty ]
 ]
 
 { #category : 'private - projection' }

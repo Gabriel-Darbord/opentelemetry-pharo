@@ -15,7 +15,8 @@ Class {
 		'responseContents',
 		'certificate',
 		'certificateDuringExecute',
-		'sslCertFileDuringExecute'
+		'sslCertFileDuringExecute',
+		'maximumEntitySize'
 	],
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
@@ -239,4 +240,28 @@ OTRecordingHttpClient >> url [
 OTRecordingHttpClient >> url: aString [
 
 	url := aString
+]
+
+{ #category : 'configuration' }
+OTRecordingHttpClient >> beOneShot [
+
+	self
+]
+
+{ #category : 'configuration' }
+OTRecordingHttpClient >> connectionReuseTimeout: seconds [
+
+	self
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> maximumEntitySize [
+
+	^ maximumEntitySize
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> maximumEntitySize: anInteger [
+
+	maximumEntitySize := anInteger
 ]

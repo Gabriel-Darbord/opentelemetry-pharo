@@ -177,6 +177,20 @@ OTPeriodicExportingMetricReader >> exporterOperationFailureMessageNamed: anOpera
 						   ifFalse: [ 'failed' ]) ]
 ]
 
+{ #category : 'private - lifecycle' }
+OTPeriodicExportingMetricReader >> flushResultAllowStopping: allowStopping [
+
+	| batchResult exportResult flushResult |
+	batchResult := self collectSnapshotResultAllowStopping: allowStopping.
+	exportResult := self exportSnapshotResult: batchResult snapshot.
+	flushResult := self runExporterOperationResultNamed: 'forceFlush' do: [ self exporter forceFlush ].
+	^ ((batchResult
+		    combinedWithLifecycleResult: exportResult
+		    failedReason: (self exporterOperationFailureMessageNamed: 'export' result: exportResult))
+		   combinedWithLifecycleResult: flushResult
+		   failedReason: (self exporterOperationFailureMessageNamed: 'forceFlush' result: flushResult)) asLifecycleResult
+]
+
 { #category : 'lifecycle' }
 OTPeriodicExportingMetricReader >> forceFlush [
 
@@ -186,18 +200,10 @@ OTPeriodicExportingMetricReader >> forceFlush [
 { #category : 'lifecycle' }
 OTPeriodicExportingMetricReader >> forceFlushResult [
 
-	| batchResult exportResult flushResult |
 	self isStopping ifTrue: [ ^ OTLifecycleResult failure ].
 	^ exportLock critical: [
 			  self isStopping ifTrue: [ ^ OTLifecycleResult failure ].
-			  batchResult := self collectSnapshotResult.
-			  exportResult := self exportSnapshotResult: batchResult snapshot.
-			  flushResult := self runExporterOperationResultNamed: 'forceFlush' do: [ self exporter forceFlush ].
-			  ^ ((batchResult
-				      combinedWithLifecycleResult: exportResult
-				      failedReason: (self exporterOperationFailureMessageNamed: 'export' result: exportResult))
-				     combinedWithLifecycleResult: flushResult
-				     failedReason: (self exporterOperationFailureMessageNamed: 'forceFlush' result: flushResult)) asLifecycleResult ]
+			  self flushResultAllowStopping: false ]
 ]
 
 { #category : 'initialization' }
@@ -258,13 +264,16 @@ OTPeriodicExportingMetricReader >> shutdown [
 { #category : 'lifecycle' }
 OTPeriodicExportingMetricReader >> shutdownResult [
 
-	| exporterResult |
-	self isShutdown ifTrue: [ ^ OTLifecycleResult failure ].
+	| result |
 	self beginShutdown ifFalse: [ ^ OTLifecycleResult failure ].
 	self stopExportProcess.
-	exporterResult := exportLock critical: [ self runExporterOperationResultNamed: 'shutdown' do: [ self exporter shutdown ] ].
-	self finishShutdown.
-	^ exporterResult
+	[
+		result := exportLock critical: [
+				          | flushResult shutdownResult |
+				          flushResult := self flushResultAllowStopping: true.
+				          shutdownResult := self runExporterOperationResultNamed: 'shutdown' do: [ self exporter shutdown ].
+				          flushResult combinedWith: shutdownResult ] ] ensure: [ self finishShutdown ].
+	^ result
 ]
 
 { #category : 'private - exporting' }

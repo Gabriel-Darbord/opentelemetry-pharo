@@ -525,7 +525,7 @@ OTMetricEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary durin
 
 	| absent effectiveValues environment existingPeriodicReaders existingPrometheusReaders existingProviders managedKeys snapshot |
 	absent := Object new.
-	environment := Smalltalk os environment.
+	environment := OSPlatform current environment.
 	effectiveValues := aDictionary copy.
 	existingProviders := IdentitySet new.
 	OTMeterProvider allInstancesDo: [ :each | existingProviders add: each ].
@@ -552,6 +552,13 @@ OTMetricEnvironmentConfigurationTest >> withEnvironmentValues: aDictionary durin
 								 ifTrue: [ nil ]
 								 ifFalse: [ value ])
 						forKey: key ].
+			"Configuration-only tests must keep shutdown's final exports local."
+			OTPeriodicExportingMetricReader allInstancesDo: [ :reader |
+					(existingPeriodicReaders includes: reader) ifFalse: [
+							(reader exporter isKindOf: OTOtlpHttpJsonMetricExporter) ifTrue: [
+								reader exporter httpClient: (OTRecordingHttpClient new responseContents: #[  ]) ].
+							(reader exporter isKindOf: OTOtlpGrpcMetricExporter) ifTrue: [
+								reader exporter requestExecutor: [ :request | OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ] ] ] ].
 			OTMeterProvider allInstancesDo: [ :each | (existingProviders includes: each) ifFalse: [ each shutdown ] ].
 			OTPeriodicExportingMetricReader allInstancesDo: [ :each | (existingPeriodicReaders includes: each) ifFalse: [ each shutdown ] ].
 			OTPrometheusMetricReader allInstancesDo: [ :each | (existingPrometheusReaders includes: each) ifFalse: [ each shutdown ] ].

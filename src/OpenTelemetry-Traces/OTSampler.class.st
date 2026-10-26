@@ -18,6 +18,17 @@ OTSampler class >> alwaysRecord: aSampler [
 	^ OTAlwaysRecordSampler new rootSampler: aSampler
 ]
 
+{ #category : 'private - lifecycle' }
+OTSampler class >> beginShutdown: aSampler [
+
+	^ self lifecycleStateLock critical: [
+			  | states |
+			  states := self shutdownStateBySampler.
+			  (states at: aSampler ifAbsent: [ false ]) ifTrue: [ ^ false ].
+			  states at: aSampler put: true.
+			  true ]
+]
+
 { #category : 'private - logging' }
 OTSampler class >> compatibilityWarningSink [
 
@@ -62,6 +73,18 @@ OTSampler class >> emittedCompatibilityWarningsBySampler [
 					  warningsBySampler := WeakIdentityKeyDictionary new.
 					  OTClassStateStore valueAt: #otCompatibilityWarningsBySampler forClass: self put: warningsBySampler.
 					  warningsBySampler ] ]
+]
+
+{ #category : 'private - lifecycle' }
+OTSampler class >> isShutdown: aSampler [
+
+	^ self lifecycleStateLock critical: [ self shutdownStateBySampler at: aSampler ifAbsent: [ false ] ]
+]
+
+{ #category : 'private - lifecycle' }
+OTSampler class >> lifecycleStateLock [
+
+	^ OTClassStateStore valueAt: #otSamplerLifecycleLock forClass: OTSampler ifAbsentPut: [ Semaphore forMutualExclusion ]
 ]
 
 { #category : 'private - logging' }
@@ -125,6 +148,25 @@ OTSampler class >> resetCompatibilityWarningState [
 			OTClassStateStore removeValueAt: #otCompatibilityWarningSink forClass: self ifAbsent: [ ] ]
 ]
 
+{ #category : 'private - lifecycle' }
+OTSampler class >> shutdownSamplers: someSamplers [
+
+	^ someSamplers inject: true into: [ :allShutdown :each |
+			  | result |
+			  result := [ [ each shutdown ] valueWithinMilliseconds: 30000 onTimeout: [ false ] ]
+				            on: Error
+				            do: [ :error |
+						            OTTracerProvider noteSampler: each failedDuring: 'shutdown' error: error.
+						            false ].
+			  result & allShutdown ]
+]
+
+{ #category : 'private - lifecycle' }
+OTSampler class >> shutdownStateBySampler [
+
+	^ OTClassStateStore valueAt: #otSamplerShutdownState forClass: OTSampler ifAbsentPut: [ WeakIdentityKeyDictionary new ]
+]
+
 { #category : 'instance creation' }
 OTSampler class >> traceIdRatioBased: aNumber [
 	"A deterministic trace-id-ratio sampler with a probability between 0 and 1"
@@ -153,6 +195,12 @@ OTSampler class >> withRate: anInteger [
 	^ OTFixedRateSampler new rate: anInteger
 ]
 
+{ #category : 'private - lifecycle' }
+OTSampler >> beginShutdown [
+
+	^ OTSampler beginShutdown: self
+]
+
 { #category : 'accessing' }
 OTSampler >> description [
 
@@ -162,18 +210,20 @@ OTSampler >> description [
 { #category : 'testing' }
 OTSampler >> isShutdown [
 
-	^ false
+	^ OTSampler isShutdown: self
 ]
 
 { #category : 'asserting' }
 OTSampler >> shouldSample [
 
+	self isShutdown ifTrue: [ ^ false ].
 	self subclassResponsibility
 ]
 
 { #category : 'sampling' }
 OTSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
+	self isShutdown ifTrue: [ ^ OTSamplingResult drop ].
 	^ self shouldSample
 		  ifTrue: [ OTSamplingResult recordAndSample ]
 		  ifFalse: [ OTSamplingResult drop ]
@@ -182,7 +232,7 @@ OTSampler >> shouldSampleIn: aContext traceId: aTraceId name: aString kind: aSpa
 { #category : 'lifecycle' }
 OTSampler >> shutdown [
 
-	^ true
+	^ self beginShutdown
 ]
 
 { #category : 'lifecycle' }

@@ -163,7 +163,7 @@ OTTracerProvider class >> defaultHostArchitecture [
 
 	^ [
 		  | architecture |
-		  architecture := Smalltalk os current processorArchitecture asString trimBoth asLowercase.
+		  architecture := OSPlatform current current processorArchitecture asString trimBoth asLowercase.
 		  architecture isEmpty
 			  ifTrue: [ nil ]
 			  ifFalse: [ architecture ] ]
@@ -196,11 +196,11 @@ OTTracerProvider class >> defaultOsDescription [
 	| osSubtype osVersion parts |
 	parts := OrderedCollection new.
 	self defaultOsName ifNotNil: [ :value | parts add: value ].
-	osVersion := [ Smalltalk os version asString trimBoth ]
+	osVersion := [ OSPlatform current version asString trimBoth ]
 		             on: Error
 		             do: [ nil ].
 	(osVersion notNil and: [ osVersion isNotEmpty ]) ifTrue: [ parts add: osVersion ].
-	osSubtype := [ Smalltalk os subtype asString trimBoth ]
+	osSubtype := [ OSPlatform current subtype asString trimBoth ]
 		             on: Error
 		             do: [ nil ].
 	(osSubtype notNil and: [ osSubtype isNotEmpty ]) ifTrue: [ parts add: osSubtype ].
@@ -213,7 +213,7 @@ OTTracerProvider class >> defaultOsName [
 
 	^ [
 		  | osName |
-		  osName := Smalltalk os name asString trimBoth.
+		  osName := OSPlatform current name asString trimBoth.
 		  osName isEmpty
 			  ifTrue: [ nil ]
 			  ifFalse: [ osName ] ]
@@ -225,7 +225,7 @@ OTTracerProvider class >> defaultOsName [
 OTTracerProvider class >> defaultOsType [
 
 	| detectedOs detectedName |
-	detectedOs := [ Smalltalk os current ]
+	detectedOs := [ OSPlatform current current ]
 		              on: Error
 		              do: [ nil ].
 	detectedOs ifNil: [ ^ nil ].
@@ -1900,6 +1900,7 @@ OTTracerProvider >> validatedTracerConfigurator: aBlock forOperation: anOperatio
 { #category : 'private - error handling' }
 OTTracerProvider >> withSpanProcessor: aProcessor operationNamed: anOperationName default: aDefaultValue do: aBlock [
 
+	(anOperationName = 'onEnding' and: [ aProcessor isStopping ]) ifTrue: [ ^ aDefaultValue ].
 	^ [ aBlock value ]
 		  on: Error
 		  do: [ :error |

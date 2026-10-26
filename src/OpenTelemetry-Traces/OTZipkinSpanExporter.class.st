@@ -60,7 +60,8 @@ OTZipkinSpanExporter >> annotationValueFor: anEvent [
 	eventAttributes := self exportableEventAttributesFor: anEvent.
 	^ eventAttributes isEmpty
 		  ifTrue: [ anEvent name ]
-		  ifFalse: [ anEvent name , (String with: $: with: Character space) , (self formattedAttributes: eventAttributes) ]
+		  ifFalse: [
+		  (STONJSON toString: anEvent name) , (String with: $: with: Character space) , (self formattedAttributes: eventAttributes) ]
 ]
 
 { #category : 'private - utilities' }
@@ -139,22 +140,7 @@ OTZipkinSpanExporter >> firstRemoteEndpointValueFrom: attributes [
 { #category : 'private - utilities' }
 OTZipkinSpanExporter >> formattedAttributes: someAttributes [
 
-	^ String streamContents: [ :stream |
-			  stream nextPut: ${.
-			  someAttributes associations doWithIndex: [ :each :index |
-					  index > 1 ifTrue: [
-							  stream
-								  nextPut: $,;
-								  space ].
-					  stream
-						  nextPut: $';
-						  nextPutAll: each key asString;
-						  nextPut: $';
-						  nextPut: $:;
-						  nextPut: $';
-						  nextPutAll: each value asString;
-						  nextPut: $' ].
-			  stream nextPut: $} ]
+	^ OTAnyValueStringEncoder stringFor: someAttributes asDictionary
 ]
 
 { #category : 'private - utilities' }
@@ -276,13 +262,7 @@ OTZipkinSpanExporter >> stringAttributeNamed: aString in: attributes [
 { #category : 'private - utilities' }
 OTZipkinSpanExporter >> tagStringFor: anObject [
 
-	anObject isNil ifTrue: [ ^ '' ].
-	(anObject isString or: [ anObject isSymbol ]) ifTrue: [ ^ anObject asString ].
-	anObject == true ifTrue: [ ^ 'true' ].
-	anObject == false ifTrue: [ ^ 'false' ].
-	anObject isNumber ifTrue: [ ^ anObject asString ].
-	anObject isCollection ifTrue: [ ^ ZnUtils defaultJSONWriter toString: anObject ].
-	^ anObject asString
+	^ OTAnyValueStringEncoder stringFor: anObject
 ]
 
 { #category : 'private - utilities' }

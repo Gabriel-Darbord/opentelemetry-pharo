@@ -20,7 +20,9 @@ OTSpanInstrumentationTest >> setUp [
 
 	super setUp.
 	currentProcessor := OTSpanProcessor current.
-	OTBatchSpanProcessor new beCurrent
+	OTBatchSpanProcessor new
+		exporter: OTNoopSpanExporter new;
+		beCurrent
 ]
 
 { #category : 'running' }
@@ -53,6 +55,15 @@ OTSpanInstrumentationTest >> testInstallsExceptionAwareAroundHook [
 	self assert: links size equals: 1.
 	self assert: links first control equals: #instead.
 	self assert: links first selector equals: #runWithEnterExitAndExceptionHandling:
+]
+
+{ #category : 'tests' }
+OTSpanInstrumentationTest >> testMethodSenderReificationBuildsAValidAst [
+
+	| node generator |
+	node := (OTTestTarget >> #answer) ast.
+	generator := HookGenerator new entity: node node: node links: #(  ).
+	self assert: (generator genReification: #sender for: MetaLink new) formattedCode equals: 'thisContext sender receiver'
 ]
 
 { #category : 'tests' }

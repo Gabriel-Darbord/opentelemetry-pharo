@@ -75,17 +75,22 @@ OTOtlpHttpJsonExportSupport >> applyConfigurationToHttpClient [
 
 	| client timeoutMillis |
 	client := self exporter httpClient.
+	"shortcut: no HTTP keep-alive until Zinc connection recovery preserves timeout notifications."
+	client
+		beOneShot;
+		connectionReuseTimeout: 0.
 	client
 		url: self exporter configuration endpoint;
 		method: #POST.
 	timeoutMillis := self exporter configuredRequestTimeoutMillisOrNil.
-	timeoutMillis ifNotNil: [ client timeout: timeoutMillis ].
+	timeoutMillis ifNotNil: [ client timeout: timeoutMillis / 1000.0 ].
 	self exporter configuration headers associationsDo: [ :each | client headerAt: each key put: each value ].
 	(self hasUserAgentHeaderConfigured: self exporter configuration headers) ifFalse: [
 		client headerAt: 'User-Agent' put: self exporter configuration userAgent ].
 	client
 		headerAt: 'Content-Type' put: 'application/json';
-		headerAt: 'Accept-Encoding' put: 'gzip'
+		headerAt: 'Accept-Encoding' put: 'gzip';
+		maximumEntitySize: self exporter configuration maxResponseSize
 ]
 
 { #category : 'private - configuration' }
@@ -104,9 +109,14 @@ OTOtlpHttpJsonExportSupport >> decodedResponseContentsFrom: aResponse [
 	| contents encoding |
 	contents := self responseContentsFrom: aResponse.
 	contents ifNil: [ ^ nil ].
+	self validateResponseContentsSize: contents.
+	"Zinc has already decompressed entities while enforcing maximumEntitySize."
+	(aResponse isKindOf: ZnResponse) ifTrue: [ ^ contents ].
 	encoding := self responseHeaderAt: 'Content-Encoding' in: aResponse ifAbsent: [ 'identity' ].
 	(encoding asString sameAs: 'gzip') ifFalse: [ ^ contents ].
-	^ (GZipReadStream on: contents readStream) upToEnd
+	contents := (GZipReadStream on: contents readStream) next: self exporter configuration maxResponseSize + 1.
+	self validateResponseContentsSize: contents.
+	^ contents
 ]
 
 { #category : 'private - encoding' }
@@ -124,9 +134,13 @@ OTOtlpHttpJsonExportSupport >> entityForPayload: aString [
 OTOtlpHttpJsonExportSupport >> exportAttemptNumber: attemptNumber payloadString: payloadString [
 
 	| response responseCode |
+	(OTOtlpExportSupport allowsRequest: payloadString for: self exporter) ifFalse: [ ^ false ].
 	[ response := self exporter executeHttpRequestForPayloadString: payloadString usingSupport: self ]
 		on: Error
 		do: [ :error |
+				(error isKindOf: ZnEntityTooLarge) ifTrue: [
+						OTOtlpExportSupport noteResponseSizeExceededFor: self exporter.
+						^ false ].
 				attemptNumber >= self exporter maxExportAttempts ifTrue: [
 						self noteRetryExhaustedForError: error.
 						^ false ].
@@ -134,6 +148,13 @@ OTOtlpHttpJsonExportSupport >> exportAttemptNumber: attemptNumber payloadString:
 				^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString ].
 	responseCode := self responseCodeFrom: response.
 	responseCode = 200 ifTrue: [ ^ self handleSuccessResponse: response ].
+	[ self decodedResponseContentsFrom: response ]
+		on: Error
+		do: [ :error |
+				(error isKindOf: ZnEntityTooLarge)
+					ifTrue: [ OTOtlpExportSupport noteResponseSizeExceededFor: self exporter ]
+					ifFalse: [ self exporter warningSink value: 'OpenTelemetry OTLP invalid HTTP response: ' , error messageText ].
+				^ false ].
 	(self exporter isRetryableStatusCode: responseCode) ifFalse: [ ^ false ].
 	attemptNumber >= self exporter maxExportAttempts ifTrue: [
 			self noteRetryExhaustedForResponse: response.
@@ -283,4 +304,11 @@ OTOtlpHttpJsonExportSupport >> successfulResponseRepresentationFrom: aResponse [
 	text := contents asString trimBoth.
 	text isEmpty ifTrue: [ Error signal: 'Missing OTLP success response body' ].
 	^ STONJSON fromString: text
+]
+
+{ #category : 'private - decoding' }
+OTOtlpHttpJsonExportSupport >> validateResponseContentsSize: contents [
+
+	(OTOtlpExportSupport byteSizeOf: contents) > self exporter configuration maxResponseSize ifTrue: [
+		ZnEntityTooLarge signal: 'OTLP maximum response size exceeded' ]
 ]

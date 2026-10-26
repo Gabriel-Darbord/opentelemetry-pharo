@@ -170,6 +170,7 @@ OTCompositeSpanProcessor >> shutdownResult [
 { #category : 'private - error handling' }
 OTCompositeSpanProcessor >> withProcessor: aProcessor operationNamed: anOperationName default: aDefaultValue do: aBlock [
 
+	(anOperationName = 'onEnding' and: [ aProcessor isStopping ]) ifTrue: [ ^ aDefaultValue ].
 	^ [ aBlock value ]
 		  on: Error
 		  do: [ :error |

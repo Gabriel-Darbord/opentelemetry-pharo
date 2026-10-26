@@ -47,6 +47,7 @@ OTComposableProbabilitySampler >> probability: aNumber [
 { #category : 'sampling' }
 OTComposableProbabilitySampler >> samplingIntentIn: aContext name: aString kind: aSpanKind attributes: someAttributes links: someLinks [
 
+	self isShutdown ifTrue: [ ^ OTSamplingIntent drop ].
 	^ OTSamplingIntent threshold: threshold adjustedCountReliable: true
 ]
 

@@ -13,6 +13,11 @@ OTDeclarativeConfigurationTest >> resetTelemetryConfiguration [
 	OTLoggerProvider configurationWarningSink: nil.
 	OTLoggerProvider reset.
 	OTMeterProvider configurationWarningSink: nil.
+	"Shutdown now exports; configuration-only tests must use a local HTTP transport."
+	OTMeterProvider currentOrNil ifNotNil: [ :provider |
+			provider metricReaders do: [ :reader |
+					(reader isKindOf: OTPeriodicExportingMetricReader) ifTrue: [
+						(reader exporter isKindOf: OTOtlpHttpJsonMetricExporter) ifTrue: [ reader exporter httpClient: OTRecordingHttpClient new ] ] ] ].
 	OTMeterProvider reset.
 	OTSpanExporter warningSink: nil.
 	OTSpanExporter reset.
@@ -45,6 +50,89 @@ OTDeclarativeConfigurationTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusDefaultAggregation [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+meter_provider:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+            default_aggregation: base2_exponential_bucket_histogram
+'
+		environmentValues: Dictionary new
+		during: [
+				| counter histogram reader |
+				reader := OTMeterProvider current metricReaders first.
+				counter := (OTMeterProvider current meterNamed: 'config.metrics') counterNamed: 'requests.total'.
+				histogram := (OTMeterProvider current meterNamed: 'config.metrics') histogramNamed: 'request.duration'.
+				self assert: reader class identicalTo: OTPrometheusMetricReader.
+				self assert: reader host equals: 'metrics.example'.
+				self assert: reader port equals: 9564.
+				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram.
+				self assert: (reader aggregationFor: counter) equals: #default ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusResourceConstantLabels [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+meter_provider:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+            resource_constant_labels:
+              included:
+                - service.name
+                - service.namespace
+              excluded:
+                - service.namespace
+'
+		environmentValues: Dictionary new
+		during: [
+				| filter reader |
+				reader := OTMeterProvider current metricReaders first.
+				filter := reader resourceConstantLabels.
+				self assert: reader class identicalTo: OTPrometheusMetricReader.
+				self assert: reader host equals: 'metrics.example'.
+				self assert: reader port equals: 9564.
+				self assert: filter class identicalTo: OTMetricAttributeFilter.
+				self assert: filter includedKeys equals: #( 'service.name' 'service.namespace' ).
+				self assert: filter excludedKeys equals: #( 'service.namespace' ) ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusTranslationStrategy [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+meter_provider:
+  readers:
+    - pull:
+        exporter:
+          prometheus:
+            host: metrics.example
+            port: 9564
+            translation_strategy: NoTranslation
+'
+		environmentValues: Dictionary new
+		during: [
+				| reader |
+				reader := OTMeterProvider current metricReaders first.
+				self assert: reader class identicalTo: OTPrometheusMetricReader.
+				self assert: reader host equals: 'metrics.example'.
+				self assert: reader port equals: 9564.
+				self assert: reader translationStrategy equals: #noTranslation ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileIgnoresInvalidDeclarativeResourceAttributesListWithWarning [
 
 	self
@@ -64,6 +152,27 @@ resource:
 						self assert: (resource attributeAt: 'good') isNil.
 						self assert: warnings size equals: 1.
 						self assert: (warnings first includesSubstring: 'Failed to percent-decode resource.attributes_list entry') ] ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileIgnoresUnknownResourceDetectorWithWarning [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+resource:
+  detection/development:
+    detectors:
+      - unknown_detector:
+      - service:
+'
+		environmentValues: (Dictionary new
+				 at: 'OTEL_SERVICE_NAME' put: 'detected-service';
+				 yourself)
+		during: [
+				self withResourceWarningsDo: [ :warnings |
+						self assert: OTTracerProvider current resource serviceName equals: 'detected-service'.
+						self assert: warnings size equals: 1.
+						self assert: (warnings first includesSubstring: 'unknown_detector') ] ]
 ]
 
 { #category : 'tests' }
@@ -905,89 +1014,6 @@ meter_provider:
 ]
 
 { #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusResourceConstantLabels [
-
-	self
-		withConfigurationFileContents: 'file_format: "1.1"
-meter_provider:
-  readers:
-    - pull:
-        exporter:
-          prometheus:
-            host: metrics.example
-            port: 9564
-            resource_constant_labels:
-              included:
-                - service.name
-                - service.namespace
-              excluded:
-                - service.namespace
-'
-		environmentValues: Dictionary new
-		during: [
-				| filter reader |
-				reader := OTMeterProvider current metricReaders first.
-				filter := reader resourceConstantLabels.
-				self assert: reader class identicalTo: OTPrometheusMetricReader.
-				self assert: reader host equals: 'metrics.example'.
-				self assert: reader port equals: 9564.
-				self assert: filter class identicalTo: OTMetricAttributeFilter.
-				self assert: filter includedKeys equals: #( 'service.name' 'service.namespace' ).
-				self assert: filter excludedKeys equals: #( 'service.namespace' ) ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusDefaultAggregation [
-
-	self
-		withConfigurationFileContents: 'file_format: "1.1"
-meter_provider:
-  readers:
-    - pull:
-        exporter:
-          prometheus:
-            host: metrics.example
-            port: 9564
-            default_aggregation: base2_exponential_bucket_histogram
-'
-		environmentValues: Dictionary new
-		during: [
-				| counter histogram reader |
-				reader := OTMeterProvider current metricReaders first.
-				counter := (OTMeterProvider current meterNamed: 'config.metrics') counterNamed: 'requests.total'.
-				histogram := (OTMeterProvider current meterNamed: 'config.metrics') histogramNamed: 'request.duration'.
-				self assert: reader class identicalTo: OTPrometheusMetricReader.
-				self assert: reader host equals: 'metrics.example'.
-				self assert: reader port equals: 9564.
-				self assert: (reader aggregationFor: histogram) equals: #base2ExponentialBucketHistogram.
-				self assert: (reader aggregationFor: counter) equals: #default ]
-]
-
-{ #category : 'tests' }
-OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusTranslationStrategy [
-
-	self
-		withConfigurationFileContents: 'file_format: "1.1"
-meter_provider:
-  readers:
-    - pull:
-        exporter:
-          prometheus:
-            host: metrics.example
-            port: 9564
-            translation_strategy: NoTranslation
-'
-		environmentValues: Dictionary new
-		during: [
-				| reader |
-				reader := OTMeterProvider current metricReaders first.
-				self assert: reader class identicalTo: OTPrometheusMetricReader.
-				self assert: reader host equals: 'metrics.example'.
-				self assert: reader port equals: 9564.
-				self assert: reader translationStrategy equals: #noTranslation ]
-]
-
-{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileRejectsProbabilitySamplerRatioBelowSpecificationMinimum [
 
 	self
@@ -1017,6 +1043,24 @@ tracer_provider:
 '
 		environmentValues: Dictionary new
 		during: [ self assert: (OTConfigurationSource environmentValueAt: 'OTEL_TRACES_SAMPLER') isNil ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileRejectsUnknownExporter [
+
+	self
+		should: [
+				self
+					withConfigurationFileContents: 'file_format: "1.1"
+tracer_provider:
+  processors:
+    - simple:
+        exporter:
+          unknown_exporter:
+'
+					environmentValues: Dictionary new
+					during: [ OTTracerProvider current spanProcessors ] ]
+		raise: Error
 ]
 
 { #category : 'tests' }

@@ -10,7 +10,8 @@ Class {
 		'messageEncoding',
 		'acceptedMessageEncodings',
 		'contentType',
-		'userAgent'
+		'userAgent',
+		'maxResponseSize'
 	],
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
@@ -145,4 +146,16 @@ OTFakeGRPCRequest >> userAgent [
 OTFakeGRPCRequest >> userAgent: aStringOrNil [
 
 	userAgent := aStringOrNil
+]
+
+{ #category : 'accessing' }
+OTFakeGRPCRequest >> maxResponseSize [
+
+	^ maxResponseSize
+]
+
+{ #category : 'accessing' }
+OTFakeGRPCRequest >> maxResponseSize: anInteger [
+
+	maxResponseSize := anInteger
 ]
