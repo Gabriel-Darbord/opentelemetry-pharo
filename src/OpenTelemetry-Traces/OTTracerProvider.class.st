@@ -1067,7 +1067,7 @@ OTTracerProvider class >> strictXRayRemoteSamplerOptionsFrom: aString [
 OTTracerProvider class >> systemAttributeAt: anInteger [
 
 	| value |
-	value := [ Smalltalk getSystemAttribute: anInteger ]
+	value := [ Smalltalk vm getSystemAttribute: anInteger ]
 		         on: Error
 		         do: [ nil ].
 	value ifNil: [ ^ nil ].
