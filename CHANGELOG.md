@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.2.0
 
 - Support Pharo 10 and 11, through compatibility packages that backport what
   the code uses from Pharo 11 and 12.

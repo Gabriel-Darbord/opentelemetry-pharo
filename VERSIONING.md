@@ -27,13 +27,19 @@ work.
 
 The supported Pharo targets are:
 
+- Pharo 10
+- Pharo 11
 - Pharo 12
 - Pharo 13
 - Pharo 14
 - Pharo 15
 
+On Pharo 10 and 11, the `instrumentation` group has the MetaLink backend only.
+
 Development uses Pharo 14. The CI matrix targets:
 
+- Pharo 10
+- Pharo 11
 - Pharo 12
 - Pharo 13
 - Pharo 14 (coverage and collector integration)
@@ -42,7 +48,7 @@ Development uses Pharo 14. The CI matrix targets:
 Dropping support for a previously supported Pharo version is a breaking
 compatibility change.
 
-Adding support for a newer Pharo version is backwards compatible as long as the
+Adding support for another Pharo version is backwards compatible as long as the
 existing supported versions keep working.
 
 ## Release Expectations
