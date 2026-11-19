@@ -565,7 +565,7 @@ OTEnvironmentConfigurationTest >> testCurrentUsesNoLimitZipkinTimeoutFromEnviron
 				| exporter |
 				exporter := OTSpanExporter current.
 				self assert: exporter class identicalTo: OTZipkinSpanExporter.
-				self assert: exporter httpClient timeout isNil ]
+				self assert: exporter httpClient otSocketStreamTimeout isNil ]
 ]
 
 { #category : 'tests' }
@@ -662,7 +662,7 @@ OTEnvironmentConfigurationTest >> testCurrentUsesZipkinExporterConfigurationFrom
 				exporter := OTSpanExporter current.
 				self assert: exporter class identicalTo: OTZipkinSpanExporter.
 				self assert: exporter httpClient request url asString equals: 'http://example.com:9999/custom/path'.
-				self assert: exporter httpClient timeout equals: 1234 ]
+				self assert: exporter httpClient otSocketStreamTimeout equals: 1234 ]
 ]
 
 { #category : 'tests' }
@@ -761,7 +761,7 @@ OTEnvironmentConfigurationTest >> testInvalidZipkinTimeoutFromEnvironmentFallsBa
 						| exporter |
 						exporter := OTSpanExporter current.
 						self assert: exporter class identicalTo: OTZipkinSpanExporter.
-						self assert: exporter httpClient timeout equals: OTSpanExporter defaultZipkinTimeoutMillis ].
+						self assert: exporter httpClient otSocketStreamTimeout equals: OTSpanExporter defaultZipkinTimeoutMillis ].
 			self
 				assert: warnings asArray
 				equals:
