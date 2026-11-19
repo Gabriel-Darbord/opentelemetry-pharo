@@ -754,7 +754,7 @@ tracer_provider:
 				self assert: processors second scheduledDelayMillis equals: 123.
 				self assert: processors second maxQueueSize equals: 456.
 				self assert: processors second exporter httpClient request url asString equals: 'http://zipkin.example:9411/api/v2/spans'.
-				self assert: processors second exporter httpClient otSocketStreamTimeout equals: 789 ]
+				self assert: processors second exporter httpClient otSocketStreamTimeout equals: 0.789 ]
 ]
 
 { #category : 'tests' }

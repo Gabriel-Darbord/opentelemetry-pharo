@@ -112,6 +112,15 @@ OTZipkinSpanExporterTest >> testServerSpanOmitsRemoteEndpointEvenWhenPeerAttribu
 ]
 
 { #category : 'tests' }
+OTZipkinSpanExporterTest >> testTimeoutMillisSetsTheClientTimeoutInSeconds [
+
+	exporter timeoutMillis: 1500.
+	self assert: exporter httpClient otSocketStreamTimeout equals: 1.5.
+	exporter timeoutMillis: nil.
+	self assert: exporter httpClient otSocketStreamTimeout isNil
+]
+
+{ #category : 'tests' }
 OTZipkinSpanExporterTest >> testTransformIncludesReadableSpanFieldsInTagsAndParentMapping [
 
 	| tags transformed |
