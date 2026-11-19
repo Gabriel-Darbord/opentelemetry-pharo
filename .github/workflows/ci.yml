@@ -18,8 +18,15 @@ jobs:
       OTEL_PHARO_OTLP_GRPC_INTEGRATION_LOG_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-logs.json"
       OTEL_PHARO_OTLP_GRPC_INTEGRATION_METRIC_OUTPUT_FILE: "/tmp/otel-output/otlp-grpc-metrics.json"
     strategy:
+      fail-fast: false
       matrix:
         include:
+          - smalltalk: Pharo64-10
+            spec: .smalltalk.ston
+            coverage: false
+          - smalltalk: Pharo64-11
+            spec: .smalltalk.ston
+            coverage: false
           - smalltalk: Pharo64-12
             spec: .smalltalk.ston
             coverage: false
