@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- Read system attributes through `Smalltalk vm`, whose replacement Pharo 14
-  deprecates, so configuring a provider no longer signals a Deprecation.
+- Read system attributes with `Smalltalk vm getSystemAttribute:`, since Pharo 14
+  deprecates `Smalltalk getSystemAttribute:` and the Deprecation could fail the
+  code starting a span.
 - Apply the Zipkin exporter's timeout in milliseconds, as
   `OTEL_EXPORTER_ZIPKIN_TIMEOUT` and the declarative `timeout` give it; it was
   handed to the HTTP client as seconds.
