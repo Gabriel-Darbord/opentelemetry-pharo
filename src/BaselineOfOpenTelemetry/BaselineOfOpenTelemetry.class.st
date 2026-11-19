@@ -11,12 +11,33 @@ BaselineOfOpenTelemetry >> baseline: spec [
 	<baseline>
 	spec for: #common do: [ self baselineCommon: spec ].
 
+	spec for: #( 'pharo10.x' 'pharo11.x' ) do: [ self baselineBefore12: spec ].
+	spec for: #( 'pharo10.x' ) do: [ self baselineBefore11: spec ].
 	spec for: #( 'pharo12.x' 'pharo13.x' 'pharo14.x' 'pharo15.x' ) do: [ self baselinePharo12Plus: spec ].
 	spec for: #( 'pharo14.x' 'pharo15.x' ) do: [
 			spec package: 'OpenTelemetry-Compatibility-Pharo14Plus'.
 			spec
 				package: 'OpenTelemetry-Instrumentation-MetaLink'
 				with: [ spec requires: #( 'OpenTelemetry-Instrumentation' 'OpenTelemetry-Compatibility-Pharo14Plus' ) ] ]
+]
+
+{ #category : 'baselines' }
+BaselineOfOpenTelemetry >> baselineBefore11: spec [
+	"What Pharo 11 added, on top of what Pharo 12 did."
+
+	spec package: 'OpenTelemetry-Compatibility-Before11'.
+	spec package: 'OpenTelemetry-Compatibility-Before12' with: [ spec requires: #( 'OpenTelemetry-Compatibility-Before11' ) ]
+]
+
+{ #category : 'baselines' }
+BaselineOfOpenTelemetry >> baselineBefore12: spec [
+	"What Pharo 12 renamed or added that the packages every group starts from use."
+
+	spec
+		package: 'OpenTelemetry-Compatibility-Before12';
+		package: 'OpenTelemetry-Matchers' with: [ spec requires: #( 'OpenTelemetry-Compatibility-Before12' ) ];
+		package: 'OpenTelemetry-SDK' with: [ spec requires: #( 'OpenTelemetry-Compatibility-Before12' ) ];
+		package: 'OpenTelemetry-Exporters' with: [ spec requires: #( 'OpenTelemetry-Compatibility-Before12' ) ]
 ]
 
 { #category : 'baselines' }
