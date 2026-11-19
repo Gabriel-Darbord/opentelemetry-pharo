@@ -2328,7 +2328,7 @@ OTConfigurationSource class >> traceExporterFromNode: aDictionary [
 			exporter := OTSpanExporter defaultZipkinExporter.
 			endpoint := self stringValueAt: 'endpoint' in: exporterOptions.
 			endpoint ifNotNil: [ exporter httpClient url: endpoint ].
-			exporter httpClient timeout:
+			exporter timeoutMillis:
 				(self zipkinTimeoutMillisAt: 'timeout' in: exporterOptions default: OTSpanExporter defaultZipkinTimeoutMillis).
 			^ exporter ].
 	exporterType = 'otlp_grpc' ifTrue: [

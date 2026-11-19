@@ -74,7 +74,7 @@ OTSpanExporter class >> configuredZipkinExporter [
 	exporter := self defaultZipkinExporter.
 	endpoint := self environmentValueAt: 'OTEL_EXPORTER_ZIPKIN_ENDPOINT'.
 	endpoint ifNotNil: [ exporter httpClient url: endpoint ].
-	exporter httpClient timeout: self zipkinTimeoutFromEnvironmentOrNil.
+	exporter timeoutMillis: self zipkinTimeoutFromEnvironmentOrNil.
 	^ exporter
 ]
 

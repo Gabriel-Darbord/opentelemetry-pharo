@@ -326,7 +326,7 @@ Or let the library read environment configuration:
 - `OTEL_TRACES_EXPORTER`
 - OTLP exporter variables through `OTOtlpExporterConfiguration`
 - `OTEL_EXPORTER_ZIPKIN_ENDPOINT`
-- `OTEL_EXPORTER_ZIPKIN_TIMEOUT`
+- `OTEL_EXPORTER_ZIPKIN_TIMEOUT`, in milliseconds
 
 `OTEL_TRACES_EXPORTER` defaults to `otlp`. This implementation also accepts a
 comma-separated list of exporters and installs exporter-specific processors for

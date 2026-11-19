@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Read system attributes with `Smalltalk vm getSystemAttribute:`, since Pharo 14
+  deprecates `Smalltalk getSystemAttribute:` and the Deprecation could fail the
+  code starting a span.
+- Apply the Zipkin exporter's timeout in milliseconds, as
+  `OTEL_EXPORTER_ZIPKIN_TIMEOUT` and the declarative `timeout` give it; it was
+  handed to the HTTP client as seconds.
+
 ## OpenTelemetry specification v1.62.0
 
 Advances the v1.58.0 baseline through the v1.59.0, v1.60.0,

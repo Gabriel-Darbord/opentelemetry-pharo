@@ -265,6 +265,13 @@ OTZipkinSpanExporter >> tagStringFor: anObject [
 	^ OTAnyValueStringEncoder stringFor: anObject
 ]
 
+{ #category : 'accessing' }
+OTZipkinSpanExporter >> timeoutMillis: anIntegerOrNil [
+	"Bound the socket operations of each export by a timeout in milliseconds, the unit the Zipkin settings use, or by none when nil. The HTTP client counts in seconds."
+
+	self httpClient timeout: (anIntegerOrNil ifNotNil: [ anIntegerOrNil / 1000.0 ])
+]
+
 { #category : 'private - utilities' }
 OTZipkinSpanExporter >> transform: spans [
 	"Transform OpenTelemetry spans into the Zipkin format following the rules at https://opentelemetry.io/docs/specs/otel/trace/sdk_exporters/zipkin/"
