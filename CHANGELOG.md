@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Support Pharo 10 and 11, through compatibility packages that backport what
+  the code uses from Pharo 11 and 12.
 - Read system attributes with `Smalltalk vm getSystemAttribute:`, since Pharo 14
   deprecates `Smalltalk getSystemAttribute:` and the Deprecation could fail the
   code starting a span.

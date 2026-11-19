@@ -1,3 +1,5 @@
+[![Pharo version](https://img.shields.io/badge/Pharo-10-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
+[![Pharo version](https://img.shields.io/badge/Pharo-11-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
 [![Pharo version](https://img.shields.io/badge/Pharo-12-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
 [![Pharo version](https://img.shields.io/badge/Pharo-13-%23aac9ff.svg)](https://github.com/pharo-project/pharo)
 [![Pharo version](https://img.shields.io/badge/Pharo-14-%23aac9ff.svg)](https://github.com/pharo-project/pharo)

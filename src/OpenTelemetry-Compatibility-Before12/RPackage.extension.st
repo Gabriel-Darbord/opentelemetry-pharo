@@ -1,6 +1,6 @@
 Extension { #name : 'RPackage' }
 
-{ #category : '*OpenTelemetry-Compatibility-Pharo11' }
+{ #category : '*OpenTelemetry-Compatibility-Before12' }
 RPackage >> otName [
 
 	^ name

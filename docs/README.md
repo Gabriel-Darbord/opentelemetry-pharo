@@ -42,12 +42,17 @@ Current scope:
 
 Supported Pharo range in the baseline:
 
+- Pharo 10
+- Pharo 11
 - Pharo 12
 - Pharo 13
 - Pharo 14
 - Pharo 15
 
-Development uses Pharo 14. The CI matrix targets Pharo 12, 13, 14, and 15.
+On Pharo 10 and 11, the `instrumentation` group has the MetaLink backend only:
+MethodProxies needs Pharo 12.
+
+Development uses Pharo 14. The CI matrix targets every version above.
 
 The Pharo 14 coverage-bearing CI run also includes a collector-backed OTLP/gRPC
 integration step for trace, log, and metric export. It runs outside the
