@@ -463,7 +463,7 @@ OTOtlpHttpJsonSpanExporter >> withConfiguredTlsEnvironmentDuring: aBlock [
 
 	| environment originalValue absent |
 	self configuration certificateFile ifNil: [ ^ aBlock value ].
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	absent := Object new.
 	^ self class tlsEnvironmentLock critical: [
 			  originalValue := environment at: 'SSL_CERT_FILE' ifAbsent: [ absent ].

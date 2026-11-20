@@ -1720,7 +1720,7 @@ OTDeclarativeConfigurationTest >> withEnvironmentValues: aDictionary during: aBl
 
 	| absent environment snapshot |
 	absent := Object new.
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	snapshot := Dictionary new.
 	aDictionary keysAndValuesDo: [ :key :value |
 			snapshot at: key put: (environment at: key ifAbsent: [ absent ]).

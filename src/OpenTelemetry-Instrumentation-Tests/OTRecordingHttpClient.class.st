@@ -22,6 +22,12 @@ Class {
 	#package : 'OpenTelemetry-Instrumentation-Tests'
 }
 
+{ #category : 'configuration' }
+OTRecordingHttpClient >> beOneShot [
+
+	self
+]
+
 { #category : 'accessing' }
 OTRecordingHttpClient >> certificate [
 
@@ -44,6 +50,12 @@ OTRecordingHttpClient >> certificateDuringExecute [
 OTRecordingHttpClient >> code [
 
 	^ responseCode ifNil: [ 200 ]
+]
+
+{ #category : 'configuration' }
+OTRecordingHttpClient >> connectionReuseTimeout: seconds [
+
+	self
 ]
 
 { #category : 'accessing' }
@@ -69,7 +81,7 @@ OTRecordingHttpClient >> execute [
 
 	executionCount := self executionCount + 1.
 	certificateDuringExecute := certificate.
-	sslCertFileDuringExecute := Smalltalk os environment at: 'SSL_CERT_FILE' ifAbsent: [ nil ].
+	sslCertFileDuringExecute := OSEnvironment current at: 'SSL_CERT_FILE' ifAbsent: [ nil ].
 	self playNextPlannedExecution.
 	self shouldRaiseOnExecute ifTrue: [ Error signal: 'simulated HTTP failure' ].
 	self
@@ -94,6 +106,18 @@ OTRecordingHttpClient >> headers [
 ]
 
 { #category : 'accessing' }
+OTRecordingHttpClient >> maximumEntitySize [
+
+	^ maximumEntitySize
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> maximumEntitySize: anInteger [
+
+	maximumEntitySize := anInteger
+]
+
+{ #category : 'accessing' }
 OTRecordingHttpClient >> method [
 
 	^ method
@@ -103,12 +127,6 @@ OTRecordingHttpClient >> method [
 OTRecordingHttpClient >> method: aSymbol [
 
 	method := aSymbol
-]
-
-{ #category : 'accessing' }
-OTRecordingHttpClient >> removeHeaderNamed: aKey [
-
-	self headers removeKey: aKey ifAbsent: [ ]
 ]
 
 { #category : 'private' }
@@ -153,6 +171,12 @@ OTRecordingHttpClient >> queueResponseCode: anInteger headers: aDictionary conte
 				responseHeaders: aDictionary;
 				responseContents: anObject ].
 	^ self
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> removeHeaderNamed: aKey [
+
+	self headers removeKey: aKey ifAbsent: [ ]
 ]
 
 { #category : 'executing' }
@@ -240,28 +264,4 @@ OTRecordingHttpClient >> url [
 OTRecordingHttpClient >> url: aString [
 
 	url := aString
-]
-
-{ #category : 'configuration' }
-OTRecordingHttpClient >> beOneShot [
-
-	self
-]
-
-{ #category : 'configuration' }
-OTRecordingHttpClient >> connectionReuseTimeout: seconds [
-
-	self
-]
-
-{ #category : 'accessing' }
-OTRecordingHttpClient >> maximumEntitySize [
-
-	^ maximumEntitySize
-]
-
-{ #category : 'accessing' }
-OTRecordingHttpClient >> maximumEntitySize: anInteger [
-
-	maximumEntitySize := anInteger
 ]

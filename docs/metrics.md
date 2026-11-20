@@ -117,7 +117,7 @@ To use the configured global provider, let `OTMeterProvider current` read the
 metrics environment variables:
 
 ```smalltalk
-Smalltalk os environment
+OSEnvironment current
 	at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
 	at: 'OTEL_EXPORTER_OTLP_METRICS_PROTOCOL' put: 'grpc'.
 
@@ -127,7 +127,7 @@ meter := OpenTelemetry meterNamed: 'MyApp'.
 To expose a Prometheus scrape endpoint instead:
 
 ```smalltalk
-Smalltalk os environment
+OSEnvironment current
 	at: 'OTEL_METRICS_EXPORTER' put: 'prometheus';
 	at: 'OTEL_EXPORTER_PROMETHEUS_HOST' put: 'localhost';
 	at: 'OTEL_EXPORTER_PROMETHEUS_PORT' put: '9464'.
@@ -309,7 +309,7 @@ provider exemplarFilter: OTMetricExemplarFilter alwaysOn.
 Or through environment configuration for `OTMeterProvider current`:
 
 ```smalltalk
-Smalltalk os environment
+OSEnvironment current
 	at: 'OTEL_METRICS_EXEMPLAR_FILTER' put: 'always_off'.
 ```
 

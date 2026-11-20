@@ -9,7 +9,7 @@ Class {
 OTOtlpExporterConfigurationTest >> setEnvironmentValue: aValue forKey: aKey [
 
 	| environment currentValue |
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	currentValue := environment at: aKey ifAbsent: [ nil ].
 	aValue ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ] ifNotNil: [ environment at: aKey put: aValue ]
 ]
@@ -354,7 +354,7 @@ OTOtlpExporterConfigurationTest >> withEnvironmentValues: aDictionary during: aB
 
 	| absent effectiveValues environment managedKeys snapshot |
 	absent := Object new.
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	effectiveValues := aDictionary copy.
 	managedKeys := (environment keys select: [ :each | each beginsWith: 'OTEL_' ]) asOrderedCollection.
 	effectiveValues keysDo: [ :each | (managedKeys includes: each) ifFalse: [ managedKeys add: each ] ].

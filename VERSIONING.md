@@ -56,3 +56,5 @@ existing supported versions keep working.
 - Compatible fixes and feature additions should land in normal releases.
 - Bug fixes may tighten behavior to match the specification more closely.
 - Removing deprecated stable API should be rare and called out clearly.
+- The release pull request sets `OTTracerProvider class >> sdkVersion` to the
+  version it releases.

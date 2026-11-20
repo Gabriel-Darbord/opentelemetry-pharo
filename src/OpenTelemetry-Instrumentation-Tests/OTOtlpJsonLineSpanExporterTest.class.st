@@ -55,12 +55,11 @@ OTOtlpJsonLineSpanExporterTest >> testEnvironmentConfigurationSupportsOtlpStdout
 	OTSpanExporter current: nil.
 	OTSpanProcessor current: nil.
 	[
-		Smalltalk os environment at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout'.
+		OSEnvironment current at: 'OTEL_TRACES_EXPORTER' put: 'otlp/stdout'.
 		self assert: OTSpanExporter current class identicalTo: OTOtlpStdoutSpanExporter.
 		processor := OTSpanProcessor current.
 		self assert: processor class identicalTo: OTSimpleSpanProcessor ] ensure: [
-			(Smalltalk os environment includesKey: 'OTEL_TRACES_EXPORTER') ifTrue: [
-				Smalltalk os environment removeKey: 'OTEL_TRACES_EXPORTER' ].
+			(OSEnvironment current includesKey: 'OTEL_TRACES_EXPORTER') ifTrue: [ OSEnvironment current removeKey: 'OTEL_TRACES_EXPORTER' ].
 			OTSpanExporter current: nil.
 			OTSpanProcessor current: nil ]
 ]

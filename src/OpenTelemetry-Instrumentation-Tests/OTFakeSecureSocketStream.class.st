@@ -27,7 +27,7 @@ OTFakeSecureSocketStream class >> openConnectionToHostNamed: aString port: anInt
 OTFakeSecureSocketStream >> connect [
 
 	connected := true.
-	sslCertFileDuringConnect := Smalltalk os environment at: 'SSL_CERT_FILE' ifAbsent: [ nil ]
+	sslCertFileDuringConnect := OSEnvironment current at: 'SSL_CERT_FILE' ifAbsent: [ nil ]
 ]
 
 { #category : 'testing' }
