@@ -9,7 +9,7 @@ Class {
 OTDiagnosticLoggerTest >> setEnvironmentValue: aValue forKey: aKey [
 
 	| currentValue environment |
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	currentValue := environment at: aKey ifAbsent: [ nil ].
 	aValue ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ] ifNotNil: [ environment at: aKey put: aValue ]
 ]

@@ -12,7 +12,7 @@ Class {
 OTOtlpGrpcIntegrationTest >> clearNonIntegrationOtelEnvironmentValues [
 
 	| environment |
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	environment keys
 		select: [ :each | (each beginsWith: 'OTEL_') and: [ (each beginsWith: 'OTEL_PHARO_OTLP_GRPC_INTEGRATION_') not ] ]
 		thenDo: [ :each | environment removeKey: each ]
@@ -48,7 +48,7 @@ OTOtlpGrpcIntegrationTest >> collectorOutputFileForSignalNamed: aString [
 OTOtlpGrpcIntegrationTest >> environmentValueAt: aKey ifAbsent: aBlock [
 
 	| environment value |
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	value := environment at: aKey ifAbsent: [ ^ aBlock value ].
 	value := value asString trimBoth.
 	^ value isEmpty
@@ -95,7 +95,7 @@ OTOtlpGrpcIntegrationTest >> resetTelemetryConfiguration [
 OTOtlpGrpcIntegrationTest >> restoreOtelEnvironment [
 
 	| environment |
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	environment keys select: [ :each | each beginsWith: 'OTEL_' ] thenDo: [ :each | environment removeKey: each ].
 	otelEnvironmentSnapshot associationsDo: [ :each | self setEnvironmentValue: each value forKey: each key ]
 ]
@@ -104,7 +104,7 @@ OTOtlpGrpcIntegrationTest >> restoreOtelEnvironment [
 OTOtlpGrpcIntegrationTest >> setEnvironmentValue: aValue forKey: aKey [
 
 	| currentValue environment |
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	currentValue := environment at: aKey ifAbsent: [ nil ].
 	aValue ifNil: [ currentValue ifNotNil: [ environment removeKey: aKey ] ] ifNotNil: [ environment at: aKey put: aValue ]
 ]
@@ -123,7 +123,7 @@ OTOtlpGrpcIntegrationTest >> setUp [
 OTOtlpGrpcIntegrationTest >> snapshotOtelEnvironment [
 
 	| environment |
-	environment := Smalltalk os environment.
+	environment := OSEnvironment current.
 	otelEnvironmentSnapshot := Dictionary new.
 	environment keys
 		select: [ :each | each beginsWith: 'OTEL_' ]

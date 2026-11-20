@@ -2030,7 +2030,7 @@ OTConfigurationSource class >> put: anEnvironmentName fromAnyOf: aCollection in:
 OTConfigurationSource class >> rawEnvironmentValueAt: aString [
 
 	| value |
-	value := Smalltalk os environment at: aString ifAbsent: [ ^ nil ].
+	value := OSEnvironment current at: aString ifAbsent: [ ^ nil ].
 	value := value asString trimBoth.
 	^ value isEmpty
 		  ifTrue: [ nil ]
