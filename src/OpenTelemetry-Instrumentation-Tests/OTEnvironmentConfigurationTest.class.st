@@ -267,7 +267,8 @@ OTEnvironmentConfigurationTest >> testCurrentProvidesDefaultSdkResourceAttribute
 			self assert: resource schemaUrl equals: OTTracerProvider semanticConventionsSchemaUrl.
 			self assert: (resource attributeAt: 'telemetry.sdk.name') equals: 'opentelemetry'.
 			self assert: (resource attributeAt: 'telemetry.sdk.language') equals: 'pharo'.
-			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion ]
+			self assert: (resource attributeAt: 'telemetry.sdk.version') equals: OTTracerProvider sdkVersion.
+			self assert: (OTTracerProvider sdkVersion matchesRegex: '\d+\.\d+\.\d+') ]
 ]
 
 { #category : 'tests' }

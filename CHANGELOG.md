@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.1
+
+- Read the environment through `OSEnvironment current`, since Pharo 14
+  deprecates `Smalltalk os environment` and the Deprecation could stop the code
+  reading a variable, such as a configured provider's first span.
+- Report the SDK's version as `telemetry.sdk.version` and in the OTLP
+  exporter's User-Agent; both said `dev`.
+
 ## v1.2.0
 
 - Support Pharo 10 and 11, through compatibility packages that backport what
