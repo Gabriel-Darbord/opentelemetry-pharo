@@ -410,6 +410,13 @@ OTMetricReader >> forceFlushResult [
 	^ OTLifecycleResult fromBoolean: self forceFlush
 ]
 
+{ #category : 'lifecycle' }
+OTMetricReader >> forgetEarlierSessionAt: aDateAndTime instruments: someInstruments [
+	"The image started from its saved file at aDateAndTime, and its provider dropped the measurements it was saved with: each of someInstruments counts as collected then, so that a delta starts with this session rather than span the time the image was not running."
+
+	self markCollectedAt: aDateAndTime forInstruments: someInstruments
+]
+
 { #category : 'initialization' }
 OTMetricReader >> initialize [
 

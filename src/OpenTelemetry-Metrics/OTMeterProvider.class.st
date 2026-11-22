@@ -170,6 +170,21 @@ OTMeterProvider class >> exporterNamesFromConfigurationValue: aString [
 	^ names asArray
 ]
 
+{ #category : 'class initialization' }
+OTMeterProvider class >> initialize [
+	"Saving and starting the image visit the providers through a registry, which those made before this was loaded join now."
+
+	SessionManager default registerToolClassNamed: self name.
+	self registerExistingInstances
+]
+
+{ #category : 'accessing' }
+OTMeterProvider class >> liveInstances [
+	"The providers that exist, which saving and starting the image visit without walking the heap."
+
+	^ self registryLock critical: [ self registry keys reject: [ :each | each isNil ] ]
+]
+
 { #category : 'private' }
 OTMeterProvider class >> meterNameWarningSink [
 
@@ -388,6 +403,32 @@ OTMeterProvider class >> readerForExporter: anExporter [
 	^ reader
 ]
 
+{ #category : 'private - registry' }
+OTMeterProvider class >> register: aProvider [
+
+	self registryLock critical: [ self registry at: aProvider put: true ]
+]
+
+{ #category : 'private - registry' }
+OTMeterProvider class >> registerExistingInstances [
+	"Registers the providers made before the registry was: one an image was saved with, unknown to a later start, would export its measurements again at every start of the saved image."
+
+	self allSubInstancesDo: [ :each | self register: each ]
+]
+
+{ #category : 'private - registry' }
+OTMeterProvider class >> registry [
+	"The providers that exist, subclasses' included, weakly held."
+
+	^ OTClassStateStore valueAt: #otMeterProviders forClass: OTMeterProvider ifAbsentPut: [ WeakIdentityKeyDictionary new ]
+]
+
+{ #category : 'private - registry' }
+OTMeterProvider class >> registryLock [
+
+	^ OTClassStateStore valueAt: #otMeterProvidersLock forClass: OTMeterProvider ifAbsentPut: [ Semaphore forMutualExclusion ]
+]
+
 { #category : 'private' }
 OTMeterProvider class >> requestedMeterNameFrom: aValue [
 
@@ -402,6 +443,27 @@ OTMeterProvider class >> reset [
 	configurationSourceClass := self configurationSourceClass.
 	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	OTClassStateStore removeCurrentValueForClass: self ifAbsent: [ ]
+]
+
+{ #category : 'system startup' }
+OTMeterProvider class >> shutDown: quitting [
+	"Before the image is saved. An image that quits first exports what its readers would collect, waiting a second at most, since a VM that is quitting should not wait on a collector. One that goes on keeps its measurements, which a later start from this save drops."
+
+	quitting ifTrue: [ self liveInstances do: [ :each | each flushWithinMilliseconds: self snapshotFlushTimeoutMillis ] ]
+]
+
+{ #category : 'system startup' }
+OTMeterProvider class >> snapshotFlushTimeoutMillis [
+	"The longest an image that quits waits for its readers to export."
+
+	^ 1000
+]
+
+{ #category : 'system startup' }
+OTMeterProvider class >> startUp: resuming [
+	"An image that starts from its saved file forgets the measurements it was saved with, rather than export them again at every start, under settings that may have changed since."
+
+	resuming ifTrue: [ self liveInstances do: [ :each | each forgetEarlierSession ] ]
 ]
 
 { #category : 'private' }
@@ -492,6 +554,13 @@ OTMeterProvider >> exemplarFilter: anOTMetricExemplarFilter [
 ]
 
 { #category : 'lifecycle' }
+OTMeterProvider >> flushWithinMilliseconds: anInteger [
+	"Has every reader export what it collects, and answers whether all of it went within anInteger milliseconds."
+
+	^ [ self forceFlush ] valueWithinMilliseconds: anInteger onTimeout: [ false ]
+]
+
+{ #category : 'lifecycle' }
 OTMeterProvider >> forceFlush [
 
 	^ self forceFlushResult isSuccess
@@ -509,6 +578,19 @@ OTMeterProvider >> forceFlushResult [
 	^ snapshot second inject: OTLifecycleResult success into: [ :allFlushed :each | allFlushed combinedWith: each forceFlushResult ]
 ]
 
+{ #category : 'lifecycle' }
+OTMeterProvider >> forgetEarlierSession [
+	"Drops the measurements the image was saved with, and has each reader collect afresh from now: they belong to the session that saved it, which exported them or never will. Collected again, they would be exported at every start of the saved image, a cumulative sum counting them once more each time."
+
+	| now readers instruments |
+	now := DateAndTime now asUTC.
+	readers := stateLock critical: [
+			           measurements removeAll.
+			           metricReaders copy ].
+	instruments := self registeredMetricInstruments.
+	readers do: [ :each | each forgetEarlierSessionAt: now instruments: instruments ]
+]
+
 { #category : 'initialization' }
 OTMeterProvider >> initialize [
 
@@ -521,7 +603,8 @@ OTMeterProvider >> initialize [
 	shutdown := false.
 	shutdownRequested := false.
 	stateLock := Semaphore forMutualExclusion.
-	resource := OTResource empty
+	resource := OTResource empty.
+	OTMeterProvider register: self
 ]
 
 { #category : 'testing' }

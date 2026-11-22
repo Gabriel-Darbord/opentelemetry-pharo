@@ -37,6 +37,17 @@ OTBatchLogRecordProcessorTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testAProcessorMadeBeforeTheRegistryJoinsIt [
+	"Loading this code over an older one registers the processors the image already has, among them those a saved image would start with again."
+
+	processor := OTBatchLogRecordProcessor new.
+	OTBatchLogRecordProcessor registryLock critical: [ OTBatchLogRecordProcessor registry removeKey: processor ].
+	self deny: (OTBatchLogRecordProcessor liveInstances includes: processor).
+	OTBatchLogRecordProcessor registerExistingInstances.
+	self assert: (OTBatchLogRecordProcessor liveInstances includes: processor)
+]
+
+{ #category : 'tests' }
 OTBatchLogRecordProcessorTest >> testAnErrorInAnExportDropsTheBatchAndTheFlushGoesOn [
 
 	| logger warnings |
@@ -88,6 +99,43 @@ OTBatchLogRecordProcessorTest >> testAnErrorWhileNotingAFailedExportLeavesTheFlu
 ]
 
 { #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testDiscardQueuedLogRecordsDropsThemWithoutExporting [
+
+	exporter := OTRecordingLogRecordExporter new.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
+	processor
+		maxExportBatchSize: 10;
+		scheduledDelayMillis: 60000.
+	processor onEmit: (self sampleLogRecordWithSuffix: 1) context: OTContext new.
+	processor discardQueuedLogRecords.
+	processor forceFlush.
+	self assert: exporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testFlushWithinMillisecondsGivesUpOnAnExportThatBlocks [
+
+	| flushed elapsed startedAt |
+	exporter := OTBlockingLogRecordExporter new.
+	exporter blockNextExport.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
+	processor
+		maxExportBatchSize: 10;
+		scheduledDelayMillis: 1000;
+		exportTimeoutMillis: 30000.
+	processor onEmit: (self sampleLogRecordWithSuffix: 1) context: OTContext new.
+	startedAt := Time millisecondClockValue.
+	flushed := processor flushWithinMilliseconds: 50.
+	elapsed := Time millisecondClockValue - startedAt.
+	self deny: flushed.
+	self assert: elapsed < 1000
+]
+
+{ #category : 'tests' }
 OTBatchLogRecordProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExporter [
 
 	exporter := OTRecordingLogRecordExporter new.
@@ -102,6 +150,28 @@ OTBatchLogRecordProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToE
 	self assert: exporter exportedBatches size equals: 1.
 	self assert: exporter forceFlushCount equals: 1.
 	self assert: exporter exportedBatches first size equals: 1
+]
+
+{ #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testForgetEarlierSessionStopsTheExportInProgressAndDropsTheQueue [
+	"What a processor was doing when the image was saved belongs to the session that saved it: an image started from that save neither finishes the export nor sends what was queued."
+
+	exporter := OTBlockingLogRecordExporter new.
+	exporter blockNextExport.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
+	processor
+		maxExportBatchSize: 1;
+		scheduledDelayMillis: 10.
+	processor onEmit: (self sampleLogRecordWithSuffix: 1) context: OTContext new.
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 2000).
+	processor onEmit: (self sampleLogRecordWithSuffix: 2) context: OTContext new.
+	processor forgetEarlierSession.
+	self assert: processor isIdle.
+	exporter allowBlockedExport.
+	processor forceFlush.
+	self assert: exporter exportedRecords isEmpty
 ]
 
 { #category : 'tests' }
@@ -142,6 +212,14 @@ OTBatchLogRecordProcessorTest >> testRecordsEmittedAtOnceStartOneFlushProcess [
 			{
 				inner.
 				outer } do: [ :each | each ifNotNil: [ each terminate ] ] ]
+]
+
+{ #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testSavingAndStartingTheImageReachEveryProcessor [
+	"Saving and starting the image visit the processors that exist, so that the queue of each is sent before the image quits and never by a later start of the saved image."
+
+	processor := OTBatchLogRecordProcessor new.
+	self assert: (OTBatchLogRecordProcessor liveInstances includes: processor)
 ]
 
 { #category : 'tests' }

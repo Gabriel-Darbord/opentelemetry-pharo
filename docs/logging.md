@@ -225,3 +225,9 @@ Providers support:
 - `shutdown`
 
 After shutdown, the provider returns no-op loggers.
+
+An image that quits waits a second at most for its batch processors to export
+what they queued, and drops the rest; one that goes on after saving keeps its
+queue. An image started from its saved file drops the log records it was saved
+with, and the export it was saved in the middle of, rather than export them at
+every start of the saved file.

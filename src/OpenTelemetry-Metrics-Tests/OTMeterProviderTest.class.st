@@ -48,6 +48,18 @@ OTMeterProviderTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAProviderMadeBeforeTheRegistryJoinsIt [
+	"Loading this code over an older one registers the providers the image already has, among them those a saved image would start with again."
+
+	| provider |
+	provider := OTMeterProvider new.
+	OTMeterProvider registryLock critical: [ OTMeterProvider registry removeKey: provider ].
+	self deny: (OTMeterProvider liveInstances includes: provider).
+	OTMeterProvider registerExistingInstances.
+	self assert: (OTMeterProvider liveInstances includes: provider)
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousInstrumentCollectsMeasurementsPerReader [
 
 	| callbackCount measurement provider reader |
@@ -530,6 +542,47 @@ OTMeterProviderTest >> testForceFlushReturnsFalseAfterShutdown [
 	self assert: provider shutdown.
 	self deny: provider forceFlush.
 	self assert: reader forceFlushCount equals: 0
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testForgetEarlierSessionDropsTheMeasurementsTheImageWasSavedWith [
+	"An image started from its saved file exports none of the measurements it was saved with: a cumulative sum starts again, from its first measurement in this session."
+
+	| provider reader counter forgottenAt point |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 3.
+	forgottenAt := DateAndTime now asUTC.
+	provider forgetEarlierSession.
+	self assert: reader collectSnapshot metrics isEmpty.
+	counter add: 2.
+	point := reader collectSnapshot metrics first points first.
+	self assert: point value equals: 2.
+	self assert: point startTimestamp >= forgottenAt
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testForgetEarlierSessionStartsADeltaWithThisSession [
+	"A delta collected after the image started from its saved file covers this session only, never the time the image was not running."
+
+	| provider reader counter forgottenAt point |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader temporalitySelector: [ :instrument | #delta ].
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 1.
+	reader collectSnapshot.
+	counter add: 3.
+	forgottenAt := DateAndTime now asUTC.
+	provider forgetEarlierSession.
+	(Delay forMilliseconds: 2) wait.
+	counter add: 2.
+	point := reader collectSnapshot metrics first points first.
+	self assert: point value equals: 2.
+	self assert: point startTimestamp >= forgottenAt
 ]
 
 { #category : 'tests' }
@@ -1843,6 +1896,15 @@ OTMeterProviderTest >> testProviderShutdownShutsDownMetricReaders [
 	self assert: provider shutdown.
 	self assert: reader isShutdown.
 	self assert: reader collect isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testSavingAndStartingTheImageReachEveryProvider [
+	"Saving and starting the image visit the providers that exist, so that what each holds is exported before the image quits and never by a later start of the saved image."
+
+	| provider |
+	provider := OTMeterProvider new.
+	self assert: (OTMeterProvider liveInstances includes: provider)
 ]
 
 { #category : 'tests' }

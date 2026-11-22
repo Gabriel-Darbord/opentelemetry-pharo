@@ -192,6 +192,14 @@ Current metric behavior:
 - periodic-reader shutdown performs a final collection, exports its batches in
   order, and flushes the exporter before shutting it down; export failure or
   timeout is reported while exporter shutdown is still attempted
+- an image that quits waits a second at most for its providers' readers to
+  export what they collect; one that goes on after saving keeps its
+  measurements
+- an image started from its saved file drops the measurements it was saved
+  with, rather than export them at every start of the saved file: a cumulative
+  sum starts again from its first measurement after the start, a delta starts
+  with the start, and a periodic reader ends the export it was saved in the
+  middle of and starts its interval again
 - `OTPeriodicExportingMetricReader>>maxExportBatchSize:` limits each batch by
   metric data-point count; `exportTimeoutMillis:` applies to each batch export
 - later batches are still attempted after an earlier batch fails or times out;

@@ -482,6 +482,12 @@ batch processor finishes exporting a batch and still has a partial batch
 queued, it starts a fresh `scheduledDelayMillis` window from that export
 completion before exporting the partial batch.
 
+An image that quits waits a second at most for its batch processors to export
+what they queued, and drops the rest; one that goes on after saving keeps its
+queue. An image started from its saved file drops the spans it was saved with,
+and the export it was saved in the middle of, rather than export them at every
+start of the saved file.
+
 ## Lifecycle Operations
 
 Providers shut down their sampler as well as their processors. Built-in regular
