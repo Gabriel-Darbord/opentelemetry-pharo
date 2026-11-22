@@ -877,7 +877,7 @@ OTTracerProvider class >> sdkDisabled [
 OTTracerProvider class >> sdkVersion [
 	"The release this code belongs to, which the release pull request sets."
 
-	^ '1.2.1'
+	^ '1.2.2'
 ]
 
 { #category : 'instance creation' }
