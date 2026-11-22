@@ -19,7 +19,12 @@
 - The default diagnostic logger flushes standard output after each message.
   The VM buffers it when it goes to a file or a pipe, so a warning, such as a
   failed export's, appeared only once the buffer filled, and never from a VM
-  that was killed.
+  that was killed. A message that cannot be written, as to a pipe whose reader
+  is gone or a closed terminal, is dropped, and so is one a logger's sink fails
+  to take: writing a diagnostic never fails.
+- An error raised while a batch processor's or the periodic metric reader's
+  background loop notes an error is dropped as well, instead of ending the
+  loop, which in a headless image quit the image.
 - Spans or log records that end at once in several processes start one flush
   process: each could start its own, and those not kept outlived their
   processor.

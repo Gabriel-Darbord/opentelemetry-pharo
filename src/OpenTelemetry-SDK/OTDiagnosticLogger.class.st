@@ -283,12 +283,15 @@ OTDiagnosticLogger class >> warningSeverity [
 
 { #category : 'private - logging' }
 OTDiagnosticLogger class >> writeMessageToStandardOutput: aString severity: aSeverity [
-	"Flushed: the VM buffers its standard output when it goes to a file or a pipe, where a message would wait until the buffer fills, and be lost with a VM that is killed."
+	"Flushed: the VM buffers its standard output when it goes to a file or a pipe, where a message would wait until the buffer fills, and be lost with a VM that is killed. A message that cannot be written, as to a pipe whose reader is gone or a closed terminal, is dropped."
 
-	self standardOutput
-		nextPutAll: (self messageForSeverity: aSeverity text: aString);
-		lf;
-		flush
+	[
+		self standardOutput
+			nextPutAll: (self messageForSeverity: aSeverity text: aString);
+			lf;
+			flush ]
+		on: Error
+		do: [ :error | error return: nil ]
 ]
 
 { #category : 'logging' }
@@ -339,9 +342,12 @@ OTDiagnosticLogger >> initialize [
 
 { #category : 'logging' }
 OTDiagnosticLogger >> logSeverity: aSeverity message: aString [
+	"A message the sink fails to take is dropped: writing a diagnostic never fails the code that writes it, which is often already handling an error."
 
 	(self shouldLogSeverity: aSeverity) ifFalse: [ ^ self ].
-	messageSink value: aSeverity value: aString
+	[ messageSink value: aSeverity value: aString ]
+		on: Error
+		do: [ :error | error return: nil ]
 ]
 
 { #category : 'accessing' }

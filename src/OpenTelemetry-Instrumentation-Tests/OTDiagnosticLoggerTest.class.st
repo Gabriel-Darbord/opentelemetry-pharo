@@ -68,6 +68,24 @@ OTDiagnosticLoggerTest >> testALoggerGivenToCurrentIsKeptInEverySession [
 ]
 
 { #category : 'tests' }
+OTDiagnosticLoggerTest >> testAMessageThatCannotBeWrittenIsDropped [
+
+	| output |
+	output := OTFailingStandardOutput new.
+	OTDiagnosticLogger standardOutput: output.
+	OTDiagnosticLogger defaultStandardOutputLogger warning: 'dropped warning'.
+	self assert: output flushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testAMessageTheSinkFailsToTakeIsDropped [
+
+	self
+		shouldnt: [ (OTDiagnosticLogger onMessageDo: [ :severity :message | Error signal: 'sink failed' ]) warning: 'dropped warning' ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTDiagnosticLoggerTest >> testBuildDefaultLoggerUsesConfigurableTinyLoggerResolver [
 
 	| logger tinyLogger |

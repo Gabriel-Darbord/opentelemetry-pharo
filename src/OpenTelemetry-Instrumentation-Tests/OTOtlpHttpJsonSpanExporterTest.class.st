@@ -189,6 +189,49 @@ OTOtlpHttpJsonSpanExporterTest >> testARetryableStatusHoldsTheNextExportsBackOnc
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAStandardOutputThatCannotBeFlushedLeavesTheFlushGoing [
+	"A failed export's warning written to a pipe whose reader is gone: the flush process goes on, and so do the exports."
+
+	| environment previous output processor now flushProcess |
+	environment := OSEnvironment current.
+	previous := environment at: 'OTEL_LOG_LEVEL' ifAbsent: [ nil ].
+	output := OTFailingStandardOutput new.
+	environment at: 'OTEL_LOG_LEVEL' put: 'warn'.
+	OTDiagnosticLogger
+		reset;
+		tinyLoggerClassResolver: [ nil ];
+		standardOutput: output.
+	now := 0.
+	exporter exportBackoff clock: [ now ].
+	exporter sleepStrategy: [ :delayMillis |  ].
+	client responseCode: 500.
+	processor := OTBatchSpanProcessor new.
+	processor
+		exporter: exporter;
+		batchSize: 1;
+		scheduledDelayMillis: 10.
+	[
+		processor onEnd: self sampleSpan.
+		self waitUntil: [ output flushCount > 0 ] timeoutMillis: 2000.
+		flushProcess := processor instVarNamed: #flushProcess.
+		self assert: client executionCount equals: 1.
+		self deny: flushProcess isTerminated.
+		client responseCode: 200.
+		now := now + exporter exportBackoff waitMillis.
+		processor onEnd: self sampleSpan.
+		self waitUntil: [ client executionCount = 2 ] timeoutMillis: 2000.
+		self assert: client executionCount equals: 2.
+		self deny: exporter exportBackoff isWaiting.
+		self assert: (processor instVarNamed: #flushProcess) identicalTo: flushProcess.
+		self deny: flushProcess isTerminated ] ensure: [
+			processor shutdown.
+			previous
+				ifNil: [ (environment includesKey: 'OTEL_LOG_LEVEL') ifTrue: [ environment removeKey: 'OTEL_LOG_LEVEL' ] ]
+				ifNotNil: [ environment at: 'OTEL_LOG_LEVEL' put: previous ].
+			OTDiagnosticLogger reset ]
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testAStatusARetryWouldNotChangeHoldsTheNextExportsBackAtOnce [
 	"Redirects included, since they are not followed."
 
@@ -521,6 +564,14 @@ OTOtlpHttpJsonSpanExporterTest >> testWithConfiguredTlsClientCertificateNameDoBu
 			self assert: (combinedContents includesSubstring: 'CLIENT').
 			self assert: (combinedContents includesSubstring: 'KEY').
 			self deny: combinedPath asFileReference exists ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> waitUntil: aBlock timeoutMillis: anInteger [
+
+	| deadline |
+	deadline := Time millisecondClockValue + anInteger.
+	[ aBlock value or: [ Time millisecondClockValue >= deadline ] ] whileFalse: [ (Delay forMilliseconds: 5) wait ]
 ]
 
 { #category : 'private' }

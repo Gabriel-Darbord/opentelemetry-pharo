@@ -339,12 +339,15 @@ OTBatchLogRecordProcessor >> runExporterOperation: aBlock [
 
 { #category : 'private - processing' }
 OTBatchLogRecordProcessor >> runFlushLoop [
-	"An error drops the batch being exported rather than end the loop, which would leave the queue to fill, and quit a headless image."
+	"An error drops the batch being exported rather than end the loop, which would leave the queue to fill, and quit a headless image. So does an error while noting it."
 
 	[ self isStopping ] whileFalse: [
 			[ self processNextWork ]
 				on: Error
-				do: [ :error | self noteFlushError: error ] ]
+				do: [ :error |
+						[ self noteFlushError: error ]
+							on: Error
+							do: [ :noteError | noteError return: nil ] ] ]
 ]
 
 { #category : 'accessing' }

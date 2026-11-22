@@ -63,6 +63,33 @@ OTBatchSpanProcessorTest >> testAnErrorInAnExportDropsTheBatchAndTheFlushGoesOn 
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testAnErrorWhileNotingAFailedExportLeavesTheFlushGoing [
+
+	| logger notes |
+	notes := 0.
+	logger := OTDiagnosticLogger current.
+	OTDiagnosticLogger current: (OTDiagnosticLogger new
+			 errorHandler: [ :error :message |
+					 notes := notes + 1.
+					 Error signal: 'noting failed' ];
+			 yourself).
+	exporter := OTFailingSpanExporter failingOperations: #( 'export' ).
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 1;
+		scheduledDelayMillis: 10.
+	[
+		self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+		self waitUntil: [ notes > 0 ] timeoutMillis: 2000.
+		exporter operationsToFail: #(  ).
+		self assert: (processor onEnd: (self sampledSpanWithSuffix: 2)).
+		self waitUntil: [ exporter exportedBatches size = 1 ] timeoutMillis: 2000.
+		self assert: exporter exportedBatches size equals: 1.
+		self assert: notes equals: 1 ] ensure: [ OTDiagnosticLogger current: logger ]
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testBeCurrentHandlesMissingCurrentProcessor [
 
 	processor := OTBatchSpanProcessor beCurrent.
