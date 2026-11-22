@@ -84,7 +84,7 @@ OTOtlpGrpcSpanExporter >> export: anObject [
 
 { #category : 'exporting' }
 OTOtlpGrpcSpanExporter >> exportAttemptNumber: attemptNumber payloadBytes: payloadBytes [
-	"No request goes out while the image is saved. The gRPC transport opens a connection for each request and closes it after, so the exporter keeps none to close before a save."
+	"No request goes out while the image is saved. The gRPC transport opens a connection for each request and closes it after, so the exporter keeps none to close before a save. An export that fails, whatever the reason, holds the next ones back, see OTExportBackoff: at once for a status a retry would not change, after the retries otherwise."
 
 	| request response status |
 	OTExporterConnections isSavingImage ifTrue: [ ^ false ].
@@ -95,27 +95,35 @@ OTOtlpGrpcSpanExporter >> exportAttemptNumber: attemptNumber payloadBytes: paylo
 		do: [ :error |
 				(error isKindOf: (self grpcDependencyNamed: #GRPCMessageTooLarge)) ifTrue: [
 						OTOtlpExportSupport noteResponseSizeExceededFor: self.
-						^ false ].
+						^ self failExport ].
 				attemptNumber >= self maxExportAttempts ifTrue: [
 						self noteRetryExhaustedForError: error.
-						self exportBackoff noteFailure.
-						^ false ].
+						^ self failExport ].
 				self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
 				^ self exportAttemptNumber: attemptNumber + 1 payloadBytes: payloadBytes ].
 	(response payload notNil and: [ response payload size > self configuration maxResponseSize ]) ifTrue: [
 			OTOtlpExportSupport noteResponseSizeExceededFor: self.
-			^ false ].
+			^ self failExport ].
 	status := response status.
 	status isOk ifTrue: [
 			self exportBackoff noteSuccess.
 			^ self handleSuccessGrpcResponse: response ].
-	(self isRetryableStatus: status) ifFalse: [ ^ false ].
+	(self isRetryableStatus: status) ifFalse: [
+			self noteFailureForStatus: status.
+			^ self failExport ].
 	attemptNumber >= self maxExportAttempts ifTrue: [
 			self noteRetryExhaustedForStatus: status.
-			self exportBackoff noteFailure.
-			^ false ].
+			^ self failExport ].
 	self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
 	^ self exportAttemptNumber: attemptNumber + 1 payloadBytes: payloadBytes
+]
+
+{ #category : 'exporting' }
+OTOtlpGrpcSpanExporter >> failExport [
+	"Holds the next exports back, and answers that this one failed."
+
+	self exportBackoff noteFailure.
+	^ false
 ]
 
 { #category : 'private - grpc' }
@@ -258,6 +266,12 @@ OTOtlpGrpcSpanExporter >> handleSuccessGrpcResponse: aResponse [
 OTOtlpGrpcSpanExporter >> isRetryableStatus: aStatus [
 
 	^ self class retryableStatusCodes includes: aStatus code
+]
+
+{ #category : 'private - logging' }
+OTOtlpGrpcSpanExporter >> noteFailureForStatus: aStatus [
+
+	self warningSink value: (OTOtlpExportSupport failureForGrpcStatusMessageForSignal: self otlpSignalName status: aStatus)
 ]
 
 { #category : 'private - logging' }

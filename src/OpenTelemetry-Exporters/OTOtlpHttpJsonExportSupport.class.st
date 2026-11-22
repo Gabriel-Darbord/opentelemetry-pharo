@@ -143,6 +143,7 @@ OTOtlpHttpJsonExportSupport >> entityForPayload: aString [
 
 { #category : 'exporting' }
 OTOtlpHttpJsonExportSupport >> exportAttemptNumber: attemptNumber payloadString: payloadString [
+	"Sends payloadString, again after a failed connection or a status that asks for a retry. An export that fails, whatever the reason, holds the next ones back, see OTExportBackoff: at once for a status a retry would not change, after the retries otherwise. Any 2xx status means the collector took the request; only a 200 carries an OTLP response."
 
 	| response responseCode retryAfterMillis |
 	OTExporterConnections isSavingImage ifTrue: [ ^ false ].
@@ -153,30 +154,31 @@ OTOtlpHttpJsonExportSupport >> exportAttemptNumber: attemptNumber payloadString:
 				OTExporterConnections close: self exporter.
 				(error isKindOf: ZnEntityTooLarge) ifTrue: [
 						OTOtlpExportSupport noteResponseSizeExceededFor: self exporter.
-						^ false ].
+						^ self failExportRetryingAfterMillis: nil ].
 				attemptNumber >= self exporter maxExportAttempts ifTrue: [
 						self noteRetryExhaustedForError: error.
-						self exporter exportBackoff noteFailure.
-						^ false ].
+						^ self failExportRetryingAfterMillis: nil ].
 				self exporter sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
 				^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString ].
 	responseCode := self responseCodeFrom: response.
-	responseCode = 200 ifTrue: [
+	(responseCode between: 200 and: 299) ifTrue: [
 			self exporter exportBackoff noteSuccess.
+			responseCode = 200 ifFalse: [ ^ true ].
 			^ self handleSuccessResponse: response ].
+	retryAfterMillis := self retryAfterMillisFromResponse: response.
 	[ self decodedResponseContentsFrom: response ]
 		on: Error
 		do: [ :error |
 				(error isKindOf: ZnEntityTooLarge)
 					ifTrue: [ OTOtlpExportSupport noteResponseSizeExceededFor: self exporter ]
 					ifFalse: [ self exporter warningSink value: 'OpenTelemetry OTLP invalid HTTP response: ' , error messageText ].
-				^ false ].
-	(self exporter isRetryableStatusCode: responseCode) ifFalse: [ ^ false ].
-	retryAfterMillis := self retryAfterMillisFromResponse: response.
+				^ self failExportRetryingAfterMillis: retryAfterMillis ].
+	(self exporter isRetryableStatusCode: responseCode) ifFalse: [
+			self noteFailureForResponse: response.
+			^ self failExportRetryingAfterMillis: retryAfterMillis ].
 	(attemptNumber >= self exporter maxExportAttempts or: [ self asksToWaitLongerThanARetry: retryAfterMillis ]) ifTrue: [
 			self noteRetryExhaustedForResponse: response.
-			self exporter exportBackoff noteFailureRetryingAfterMillis: retryAfterMillis.
-			^ false ].
+			^ self failExportRetryingAfterMillis: retryAfterMillis ].
 	self exporter sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: response).
 	^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString
 ]
@@ -205,6 +207,14 @@ OTOtlpHttpJsonExportSupport >> exporter [
 OTOtlpHttpJsonExportSupport >> exporter: anExporter [
 
 	exporter := anExporter
+]
+
+{ #category : 'exporting' }
+OTOtlpHttpJsonExportSupport >> failExportRetryingAfterMillis: aNumberOrNil [
+	"Holds the exporter's next exports back, for aNumberOrNil milliseconds when the collector asked for that, and answers that the export failed."
+
+	self exporter exportBackoff noteFailureRetryingAfterMillis: aNumberOrNil.
+	^ false
 ]
 
 { #category : 'private - encoding' }
@@ -246,6 +256,13 @@ OTOtlpHttpJsonExportSupport >> nonNegativeIntegerFrom: anObject default: aDefaul
 	(anObject isInteger and: [ anObject >= 0 ]) ifTrue: [ ^ anObject ].
 	parsed := self exporter strictPositiveIntegerFrom: anObject asString.
 	^ parsed ifNil: [ aDefaultValue ] ifNotNil: [ parsed ]
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonExportSupport >> noteFailureForResponse: aResponse [
+
+	self exporter warningSink value:
+		(OTOtlpExportSupport failureForHttpStatusMessageForSignal: self exporter otlpSignalName code: (self responseCodeFrom: aResponse))
 ]
 
 { #category : 'private - logging' }

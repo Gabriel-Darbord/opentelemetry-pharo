@@ -99,6 +99,32 @@ OTOtlpHttpJsonSpanExporterTest >> testAFailedExportDropsTheNextOnesWithoutAReque
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAFailedStatusAfterARetryHoldsTheNextExportsBack [
+
+	client
+		queueResponseCode: 503 headers: OrderedDictionary new contents: '';
+		queueResponseCode: 400 headers: OrderedDictionary new contents: ''.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: client executionCount equals: 2.
+			self assert: exporter exportBackoff isWaiting ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAFailedStatusIsLeftAloneAsLongAsItsRetryAfterAsks [
+
+	client
+		queueResponseCode: 413
+		headers: (OrderedDictionary new
+				 at: 'Retry-After' put: '30';
+				 yourself)
+		contents: ''.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: exporter exportBackoff waitMillis equals: 30000 ]
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testARetryAfterLongerThanARetryEndsTheBatchAndHoldsTheNextOnesBack [
 
 	client
@@ -114,6 +140,41 @@ OTOtlpHttpJsonSpanExporterTest >> testARetryAfterLongerThanARetryEndsTheBatchAnd
 			self assert: exporter exportBackoff waitMillis equals: 60000.
 			self deny: (exporter export: { self sampleSpan }).
 			self assert: client executionCount equals: 1 ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testARetryableStatusHoldsTheNextExportsBackOnceItsRetriesAreSpent [
+
+	#( 429 502 503 504 ) do: [ :code |
+			self setUp.
+			client responseCode: code.
+			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+					self deny: (exporter export: { self sampleSpan }).
+					self assert: client executionCount equals: exporter maxExportAttempts.
+					self assert: exporter exportBackoff isWaiting description: code printString.
+					self assert: warnings size equals: 1.
+					self assert: (warnings first includesSubstring: 'exhausted retries after HTTP status ' , code printString).
+					self deny: (exporter export: { self sampleSpan }).
+					self assert: client executionCount equals: exporter maxExportAttempts ] ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAStatusARetryWouldNotChangeHoldsTheNextExportsBackAtOnce [
+	"Redirects included, since they are not followed."
+
+	#( 300 301 302 303 307 308 400 401 403 404 405 413 415 500 501 505 ) do: [ :code |
+			self setUp.
+			client responseCode: code.
+			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+					self deny: (exporter export: { self sampleSpan }).
+					self assert: client executionCount equals: 1.
+					self assert: retrySleeps isEmpty.
+					self assert: exporter exportBackoff isWaiting description: code printString.
+					self assert: exporter exportBackoff waitMillis equals: OTExportBackoff initialDelayMillis.
+					self assert: warnings size equals: 1.
+					self assert: (warnings first includesSubstring: 'failed with HTTP status ' , code printString).
+					self deny: (exporter export: { self sampleSpan }).
+					self assert: client executionCount equals: 1 ] ]
 ]
 
 { #category : 'tests' }
@@ -148,6 +209,48 @@ OTOtlpHttpJsonSpanExporterTest >> testAnExportThatTimesOutHoldsTheNextOnesBack [
 	self assert: exporter exportBackoff isWaiting.
 	self deny: (exporter export: { self sampleSpan }).
 	self assert: client executionCount equals: 1
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAnUnreadableAnswerToAFailedExportHoldsTheNextOnesBack [
+
+	configuration maxResponseSize: 8.
+	client
+		responseCode: 500;
+		responseContents: '{"message":"a body past the limit"}'.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: (warnings first includesSubstring: 'maximum response size exceeded').
+			self assert: exporter exportBackoff isWaiting ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAny2xxStatusIsAnAcceptedExport [
+
+	#( 201 202 204 ) do: [ :code |
+			self setUp.
+			client
+				responseCode: code;
+				responseContents: ''.
+			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+					self assert: (exporter export: { self sampleSpan }) description: code printString.
+					self deny: exporter exportBackoff isWaiting.
+					self assert: warnings isEmpty ] ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testEachFailedStatusDoublesTheWait [
+
+	| now |
+	now := 0.
+	exporter exportBackoff clock: [ now ].
+	client responseCode: 404.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			now := now + exporter exportBackoff waitMillis.
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: exporter exportBackoff waitMillis equals: 2 * OTExportBackoff initialDelayMillis.
+			self assert: client executionCount equals: 2 ]
 ]
 
 { #category : 'tests' }

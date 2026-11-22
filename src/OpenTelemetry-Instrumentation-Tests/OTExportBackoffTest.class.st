@@ -40,6 +40,18 @@ OTExportBackoffTest >> testASuccessResetsTheDelay [
 ]
 
 { #category : 'tests' }
+OTExportBackoffTest >> testAWaitEndsWithTheSessionOfTheImageItBeganIn [
+
+	| session |
+	session := Object new.
+	backoff session: [ session ].
+	backoff noteFailure.
+	self assert: backoff isWaiting.
+	session := Object new.
+	self deny: backoff isWaiting
+]
+
+{ #category : 'tests' }
 OTExportBackoffTest >> testDoesNotWaitBeforeAFailure [
 
 	self deny: backoff isWaiting

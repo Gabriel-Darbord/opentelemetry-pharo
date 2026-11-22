@@ -1,7 +1,7 @@
 "
-I hold an exporter's requests back after an export fails, so that a collector that is down or overloaded is not asked again for every batch.
+I hold an exporter's requests back after an export fails, so that a collector that is down, overloaded or refusing is not asked again for every batch.
 
-A failed export starts a delay during which the exporter drops its batches at once, without a request. Each failure that follows doubles the delay, up to a maximum, and a collector that says how long to wait with Retry-After is left alone that long instead, within the same maximum. A successful export resets me. A clock that goes back, as when the image starts again, ends the wait.
+A failed export starts a delay during which the exporter drops its batches at once, without a request. Each failure that follows doubles the delay, up to a maximum, and a collector that says how long to wait with Retry-After is left alone that long instead, within the same maximum. A successful export resets me. A wait ends with the session of the image it began in, since the image may start again elsewhere or later, and a clock that goes back ends it too.
 "
 Class {
 	#name : 'OTExportBackoff',
@@ -10,7 +10,9 @@ Class {
 		'delayMillis',
 		'waitMillis',
 		'failedAt',
-		'clock'
+		'clock',
+		'failedInSession',
+		'session'
 	],
 	#category : 'OpenTelemetry-Exporters',
 	#package : 'OpenTelemetry-Exporters'
@@ -42,15 +44,17 @@ OTExportBackoff >> initialize [
 
 	super initialize.
 	clock := [ Time millisecondClockValue ].
+	session := [ Smalltalk session ].
 	self noteSuccess
 ]
 
 { #category : 'testing' }
 OTExportBackoff >> isWaiting [
-	"Whether exports are dropped now, since the last one failed less than the delay ago."
+	"Whether exports are dropped now, since the last one failed less than the delay ago, in this session of the image."
 
 	| elapsed |
 	failedAt ifNil: [ ^ false ].
+	failedInSession == session value ifFalse: [ ^ false ].
 	elapsed := clock value - failedAt.
 	^ elapsed >= 0 and: [ elapsed < waitMillis ]
 ]
@@ -69,7 +73,8 @@ OTExportBackoff >> noteFailureRetryingAfterMillis: aNumberOrNil [
 		               ifNil: [ self class initialDelayMillis ]
 		               ifNotNil: [ delayMillis * 2 min: self class maximumDelayMillis ].
 	waitMillis := (aNumberOrNil ifNil: [ delayMillis ]) min: self class maximumDelayMillis.
-	failedAt := clock value
+	failedAt := clock value.
+	failedInSession := session value
 ]
 
 { #category : 'recording' }
@@ -77,7 +82,15 @@ OTExportBackoff >> noteSuccess [
 
 	delayMillis := nil.
 	waitMillis := 0.
-	failedAt := nil
+	failedAt := nil.
+	failedInSession := nil
+]
+
+{ #category : 'accessing' }
+OTExportBackoff >> session: aBlock [
+	"aBlock answers the session of the image."
+
+	session := aBlock
 ]
 
 { #category : 'accessing' }
