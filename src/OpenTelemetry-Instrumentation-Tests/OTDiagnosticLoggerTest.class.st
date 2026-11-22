@@ -171,3 +171,14 @@ OTDiagnosticLoggerTest >> testMinimumSeverityFiltersMessages [
 			OTDiagnosticLogger errorSeverity.
 			'error' } }
 ]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testTheStandardOutputLoggerFlushesEachMessage [
+
+	| output |
+	output := OTRecordingStandardOutput new.
+	OTDiagnosticLogger standardOutput: output.
+	OTDiagnosticLogger defaultStandardOutputLogger warning: 'flushed warning'.
+	self assert: output flushedContents equals: 'OpenTelemetry warning: flushed warning' , String lf.
+	self assert: output writtenContents equals: output flushedContents
+]

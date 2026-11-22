@@ -99,6 +99,36 @@ OTOtlpHttpJsonSpanExporterTest >> testAFailedExportDropsTheNextOnesWithoutAReque
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAFailedExportPrintsItsWarningAtTheConfiguredLogLevel [
+	"Through the default logger, which flushes what it writes: the VM's standard output going to a file holds it until its buffer fills or the VM exits."
+
+	| environment previous |
+	environment := OSEnvironment current.
+	previous := environment at: 'OTEL_LOG_LEVEL' ifAbsent: [ nil ].
+	[
+		#( 'warn' 'info' 'debug' 'none' 'error' ) do: [ :level |
+				| output |
+				self setUp.
+				output := OTRecordingStandardOutput new.
+				environment at: 'OTEL_LOG_LEVEL' put: level.
+				OTDiagnosticLogger
+					reset;
+					tinyLoggerClassResolver: [ nil ];
+					standardOutput: output.
+				client responseCode: 400.
+				self deny: (exporter export: { self sampleSpan }).
+				self
+					assert:
+					(output flushedContents includesSubstring:
+						 'OpenTelemetry warning: OpenTelemetry OTLP trace export failed with HTTP status 400')
+					equals: (#( 'warn' 'info' 'debug' ) includes: level) ] ] ensure: [
+			previous
+				ifNil: [ (environment includesKey: 'OTEL_LOG_LEVEL') ifTrue: [ environment removeKey: 'OTEL_LOG_LEVEL' ] ]
+				ifNotNil: [ environment at: 'OTEL_LOG_LEVEL' put: previous ].
+			OTDiagnosticLogger reset ]
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testAFailedStatusAfterARetryHoldsTheNextExportsBack [
 
 	client

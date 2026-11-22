@@ -16,6 +16,10 @@
 - The default diagnostic logger is built again in each session of the image,
   at the `OTEL_LOG_LEVEL` the image starts with: one saved with the image kept
   the level of the session that built it, and printed what `none` silences.
+- The default diagnostic logger flushes standard output after each message.
+  The VM buffers it when it goes to a file or a pipe, so a warning, such as a
+  failed export's, appeared only once the buffer filled, and never from a VM
+  that was killed.
 - Spans or log records that end at once in several processes start one flush
   process: each could start its own, and those not kept outlived their
   processor.

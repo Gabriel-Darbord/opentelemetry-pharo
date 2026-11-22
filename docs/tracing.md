@@ -416,9 +416,10 @@ OTTracerProvider reset.
 Configuration warnings and other SDK diagnostic messages flow through
 `OTDiagnosticLogger`.
 
-The default logger writes to standard output. If `TinyLogger` is already loaded
-in the image, the default logger uses it automatically instead. You can install
-another backend explicitly:
+The default logger writes to standard output, and flushes each message: the VM
+buffers its standard output when it goes to a file or a pipe. If `TinyLogger`
+is already loaded in the image, the default logger uses it automatically
+instead. You can install another backend explicitly:
 
 ```smalltalk
 OTDiagnosticLogger current:

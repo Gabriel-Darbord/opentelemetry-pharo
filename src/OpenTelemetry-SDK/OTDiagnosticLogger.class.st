@@ -197,6 +197,7 @@ OTDiagnosticLogger class >> reset [
 	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	self loggerFactory: nil.
 	self tinyLoggerClassResolver: nil.
+	self standardOutput: nil.
 	Current := nil.
 	Built := nil.
 	BuiltInSession := nil
@@ -226,6 +227,22 @@ OTDiagnosticLogger class >> severityNameFor: aSeverity [
 	aSeverity = self debugSeverity ifTrue: [ ^ 'debug' ].
 	aSeverity = self verboseSeverity ifTrue: [ ^ 'verbose' ].
 	^ 'log'
+]
+
+{ #category : 'private - logging' }
+OTDiagnosticLogger class >> standardOutput [
+	"Where the standard output logger writes: Stdio stdout, unless standardOutput: gave another stream."
+
+	^ OTClassStateStore valueAt: #otStandardOutput forClass: self ifAbsent: [ Stdio stdout ]
+]
+
+{ #category : 'private - logging' }
+OTDiagnosticLogger class >> standardOutput: aStreamOrNil [
+
+	aStreamOrNil
+		ifNil: [ OTClassStateStore removeValueAt: #otStandardOutput forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otStandardOutput forClass: self put: aStreamOrNil ].
+	^ self standardOutput
 ]
 
 { #category : 'private - logging' }
@@ -266,12 +283,12 @@ OTDiagnosticLogger class >> warningSeverity [
 
 { #category : 'private - logging' }
 OTDiagnosticLogger class >> writeMessageToStandardOutput: aString severity: aSeverity [
+	"Flushed: the VM buffers its standard output when it goes to a file or a pipe, where a message would wait until the buffer fills, and be lost with a VM that is killed."
 
-	| logger |
-	logger := Stdio stdout.
-	logger
+	self standardOutput
 		nextPutAll: (self messageForSeverity: aSeverity text: aString);
-		lf
+		lf;
+		flush
 ]
 
 { #category : 'logging' }
