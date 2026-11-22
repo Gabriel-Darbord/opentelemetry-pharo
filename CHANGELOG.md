@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.3.0
+
+- A failed OTLP export holds the exporter back: the batches that follow are
+  dropped at once, without a request, for 5 s, doubling with each further
+  failure up to 2 min, or as long as a `Retry-After` asks within that; a
+  successful export resets it. A batch retries at most three times, not six.
+- An error in a batch processor's or the periodic metric reader's background
+  loop drops that batch instead of ending the loop, which in a headless image
+  quit the image. Spans that fail to encode are dropped.
+- HTTP exporters no longer follow redirects, which carried the configured
+  headers, `Authorization` included, to wherever the redirect pointed.
+- The batch span processor keeps its instances in a weak registry, so saving
+  and starting the image no longer walk the heap.
+- The gRPC exporters make no request while the image is saved.
+
 ## v1.2.2
 
 - Close an exporter's connection when a request fails, and every exporter's
