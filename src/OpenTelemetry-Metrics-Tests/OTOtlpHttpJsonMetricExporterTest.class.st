@@ -100,6 +100,18 @@ OTOtlpHttpJsonMetricExporterTest >> testAFailedExportDropsTheNextOnesWithoutAReq
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonMetricExporterTest >> testAStatusARetryWouldNotChangeHoldsTheNextExportsBackAtOnce [
+
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			client responseCode: 400.
+			self deny: (exporter export: self sampleSnapshot).
+			self assert: client executionCount equals: 1.
+			self assert: exporter exportBackoff isWaiting.
+			self deny: (exporter export: self sampleSnapshot).
+			self assert: client executionCount equals: 1 ]
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonMetricExporterTest >> testExportAppliesHttpJsonConfigurationAndSendsPayload [
 
 	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |

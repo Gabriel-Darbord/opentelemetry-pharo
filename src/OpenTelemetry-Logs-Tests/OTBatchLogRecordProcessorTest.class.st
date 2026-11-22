@@ -61,6 +61,33 @@ OTBatchLogRecordProcessorTest >> testAnErrorInAnExportDropsTheBatchAndTheFlushGo
 ]
 
 { #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testAnErrorWhileNotingAFailedExportLeavesTheFlushGoing [
+
+	| logger notes |
+	notes := 0.
+	logger := OTDiagnosticLogger current.
+	OTDiagnosticLogger current: (OTDiagnosticLogger new
+			 errorHandler: [ :error :message |
+					 notes := notes + 1.
+					 Error signal: 'noting failed' ];
+			 yourself).
+	exporter := OTFailingOnceLogRecordExporter new.
+	exporter failNextExport.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
+	processor
+		maxExportBatchSize: 1;
+		scheduledDelayMillis: 10.
+	[
+		processor onEmit: (self sampleLogRecordWithSuffix: 1) context: OTContext new.
+		self waitUntil: [ notes > 0 ] timeoutMillis: 2000.
+		processor onEmit: (self sampleLogRecordWithSuffix: 2) context: OTContext new.
+		self waitUntil: [ exporter exportedBatches size = 1 ] timeoutMillis: 2000.
+		self assert: exporter exportedBatches first first body equals: 'log-2' ] ensure: [ OTDiagnosticLogger current: logger ]
+]
+
+{ #category : 'tests' }
 OTBatchLogRecordProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExporter [
 
 	exporter := OTRecordingLogRecordExporter new.
@@ -97,6 +124,24 @@ OTBatchLogRecordProcessorTest >> testOnEmitDropsLogsWhenQueueFillsDuringBlockedE
 	exporter allowBlockedExport.
 	self waitUntil: [ exporter exportedRecords size = 3 ] timeoutMillis: 500.
 	self assert: exporter exportedRecords size equals: 3
+]
+
+{ #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testRecordsEmittedAtOnceStartOneFlushProcess [
+	"A process finds that the flush process has ended and is preempted, before it starts another, by one that finds it too."
+
+	| inner outer |
+	processor := OTBatchLogRecordProcessor new.
+	processor
+		instVarNamed: #flushProcess
+		put: (OTEndedFlushProcess onCheck: [ [ inner := processor ensureFlushProcess ] forkAt: Processor activePriority + 1 ]).
+	[
+		outer := processor ensureFlushProcess.
+		self waitUntil: [ inner isNotNil ] timeoutMillis: 2000.
+		self assert: inner identicalTo: outer ] ensure: [
+			{
+				inner.
+				outer } do: [ :each | each ifNotNil: [ each terminate ] ] ]
 ]
 
 { #category : 'tests' }

@@ -33,6 +33,59 @@ OTDiagnosticLoggerTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTDiagnosticLoggerTest >> testABuiltLoggerGivenBackToCurrentIsBuiltAgainInTheNextSession [
+	"As code that sets a logger for a while and then restores the one it found does."
+
+	| built session |
+	session := Object new.
+	built := OTDiagnosticLogger currentIn: session.
+	OTDiagnosticLogger
+		current: OTDiagnosticLogger new;
+		current: built.
+	self assert: (OTDiagnosticLogger currentIn: session) identicalTo: built.
+	self deny: (OTDiagnosticLogger currentIn: Object new) identicalTo: built
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testALoggerBuiltInAnEarlierSessionIsBuiltAgainFromTheConfiguration [
+	"An image saved with a logger that logged at its session's level, started again where OTEL_LOG_LEVEL says none."
+
+	| earlierSession |
+	earlierSession := Object new.
+	self assert: (OTDiagnosticLogger currentIn: earlierSession) minimumSeverity equals: OTDiagnosticLogger infoSeverity.
+	self setEnvironmentValue: 'none' forKey: 'OTEL_LOG_LEVEL'.
+	self assert: (OTDiagnosticLogger currentIn: earlierSession) minimumSeverity equals: OTDiagnosticLogger infoSeverity.
+	self assert: (OTDiagnosticLogger currentIn: Object new) minimumSeverity equals: OTDiagnosticLogger noneSeverity
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testALoggerGivenToCurrentIsKeptInEverySession [
+
+	| logger |
+	logger := OTDiagnosticLogger new.
+	OTDiagnosticLogger current: logger.
+	self assert: (OTDiagnosticLogger currentIn: Object new) identicalTo: logger
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testAMessageThatCannotBeWrittenIsDropped [
+
+	| output |
+	output := OTFailingStandardOutput new.
+	OTDiagnosticLogger standardOutput: output.
+	OTDiagnosticLogger defaultStandardOutputLogger warning: 'dropped warning'.
+	self assert: output flushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testAMessageTheSinkFailsToTakeIsDropped [
+
+	self
+		shouldnt: [ (OTDiagnosticLogger onMessageDo: [ :severity :message | Error signal: 'sink failed' ]) warning: 'dropped warning' ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTDiagnosticLoggerTest >> testBuildDefaultLoggerUsesConfigurableTinyLoggerResolver [
 
 	| logger tinyLogger |
@@ -135,4 +188,15 @@ OTDiagnosticLoggerTest >> testMinimumSeverityFiltersMessages [
 	self assert: recorded asArray equals: { {
 			OTDiagnosticLogger errorSeverity.
 			'error' } }
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testTheStandardOutputLoggerFlushesEachMessage [
+
+	| output |
+	output := OTRecordingStandardOutput new.
+	OTDiagnosticLogger standardOutput: output.
+	OTDiagnosticLogger defaultStandardOutputLogger warning: 'flushed warning'.
+	self assert: output flushedContents equals: 'OpenTelemetry warning: flushed warning' , String lf.
+	self assert: output writtenContents equals: output flushedContents
 ]

@@ -138,6 +138,29 @@ OTOtlpGrpcSpanExporterTest >> testAFailedExportDropsTheNextOnesWithoutARequestUn
 ]
 
 { #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testAStatusARetryWouldNotChangeHoldsTheNextExportsBackAtOnce [
+
+	| executionCount warnings |
+	executionCount := 0.
+	warnings := OrderedCollection new.
+	exporter
+		maxExportAttempts: 3;
+		sleepStrategy: [ :delayMillis | self fail ];
+		retryJitterBlock: [ :delayMillis | delayMillis ];
+		warningSink: [ :message | warnings add: message ];
+		requestExecutor: [ :request |
+				executionCount := executionCount + 1.
+				OTFakeGRPCResponse status: (OTFakeGRPCStatus code: 3 message: 'bad request') payload: nil ].
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: executionCount equals: 1.
+	self assert: exporter exportBackoff isWaiting.
+	self assert: warnings size equals: 1.
+	self assert: (warnings first includesSubstring: 'failed with gRPC status INVALID_ARGUMENT (3)').
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: executionCount equals: 1
+]
+
+{ #category : 'tests' }
 OTOtlpGrpcSpanExporterTest >> testExportBuildsGrpcRequestFromConfiguration [
 
 	| capturedRequest reader resourceSpans |
@@ -232,23 +255,6 @@ OTOtlpGrpcSpanExporterTest >> testExportRetriesRetryableGrpcStatusesUntilSuccess
 					ifFalse: [ OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ] ].
 	self assert: (exporter export: { self sampleSpan }).
 	self assert: executionCount equals: 2
-]
-
-{ #category : 'tests' }
-OTOtlpGrpcSpanExporterTest >> testExportReturnsFalseOnNonRetryableGrpcStatus [
-
-	| executionCount |
-	executionCount := 0.
-	exporter
-		maxExportAttempts: 3;
-		sleepStrategy: [ :delayMillis | self fail ];
-		retryJitterBlock: [ :delayMillis | delayMillis ];
-		warningSink: [ :message | self fail: message ];
-		requestExecutor: [ :request |
-				executionCount := executionCount + 1.
-				OTFakeGRPCResponse status: (OTFakeGRPCStatus code: 3 message: 'bad request') payload: nil ].
-	self deny: (exporter export: { self sampleSpan }).
-	self assert: executionCount equals: 1
 ]
 
 { #category : 'tests' }

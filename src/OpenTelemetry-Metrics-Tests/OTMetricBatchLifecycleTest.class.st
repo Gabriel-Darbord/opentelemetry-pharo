@@ -31,6 +31,30 @@ OTMetricBatchLifecycleTest >> assertOperation: anOperation failureMode: aMode fl
 ]
 
 { #category : 'tests' }
+OTMetricBatchLifecycleTest >> testAnErrorWhileNotingAFailedCollectionLeavesTheExportLoopGoing [
+
+	| deadline logger notes provider reader |
+	notes := 0.
+	logger := OTDiagnosticLogger current.
+	OTDiagnosticLogger current: (OTDiagnosticLogger new
+			 errorHandler: [ :error :message |
+					 notes := notes + 1.
+					 Error signal: 'noting failed' ];
+			 yourself).
+	provider := OTMeterProvider new.
+	reader := OTFailingOnceMetricReader exporter: OTInMemoryMetricExporter new.
+	reader exportIntervalMillis: 10.
+	[
+		provider addMetricReader: reader.
+		deadline := Time millisecondClockValue + 2000.
+		[ reader collectCount < 2 and: [ Time millisecondClockValue < deadline ] ] whileTrue: [ (Delay forMilliseconds: 10) wait ].
+		self assert: reader collectCount >= 2.
+		self assert: notes equals: 1 ] ensure: [
+			provider shutdown.
+			OTDiagnosticLogger current: logger ]
+]
+
+{ #category : 'tests' }
 OTMetricBatchLifecycleTest >> testCollectionContinuesAfterFailedBatches [
 
 	#( failure error timeout ) do: [ :mode |

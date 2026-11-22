@@ -115,6 +115,11 @@ rootSpan := (tracer spanBuilderNamed: 'batch.run')
   startSpan.
 ```
 
+Trace and span identifiers are random. `OTRandomGenerator` draws them, seeded
+afresh in each session of the image from the operating system's random device
+where there is one, the clock and where the image is, so an image started again
+from the same saved file does not repeat its identifiers.
+
 ## Using The Span Builder
 
 `OTSpanBuilder` is the main API when span creation needs more than a name.
@@ -344,16 +349,20 @@ recovery cannot swallow timeout notifications.
 `timeoutMillis: 0` disables the overall export deadline. Native connection and
 I/O timeouts still apply to individual transport operations.
 
-An OTLP export retries a failed request a few times within its batch, waiting
-as long as a short `Retry-After` asks. Once a batch has spent its retries, its
-export has timed out, or the collector has asked to wait longer than a retry
-would, the exporter drops the batches that follow at once, without a request,
-until its back-off passes. The back-off starts at
-`OTExportBackoff initialDelayMillis`, doubles with each failure that follows up
-to `OTExportBackoff maximumDelayMillis`, lasts as long as a `Retry-After` asks
-within that maximum, and ends with the first successful export. HTTP exporters
-do not follow redirects, which would carry the configured headers, credentials
-included, wherever they point.
+An OTLP export retries a failed connection, and a status that OTLP says to
+retry, a few times within its batch, waiting as long as a short `Retry-After`
+asks. Any other failing status ends the batch at once. An export that fails,
+whatever the reason, holds the next ones back: once a batch has spent its
+retries, its export has timed out, the collector has asked to wait longer than
+a retry would, or it answered a status a retry would not change, the exporter
+drops the batches that follow at once, without a request, until its back-off
+passes. The back-off starts at `OTExportBackoff initialDelayMillis`, doubles
+with each failure that follows up to `OTExportBackoff maximumDelayMillis`,
+lasts as long as a `Retry-After` asks within that maximum, and ends with the
+first successful export or with the session of the image it began in. Any 2xx
+status is a successful export. HTTP exporters do not follow redirects, which
+would carry the configured headers, credentials included, wherever they point:
+a redirect is a failing status.
 
 Configure message limits programmatically with `maxRequestSize:` (default
 67,108,864 bytes / 64 MiB) and `maxResponseSize:` (default 4,194,304 bytes / 4 MiB).
@@ -407,9 +416,11 @@ OTTracerProvider reset.
 Configuration warnings and other SDK diagnostic messages flow through
 `OTDiagnosticLogger`.
 
-The default logger writes to standard output. If `TinyLogger` is already loaded
-in the image, the default logger uses it automatically instead. You can install
-another backend explicitly:
+The default logger writes to standard output, and flushes each message: the VM
+buffers its standard output when it goes to a file or a pipe. A message that
+cannot be written, or that a logger's sink fails to take, is dropped. If
+`TinyLogger` is already loaded in the image, the default logger uses it
+automatically instead. You can install another backend explicitly:
 
 ```smalltalk
 OTDiagnosticLogger current:
@@ -429,6 +440,9 @@ OTDiagnosticLogger reset.
 The default logger also reads `OTEL_LOG_LEVEL` case-insensitively. Supported
 values are `NONE`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `VERBOSE`, and `ALL`.
 If the variable is absent or invalid, the logger falls back to `INFO`.
+The default logger is built again in each session of the image, so an image
+started from its saved file logs at the level its configuration says then. A
+logger given to `current:` is kept.
 
 For suppressed internal SDK errors, you can also install a stricter handler:
 

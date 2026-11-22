@@ -251,14 +251,17 @@ OTPeriodicExportingMetricReader >> restartExportProcess [
 
 { #category : 'private - lifecycle' }
 OTPeriodicExportingMetricReader >> runExportLoop [
-	"An error drops the collection being exported rather than end the loop, which would stop exporting, and quit a headless image."
+	"An error drops the collection being exported rather than end the loop, which would stop exporting, and quit a headless image. So does an error while noting it."
 
 	[ self isStopping ] whileFalse: [
 			(Delay forMilliseconds: self exportIntervalMillis) wait.
 			self isStopping ifFalse: [
 					[ self collect ]
 						on: Error
-						do: [ :error | self noteCollectionError: error ] ] ]
+						do: [ :error |
+								[ self noteCollectionError: error ]
+									on: Error
+									do: [ :noteError | noteError return: nil ] ] ] ]
 ]
 
 { #category : 'private - lifecycle' }

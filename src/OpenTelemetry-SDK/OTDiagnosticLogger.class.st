@@ -11,6 +11,8 @@ Class {
 		'errorHandler'
 	],
 	#classVars : [
+		'Built',
+		'BuiltInSession',
 		'Current'
 	],
 	#category : 'OpenTelemetry-SDK',
@@ -58,13 +60,26 @@ OTDiagnosticLogger class >> configuredMinimumSeverity [
 { #category : 'accessing' }
 OTDiagnosticLogger class >> current [
 
-	^ Current ifNil: [ Current := self default ]
+	^ self currentIn: Smalltalk session
 ]
 
 { #category : 'accessing' }
 OTDiagnosticLogger class >> current: aDiagnosticLogger [
 
 	Current := aDiagnosticLogger
+]
+
+{ #category : 'accessing' }
+OTDiagnosticLogger class >> currentIn: aSession [
+	"The logger current: gave, else one built from the configuration in aSession of the image. One built in an earlier session is built again, since the configuration, OTEL_LOG_LEVEL included, is the session's: a logger saved with the image would log at the level of the session that built it."
+
+	| logger |
+	logger := Current.
+	(logger isNil or: [ logger == Built and: [ BuiltInSession ~~ aSession ] ]) ifFalse: [ ^ logger ].
+	logger := self default.
+	Built := logger.
+	BuiltInSession := aSession.
+	^ Current := logger
 ]
 
 { #category : 'severity' }
@@ -182,7 +197,10 @@ OTDiagnosticLogger class >> reset [
 	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	self loggerFactory: nil.
 	self tinyLoggerClassResolver: nil.
-	Current := nil
+	self standardOutput: nil.
+	Current := nil.
+	Built := nil.
+	BuiltInSession := nil
 ]
 
 { #category : 'severity' }
@@ -209,6 +227,22 @@ OTDiagnosticLogger class >> severityNameFor: aSeverity [
 	aSeverity = self debugSeverity ifTrue: [ ^ 'debug' ].
 	aSeverity = self verboseSeverity ifTrue: [ ^ 'verbose' ].
 	^ 'log'
+]
+
+{ #category : 'private - logging' }
+OTDiagnosticLogger class >> standardOutput [
+	"Where the standard output logger writes: Stdio stdout, unless standardOutput: gave another stream."
+
+	^ OTClassStateStore valueAt: #otStandardOutput forClass: self ifAbsent: [ Stdio stdout ]
+]
+
+{ #category : 'private - logging' }
+OTDiagnosticLogger class >> standardOutput: aStreamOrNil [
+
+	aStreamOrNil
+		ifNil: [ OTClassStateStore removeValueAt: #otStandardOutput forClass: self ifAbsent: [ ] ]
+		ifNotNil: [ OTClassStateStore valueAt: #otStandardOutput forClass: self put: aStreamOrNil ].
+	^ self standardOutput
 ]
 
 { #category : 'private - logging' }
@@ -249,12 +283,15 @@ OTDiagnosticLogger class >> warningSeverity [
 
 { #category : 'private - logging' }
 OTDiagnosticLogger class >> writeMessageToStandardOutput: aString severity: aSeverity [
+	"Flushed: the VM buffers its standard output when it goes to a file or a pipe, where a message would wait until the buffer fills, and be lost with a VM that is killed. A message that cannot be written, as to a pipe whose reader is gone or a closed terminal, is dropped."
 
-	| logger |
-	logger := Stdio stdout.
-	logger
-		nextPutAll: (self messageForSeverity: aSeverity text: aString);
-		lf
+	[
+		self standardOutput
+			nextPutAll: (self messageForSeverity: aSeverity text: aString);
+			lf;
+			flush ]
+		on: Error
+		do: [ :error | error return: nil ]
 ]
 
 { #category : 'logging' }
@@ -305,9 +342,12 @@ OTDiagnosticLogger >> initialize [
 
 { #category : 'logging' }
 OTDiagnosticLogger >> logSeverity: aSeverity message: aString [
+	"A message the sink fails to take is dropped: writing a diagnostic never fails the code that writes it, which is often already handling an error."
 
 	(self shouldLogSeverity: aSeverity) ifFalse: [ ^ self ].
-	messageSink value: aSeverity value: aString
+	[ messageSink value: aSeverity value: aString ]
+		on: Error
+		do: [ :error | error return: nil ]
 ]
 
 { #category : 'accessing' }

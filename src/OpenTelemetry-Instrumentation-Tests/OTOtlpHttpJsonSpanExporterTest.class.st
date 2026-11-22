@@ -99,6 +99,62 @@ OTOtlpHttpJsonSpanExporterTest >> testAFailedExportDropsTheNextOnesWithoutAReque
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAFailedExportPrintsItsWarningAtTheConfiguredLogLevel [
+	"Through the default logger, which flushes what it writes: the VM's standard output going to a file holds it until its buffer fills or the VM exits."
+
+	| environment previous |
+	environment := OSEnvironment current.
+	previous := environment at: 'OTEL_LOG_LEVEL' ifAbsent: [ nil ].
+	[
+		#( 'warn' 'info' 'debug' 'none' 'error' ) do: [ :level |
+				| output |
+				self setUp.
+				output := OTRecordingStandardOutput new.
+				environment at: 'OTEL_LOG_LEVEL' put: level.
+				OTDiagnosticLogger
+					reset;
+					tinyLoggerClassResolver: [ nil ];
+					standardOutput: output.
+				client responseCode: 400.
+				self deny: (exporter export: { self sampleSpan }).
+				self
+					assert:
+					(output flushedContents includesSubstring:
+						 'OpenTelemetry warning: OpenTelemetry OTLP trace export failed with HTTP status 400')
+					equals: (#( 'warn' 'info' 'debug' ) includes: level) ] ] ensure: [
+			previous
+				ifNil: [ (environment includesKey: 'OTEL_LOG_LEVEL') ifTrue: [ environment removeKey: 'OTEL_LOG_LEVEL' ] ]
+				ifNotNil: [ environment at: 'OTEL_LOG_LEVEL' put: previous ].
+			OTDiagnosticLogger reset ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAFailedStatusAfterARetryHoldsTheNextExportsBack [
+
+	client
+		queueResponseCode: 503 headers: OrderedDictionary new contents: '';
+		queueResponseCode: 400 headers: OrderedDictionary new contents: ''.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: client executionCount equals: 2.
+			self assert: exporter exportBackoff isWaiting ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAFailedStatusIsLeftAloneAsLongAsItsRetryAfterAsks [
+
+	client
+		queueResponseCode: 413
+		headers: (OrderedDictionary new
+				 at: 'Retry-After' put: '30';
+				 yourself)
+		contents: ''.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: exporter exportBackoff waitMillis equals: 30000 ]
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testARetryAfterLongerThanARetryEndsTheBatchAndHoldsTheNextOnesBack [
 
 	client
@@ -114,6 +170,84 @@ OTOtlpHttpJsonSpanExporterTest >> testARetryAfterLongerThanARetryEndsTheBatchAnd
 			self assert: exporter exportBackoff waitMillis equals: 60000.
 			self deny: (exporter export: { self sampleSpan }).
 			self assert: client executionCount equals: 1 ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testARetryableStatusHoldsTheNextExportsBackOnceItsRetriesAreSpent [
+
+	#( 429 502 503 504 ) do: [ :code |
+			self setUp.
+			client responseCode: code.
+			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+					self deny: (exporter export: { self sampleSpan }).
+					self assert: client executionCount equals: exporter maxExportAttempts.
+					self assert: exporter exportBackoff isWaiting description: code printString.
+					self assert: warnings size equals: 1.
+					self assert: (warnings first includesSubstring: 'exhausted retries after HTTP status ' , code printString).
+					self deny: (exporter export: { self sampleSpan }).
+					self assert: client executionCount equals: exporter maxExportAttempts ] ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAStandardOutputThatCannotBeFlushedLeavesTheFlushGoing [
+	"A failed export's warning written to a pipe whose reader is gone: the flush process goes on, and so do the exports."
+
+	| environment previous output processor now flushProcess |
+	environment := OSEnvironment current.
+	previous := environment at: 'OTEL_LOG_LEVEL' ifAbsent: [ nil ].
+	output := OTFailingStandardOutput new.
+	environment at: 'OTEL_LOG_LEVEL' put: 'warn'.
+	OTDiagnosticLogger
+		reset;
+		tinyLoggerClassResolver: [ nil ];
+		standardOutput: output.
+	now := 0.
+	exporter exportBackoff clock: [ now ].
+	exporter sleepStrategy: [ :delayMillis |  ].
+	client responseCode: 500.
+	processor := OTBatchSpanProcessor new.
+	processor
+		exporter: exporter;
+		batchSize: 1;
+		scheduledDelayMillis: 10.
+	[
+		processor onEnd: self sampleSpan.
+		self waitUntil: [ output flushCount > 0 ] timeoutMillis: 2000.
+		flushProcess := processor instVarNamed: #flushProcess.
+		self assert: client executionCount equals: 1.
+		self deny: flushProcess isTerminated.
+		client responseCode: 200.
+		now := now + exporter exportBackoff waitMillis.
+		processor onEnd: self sampleSpan.
+		self waitUntil: [ client executionCount = 2 ] timeoutMillis: 2000.
+		self assert: client executionCount equals: 2.
+		self deny: exporter exportBackoff isWaiting.
+		self assert: (processor instVarNamed: #flushProcess) identicalTo: flushProcess.
+		self deny: flushProcess isTerminated ] ensure: [
+			processor shutdown.
+			previous
+				ifNil: [ (environment includesKey: 'OTEL_LOG_LEVEL') ifTrue: [ environment removeKey: 'OTEL_LOG_LEVEL' ] ]
+				ifNotNil: [ environment at: 'OTEL_LOG_LEVEL' put: previous ].
+			OTDiagnosticLogger reset ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAStatusARetryWouldNotChangeHoldsTheNextExportsBackAtOnce [
+	"Redirects included, since they are not followed."
+
+	#( 300 301 302 303 307 308 400 401 403 404 405 413 415 500 501 505 ) do: [ :code |
+			self setUp.
+			client responseCode: code.
+			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+					self deny: (exporter export: { self sampleSpan }).
+					self assert: client executionCount equals: 1.
+					self assert: retrySleeps isEmpty.
+					self assert: exporter exportBackoff isWaiting description: code printString.
+					self assert: exporter exportBackoff waitMillis equals: OTExportBackoff initialDelayMillis.
+					self assert: warnings size equals: 1.
+					self assert: (warnings first includesSubstring: 'failed with HTTP status ' , code printString).
+					self deny: (exporter export: { self sampleSpan }).
+					self assert: client executionCount equals: 1 ] ]
 ]
 
 { #category : 'tests' }
@@ -148,6 +282,48 @@ OTOtlpHttpJsonSpanExporterTest >> testAnExportThatTimesOutHoldsTheNextOnesBack [
 	self assert: exporter exportBackoff isWaiting.
 	self deny: (exporter export: { self sampleSpan }).
 	self assert: client executionCount equals: 1
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAnUnreadableAnswerToAFailedExportHoldsTheNextOnesBack [
+
+	configuration maxResponseSize: 8.
+	client
+		responseCode: 500;
+		responseContents: '{"message":"a body past the limit"}'.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: (warnings first includesSubstring: 'maximum response size exceeded').
+			self assert: exporter exportBackoff isWaiting ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAny2xxStatusIsAnAcceptedExport [
+
+	#( 201 202 204 ) do: [ :code |
+			self setUp.
+			client
+				responseCode: code;
+				responseContents: ''.
+			self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+					self assert: (exporter export: { self sampleSpan }) description: code printString.
+					self deny: exporter exportBackoff isWaiting.
+					self assert: warnings isEmpty ] ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testEachFailedStatusDoublesTheWait [
+
+	| now |
+	now := 0.
+	exporter exportBackoff clock: [ now ].
+	client responseCode: 404.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			now := now + exporter exportBackoff waitMillis.
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: exporter exportBackoff waitMillis equals: 2 * OTExportBackoff initialDelayMillis.
+			self assert: client executionCount equals: 2 ]
 ]
 
 { #category : 'tests' }
@@ -388,6 +564,14 @@ OTOtlpHttpJsonSpanExporterTest >> testWithConfiguredTlsClientCertificateNameDoBu
 			self assert: (combinedContents includesSubstring: 'CLIENT').
 			self assert: (combinedContents includesSubstring: 'KEY').
 			self deny: combinedPath asFileReference exists ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> waitUntil: aBlock timeoutMillis: anInteger [
+
+	| deadline |
+	deadline := Time millisecondClockValue + anInteger.
+	[ aBlock value or: [ Time millisecondClockValue >= deadline ] ] whileFalse: [ (Delay forMilliseconds: 5) wait ]
 ]
 
 { #category : 'private' }

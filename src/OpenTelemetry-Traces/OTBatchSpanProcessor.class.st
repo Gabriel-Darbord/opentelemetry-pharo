@@ -136,11 +136,15 @@ OTBatchSpanProcessor >> discardQueuedSpans [
 
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> ensureFlushProcess [
+	"Starts the flush process unless it runs. Spans that end at once in several processes would otherwise each start one, and those not kept would outlive the processor."
 
-	self isStopping ifTrue: [ ^ nil ].
-	(flushProcess notNil and: [ flushProcess isTerminated not ]) ifTrue: [ ^ flushProcess ].
-	flushProcess := [ self runFlushLoop ] forkAt: Processor userBackgroundPriority.
-	^ flushProcess
+	^ stateLock critical: [
+			  shutdownRequested = true
+				  ifTrue: [ nil ]
+				  ifFalse: [
+						  (flushProcess notNil and: [ flushProcess isTerminated not ]) ifFalse: [
+							  flushProcess := [ self runFlushLoop ] forkAt: Processor userBackgroundPriority ].
+						  flushProcess ] ]
 ]
 
 { #category : 'private - processing' }
@@ -489,12 +493,15 @@ OTBatchSpanProcessor >> runExporterOperationResultNamed: anOperationName do: aBl
 
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> runFlushLoop [
-	"An error drops the batch being exported rather than end the loop, which would leave the queue to fill, and quit a headless image."
+	"An error drops the batch being exported rather than end the loop, which would leave the queue to fill, and quit a headless image. So does an error while noting it."
 
 	[ self isStopping ] whileFalse: [
 			[ self processNextWork ]
 				on: Error
-				do: [ :error | self noteFlushError: error ] ]
+				do: [ :error |
+						[ self noteFlushError: error ]
+							on: Error
+							do: [ :noteError | noteError return: nil ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -544,10 +551,15 @@ OTBatchSpanProcessor >> shutdownResult [
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> stopFlushProcess [
 
-	flushProcess ifNotNil: [
+	| process |
+	process := stateLock critical: [
+			           | running |
+			           running := flushProcess.
+			           flushProcess := nil.
+			           running ].
+	process ifNotNil: [
 			workAvailable signal.
-			flushProcess terminate.
-			flushProcess := nil ]
+			process terminate ]
 ]
 
 { #category : 'private - processing' }

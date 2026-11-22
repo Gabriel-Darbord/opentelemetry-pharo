@@ -40,6 +40,31 @@ OTOtlpExportSupport class >> exportFor: anExporter do: aBlock [
 ]
 
 { #category : 'messages' }
+OTOtlpExportSupport class >> failureForGrpcStatusMessageForSignal: aString status: aStatus [
+
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'OpenTelemetry OTLP ';
+				  nextPutAll: aString;
+				  nextPutAll: ' export failed with gRPC status ';
+				  nextPutAll: aStatus codeName;
+				  nextPutAll: ' (';
+				  print: aStatus code;
+				  nextPut: $) ]
+]
+
+{ #category : 'messages' }
+OTOtlpExportSupport class >> failureForHttpStatusMessageForSignal: aString code: anInteger [
+
+	^ String streamContents: [ :stream |
+			  stream
+				  nextPutAll: 'OpenTelemetry OTLP ';
+				  nextPutAll: aString;
+				  nextPutAll: ' export failed with HTTP status ';
+				  print: anInteger ]
+]
+
+{ #category : 'messages' }
 OTOtlpExportSupport class >> invalidSuccessResponseMessageForSignal: aString transport: transportName error: anError [
 
 	^ String streamContents: [ :stream |
