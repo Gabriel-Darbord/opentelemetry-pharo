@@ -11,7 +11,8 @@ Class {
 		'maxExportAttempts',
 		'warningSink',
 		'sleepStrategy',
-		'retryJitterBlock'
+		'retryJitterBlock',
+		'exportBackoff'
 	],
 	#category : 'OpenTelemetry-Traces',
 	#package : 'OpenTelemetry-Traces'
@@ -159,13 +160,19 @@ OTOtlpHttpJsonSpanExporter >> export: spans [
 	^ OTOtlpExportSupport exportFor: self do: [
 			  self withExportLockDo: [
 					  self isShutdown ifTrue: [ ^ false ].
-					  self exportAttemptNumber: 1 payloadString: (self payloadStringFrom: spans) ] ]
+					  self httpJsonExportSupport exportPayloadFrom: spans ] ]
 ]
 
 { #category : 'exporting' }
 OTOtlpHttpJsonSpanExporter >> exportAttemptNumber: attemptNumber payloadString: payloadString [
 
 	^ self httpJsonExportSupport exportAttemptNumber: attemptNumber payloadString: payloadString
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonSpanExporter >> exportBackoff [
+
+	^ exportBackoff ifNil: [ exportBackoff := OTExportBackoff new ]
 ]
 
 { #category : 'private - encoding' }
@@ -245,6 +252,13 @@ OTOtlpHttpJsonSpanExporter >> noteInvalidSuccessResponse: anError [
 OTOtlpHttpJsonSpanExporter >> notePartialSuccess: aDictionary [
 
 	^ self httpJsonExportSupport notePartialSuccess: aDictionary
+]
+
+{ #category : 'private - logging' }
+OTOtlpHttpJsonSpanExporter >> notePayloadEncodingFailure: anError [
+
+	self warningSink value:
+		(OTOtlpExportSupport payloadEncodingFailureMessageForSignal: self otlpSignalName transport: 'HTTP' error: anError)
 ]
 
 { #category : 'private - logging' }

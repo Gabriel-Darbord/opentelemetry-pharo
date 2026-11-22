@@ -35,6 +35,32 @@ OTBatchSpanProcessor class >> initialize [
 	SessionManager default registerToolClassNamed: self name
 ]
 
+{ #category : 'accessing' }
+OTBatchSpanProcessor class >> liveInstances [
+	"The processors that exist, which saving and starting the image visit without walking the heap."
+
+	^ self registryLock critical: [ self registry keys reject: [ :each | each isNil ] ]
+]
+
+{ #category : 'private - registry' }
+OTBatchSpanProcessor class >> register: aProcessor [
+
+	self registryLock critical: [ self registry at: aProcessor put: true ]
+]
+
+{ #category : 'private - registry' }
+OTBatchSpanProcessor class >> registry [
+	"The processors that exist, subclasses' included, weakly held."
+
+	^ OTClassStateStore valueAt: #otProcessors forClass: OTBatchSpanProcessor ifAbsentPut: [ WeakIdentityKeyDictionary new ]
+]
+
+{ #category : 'private - registry' }
+OTBatchSpanProcessor class >> registryLock [
+
+	^ OTClassStateStore valueAt: #otProcessorsLock forClass: OTBatchSpanProcessor ifAbsentPut: [ Semaphore forMutualExclusion ]
+]
+
 { #category : 'private - configuration' }
 OTBatchSpanProcessor class >> scheduledDelayMillisByProcessor [
 
@@ -46,7 +72,7 @@ OTBatchSpanProcessor class >> shutDown: quitting [
 	"Before the image is saved. An image that quits first exports what is queued, waiting a second at most, since a VM that is quitting should not wait on a collector, and drops the rest. One that goes on keeps its queue, which a later start from this save drops. Either way the exporters' connections are then closed, see OTExporterConnections."
 
 	quitting ifTrue: [
-			self allInstancesDo: [ :each |
+			self liveInstances do: [ :each |
 					each
 						flushWithinMilliseconds: self snapshotFlushTimeoutMillis;
 						discardQueuedSpans ] ].
@@ -62,9 +88,9 @@ OTBatchSpanProcessor class >> snapshotFlushTimeoutMillis [
 
 { #category : 'system startup' }
 OTBatchSpanProcessor class >> startUp: resuming [
-	"An image that starts from its saved file forgets what its processors were doing when it was saved, rather than export it under settings, and a consent, that may have changed since, and rather than make its start wait on it."
+	"An image that starts from its saved file forgets what its processors were doing when it was saved, rather than export it under settings that may have changed since, and rather than make its start wait on it."
 
-	resuming ifTrue: [ self allInstancesDo: [ :each | each forgetEarlierSession ] ]
+	resuming ifTrue: [ self liveInstances do: [ :each | each forgetEarlierSession ] ]
 ]
 
 { #category : 'accessing' }
@@ -302,7 +328,8 @@ OTBatchSpanProcessor >> initialize [
 	stateLock := Semaphore forMutualExclusion.
 	exportInProgress := false.
 	shutdownRequested := false.
-	queueBecameNonEmptyAt := nil
+	queueBecameNonEmptyAt := nil.
+	OTBatchSpanProcessor register: self
 ]
 
 { #category : 'private - processing' }
@@ -376,6 +403,17 @@ OTBatchSpanProcessor >> nextWorkDecision [
 			  remainingDelay ]
 ]
 
+{ #category : 'private - logging' }
+OTBatchSpanProcessor >> noteFlushError: anError [
+
+	| message |
+	message := 'OpenTelemetry batch span processor flush failed: ' , anError messageText.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ OTDiagnosticLogger defaultWarningSink value: message ]
+]
+
 { #category : 'processing' }
 OTBatchSpanProcessor >> onEnd: span [
 	"Queue sampled spans for asynchronous export."
@@ -415,6 +453,24 @@ OTBatchSpanProcessor >> onEnd: span [
 ]
 
 { #category : 'private - processing' }
+OTBatchSpanProcessor >> processNextWork [
+
+	| decision timedOut |
+	decision := self nextWorkDecision.
+	decision = #idle
+		ifTrue: [ workAvailable wait ]
+		ifFalse: [
+				decision = #fullBatch
+					ifTrue: [ self exportAvailableBatchesAllowPartial: false ]
+					ifFalse: [
+							decision = #partialBatch
+								ifTrue: [ self exportAvailableBatchesAllowPartial: true ]
+								ifFalse: [
+										timedOut := workAvailable waitTimeoutMilliseconds: decision.
+										timedOut ifTrue: [ self exportAvailableBatchesAllowPartial: true ] ] ] ]
+]
+
+{ #category : 'private - processing' }
 OTBatchSpanProcessor >> runExporterOperation: aBlock [
 
 	self exportTimeoutMillis = 0 ifTrue: [ ^ aBlock value ].
@@ -433,21 +489,12 @@ OTBatchSpanProcessor >> runExporterOperationResultNamed: anOperationName do: aBl
 
 { #category : 'private - processing' }
 OTBatchSpanProcessor >> runFlushLoop [
+	"An error drops the batch being exported rather than end the loop, which would leave the queue to fill, and quit a headless image."
 
-	| decision timedOut |
 	[ self isStopping ] whileFalse: [
-			decision := self nextWorkDecision.
-			decision = #idle
-				ifTrue: [ workAvailable wait ]
-				ifFalse: [
-						decision = #fullBatch
-							ifTrue: [ self exportAvailableBatchesAllowPartial: false ]
-							ifFalse: [
-									decision = #partialBatch
-										ifTrue: [ self exportAvailableBatchesAllowPartial: true ]
-										ifFalse: [
-												timedOut := workAvailable waitTimeoutMilliseconds: decision.
-												timedOut ifTrue: [ self exportAvailableBatchesAllowPartial: true ] ] ] ] ]
+			[ self processNextWork ]
+				on: Error
+				do: [ :error | self noteFlushError: error ] ]
 ]
 
 { #category : 'accessing' }

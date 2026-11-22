@@ -344,6 +344,17 @@ recovery cannot swallow timeout notifications.
 `timeoutMillis: 0` disables the overall export deadline. Native connection and
 I/O timeouts still apply to individual transport operations.
 
+An OTLP export retries a failed request a few times within its batch, waiting
+as long as a short `Retry-After` asks. Once a batch has spent its retries, its
+export has timed out, or the collector has asked to wait longer than a retry
+would, the exporter drops the batches that follow at once, without a request,
+until its back-off passes. The back-off starts at
+`OTExportBackoff initialDelayMillis`, doubles with each failure that follows up
+to `OTExportBackoff maximumDelayMillis`, lasts as long as a `Retry-After` asks
+within that maximum, and ends with the first successful export. HTTP exporters
+do not follow redirects, which would carry the configured headers, credentials
+included, wherever they point.
+
 Configure message limits programmatically with `maxRequestSize:` (default
 67,108,864 bytes / 64 MiB) and `maxResponseSize:` (default 4,194,304 bytes / 4 MiB).
 Limits count encoded bytes, including the uncompressed size for gzip payloads.

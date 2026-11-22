@@ -56,3 +56,26 @@ OTMetricBatchLifecycleTest >> testShutdownContinuesAfterFailedBatches [
 	#( failure error timeout ) do: [ :mode |
 		self assertOperation: [ :reader | reader shutdownResult ] failureMode: mode flushCount: 1 ]
 ]
+
+{ #category : 'tests' }
+OTMetricBatchLifecycleTest >> testTheExportLoopGoesOnAfterACollectionFails [
+
+	| deadline logger provider reader warnings |
+	warnings := OrderedCollection new.
+	logger := OTDiagnosticLogger current.
+	OTDiagnosticLogger current: OTDiagnosticLogger new.
+	OTMetricReader metricWarningSink: [ :message | warnings add: message ].
+	provider := OTMeterProvider new.
+	reader := OTFailingOnceMetricReader exporter: OTInMemoryMetricExporter new.
+	reader exportIntervalMillis: 10.
+	[
+		provider addMetricReader: reader.
+		deadline := Time millisecondClockValue + 2000.
+		[ reader collectCount < 2 and: [ Time millisecondClockValue < deadline ] ] whileTrue: [ (Delay forMilliseconds: 10) wait ].
+		self assert: reader collectCount >= 2.
+		self assert: warnings size equals: 1.
+		self assert: (warnings first includesSubstring: 'collection failed') ] ensure: [
+			provider shutdown.
+			OTMetricReader metricWarningSink: nil.
+			OTDiagnosticLogger current: logger ]
+]

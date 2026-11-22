@@ -28,11 +28,13 @@ OTOtlpExportSupport class >> byteSizeOf: aStringOrBytes [
 
 { #category : 'exporting' }
 OTOtlpExportSupport class >> exportFor: anExporter do: aBlock [
+	"An export that times out holds the next ones back, as one that fails does."
 
 	| timeoutMillis |
 	timeoutMillis := anExporter configuration timeoutMillisOrNil.
 	timeoutMillis ifNil: [ ^ aBlock value ].
 	^ aBlock valueWithinMilliseconds: timeoutMillis onTimeout: [
+			  anExporter exportBackoff noteFailure.
 			  anExporter warningSink value: 'OpenTelemetry OTLP ' , anExporter otlpSignalName , ' export timed out'.
 			  false ]
 ]

@@ -263,6 +263,17 @@ OTBatchLogRecordProcessor >> nextWorkDecision [
 			  remainingDelay ]
 ]
 
+{ #category : 'private - logging' }
+OTBatchLogRecordProcessor >> noteFlushError: anError [
+
+	| message |
+	message := 'OpenTelemetry batch log record processor flush failed: ' , anError messageText.
+	OTDiagnosticLogger current
+		handleSuppressedError: anError
+		message: message
+		fallback: [ OTDiagnosticLogger defaultWarningSink value: message ]
+]
+
 { #category : 'processing' }
 OTBatchLogRecordProcessor >> onEmit: anOTLogRecord context: anOTContext [
 	"Queue a copy because batching processors must not race with later log-record mutation."
@@ -298,6 +309,24 @@ OTBatchLogRecordProcessor >> onEmit: anOTLogRecord context: anOTContext [
 ]
 
 { #category : 'private - processing' }
+OTBatchLogRecordProcessor >> processNextWork [
+
+	| decision timedOut |
+	decision := self nextWorkDecision.
+	decision = #idle
+		ifTrue: [ workAvailable wait ]
+		ifFalse: [
+				decision = #fullBatch
+					ifTrue: [ self exportAvailableBatchesAllowPartial: false ]
+					ifFalse: [
+							decision = #partialBatch
+								ifTrue: [ self exportAvailableBatchesAllowPartial: true ]
+								ifFalse: [
+										timedOut := workAvailable waitTimeoutMilliseconds: decision.
+										timedOut ifTrue: [ self exportAvailableBatchesAllowPartial: true ] ] ] ]
+]
+
+{ #category : 'private - processing' }
 OTBatchLogRecordProcessor >> runExporterOperation: aBlock [
 
 	self exportTimeoutMillis = 0 ifTrue: [ ^ aBlock value ].
@@ -306,21 +335,12 @@ OTBatchLogRecordProcessor >> runExporterOperation: aBlock [
 
 { #category : 'private - processing' }
 OTBatchLogRecordProcessor >> runFlushLoop [
+	"An error drops the batch being exported rather than end the loop, which would leave the queue to fill, and quit a headless image."
 
-	| decision timedOut |
 	[ self isStopping ] whileFalse: [
-			decision := self nextWorkDecision.
-			decision = #idle
-				ifTrue: [ workAvailable wait ]
-				ifFalse: [
-						decision = #fullBatch
-							ifTrue: [ self exportAvailableBatchesAllowPartial: false ]
-							ifFalse: [
-									decision = #partialBatch
-										ifTrue: [ self exportAvailableBatchesAllowPartial: true ]
-										ifFalse: [
-												timedOut := workAvailable waitTimeoutMilliseconds: decision.
-												timedOut ifTrue: [ self exportAvailableBatchesAllowPartial: true ] ] ] ] ]
+			[ self processNextWork ]
+				on: Error
+				do: [ :error | self noteFlushError: error ] ]
 ]
 
 { #category : 'accessing' }

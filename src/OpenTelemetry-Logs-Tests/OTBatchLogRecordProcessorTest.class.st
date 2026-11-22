@@ -37,6 +37,30 @@ OTBatchLogRecordProcessorTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testAnErrorInAnExportDropsTheBatchAndTheFlushGoesOn [
+
+	| logger warnings |
+	warnings := OrderedCollection new.
+	logger := OTDiagnosticLogger current.
+	OTDiagnosticLogger current: (OTDiagnosticLogger onWarningDo: [ :message | warnings add: message ]).
+	exporter := OTFailingOnceLogRecordExporter new.
+	exporter failNextExport.
+	processor := OTBatchLogRecordProcessor new
+		             exporter: exporter;
+		             yourself.
+	processor
+		maxExportBatchSize: 1;
+		scheduledDelayMillis: 10.
+	[
+		processor onEmit: (self sampleLogRecordWithSuffix: 1) context: OTContext new.
+		self waitUntil: [ warnings isNotEmpty ] timeoutMillis: 2000.
+		self assert: (warnings first includesSubstring: 'flush failed').
+		processor onEmit: (self sampleLogRecordWithSuffix: 2) context: OTContext new.
+		self waitUntil: [ exporter exportedBatches size = 1 ] timeoutMillis: 2000.
+		self assert: exporter exportedBatches first first body equals: 'log-2' ] ensure: [ OTDiagnosticLogger current: logger ]
+]
+
+{ #category : 'tests' }
 OTBatchLogRecordProcessorTest >> testForceFlushExportsPendingBatchAndForwardsToExporter [
 
 	exporter := OTRecordingLogRecordExporter new.

@@ -67,17 +67,27 @@ OTOtlpGrpcSpanExporter >> executeGrpcRequest: aRequest [
 
 { #category : 'exporting' }
 OTOtlpGrpcSpanExporter >> export: anObject [
+	"Encodes anObject and sends it, unless an earlier export failed less than the back-off ago: anObject is then dropped at once, without a request. An object that fails to encode is dropped too."
 
+	| payloadBytes |
 	^ OTOtlpExportSupport exportFor: self do: [
 			  self withExportLockDo: [
 					  self isShutdown ifTrue: [ ^ false ].
-					  self exportAttemptNumber: 1 payloadBytes: (self payloadBytesFrom: anObject) ] ]
+					  self exportBackoff isWaiting ifTrue: [ ^ false ].
+					  payloadBytes := [ self payloadBytesFrom: anObject ]
+						                  on: Error
+						                  do: [ :error |
+								                  self notePayloadEncodingFailure: error.
+								                  ^ false ].
+					  self exportAttemptNumber: 1 payloadBytes: payloadBytes ] ]
 ]
 
 { #category : 'exporting' }
 OTOtlpGrpcSpanExporter >> exportAttemptNumber: attemptNumber payloadBytes: payloadBytes [
+	"No request goes out while the image is saved. The gRPC transport opens a connection for each request and closes it after, so the exporter keeps none to close before a save."
 
 	| request response status |
+	OTExporterConnections isSavingImage ifTrue: [ ^ false ].
 	(OTOtlpExportSupport allowsRequest: payloadBytes for: self) ifFalse: [ ^ false ].
 	request := self grpcRequestForPayloadBytes: payloadBytes.
 	[ response := self executeGrpcRequest: request ]
@@ -88,6 +98,7 @@ OTOtlpGrpcSpanExporter >> exportAttemptNumber: attemptNumber payloadBytes: paylo
 						^ false ].
 				attemptNumber >= self maxExportAttempts ifTrue: [
 						self noteRetryExhaustedForError: error.
+						self exportBackoff noteFailure.
 						^ false ].
 				self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
 				^ self exportAttemptNumber: attemptNumber + 1 payloadBytes: payloadBytes ].
@@ -95,10 +106,13 @@ OTOtlpGrpcSpanExporter >> exportAttemptNumber: attemptNumber payloadBytes: paylo
 			OTOtlpExportSupport noteResponseSizeExceededFor: self.
 			^ false ].
 	status := response status.
-	status isOk ifTrue: [ ^ self handleSuccessGrpcResponse: response ].
+	status isOk ifTrue: [
+			self exportBackoff noteSuccess.
+			^ self handleSuccessGrpcResponse: response ].
 	(self isRetryableStatus: status) ifFalse: [ ^ false ].
 	attemptNumber >= self maxExportAttempts ifTrue: [
 			self noteRetryExhaustedForStatus: status.
+			self exportBackoff noteFailure.
 			^ false ].
 	self sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
 	^ self exportAttemptNumber: attemptNumber + 1 payloadBytes: payloadBytes
