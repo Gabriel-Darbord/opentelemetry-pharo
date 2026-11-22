@@ -38,9 +38,7 @@ OTConsistentProbability class >> modulus [
 { #category : 'private' }
 OTConsistentProbability class >> newRandomnessValue [
 
-	^ Integer
-		  readFrom: (String streamContents: [ :stream | 14 timesRepeat: [ stream nextPut: OTSpanContext randomHexDigit ] ]) readStream
-		  base: 16
+	^ OTRandomGenerator nextBits: 56
 ]
 
 { #category : 'private' }

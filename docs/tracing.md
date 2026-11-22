@@ -115,6 +115,11 @@ rootSpan := (tracer spanBuilderNamed: 'batch.run')
   startSpan.
 ```
 
+Trace and span identifiers are random. `OTRandomGenerator` draws them, seeded
+afresh in each session of the image from the operating system's random device
+where there is one, the clock and where the image is, so an image started again
+from the same saved file does not repeat its identifiers.
+
 ## Using The Span Builder
 
 `OTSpanBuilder` is the main API when span creation needs more than a name.

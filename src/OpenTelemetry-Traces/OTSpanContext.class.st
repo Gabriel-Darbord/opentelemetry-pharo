@@ -119,12 +119,13 @@ OTSpanContext class >> new [
 
 { #category : 'private - id generation' }
 OTSpanContext class >> newHexIdentifierOfSize: anInteger [
+	"A random identifier of anInteger lowercase hex digits, never all zeros, which would be invalid. See OTRandomGenerator for where the bits come from."
 
-	| identifier |
+	| bits |
 	[
-		identifier := String streamContents: [ :stream | anInteger timesRepeat: [ stream nextPut: self randomHexDigit ] ].
-		self isZeroHexIdentifier: identifier ] whileTrue.
-	^ identifier
+		bits := OTRandomGenerator nextBits: anInteger * 4.
+		bits = 0 ] whileTrue.
+	^ (bits printStringBase: 16 length: anInteger padded: true) asLowercase
 ]
 
 { #category : 'private' }
@@ -165,12 +166,6 @@ OTSpanContext class >> normalizedTraceFlags: someTraceFlags [
 	(self isLowercaseHexString: normalized size: 2) ifTrue: [ ^ normalized ].
 	OTSpan noteIgnoredInvalidArgument: someTraceFlags forOperation: 'OTSpanContext class>>normalizedTraceFlags:'.
 	^ '00'
-]
-
-{ #category : 'private - id generation' }
-OTSpanContext class >> randomHexDigit [
-
-	^ '0123456789abcdef' at: (SharedRandom globalGenerator nextInteger: 16)
 ]
 
 { #category : 'instance creation' }
