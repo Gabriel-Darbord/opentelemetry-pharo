@@ -96,6 +96,7 @@ OTOtlpHttpJsonExportSupport >> applyConfigurationToHttpClient [
 { #category : 'private - configuration' }
 OTOtlpHttpJsonExportSupport >> configureHttpClientForPayloadString: payloadString [
 
+	OTExporterConnections noteRequestBy: self exporter.
 	self exporter applyConfigurationToHttpClient.
 	self exporter httpClient entity: (self exporter entityForPayload: payloadString).
 	self exporter configuration usesGzipCompression
@@ -134,10 +135,12 @@ OTOtlpHttpJsonExportSupport >> entityForPayload: aString [
 OTOtlpHttpJsonExportSupport >> exportAttemptNumber: attemptNumber payloadString: payloadString [
 
 	| response responseCode |
+	OTExporterConnections isSavingImage ifTrue: [ ^ false ].
 	(OTOtlpExportSupport allowsRequest: payloadString for: self exporter) ifFalse: [ ^ false ].
 	[ response := self exporter executeHttpRequestForPayloadString: payloadString usingSupport: self ]
 		on: Error
 		do: [ :error |
+				OTExporterConnections close: self exporter.
 				(error isKindOf: ZnEntityTooLarge) ifTrue: [
 						OTOtlpExportSupport noteResponseSizeExceededFor: self exporter.
 						^ false ].

@@ -89,11 +89,18 @@ OTZipkinSpanExporter >> export: spans [
 
 	^ self withExportLockDo: [
 			  self isShutdown ifTrue: [ ^ false ].
+			  OTExporterConnections isSavingImage ifTrue: [ ^ false ].
+			  OTExporterConnections noteRequestBy: self.
 			  self withOperationNamed: 'export' default: false do: [
+					  [
 					  (self httpClient
 						   contents: (self transform: spans);
 						   execute;
-						   response) code = 202 ] ]
+						   response) code = 202 ]
+						  on: Error
+						  do: [ :error |
+								  OTExporterConnections close: self.
+								  error pass ] ] ]
 ]
 
 { #category : 'private - utilities' }

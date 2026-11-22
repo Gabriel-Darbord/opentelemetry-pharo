@@ -16,7 +16,8 @@ Class {
 		'certificate',
 		'certificateDuringExecute',
 		'sslCertFileDuringExecute',
-		'maximumEntitySize'
+		'maximumEntitySize',
+		'closeCount'
 	],
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
@@ -44,6 +45,18 @@ OTRecordingHttpClient >> certificate: aStringOrNil [
 OTRecordingHttpClient >> certificateDuringExecute [
 
 	^ certificateDuringExecute
+]
+
+{ #category : 'actions' }
+OTRecordingHttpClient >> close [
+
+	closeCount := self closeCount + 1
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> closeCount [
+
+	^ closeCount ifNil: [ 0 ]
 ]
 
 { #category : 'accessing' }

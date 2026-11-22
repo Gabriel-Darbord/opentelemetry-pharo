@@ -102,6 +102,21 @@ OTBatchSpanProcessorTest >> testConcurrentShutdownIsIdempotent [
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testDiscardQueuedSpansDropsThemWithoutExporting [
+
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 60000.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	processor discardQueuedSpans.
+	processor forceFlush.
+	self assert: exporter exportedBatches isEmpty
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testFlushResultTimesOutWhenPendingExportBlocks [
 
 	| elapsed result startedAt |
@@ -120,6 +135,26 @@ OTBatchSpanProcessorTest >> testFlushResultTimesOutWhenPendingExportBlocks [
 	self assert: result isTimeout.
 	self assert: elapsed < 250.
 	self assert: (exporter waitForBlockedExportTimeoutMillis: 200)
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testFlushWithinMillisecondsGivesUpOnAnExportThatBlocks [
+
+	| flushed elapsed startedAt |
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 1000;
+		exportTimeoutMillis: 30000.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	startedAt := Time millisecondClockValue.
+	flushed := processor flushWithinMilliseconds: 50.
+	elapsed := Time millisecondClockValue - startedAt.
+	self deny: flushed.
+	self assert: elapsed < 1000
 ]
 
 { #category : 'tests' }
@@ -258,6 +293,24 @@ OTBatchSpanProcessorTest >> testForceFlushWaitsForInFlightExportBeforeExportingQ
 	self assert: flushResult.
 	self assert: exporter exportedBatches size equals: 2.
 	self assert: exporter forceFlushCount equals: 1
+]
+
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testForgetEarlierSessionStopsTheExportInProgressAndDropsTheQueue [
+
+	exporter := OTBlockingSpanExporter new.
+	exporter blockNextExport.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 1;
+		scheduledDelayMillis: 10.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	self assert: (exporter waitForBlockedExportTimeoutMillis: 2000).
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 2)).
+	processor forgetEarlierSession.
+	self assert: processor isIdle.
+	self assert: exporter exportedBatches isEmpty
 ]
 
 { #category : 'tests' }

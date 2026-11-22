@@ -74,6 +74,7 @@ OTOtlpHttpJsonSpanExporterTest >> setUp [
 { #category : 'running' }
 OTOtlpHttpJsonSpanExporterTest >> tearDown [
 
+	OTExporterConnections startUp: false.
 	OTOtlpHttpJsonSpanExporter warningSink: nil.
 	super tearDown
 ]
@@ -117,6 +118,17 @@ OTOtlpHttpJsonSpanExporterTest >> testExportAppliesTlsFilesDuringHttpsExportOnUn
 			self assert: client sslCertFileDuringExecute equals: caPath.
 			self assert: client certificateDuringExecute notNil.
 			self deny: client certificateDuringExecute asFileReference exists ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testExportClosesTheConnectionWhenARequestFails [
+
+	exporter
+		maxExportAttempts: 1;
+		warningSink: [ :message |  ].
+	client shouldRaiseOnExecute: true.
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: client closeCount equals: 1
 ]
 
 { #category : 'tests' }
@@ -224,6 +236,25 @@ OTOtlpHttpJsonSpanExporterTest >> testExportWarnsOnPartialSuccessResponse [
 			self assert: retrySleeps isEmpty.
 			self assert: warnings size = 1.
 			self assert: (warnings first includesSubstring: 'partial success') ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testNoRequestGoesOutWhileTheImageIsSaved [
+
+	OTExporterConnections prepareForSnapshot.
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: client executionCount equals: 0.
+	OTExporterConnections startUp: false.
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: client executionCount equals: 1
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testPreparingForASnapshotClosesTheConnection [
+
+	self assert: (exporter export: { self sampleSpan }).
+	OTExporterConnections prepareForSnapshot.
+	self assert: client closeCount equals: 1
 ]
 
 { #category : 'tests' }

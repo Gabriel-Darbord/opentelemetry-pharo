@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.2.2
+
+- Close an exporter's connection when a request fails, and every exporter's
+  connection before the image is saved, holding requests back until it runs
+  again. A connection saved in the image kept a TLS session whose handle was
+  stale once the image started again; finalizing it failed, which stopped a
+  headless image as it started.
+- An image that quits waits a second at most for its queued spans, and drops
+  the rest; one that goes on after saving keeps its queue for after. Saving
+  waited for every queued batch, retries included, up to the export timeout.
+- An image started from its saved file stops the export it was saved in the
+  middle of and drops the spans it was saved with. They were exported at its
+  next start, under whatever settings it had then, and the start waited for it.
+
 ## v1.2.1
 
 - Read the environment through `OSEnvironment current`, since Pharo 14
