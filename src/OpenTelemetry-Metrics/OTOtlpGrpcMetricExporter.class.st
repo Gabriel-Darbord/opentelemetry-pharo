@@ -26,21 +26,6 @@ OTOtlpGrpcMetricExporter >> encodedPayloadFrom: anOTMetricSnapshot [
 	^ self encoder encodeSnapshot: anOTMetricSnapshot
 ]
 
-{ #category : 'exporting' }
-OTOtlpGrpcMetricExporter >> export: anOTMetricSnapshot [
-
-	| payloadBytes |
-	^ OTOtlpExportSupport exportFor: self do: [
-			  self withExportLockDo: [
-					  self isShutdown ifTrue: [ ^ false ].
-					  payloadBytes := [ self payloadBytesFrom: anOTMetricSnapshot ]
-						                  on: Error
-						                  do: [ :error |
-								                  self notePayloadEncodingFailure: error.
-								                  ^ false ].
-					  self exportAttemptNumber: 1 payloadBytes: payloadBytes ] ]
-]
-
 { #category : 'private - grpc' }
 OTOtlpGrpcMetricExporter >> grpcServiceName [
 

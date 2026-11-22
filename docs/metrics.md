@@ -196,6 +196,9 @@ Current metric behavior:
   metric data-point count; `exportTimeoutMillis:` applies to each batch export
 - later batches are still attempted after an earlier batch fails or times out;
   force-flush reports the combined unsuccessful result and still flushes the exporter
+- an OTLP metric exporter whose export failed drops the batches that follow,
+  without a request, until its back-off passes, as described for OTLP exporters
+  in [`tracing.md`](tracing.md)
 - OTLP metric exporters accept gzip compression, signal-specific headers, and per-reader temporality
 - OTLP/gRPC metric exporters also accept bare `host[:port]` authorities and the shared or metrics-specific `OTEL_EXPORTER_OTLP_*_INSECURE` switches
 - OTLP exporters also read the shared or metrics-specific TLS file options for trusted server certificates and client key/certificate pairs when the runtime can honor them

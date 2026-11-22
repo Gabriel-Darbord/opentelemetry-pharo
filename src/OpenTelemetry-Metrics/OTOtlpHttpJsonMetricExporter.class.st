@@ -11,7 +11,8 @@ Class {
 		'maxExportAttempts',
 		'warningSink',
 		'sleepStrategy',
-		'retryJitterBlock'
+		'retryJitterBlock',
+		'exportBackoff'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -217,22 +218,22 @@ OTOtlpHttpJsonMetricExporter >> executeHttpRequestForPayloadString: payloadStrin
 { #category : 'exporting' }
 OTOtlpHttpJsonMetricExporter >> export: anOTMetricSnapshot [
 
-	| payloadString |
 	^ OTOtlpExportSupport exportFor: self do: [
 			  self withSynchronizedExportDo: [
 					  self isStopping ifTrue: [ ^ false ].
-					  payloadString := [ self payloadStringFrom: anOTMetricSnapshot ]
-						                   on: Error
-						                   do: [ :error |
-								                   self notePayloadEncodingFailure: error.
-								                   ^ false ].
-					  self exportAttemptNumber: 1 payloadString: payloadString ] ]
+					  self httpJsonExportSupport exportPayloadFrom: anOTMetricSnapshot ] ]
 ]
 
 { #category : 'exporting' }
 OTOtlpHttpJsonMetricExporter >> exportAttemptNumber: attemptNumber payloadString: payloadString [
 
 	^ self httpJsonExportSupport exportAttemptNumber: attemptNumber payloadString: payloadString
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonMetricExporter >> exportBackoff [
+
+	^ exportBackoff ifNil: [ exportBackoff := OTExportBackoff new ]
 ]
 
 { #category : 'private - encoding' }

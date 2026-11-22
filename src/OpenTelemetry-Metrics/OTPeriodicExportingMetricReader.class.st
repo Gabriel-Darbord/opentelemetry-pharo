@@ -234,11 +234,31 @@ OTPeriodicExportingMetricReader >> metricData: anOTMetricData withPoints: someMe
 	^ anOTMetricData copyWithPoints: someMetricPoints
 ]
 
+{ #category : 'private - logging' }
+OTPeriodicExportingMetricReader >> noteCollectionError: anError [
+
+	| message |
+	message := 'OpenTelemetry periodic metric reader collection failed: ' , anError messageText.
+	OTDiagnosticLogger current handleSuppressedError: anError message: message fallback: [ self metricWarningSink value: message ]
+]
+
 { #category : 'private - lifecycle' }
 OTPeriodicExportingMetricReader >> restartExportProcess [
 
 	self stopExportProcess.
 	self startExportProcess
+]
+
+{ #category : 'private - lifecycle' }
+OTPeriodicExportingMetricReader >> runExportLoop [
+	"An error drops the collection being exported rather than end the loop, which would stop exporting, and quit a headless image."
+
+	[ self isStopping ] whileFalse: [
+			(Delay forMilliseconds: self exportIntervalMillis) wait.
+			self isStopping ifFalse: [
+					[ self collect ]
+						on: Error
+						do: [ :error | self noteCollectionError: error ] ] ]
 ]
 
 { #category : 'private - lifecycle' }
@@ -292,10 +312,7 @@ OTPeriodicExportingMetricReader >> startExportProcess [
 	^ exportLock critical: [
 			  self isStopping ifTrue: [ ^ nil ].
 			  exportProcess ifNotNil: [ ^ exportProcess ].
-			  exportProcess := [
-				                   [ self isStopping ] whileFalse: [
-						                   (Delay forMilliseconds: self exportIntervalMillis) wait.
-						                   self isStopping ifFalse: [ self collect ] ] ] forkAt: Processor userBackgroundPriority.
+			  exportProcess := [ self runExportLoop ] forkAt: Processor userBackgroundPriority.
 			  exportProcess ]
 ]
 

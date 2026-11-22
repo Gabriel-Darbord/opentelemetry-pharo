@@ -17,7 +17,8 @@ Class {
 		'certificateDuringExecute',
 		'sslCertFileDuringExecute',
 		'maximumEntitySize',
-		'closeCount'
+		'closeCount',
+		'followRedirects'
 	],
 	#category : 'OpenTelemetry-Instrumentation-Tests',
 	#package : 'OpenTelemetry-Instrumentation-Tests'
@@ -104,6 +105,18 @@ OTRecordingHttpClient >> execute [
 OTRecordingHttpClient >> executionCount [
 
 	^ executionCount ifNil: [ 0 ]
+]
+
+{ #category : 'accessing' }
+OTRecordingHttpClient >> followRedirects [
+
+	^ followRedirects ifNil: [ true ]
+]
+
+{ #category : 'configuration' }
+OTRecordingHttpClient >> followRedirects: aBoolean [
+
+	followRedirects := aBoolean
 ]
 
 { #category : 'accessing' }

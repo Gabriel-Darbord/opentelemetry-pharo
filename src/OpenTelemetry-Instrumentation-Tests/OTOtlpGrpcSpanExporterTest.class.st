@@ -114,6 +114,30 @@ OTOtlpGrpcSpanExporterTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testAFailedExportDropsTheNextOnesWithoutARequestUntilTheBackoffPasses [
+
+	| executionCount now status |
+	executionCount := 0.
+	now := 0.
+	status := OTFakeGRPCStatus code: 14 message: 'unavailable'.
+	exporter exportBackoff clock: [ now ].
+	exporter
+		sleepStrategy: [ :delayMillis |  ];
+		warningSink: [ :message |  ];
+		requestExecutor: [ :request |
+				executionCount := executionCount + 1.
+				OTFakeGRPCResponse status: status payload: #[  ] ].
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: executionCount equals: exporter maxExportAttempts.
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: executionCount equals: exporter maxExportAttempts.
+	now := exporter exportBackoff waitMillis.
+	status := OTFakeGRPCStatus ok.
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: executionCount equals: exporter maxExportAttempts + 1
+]
+
+{ #category : 'tests' }
 OTOtlpGrpcSpanExporterTest >> testExportBuildsGrpcRequestFromConfiguration [
 
 	| capturedRequest reader resourceSpans |
@@ -160,6 +184,23 @@ OTOtlpGrpcSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHeader [
 	self assert: (exporter export: { self sampleSpan }).
 	self assert: capturedRequest userAgent isNil.
 	self assert: (capturedRequest metadata valueAt: 'user-agent' ifAbsent: [ nil ]) equals: 'CustomAgent/1.0'
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testExportDropsSpansThatFailToEncode [
+
+	| executionCount warnings |
+	executionCount := 0.
+	warnings := OrderedCollection new.
+	exporter
+		warningSink: [ :message | warnings add: message ];
+		requestExecutor: [ :request |
+				executionCount := executionCount + 1.
+				OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	self deny: (exporter export: { Object new }).
+	self assert: executionCount equals: 0.
+	self assert: warnings size equals: 1.
+	self assert: (warnings first includesSubstring: 'failed to encode')
 ]
 
 { #category : 'tests' }
@@ -288,6 +329,22 @@ OTOtlpGrpcSpanExporterTest >> testGrpcChannelNormalizesAuthorityEndpointFromConf
 	self assert: channel endpoint scheme equals: 'http'.
 	self assert: channel endpoint host equals: 'collector'.
 	self assert: channel endpoint port equals: 4317
+]
+
+{ #category : 'tests' }
+OTOtlpGrpcSpanExporterTest >> testNoRequestGoesOutWhileTheImageIsSaved [
+
+	| executionCount |
+	executionCount := 0.
+	exporter requestExecutor: [ :request |
+			executionCount := executionCount + 1.
+			OTFakeGRPCResponse status: OTFakeGRPCStatus ok payload: #[  ] ].
+	[
+		OTExporterConnections prepareForSnapshot.
+		self deny: (exporter export: { self sampleSpan }).
+		self assert: executionCount equals: 0 ] ensure: [ OTExporterConnections startUp: false ].
+	self assert: (exporter export: { self sampleSpan }).
+	self assert: executionCount equals: 1
 ]
 
 { #category : 'tests' }

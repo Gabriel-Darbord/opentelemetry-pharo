@@ -41,8 +41,9 @@ OTOtlpHttpJsonExportSupport class >> for: anExporter [
 
 { #category : 'private - retry' }
 OTOtlpHttpJsonExportSupport class >> maxExportAttempts [
+	"Few, since an export that fails holds the next ones back, see OTExportBackoff."
 
-	^ 6
+	^ 3
 ]
 
 { #category : 'private - retry' }
@@ -79,6 +80,8 @@ OTOtlpHttpJsonExportSupport >> applyConfigurationToHttpClient [
 	client
 		beOneShot;
 		connectionReuseTimeout: 0.
+	"A redirect would take the configured headers, credentials included, wherever it points."
+	client followRedirects: false.
 	client
 		url: self exporter configuration endpoint;
 		method: #POST.
@@ -91,6 +94,13 @@ OTOtlpHttpJsonExportSupport >> applyConfigurationToHttpClient [
 		headerAt: 'Content-Type' put: 'application/json';
 		headerAt: 'Accept-Encoding' put: 'gzip';
 		maximumEntitySize: self exporter configuration maxResponseSize
+]
+
+{ #category : 'private - retry' }
+OTOtlpHttpJsonExportSupport >> asksToWaitLongerThanARetry: retryAfterMillis [
+	"A collector that asks to wait longer than a retry would is left alone that long across batches, see OTExportBackoff, rather than waited for within this one."
+
+	^ retryAfterMillis isNotNil and: [ retryAfterMillis > self class defaultRetryMaxDelayMillis ]
 ]
 
 { #category : 'private - configuration' }
@@ -134,7 +144,7 @@ OTOtlpHttpJsonExportSupport >> entityForPayload: aString [
 { #category : 'exporting' }
 OTOtlpHttpJsonExportSupport >> exportAttemptNumber: attemptNumber payloadString: payloadString [
 
-	| response responseCode |
+	| response responseCode retryAfterMillis |
 	OTExporterConnections isSavingImage ifTrue: [ ^ false ].
 	(OTOtlpExportSupport allowsRequest: payloadString for: self exporter) ifFalse: [ ^ false ].
 	[ response := self exporter executeHttpRequestForPayloadString: payloadString usingSupport: self ]
@@ -146,11 +156,14 @@ OTOtlpHttpJsonExportSupport >> exportAttemptNumber: attemptNumber payloadString:
 						^ false ].
 				attemptNumber >= self exporter maxExportAttempts ifTrue: [
 						self noteRetryExhaustedForError: error.
+						self exporter exportBackoff noteFailure.
 						^ false ].
 				self exporter sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: nil).
 				^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString ].
 	responseCode := self responseCodeFrom: response.
-	responseCode = 200 ifTrue: [ ^ self handleSuccessResponse: response ].
+	responseCode = 200 ifTrue: [
+			self exporter exportBackoff noteSuccess.
+			^ self handleSuccessResponse: response ].
 	[ self decodedResponseContentsFrom: response ]
 		on: Error
 		do: [ :error |
@@ -159,11 +172,27 @@ OTOtlpHttpJsonExportSupport >> exportAttemptNumber: attemptNumber payloadString:
 					ifFalse: [ self exporter warningSink value: 'OpenTelemetry OTLP invalid HTTP response: ' , error messageText ].
 				^ false ].
 	(self exporter isRetryableStatusCode: responseCode) ifFalse: [ ^ false ].
-	attemptNumber >= self exporter maxExportAttempts ifTrue: [
+	retryAfterMillis := self retryAfterMillisFromResponse: response.
+	(attemptNumber >= self exporter maxExportAttempts or: [ self asksToWaitLongerThanARetry: retryAfterMillis ]) ifTrue: [
 			self noteRetryExhaustedForResponse: response.
+			self exporter exportBackoff noteFailureRetryingAfterMillis: retryAfterMillis.
 			^ false ].
 	self exporter sleepForMilliseconds: (self retryDelayMillisForAttempt: attemptNumber response: response).
 	^ self exportAttemptNumber: attemptNumber + 1 payloadString: payloadString
+]
+
+{ #category : 'exporting' }
+OTOtlpHttpJsonExportSupport >> exportPayloadFrom: anObject [
+	"Encodes anObject and sends it, unless an earlier export failed less than the exporter's back-off ago: anObject is then dropped at once, without a request. An object that fails to encode is dropped too."
+
+	| payloadString |
+	self exporter exportBackoff isWaiting ifTrue: [ ^ false ].
+	payloadString := [ self exporter payloadStringFrom: anObject ]
+		                 on: Error
+		                 do: [ :error |
+				                 self exporter notePayloadEncodingFailure: error.
+				                 ^ false ].
+	^ self exportAttemptNumber: 1 payloadString: payloadString
 ]
 
 { #category : 'accessing' }

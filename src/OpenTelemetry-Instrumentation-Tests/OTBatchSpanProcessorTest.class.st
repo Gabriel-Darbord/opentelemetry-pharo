@@ -44,6 +44,25 @@ OTBatchSpanProcessorTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testAnErrorInAnExportDropsTheBatchAndTheFlushGoesOn [
+
+	exporter := OTFailingSpanExporter failingOperations: #( 'export' ).
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 1;
+		scheduledDelayMillis: 10.
+	self withDiagnosticWarningsDo: [ :warnings |
+			self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+			self waitUntil: [ warnings isNotEmpty ] timeoutMillis: 2000.
+			self assert: (warnings first includesSubstring: 'flush failed').
+			exporter operationsToFail: #(  ).
+			self assert: (processor onEnd: (self sampledSpanWithSuffix: 2)).
+			self waitUntil: [ exporter exportedBatches size = 1 ] timeoutMillis: 2000.
+			self assert: exporter exportedBatches first size equals: 1 ]
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testBeCurrentHandlesMissingCurrentProcessor [
 
 	processor := OTBatchSpanProcessor beCurrent.
@@ -348,6 +367,19 @@ OTBatchSpanProcessorTest >> testInvalidRuntimeConfigurationValuesAreIgnoredAndWa
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testLiveInstancesHoldEveryProcessorWeakly [
+
+	| collected |
+	processor := OTHookedBatchSpanProcessor new.
+	self assert: (OTBatchSpanProcessor liveInstances includes: processor).
+	collected := WeakArray with: OTBatchSpanProcessor new.
+	Smalltalk garbageCollect.
+	(Delay forMilliseconds: 20) wait.
+	Smalltalk garbageCollect.
+	self assert: (collected at: 1) isNil
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testOnEndAcceptsRecordOnlySpanWithoutExporting [
 
 	| provider span tracer |
@@ -578,6 +610,21 @@ OTBatchSpanProcessorTest >> testShutdownResultHonorsExportTimeoutWhenExporterShu
 	self assert: (exporter waitForShutdownTimeoutMillis: 200)
 ]
 
+{ #category : 'tests' }
+OTBatchSpanProcessorTest >> testStartingFromTheSavedImageDropsWhatEveryProcessorQueued [
+
+	exporter := OTRecordingSpanExporter new.
+	OTSpanExporter current: exporter.
+	processor := OTBatchSpanProcessor new.
+	processor
+		batchSize: 10;
+		scheduledDelayMillis: 60000.
+	self assert: (processor onEnd: (self sampledSpanWithSuffix: 1)).
+	OTBatchSpanProcessor startUp: true.
+	processor forceFlush.
+	self assert: exporter exportedBatches isEmpty
+]
+
 { #category : 'private' }
 OTBatchSpanProcessorTest >> waitUntil: aBlock timeoutMillis: anInteger [
 
@@ -596,4 +643,14 @@ OTBatchSpanProcessorTest >> withConfigurationWarningsDo: aBlock [
 	warnings := OrderedCollection new.
 	OTSpanProcessor configurationWarningSink: [ :message | warnings add: message ].
 	[ ^ aBlock value: warnings ] ensure: [ OTSpanProcessor configurationWarningSink: nil ]
+]
+
+{ #category : 'private' }
+OTBatchSpanProcessorTest >> withDiagnosticWarningsDo: aBlock [
+
+	| logger warnings |
+	logger := OTDiagnosticLogger current.
+	warnings := OrderedCollection new.
+	OTDiagnosticLogger current: (OTDiagnosticLogger onWarningDo: [ :message | warnings add: message ]).
+	^ [ aBlock value: warnings ] ensure: [ OTDiagnosticLogger current: logger ]
 ]

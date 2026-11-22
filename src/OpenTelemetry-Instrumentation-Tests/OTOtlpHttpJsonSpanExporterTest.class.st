@@ -80,6 +80,77 @@ OTOtlpHttpJsonSpanExporterTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAFailedExportDropsTheNextOnesWithoutARequestUntilTheBackoffPasses [
+
+	| now |
+	now := 0.
+	exporter exportBackoff clock: [ now ].
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			client shouldRaiseOnExecute: true.
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: client executionCount equals: exporter maxExportAttempts.
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: client executionCount equals: exporter maxExportAttempts.
+			self assert: warnings size equals: 1.
+			now := exporter exportBackoff waitMillis.
+			client shouldRaiseOnExecute: false.
+			self assert: (exporter export: { self sampleSpan }).
+			self assert: client executionCount equals: exporter maxExportAttempts + 1 ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testARetryAfterLongerThanARetryEndsTheBatchAndHoldsTheNextOnesBack [
+
+	client
+		queueResponseCode: 503
+		headers: (OrderedDictionary new
+				 at: 'Retry-After' put: '60';
+				 yourself)
+		contents: '{"message":"busy"}'.
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: client executionCount equals: 1.
+			self assert: retrySleeps isEmpty.
+			self assert: exporter exportBackoff waitMillis equals: 60000.
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: client executionCount equals: 1 ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testASuccessfulExportResetsTheBackoff [
+
+	| now |
+	now := 0.
+	exporter exportBackoff clock: [ now ].
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			client shouldRaiseOnExecute: true.
+			self deny: (exporter export: { self sampleSpan }).
+			now := now + exporter exportBackoff waitMillis.
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: exporter exportBackoff waitMillis > OTExportBackoff initialDelayMillis.
+			now := now + exporter exportBackoff waitMillis.
+			client shouldRaiseOnExecute: false.
+			self assert: (exporter export: { self sampleSpan }).
+			client shouldRaiseOnExecute: true.
+			self deny: (exporter export: { self sampleSpan }).
+			self assert: exporter exportBackoff waitMillis equals: OTExportBackoff initialDelayMillis ]
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testAnExportThatTimesOutHoldsTheNextOnesBack [
+
+	configuration timeoutMillis: 50.
+	exporter
+		sleepStrategy: [ :delayMillis | (Delay forMilliseconds: 1000) wait ];
+		warningSink: [ :message |  ].
+	client responseCode: 503.
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: exporter exportBackoff isWaiting.
+	self deny: (exporter export: { self sampleSpan }).
+	self assert: client executionCount equals: 1
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testExportAppliesHttpJsonConfigurationAndSendsPayload [
 
 	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
@@ -141,6 +212,13 @@ OTOtlpHttpJsonSpanExporterTest >> testExportCompressesPayloadWhenConfigured [
 ]
 
 { #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testExportDoesNotFollowRedirects [
+
+	self assert: (exporter export: { self sampleSpan }).
+	self deny: client followRedirects
+]
+
+{ #category : 'tests' }
 OTOtlpHttpJsonSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHeader [
 
 	configuration headers: (OrderedDictionary new
@@ -148,6 +226,16 @@ OTOtlpHttpJsonSpanExporterTest >> testExportDoesNotOverrideExplicitUserAgentHead
 			 yourself).
 	self assert: (exporter export: { self sampleSpan }) description: 'custom user-agent export should succeed'.
 	self assert: (client headers at: 'User-Agent') = 'CustomAgent/1.0' description: 'explicit user-agent should win'
+]
+
+{ #category : 'tests' }
+OTOtlpHttpJsonSpanExporterTest >> testExportDropsSpansThatFailToEncode [
+
+	self withRetrySleepsAndWarningsDo: [ :retrySleeps :warnings |
+			self deny: (exporter export: { Object new }).
+			self assert: client executionCount equals: 0.
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'failed to encode') ]
 ]
 
 { #category : 'tests' }
