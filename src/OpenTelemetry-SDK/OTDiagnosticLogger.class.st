@@ -11,6 +11,8 @@ Class {
 		'errorHandler'
 	],
 	#classVars : [
+		'Built',
+		'BuiltInSession',
 		'Current'
 	],
 	#category : 'OpenTelemetry-SDK',
@@ -58,13 +60,26 @@ OTDiagnosticLogger class >> configuredMinimumSeverity [
 { #category : 'accessing' }
 OTDiagnosticLogger class >> current [
 
-	^ Current ifNil: [ Current := self default ]
+	^ self currentIn: Smalltalk session
 ]
 
 { #category : 'accessing' }
 OTDiagnosticLogger class >> current: aDiagnosticLogger [
 
 	Current := aDiagnosticLogger
+]
+
+{ #category : 'accessing' }
+OTDiagnosticLogger class >> currentIn: aSession [
+	"The logger current: gave, else one built from the configuration in aSession of the image. One built in an earlier session is built again, since the configuration, OTEL_LOG_LEVEL included, is the session's: a logger saved with the image would log at the level of the session that built it."
+
+	| logger |
+	logger := Current.
+	(logger isNil or: [ logger == Built and: [ BuiltInSession ~~ aSession ] ]) ifFalse: [ ^ logger ].
+	logger := self default.
+	Built := logger.
+	BuiltInSession := aSession.
+	^ Current := logger
 ]
 
 { #category : 'severity' }
@@ -182,7 +197,9 @@ OTDiagnosticLogger class >> reset [
 	configurationSourceClass ifNotNil: [ configurationSourceClass reset ].
 	self loggerFactory: nil.
 	self tinyLoggerClassResolver: nil.
-	Current := nil
+	Current := nil.
+	Built := nil.
+	BuiltInSession := nil
 ]
 
 { #category : 'severity' }

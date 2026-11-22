@@ -33,6 +33,41 @@ OTDiagnosticLoggerTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTDiagnosticLoggerTest >> testABuiltLoggerGivenBackToCurrentIsBuiltAgainInTheNextSession [
+	"As code that sets a logger for a while and then restores the one it found does."
+
+	| built session |
+	session := Object new.
+	built := OTDiagnosticLogger currentIn: session.
+	OTDiagnosticLogger
+		current: OTDiagnosticLogger new;
+		current: built.
+	self assert: (OTDiagnosticLogger currentIn: session) identicalTo: built.
+	self deny: (OTDiagnosticLogger currentIn: Object new) identicalTo: built
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testALoggerBuiltInAnEarlierSessionIsBuiltAgainFromTheConfiguration [
+	"An image saved with a logger that logged at its session's level, started again where OTEL_LOG_LEVEL says none."
+
+	| earlierSession |
+	earlierSession := Object new.
+	self assert: (OTDiagnosticLogger currentIn: earlierSession) minimumSeverity equals: OTDiagnosticLogger infoSeverity.
+	self setEnvironmentValue: 'none' forKey: 'OTEL_LOG_LEVEL'.
+	self assert: (OTDiagnosticLogger currentIn: earlierSession) minimumSeverity equals: OTDiagnosticLogger infoSeverity.
+	self assert: (OTDiagnosticLogger currentIn: Object new) minimumSeverity equals: OTDiagnosticLogger noneSeverity
+]
+
+{ #category : 'tests' }
+OTDiagnosticLoggerTest >> testALoggerGivenToCurrentIsKeptInEverySession [
+
+	| logger |
+	logger := OTDiagnosticLogger new.
+	OTDiagnosticLogger current: logger.
+	self assert: (OTDiagnosticLogger currentIn: Object new) identicalTo: logger
+]
+
+{ #category : 'tests' }
 OTDiagnosticLoggerTest >> testBuildDefaultLoggerUsesConfigurableTinyLoggerResolver [
 
 	| logger tinyLogger |

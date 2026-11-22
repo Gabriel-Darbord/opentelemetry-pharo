@@ -100,6 +100,24 @@ OTBatchLogRecordProcessorTest >> testOnEmitDropsLogsWhenQueueFillsDuringBlockedE
 ]
 
 { #category : 'tests' }
+OTBatchLogRecordProcessorTest >> testRecordsEmittedAtOnceStartOneFlushProcess [
+	"A process finds that the flush process has ended and is preempted, before it starts another, by one that finds it too."
+
+	| inner outer |
+	processor := OTBatchLogRecordProcessor new.
+	processor
+		instVarNamed: #flushProcess
+		put: (OTEndedFlushProcess onCheck: [ [ inner := processor ensureFlushProcess ] forkAt: Processor activePriority + 1 ]).
+	[
+		outer := processor ensureFlushProcess.
+		self waitUntil: [ inner isNotNil ] timeoutMillis: 2000.
+		self assert: inner identicalTo: outer ] ensure: [
+			{
+				inner.
+				outer } do: [ :each | each ifNotNil: [ each terminate ] ] ]
+]
+
+{ #category : 'tests' }
 OTBatchLogRecordProcessorTest >> testScheduledDelayFlushesPendingBatch [
 
 	exporter := OTRecordingLogRecordExporter new.

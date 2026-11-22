@@ -438,6 +438,9 @@ OTDiagnosticLogger reset.
 The default logger also reads `OTEL_LOG_LEVEL` case-insensitively. Supported
 values are `NONE`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `VERBOSE`, and `ALL`.
 If the variable is absent or invalid, the logger falls back to `INFO`.
+The default logger is built again in each session of the image, so an image
+started from its saved file logs at the level its configuration says then. A
+logger given to `current:` is kept.
 
 For suppressed internal SDK errors, you can also install a stricter handler:
 

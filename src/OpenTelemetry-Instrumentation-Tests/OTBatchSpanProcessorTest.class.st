@@ -611,6 +611,26 @@ OTBatchSpanProcessorTest >> testShutdownResultHonorsExportTimeoutWhenExporterShu
 ]
 
 { #category : 'tests' }
+OTBatchSpanProcessorTest >> testSpansEndingAtOnceStartOneFlushProcess [
+	"A process finds that the flush process has ended and is preempted, before it starts another, by one that finds it too."
+
+	| inner outer |
+	exporter := OTRecordingSpanExporter new.
+	processor := OTBatchSpanProcessor new.
+	processor exporter: exporter.
+	processor
+		instVarNamed: #flushProcess
+		put: (OTEndedFlushProcess onCheck: [ [ inner := processor ensureFlushProcess ] forkAt: Processor activePriority + 1 ]).
+	[
+		outer := processor ensureFlushProcess.
+		self waitUntil: [ inner isNotNil ] timeoutMillis: 2000.
+		self assert: inner identicalTo: outer ] ensure: [
+			{
+				inner.
+				outer } do: [ :each | each ifNotNil: [ each terminate ] ] ]
+]
+
+{ #category : 'tests' }
 OTBatchSpanProcessorTest >> testStartingFromTheSavedImageDropsWhatEveryProcessorQueued [
 
 	exporter := OTRecordingSpanExporter new.
