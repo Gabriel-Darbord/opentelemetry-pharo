@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.2
+
+- An image started from its saved file drops the log records its batch
+  processors were saved with, and stops the export it was saved in the middle
+  of, as it does for spans. Every start of the saved image exported them
+  again, under whatever settings it had then.
+- An image started from its saved file drops the measurements its meter
+  providers were saved with. Every start of the saved image exported them
+  again: a cumulative sum counted them once more each time, from the start
+  time of the session that saved it, and a delta covered the time the image
+  was not running. Each reader counts every instrument as collected at the
+  start, and a periodic reader stops the export it was saved in the middle of
+  and starts its interval again.
+- An image that quits waits a second at most for its batch log processors to
+  export what they queued, and drops the rest, and as long for its meter
+  providers' readers to export what they collect, as it does for its spans.
+  One that goes on after saving keeps them for after.
+
 ## v1.3.1
 
 - Every failed OTLP export holds the exporter back, whatever its status. A
