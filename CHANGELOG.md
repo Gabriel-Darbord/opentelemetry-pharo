@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.1
+
+- Every failed OTLP export holds the exporter back, whatever its status. A
+  400, 401, 404, 413, 500 or a redirect, which is not followed, made a request
+  for every batch and held nothing back; such a status is not retried, and now
+  warns. Any 2xx status is a successful export, and a wait ends with the
+  session of the image it began in.
+- Trace and span identifiers come from the SDK's own generator, seeded at its
+  first use in each session of the image from the operating system's random
+  device where there is one, the clock and where the image is. Pharo's shared
+  generator is seeded at each start from the milliseconds since the VM started
+  and an identity hash, both nearly the same at every start of a saved image,
+  so an image started again from the same file repeated its identifiers.
+- The default diagnostic logger is built again in each session of the image,
+  at the `OTEL_LOG_LEVEL` the image starts with: one saved with the image kept
+  the level of the session that built it, and printed what `none` silences.
+- Spans or log records that end at once in several processes start one flush
+  process: each could start its own, and those not kept outlived their
+  processor.
+
 ## v1.3.0
 
 - A failed OTLP export holds the exporter back: the batches that follow are
