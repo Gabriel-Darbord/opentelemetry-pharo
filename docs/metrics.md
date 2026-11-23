@@ -178,7 +178,7 @@ Current metric behavior:
 - `OTMetricReader>>collectSnapshot` answers aggregated `OTMetricSnapshot` metric data grouped per instrument
 - matching views are applied independently, so a single instrument may emit multiple streams
 - overlapping views that produce the same metric identity emit a diagnostic warning once per reader
-- `OTPeriodicExportingMetricReader` exports those snapshots through its configured exporter on collection and background intervals
+- `OTPeriodicExportingMetricReader` exports those snapshots through its configured exporter on collection and background intervals, leaving out the metrics without a data point, and exports nothing when none has one
 - `OTMetricReader` applies a default per-instrument cardinality limit of `2000`, and you can override it with `cardinalityLimitSelector:`
 - matching views can override the reader default cardinality limit per stream
 - matching views take precedence over instrument attribute advice for `attribute_keys`

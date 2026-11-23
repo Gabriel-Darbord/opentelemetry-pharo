@@ -24,6 +24,9 @@
   the last, one per attribute set; a delta stream keeps nothing. A reader
   collects the measurements recorded after it was added, and an
   `OTInMemoryMetricReader` returns those recorded since its last collection.
+- A periodic metric reader exports nothing when no metric has a data point,
+  and leaves out the metrics without one. It sent an empty request at every
+  interval, flush and shutdown in which no metric had one.
 
 ## v1.3.1
 

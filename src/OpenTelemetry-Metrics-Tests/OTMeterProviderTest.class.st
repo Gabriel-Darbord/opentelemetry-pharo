@@ -1547,6 +1547,7 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectHonorsExportTimeo
 
 { #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectReturnsEmptySnapshotAfterShutdown [
+	"Nothing was recorded, so the shutdown had nothing to export, and exported nothing."
 
 	| exporter provider reader snapshot |
 	exporter := OTInMemoryMetricExporter new.
@@ -1558,7 +1559,7 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectReturnsEmptySnaps
 	snapshot := reader collect.
 	self assert: snapshot metrics isEmpty.
 	self assert: snapshot measurements isEmpty.
-	self assert: exporter exports size equals: 1
+	self assert: exporter exports isEmpty
 ]
 
 { #category : 'tests' }
@@ -1618,6 +1619,30 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderDefaultsTemporalityFromE
 	snapshot := reader collect.
 	metric := snapshot metrics first.
 	self assert: metric temporality equals: #delta
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderExportsNothingWithoutPoints [
+	"An export of nothing would still reach the exporter's destination."
+
+	| counter exporter provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		temporalitySelector: [ :instrument | #delta ].
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	self assert: reader forceFlush.
+	self assert: exporter exports isEmpty.
+	counter add: 1.
+	self assert: reader forceFlush.
+	self assert: exporter exports size equals: 1.
+	self assert: reader forceFlush.
+	self assert: exporter exports size equals: 1.
+	self assert: provider shutdown.
+	self assert: exporter exports size equals: 1
 ]
 
 { #category : 'tests' }
@@ -1800,6 +1825,7 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownStillClosesExpor
 		exportIntervalMillis: 1000000;
 		exportTimeoutMillis: 50.
 	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
 	[ result := provider shutdownResult ] ensure: [ reader shutdown ].
 	self assert: result isTimeout.
 	self assert: exporter forceFlushCount equals: 1.
