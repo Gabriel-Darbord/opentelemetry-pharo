@@ -17,6 +17,13 @@
   export what they queued, and drops the rest, and as long for its meter
   providers' readers to export what they collect, as it does for its spans.
   One that goes on after saving keeps them for after.
+- A meter provider keeps a measurement only until every reader has collected
+  it, and none without a reader. It kept every measurement for as long as the
+  image ran, and each collection aggregated them all again. A cumulative
+  stream now adds each collection's measurements to the points it kept from
+  the last, one per attribute set; a delta stream keeps nothing. A reader
+  collects the measurements recorded after it was added, and an
+  `OTInMemoryMetricReader` returns those recorded since its last collection.
 
 ## v1.3.1
 

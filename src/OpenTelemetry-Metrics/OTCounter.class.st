@@ -28,6 +28,12 @@ OTCounter >> add: aNumber attributes: aCollection [
 	^ self recordMeasurementValue: aNumber attributes: aCollection
 ]
 
+{ #category : 'aggregating' }
+OTCounter >> cumulativePoint: anEarlierPoint followedBy: aLaterPoint using: anOTMetricAggregationContext [
+
+	^ self cumulativeSumPoint: anEarlierPoint followedBy: aLaterPoint
+]
+
 { #category : 'accessing' }
 OTCounter >> instrumentType [
 

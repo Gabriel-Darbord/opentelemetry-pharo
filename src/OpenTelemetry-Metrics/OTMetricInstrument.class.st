@@ -82,6 +82,25 @@ OTMetricInstrument >> creationTimestamp: aDateAndTime [
 	creationTimestamp := aDateAndTime ifNil: [ DateAndTime now asUTC ] ifNotNil: [ aDateAndTime ]
 ]
 
+{ #category : 'aggregating' }
+OTMetricInstrument >> cumulativePoint: anEarlierPoint followedBy: aLaterPoint using: anOTMetricAggregationContext [
+	"The point of a cumulative stream once aLaterPoint, made from the measurements since the last collection, follows anEarlierPoint, made from those before: by default the later value, over the time since the stream started."
+
+	^ aLaterPoint copy
+		  startTimestamp: anEarlierPoint startTimestamp;
+		  yourself
+]
+
+{ #category : 'aggregating' }
+OTMetricInstrument >> cumulativeSumPoint: anEarlierPoint followedBy: aLaterPoint [
+	"Their values added, over the time since the stream started."
+
+	^ aLaterPoint copy
+		  startTimestamp: anEarlierPoint startTimestamp;
+		  value: anEarlierPoint value + aLaterPoint value;
+		  yourself
+]
+
 { #category : 'accessing' }
 OTMetricInstrument >> description [
 

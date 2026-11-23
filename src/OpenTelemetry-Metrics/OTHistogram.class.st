@@ -38,6 +38,70 @@ OTHistogram >> bucketCountsForMeasurements: someMeasurements boundaries: someBou
 ]
 
 { #category : 'aggregating' }
+OTHistogram >> cumulativeExplicitHistogramPoint: anEarlierPoint followedBy: aLaterPoint [
+	"Their counts, sums and buckets added, over the time since the stream started. Points bucketed differently, after the stream's boundaries changed, cannot be added: the later one starts again."
+
+	anEarlierPoint explicitBounds = aLaterPoint explicitBounds ifFalse: [ ^ aLaterPoint ].
+	^ aLaterPoint copy
+		  startTimestamp: anEarlierPoint startTimestamp;
+		  count: anEarlierPoint count + aLaterPoint count;
+		  sum: anEarlierPoint sum + aLaterPoint sum;
+		  min: (self cumulativeExtremeOf: anEarlierPoint min and: aLaterPoint min by: #min:);
+		  max: (self cumulativeExtremeOf: anEarlierPoint max and: aLaterPoint max by: #max:);
+		  bucketCounts: (anEarlierPoint bucketCounts with: aLaterPoint bucketCounts collect: [ :earlier :later | earlier + later ]);
+		  yourself
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> cumulativeExponentialHistogramPoint: anEarlierPoint followedBy: aLaterPoint using: anOTMetricAggregationContext [
+	"Their counts added, over the time since the stream started, at the finest scale both fit: the coarser of their scales, lowered while either range of buckets is wider than the aggregation allows."
+
+	| maxSize negativeCounts positiveCounts scale |
+	maxSize := self exponentialHistogramMaxSizeForAggregationContext: anOTMetricAggregationContext.
+	scale := (anEarlierPoint scale min: aLaterPoint scale) + 1.
+	[
+		scale := scale - 1.
+		positiveCounts := self exponentialCountsByIndexAtScale: scale from: {
+				                  (anEarlierPoint positiveBuckets -> anEarlierPoint scale).
+				                  (aLaterPoint positiveBuckets -> aLaterPoint scale) }.
+		negativeCounts := self exponentialCountsByIndexAtScale: scale from: {
+				                  (anEarlierPoint negativeBuckets -> anEarlierPoint scale).
+				                  (aLaterPoint negativeBuckets -> aLaterPoint scale) }.
+		scale > self exponentialHistogramMinScale and: [
+				(self exponentialRangeWidthOfCountsByIndex: positiveCounts) > maxSize or: [
+					(self exponentialRangeWidthOfCountsByIndex: negativeCounts) > maxSize ] ] ] whileTrue.
+	^ aLaterPoint copy
+		  startTimestamp: anEarlierPoint startTimestamp;
+		  count: anEarlierPoint count + aLaterPoint count;
+		  sum: anEarlierPoint sum + aLaterPoint sum;
+		  zeroCount: anEarlierPoint zeroCount + aLaterPoint zeroCount;
+		  scale: scale;
+		  positiveBuckets: (self exponentialBucketRangeFromCountsByIndex: positiveCounts);
+		  negativeBuckets: (self exponentialBucketRangeFromCountsByIndex: negativeCounts);
+		  min: (self cumulativeExtremeOf: anEarlierPoint min and: aLaterPoint min by: #min:);
+		  max: (self cumulativeExtremeOf: anEarlierPoint max and: aLaterPoint max by: #max:);
+		  yourself
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> cumulativeExtremeOf: anEarlierValue and: aLaterValue by: aSelector [
+	"The least or greatest of two values, either nil when the stream records neither."
+
+	anEarlierValue ifNil: [ ^ aLaterValue ].
+	aLaterValue ifNil: [ ^ anEarlierValue ].
+	^ anEarlierValue perform: aSelector with: aLaterValue
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> cumulativePoint: anEarlierPoint followedBy: aLaterPoint using: anOTMetricAggregationContext [
+
+	anOTMetricAggregationContext aggregation = #sum ifTrue: [ ^ self cumulativeSumPoint: anEarlierPoint followedBy: aLaterPoint ].
+	anOTMetricAggregationContext aggregation = #base2ExponentialBucketHistogram ifTrue: [
+		^ self cumulativeExponentialHistogramPoint: anEarlierPoint followedBy: aLaterPoint using: anOTMetricAggregationContext ].
+	^ self cumulativeExplicitHistogramPoint: anEarlierPoint followedBy: aLaterPoint
+]
+
+{ #category : 'aggregating' }
 OTHistogram >> defaultExplicitBucketBoundaries [
 
 	^ #( 0 5 10 25 50 75 100 250 500 750 1000 2500 5000 7500 10000 )
@@ -109,6 +173,24 @@ OTHistogram >> exponentialBucketRangeFromCountsByIndex: countsByIndex [
 	lastIndex := countsByIndex keys max.
 	bucketCounts := (firstIndex to: lastIndex) collect: [ :each | countsByIndex at: each ifAbsent: [ 0 ] ].
 	^ OTExponentialBucketRange offset: firstIndex bucketCounts: bucketCounts
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> exponentialCountsByIndexAtScale: anInteger from: someRangesAtScales [
+	"The counts of bucket ranges, each given with its scale, no coarser than anInteger, by their bucket index at scale anInteger: a bucket at a scale finer by k falls in the bucket whose index is its own shifted right by k."
+
+	| countsByIndex |
+	countsByIndex := Dictionary new.
+	someRangesAtScales do: [ :each |
+			| range shift |
+			range := each key.
+			shift := each value - anInteger.
+			range bucketCounts withIndexDo: [ :count :position |
+					count > 0 ifTrue: [
+							| index |
+							index := range offset + position - 1 bitShift: shift negated.
+							countsByIndex at: index put: (countsByIndex at: index ifAbsent: [ 0 ]) + count ] ] ].
+	^ countsByIndex
 ]
 
 { #category : 'aggregating' }
@@ -229,6 +311,13 @@ OTHistogram >> exponentialHistogramScaleForMeasurements: someMeasurements using:
 			((self exponentialHistogramRangeWidthAtScale: scale forAbsoluteValues: positiveValues) <= maxSize and: [
 				 (self exponentialHistogramRangeWidthAtScale: scale forAbsoluteValues: negativeValues) <= maxSize ]) ifTrue: [ ^ scale ] ].
 	^ self exponentialHistogramMinScale
+]
+
+{ #category : 'aggregating' }
+OTHistogram >> exponentialRangeWidthOfCountsByIndex: countsByIndex [
+
+	countsByIndex isEmpty ifTrue: [ ^ 0 ].
+	^ countsByIndex keys max - countsByIndex keys min + 1
 ]
 
 { #category : 'aggregating' }

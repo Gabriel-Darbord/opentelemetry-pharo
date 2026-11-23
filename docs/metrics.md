@@ -170,8 +170,11 @@ Current metric behavior:
 
 - provider-backed synchronous instruments answer `true` for `enabled`, unless all resolved matching views are `#drop`
 - no-op instruments and asynchronous instruments answer `false` for `enabled`
-- synchronous recording messages append `OTMetricMeasurement` entries to the provider-owned measurement store
-- `OTInMemoryMetricReader>>collect` returns recorded synchronous measurements plus fresh asynchronous callback observations for that reader
+- synchronous recording messages append `OTMetricMeasurement` entries to the provider-owned measurement store, which keeps each one until every registered reader has collected it, and keeps none when the provider has no reader
+- a reader is handed each synchronous measurement once, at its first collection after the measurement was recorded; a reader added later collects only the measurements recorded after it was added, and one shut down holds none back
+- a cumulative stream of a synchronous instrument adds the measurements of each collection to the points it kept from the last, one per attribute set, and keeps nothing else; a delta stream keeps nothing between collections
+- a cumulative point that saw no measurement since the last collection is reported again with its value and no exemplar
+- `OTInMemoryMetricReader>>collect` returns the synchronous measurements recorded since its last collection plus fresh asynchronous callback observations for that reader
 - `OTMetricReader>>collectSnapshot` answers aggregated `OTMetricSnapshot` metric data grouped per instrument
 - matching views are applied independently, so a single instrument may emit multiple streams
 - overlapping views that produce the same metric identity emit a diagnostic warning once per reader

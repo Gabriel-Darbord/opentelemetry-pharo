@@ -24,7 +24,8 @@ Class {
 		'metricProducers',
 		'metricFilter',
 		'collectLock',
-		'currentCollectionIssues'
+		'currentCollectionIssues',
+		'cumulativePointsByStream'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -316,6 +317,37 @@ OTMetricReader >> collectSnapshotResultAllowStopping: allowStopping [
 ]
 
 { #category : 'collecting' }
+OTMetricReader >> cumulativeMetricDataFrom: someMeasurements for: anOTMetricInstrument stateKey: aStateKey using: anOTMetricAggregationContext [
+	"Adds the points of someMeasurements, those made since the last collection, to the stream's, and answers them all as of this collection. A point that saw no measurement since keeps its value, with no exemplar, since an exemplar is one of the measurements collected."
+
+	| collectedAt metric points |
+	collectedAt := anOTMetricAggregationContext collectedAt.
+	metric := anOTMetricInstrument metricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext.
+	points := self withCumulativePointsForStateKey: aStateKey do: [ :pointsByAttributes |
+			          pointsByAttributes keys do: [ :each |
+					          pointsByAttributes at: each put: ((pointsByAttributes at: each) copy
+							           timestamp: collectedAt;
+							           exemplars: #(  );
+							           yourself) ].
+			          metric points do: [ :each |
+					          pointsByAttributes at: each attributes put: (pointsByAttributes
+							           at: each attributes
+							           ifPresent: [ :earlier |
+							           anOTMetricInstrument cumulativePoint: earlier followedBy: each using: anOTMetricAggregationContext ]
+							           ifAbsent: [ each ]) ].
+			          pointsByAttributes values ].
+	points ifEmpty: [ ^ nil ].
+	^ metric copyWithPoints: points
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> cumulativePointsByStream [
+	"The points of each cumulative stream of a synchronous instrument as of the last collection, by their attributes."
+
+	^ cumulativePointsByStream ifNil: [ cumulativePointsByStream := Dictionary new ]
+]
+
+{ #category : 'collecting' }
 OTMetricReader >> currentCollectionFailures [
 
 	^ currentCollectionIssues ifNil: [ #(  ) ] ifNotNil: [ currentCollectionIssues first ]
@@ -386,8 +418,13 @@ OTMetricReader >> filteredMetricsFrom: someMetrics [
 
 { #category : 'private - lifecycle' }
 OTMetricReader >> finishShutdown [
+	"Shut down, the reader collects nothing more, so its provider keeps nothing more for it."
 
-	stateLock critical: [ shutdown := true ]
+	| currentProvider |
+	currentProvider := stateLock critical: [
+			                   shutdown := true.
+			                   provider ].
+	currentProvider ifNotNil: [ currentProvider forgetMetricReader: self ]
 ]
 
 { #category : 'collecting' }
@@ -412,8 +449,9 @@ OTMetricReader >> forceFlushResult [
 
 { #category : 'lifecycle' }
 OTMetricReader >> forgetEarlierSessionAt: aDateAndTime instruments: someInstruments [
-	"The image started from its saved file at aDateAndTime, and its provider dropped the measurements it was saved with: each of someInstruments counts as collected then, so that a delta starts with this session rather than span the time the image was not running."
+	"The image started from its saved file at aDateAndTime, and its provider dropped the measurements it was saved with: the cumulative streams start again from nothing, and each of someInstruments counts as collected then, so that a delta starts with this session rather than span the time the image was not running."
 
+	stateLock critical: [ self cumulativePointsByStream removeAll ].
 	self markCollectedAt: aDateAndTime forInstruments: someInstruments
 ]
 
@@ -431,6 +469,7 @@ OTMetricReader >> initialize [
 	callbackTimeoutMillis := 30000.
 	metricProducers := OrderedCollection new.
 	selectedAttributeSetsByStream := Dictionary new.
+	cumulativePointsByStream := Dictionary new.
 	warnedMetricIdentityConflicts := Set new.
 	currentCollectionIssues := nil
 ]
@@ -568,6 +607,21 @@ OTMetricReader >> metricBatchResultForSnapshot: anOTMetricSnapshot [
 ]
 
 { #category : 'collecting' }
+OTMetricReader >> metricDataFrom: someMeasurements for: anOTMetricInstrument stateKey: aStateKey using: anOTMetricAggregationContext [
+	"The stream's metric as of this collection, from the measurements made since the last, or nil when it has no point. Those of a synchronous instrument are handed over once: a cumulative stream adds them to the points it keeps, which is all it keeps of them."
+
+	(anOTMetricAggregationContext temporality = #cumulative and: [
+		 (anOTMetricInstrument isKindOf: OTAsynchronousMetricInstrument) not ]) ifTrue: [
+			^ self
+				  cumulativeMetricDataFrom: someMeasurements
+				  for: anOTMetricInstrument
+				  stateKey: aStateKey
+				  using: anOTMetricAggregationContext ].
+	someMeasurements ifEmpty: [ ^ nil ].
+	^ anOTMetricInstrument metricDataFromMeasurements: someMeasurements using: anOTMetricAggregationContext
+]
+
+{ #category : 'collecting' }
 OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: someInstruments collectedAt: aDateAndTime [
 
 	| grouped metrics |
@@ -580,10 +634,11 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 			views := self matchingViewsFor: each.
 			views ifEmpty: [ views := { nil } ].
 			views do: [ :view |
-					| context metric preparedMeasurements selectedMeasurements |
+					| context metric preparedMeasurements selectedMeasurements stateKey |
 					context := self metricAggregationContextFor: each view: view collectedAt: aDateAndTime.
 					context ifNotNil: [
 							context aggregation = #drop ifFalse: [
+									stateKey := self cardinalityStateKeyFor: each view: view.
 									preparedMeasurements := each preparedMeasurementsFrom: instrumentMeasurements forReader: self using: context.
 									((each isKindOf: OTAsynchronousMetricInstrument) and: [ context temporality = #cumulative ]) ifTrue: [
 										self
@@ -594,9 +649,13 @@ OTMetricReader >> metricDataFromMeasurements: someMeasurements instruments: some
 										                        cardinalityLimitedMeasurementsFrom: selectedMeasurements
 										                        for: each
 										                        using: context
-										                        stateKey: (self cardinalityStateKeyFor: each view: view).
-									selectedMeasurements ifNotEmpty: [
-											metric := each metricDataFromMeasurements: selectedMeasurements using: context.
+										                        stateKey: stateKey.
+									metric := self
+										          metricDataFrom: selectedMeasurements
+										          for: each
+										          stateKey: stateKey
+										          using: context.
+									metric ifNotNil: [
 											view ifNotNil: [ view applyToMetricData: metric ].
 											metrics add: metric ] ] ] ] ].
 	self noteConflictingMetricIdentitiesIn: metrics.
@@ -876,9 +935,11 @@ OTMetricReader >> selectedAttributeSetsByStream [
 
 { #category : 'collecting' }
 OTMetricReader >> selectedMeasurementsFrom: someMeasurements for: anOTMetricInstrument using: anOTMetricAggregationContext [
+	"Those of a synchronous instrument are all the measurements made since the last collection, since the provider hands them over once, including any recorded while this collection began. A delta keeps those an asynchronous instrument observes within its interval."
 
 	| startTimestamp |
 	anOTMetricAggregationContext temporality = #delta ifFalse: [ ^ someMeasurements ].
+	(anOTMetricInstrument isKindOf: OTAsynchronousMetricInstrument) ifFalse: [ ^ someMeasurements ].
 	startTimestamp := anOTMetricAggregationContext startTimestamp.
 	startTimestamp ifNil: [ ^ someMeasurements ].
 	^ someMeasurements select: [ :each |
@@ -932,6 +993,12 @@ OTMetricReader >> temporalitySelector: aBlockOrNil [
 	stateLock critical: [
 			self ensureOpenLocked.
 			temporalitySelector := aBlockOrNil ]
+]
+
+{ #category : 'collecting' }
+OTMetricReader >> withCumulativePointsForStateKey: aStateKey do: aBlock [
+
+	^ stateLock critical: [ aBlock value: (self cumulativePointsByStream at: aStateKey ifAbsentPut: [ OrderedDictionary new ]) ]
 ]
 
 { #category : 'collecting' }

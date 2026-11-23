@@ -1,5 +1,7 @@
 "
 A backend-agnostic entry point to the metrics API.
+
+It keeps each measurement recorded until every one of its readers has collected it, each reader keeping what its aggregation needs; without a reader, it keeps none.
 "
 Class {
 	#name : 'OTMeterProvider',
@@ -14,7 +16,9 @@ Class {
 		'measurements',
 		'metricReaders',
 		'views',
-		'exemplarFilter'
+		'exemplarFilter',
+		'collectedMeasurementCounts',
+		'discardedMeasurementCount'
 	],
 	#classVars : [
 		'Current'
@@ -499,12 +503,14 @@ OTMeterProvider class >> stringCollectionFrom: aString [
 
 { #category : 'accessing' }
 OTMeterProvider >> addMetricReader: anOTMetricReader [
+	"The reader collects the measurements recorded from now on."
 
 	anOTMetricReader ifNil: [ ^ self metricReaders ].
 	stateLock critical: [
 			self ensureOpenLocked.
 			anOTMetricReader attachToProvider: self.
-			metricReaders add: anOTMetricReader ].
+			metricReaders add: anOTMetricReader.
+			self collectedMeasurementCountsLocked at: anOTMetricReader ifAbsentPut: [ self recordedMeasurementCountLocked ] ].
 	anOTMetricReader didRegisterWithProvider.
 	^ self metricReaders
 ]
@@ -521,14 +527,37 @@ OTMeterProvider >> addView: anOTMetricView [
 
 { #category : 'collecting' }
 OTMeterProvider >> collectMeasurementsFor: anOTMetricReader [
+	"The measurements recorded since anOTMetricReader last collected, which are handed over once, followed by those its asynchronous instruments observe now."
 
 	| snapshot |
 	snapshot := stateLock critical: [
 			            {
-				            measurements copy.
+				            (self takeMeasurementsForLocked: anOTMetricReader).
 				            meters values asArray } ].
 	snapshot second do: [ :each | each collectMeasurementsFor: anOTMetricReader into: snapshot first ].
 	^ snapshot first
+]
+
+{ #category : 'private - collecting' }
+OTMeterProvider >> collectedMeasurementCountsLocked [
+	"How many measurements each reader has collected, counting every measurement kept since the provider was made or the image last started. A provider made before readers were handed their measurements once kept them all: its readers count as having collected those, so that each cumulative sum starts again from the next measurement."
+
+	^ collectedMeasurementCounts ifNil: [
+			  discardedMeasurementCount := 0.
+			  collectedMeasurementCounts := IdentityDictionary new.
+			  metricReaders do: [ :each | collectedMeasurementCounts at: each put: measurements size ].
+			  collectedMeasurementCounts ]
+]
+
+{ #category : 'private - collecting' }
+OTMeterProvider >> discardMeasurementsCollectedByEveryReaderLocked [
+
+	| collectedByEvery |
+	collectedByEvery := self collectedMeasurementCountsLocked
+		                    inject: self recordedMeasurementCountLocked
+		                    into: [ :fewest :each | fewest min: each ].
+	measurements removeFirst: collectedByEvery - discardedMeasurementCount.
+	discardedMeasurementCount := collectedByEvery
 ]
 
 { #category : 'private - lifecycle' }
@@ -585,10 +614,23 @@ OTMeterProvider >> forgetEarlierSession [
 	| now readers instruments |
 	now := DateAndTime now asUTC.
 	readers := stateLock critical: [
+			           | counts |
 			           measurements removeAll.
+			           discardedMeasurementCount := 0.
+			           counts := self collectedMeasurementCountsLocked.
+			           counts keys do: [ :each | counts at: each put: 0 ].
 			           metricReaders copy ].
 	instruments := self registeredMetricInstruments.
 	readers do: [ :each | each forgetEarlierSessionAt: now instruments: instruments ]
+]
+
+{ #category : 'lifecycle' }
+OTMeterProvider >> forgetMetricReader: anOTMetricReader [
+	"anOTMetricReader shut down, and collects nothing more: the measurements it has yet to collect are no longer kept for it."
+
+	stateLock critical: [
+			self collectedMeasurementCountsLocked removeKey: anOTMetricReader ifAbsent: [ ^ self ].
+			self discardMeasurementsCollectedByEveryReaderLocked ]
 ]
 
 { #category : 'initialization' }
@@ -597,6 +639,8 @@ OTMeterProvider >> initialize [
 	super initialize.
 	meters := OrderedDictionary new.
 	measurements := OrderedCollection new.
+	collectedMeasurementCounts := IdentityDictionary new.
+	discardedMeasurementCount := 0.
 	metricReaders := OrderedCollection new.
 	views := OrderedCollection new.
 	exemplarFilter := OTMetricExemplarFilter traceBased.
@@ -647,6 +691,7 @@ OTMeterProvider >> measurementFor: anOTMetricInstrument value: aNumber attribute
 
 { #category : 'accessing' }
 OTMeterProvider >> measurements [
+	"The measurements recorded that a reader has yet to collect."
 
 	^ stateLock critical: [ measurements copy ]
 ]
@@ -727,6 +772,7 @@ OTMeterProvider >> metricReaders [
 
 { #category : 'recording' }
 OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber attributes: aCollection [
+	"The measurement is kept for the readers to collect; with none, nothing would ever collect it."
 
 	| measurement |
 	anOTMetricInstrument enabled ifFalse: [ ^ false ].
@@ -735,8 +781,16 @@ OTMeterProvider >> recordMeasurementFor: anOTMetricInstrument value: aNumber att
 			  (shutdownRequested or: [ shutdown ])
 				  ifTrue: [ false ]
 				  ifFalse: [
-						  measurements add: measurement.
+						  self collectedMeasurementCountsLocked ifNotEmpty: [ measurements add: measurement ].
 						  true ] ]
+]
+
+{ #category : 'private - collecting' }
+OTMeterProvider >> recordedMeasurementCountLocked [
+	"How many measurements were kept, those since discarded included."
+
+	self collectedMeasurementCountsLocked.
+	^ discardedMeasurementCount + measurements size
 ]
 
 { #category : 'accessing' }
@@ -786,6 +840,19 @@ OTMeterProvider >> shutdownResult [
 	allShutdown := readers inject: OTLifecycleResult success into: [ :combined :each | combined combinedWith: each shutdownResult ].
 	stateLock critical: [ shutdown := true ].
 	^ allShutdown
+]
+
+{ #category : 'private - collecting' }
+OTMeterProvider >> takeMeasurementsForLocked: anOTMetricReader [
+	"Hands anOTMetricReader the measurements kept since it last collected, then drops those every reader now has."
+
+	| collected counts taken |
+	counts := self collectedMeasurementCountsLocked.
+	collected := counts at: anOTMetricReader ifAbsent: [ ^ OrderedCollection new ].
+	taken := measurements copyFrom: collected - discardedMeasurementCount + 1 to: measurements size.
+	counts at: anOTMetricReader put: self recordedMeasurementCountLocked.
+	self discardMeasurementsCollectedByEveryReaderLocked.
+	^ taken
 ]
 
 { #category : 'accessing' }
