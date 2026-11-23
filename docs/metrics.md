@@ -170,12 +170,15 @@ Current metric behavior:
 
 - provider-backed synchronous instruments answer `true` for `enabled`, unless all resolved matching views are `#drop`
 - no-op instruments and asynchronous instruments answer `false` for `enabled`
-- synchronous recording messages append `OTMetricMeasurement` entries to the provider-owned measurement store
-- `OTInMemoryMetricReader>>collect` returns recorded synchronous measurements plus fresh asynchronous callback observations for that reader
+- synchronous recording messages append `OTMetricMeasurement` entries to the provider-owned measurement store, which keeps each one until every registered reader has collected it, and keeps none when the provider has no reader
+- a reader is handed each synchronous measurement once, at its first collection after the measurement was recorded; a reader added later collects only the measurements recorded after it was added, and one shut down holds none back
+- a cumulative stream of a synchronous instrument adds the measurements of each collection to the points it kept from the last, one per attribute set, and keeps nothing else; a delta stream keeps nothing between collections
+- a cumulative point that saw no measurement since the last collection is reported again with its value and no exemplar
+- `OTInMemoryMetricReader>>collect` returns the synchronous measurements recorded since its last collection plus fresh asynchronous callback observations for that reader
 - `OTMetricReader>>collectSnapshot` answers aggregated `OTMetricSnapshot` metric data grouped per instrument
 - matching views are applied independently, so a single instrument may emit multiple streams
 - overlapping views that produce the same metric identity emit a diagnostic warning once per reader
-- `OTPeriodicExportingMetricReader` exports those snapshots through its configured exporter on collection and background intervals
+- `OTPeriodicExportingMetricReader` exports those snapshots through its configured exporter on collection and background intervals, leaving out the metrics without a data point, and exports nothing when none has one
 - `OTMetricReader` applies a default per-instrument cardinality limit of `2000`, and you can override it with `cardinalityLimitSelector:`
 - matching views can override the reader default cardinality limit per stream
 - matching views take precedence over instrument attribute advice for `attribute_keys`
@@ -192,6 +195,14 @@ Current metric behavior:
 - periodic-reader shutdown performs a final collection, exports its batches in
   order, and flushes the exporter before shutting it down; export failure or
   timeout is reported while exporter shutdown is still attempted
+- an image that quits waits a second at most for its providers' readers to
+  export what they collect; one that goes on after saving keeps its
+  measurements
+- an image started from its saved file drops the measurements it was saved
+  with, rather than export them at every start of the saved file: a cumulative
+  sum starts again from its first measurement after the start, a delta starts
+  with the start, and a periodic reader ends the export it was saved in the
+  middle of and starts its interval again
 - `OTPeriodicExportingMetricReader>>maxExportBatchSize:` limits each batch by
   metric data-point count; `exportTimeoutMillis:` applies to each batch export
 - later batches are still attempted after an earlier batch fails or times out;

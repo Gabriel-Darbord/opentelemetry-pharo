@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.3.2
+
+- An image started from its saved file drops the log records its batch
+  processors were saved with, and stops the export it was saved in the middle
+  of, as it does for spans. Every start of the saved image exported them
+  again, under whatever settings it had then.
+- An image started from its saved file drops the measurements its meter
+  providers were saved with. Every start of the saved image exported them
+  again: a cumulative sum counted them once more each time, from the start
+  time of the session that saved it, and a delta covered the time the image
+  was not running. Each reader counts every instrument as collected at the
+  start, and a periodic reader stops the export it was saved in the middle of
+  and starts its interval again.
+- An image that quits waits a second at most for its batch log processors to
+  export what they queued, and drops the rest, and as long for its meter
+  providers' readers to export what they collect, as it does for its spans.
+  One that goes on after saving keeps them for after.
+- A meter provider keeps a measurement only until every reader has collected
+  it, and none without a reader. It kept every measurement for as long as the
+  image ran, and each collection aggregated them all again. A cumulative
+  stream now adds each collection's measurements to the points it kept from
+  the last, one per attribute set; a delta stream keeps nothing. A reader
+  collects the measurements recorded after it was added, and an
+  `OTInMemoryMetricReader` returns those recorded since its last collection.
+- A periodic metric reader exports nothing when no metric has a data point,
+  and leaves out the metrics without one. It sent an empty request at every
+  interval, flush and shutdown in which no metric had one.
+
 ## v1.3.1
 
 - Every failed OTLP export holds the exporter back, whatever its status. A

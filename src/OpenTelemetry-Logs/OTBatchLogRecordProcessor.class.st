@@ -27,6 +27,97 @@ Class {
 	#package : 'OpenTelemetry-Logs'
 }
 
+{ #category : 'class initialization' }
+OTBatchLogRecordProcessor class >> initialize [
+	"Saving and starting the image visit the processors through a registry, which those made before this was loaded join now."
+
+	SessionManager default registerToolClassNamed: self name.
+	self registerExistingInstances
+]
+
+{ #category : 'accessing' }
+OTBatchLogRecordProcessor class >> liveInstances [
+	"The processors that exist, which saving and starting the image visit without walking the heap."
+
+	^ self registryLock critical: [ self registry keys reject: [ :each | each isNil ] ]
+]
+
+{ #category : 'private - registry' }
+OTBatchLogRecordProcessor class >> register: aProcessor [
+
+	self registryLock critical: [ self registry at: aProcessor put: true ]
+]
+
+{ #category : 'private - registry' }
+OTBatchLogRecordProcessor class >> registerExistingInstances [
+	"Registers the processors made before the registry was: one an image was saved with, unknown to a later start, would export its queue again at every start of the saved image."
+
+	self allSubInstancesDo: [ :each | self register: each ]
+]
+
+{ #category : 'private - registry' }
+OTBatchLogRecordProcessor class >> registry [
+	"The processors that exist, subclasses' included, weakly held."
+
+	^ OTClassStateStore
+		  valueAt: #otLogRecordProcessors
+		  forClass: OTBatchLogRecordProcessor
+		  ifAbsentPut: [ WeakIdentityKeyDictionary new ]
+]
+
+{ #category : 'private - registry' }
+OTBatchLogRecordProcessor class >> registryLock [
+
+	^ OTClassStateStore
+		  valueAt: #otLogRecordProcessorsLock
+		  forClass: OTBatchLogRecordProcessor
+		  ifAbsentPut: [ Semaphore forMutualExclusion ]
+]
+
+{ #category : 'system startup' }
+OTBatchLogRecordProcessor class >> shutDown: quitting [
+	"Before the image is saved. An image that quits first exports what is queued, waiting a second at most, since a VM that is quitting should not wait on a collector, and drops the rest. One that goes on keeps its queue, which a later start from this save drops."
+
+	quitting ifTrue: [
+			self liveInstances do: [ :each |
+					each
+						flushWithinMilliseconds: self snapshotFlushTimeoutMillis;
+						discardQueuedLogRecords ] ]
+]
+
+{ #category : 'system startup' }
+OTBatchLogRecordProcessor class >> snapshotFlushTimeoutMillis [
+	"The longest an image that quits waits for its queued log records."
+
+	^ 1000
+]
+
+{ #category : 'system startup' }
+OTBatchLogRecordProcessor class >> startUp: resuming [
+	"An image that starts from its saved file forgets what its processors were doing when it was saved, rather than export it again at every start, under settings that may have changed since."
+
+	resuming ifTrue: [ self liveInstances do: [ :each | each forgetEarlierSession ] ]
+]
+
+{ #category : 'processing' }
+OTBatchLogRecordProcessor >> discardQueuedLogRecords [
+	"Drops the queued log records without exporting them."
+
+	| dropped |
+	dropped := queueLock critical: [
+			           | count |
+			           count := queue size.
+			           queue removeAll.
+			           queueBecameNonEmptyAt := nil.
+			           count ].
+	dropped > 0 ifTrue: [
+			OTSdkSelfObservability current
+				adjustQueueSizeBy: dropped negated
+				forProcessor: self
+				signal: #log
+				capacity: maxQueueSize ]
+]
+
 { #category : 'testing' }
 OTBatchLogRecordProcessor >> enabledIn: anOTContext instrumentationScope: anInstrumentationScope severityNumber: anObject eventName: aString [
 
@@ -141,6 +232,13 @@ OTBatchLogRecordProcessor >> flush [
 ]
 
 { #category : 'processing' }
+OTBatchLogRecordProcessor >> flushWithinMilliseconds: anInteger [
+	"Exports what is queued, and answers whether all of it went within anInteger milliseconds."
+
+	^ [ self flush ] valueWithinMilliseconds: anInteger onTimeout: [ false ]
+]
+
+{ #category : 'processing' }
 OTBatchLogRecordProcessor >> forceFlush [
 
 	| flushed exported |
@@ -149,6 +247,15 @@ OTBatchLogRecordProcessor >> forceFlush [
 	flushed ifFalse: [ ^ false ].
 	exported := self runExporterOperation: [ self exporter forceFlush ].
 	^ flushed & exported
+]
+
+{ #category : 'processing' }
+OTBatchLogRecordProcessor >> forgetEarlierSession [
+	"Stops the export the image was saved in the middle of, and drops the queued log records: both belong to the session that saved it. The next record starts a flush process again."
+
+	self
+		stopFlushProcess;
+		discardQueuedLogRecords
 ]
 
 { #category : 'initialization' }
@@ -167,7 +274,8 @@ OTBatchLogRecordProcessor >> initialize [
 	shutdownCompleted := false.
 	queueBecameNonEmptyAt := nil.
 	scheduledDelayMillis := 1000.
-	exportTimeoutMillis := 30000
+	exportTimeoutMillis := 30000.
+	OTBatchLogRecordProcessor register: self
 ]
 
 { #category : 'testing' }

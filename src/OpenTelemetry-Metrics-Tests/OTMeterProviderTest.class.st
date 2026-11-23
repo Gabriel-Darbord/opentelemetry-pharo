@@ -48,6 +48,101 @@ OTMeterProviderTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testAMeasurementIsKeptUntilEveryReaderCollectedIt [
+
+	| counter first provider second |
+	provider := OTMeterProvider new.
+	first := OTInMemoryMetricReader new.
+	second := OTInMemoryMetricReader new.
+	provider
+		addMetricReader: first;
+		addMetricReader: second.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 1.
+	self assert: first collect size equals: 1.
+	self assert: provider measurements size equals: 1.
+	counter add: 2.
+	self assert: (second collect collect: [ :each | each value ] as: Array) equals: #( 1 2 ).
+	self assert: provider measurements size equals: 1.
+	self assert: (first collect collect: [ :each | each value ] as: Array) equals: #( 2 ).
+	self assert: provider measurements isEmpty.
+	self assert: first collect isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAProviderMadeBeforeReadersWereHandedTheirMeasurementsDropsWhatItKept [
+	"A provider an earlier version made kept every measurement: its readers count as having collected them, so that they are dropped, and collect from the next measurement on."
+
+	| counter provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter
+		add: 1;
+		add: 2.
+	provider instVarNamed: 'collectedMeasurementCounts' put: nil.
+	provider instVarNamed: 'discardedMeasurementCount' put: nil.
+	counter add: 4.
+	self assert: (reader collect collect: [ :each | each value ] as: Array) equals: #( 4 ).
+	self assert: provider measurements isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAProviderMadeBeforeTheRegistryJoinsIt [
+	"Loading this code over an older one registers the providers the image already has, among them those a saved image would start with again."
+
+	| provider |
+	provider := OTMeterProvider new.
+	OTMeterProvider registryLock critical: [ OTMeterProvider registry removeKey: provider ].
+	self deny: (OTMeterProvider liveInstances includes: provider).
+	OTMeterProvider registerExistingInstances.
+	self assert: (OTMeterProvider liveInstances includes: provider)
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAProviderWithoutReadersKeepsNoMeasurement [
+
+	| provider |
+	provider := OTMeterProvider new.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	self assert: provider measurements isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAReaderCollectsTheMeasurementsRecordedAfterItWasAdded [
+
+	| counter first provider second |
+	provider := OTMeterProvider new.
+	first := OTInMemoryMetricReader new.
+	provider addMetricReader: first.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 1.
+	second := OTInMemoryMetricReader new.
+	provider addMetricReader: second.
+	counter add: 2.
+	self assert: (second collect collect: [ :each | each value ] as: Array) equals: #( 2 ).
+	self assert: (first collect collect: [ :each | each value ] as: Array) equals: #( 1 2 )
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testAShutDownReaderHoldsNoMeasurement [
+
+	| collecting provider shutDown |
+	provider := OTMeterProvider new.
+	collecting := OTInMemoryMetricReader new.
+	shutDown := OTInMemoryMetricReader new.
+	provider
+		addMetricReader: collecting;
+		addMetricReader: shutDown.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
+	collecting collect.
+	self assert: provider measurements size equals: 1.
+	self assert: shutDown shutdown.
+	self assert: provider measurements isEmpty
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testAsynchronousInstrumentCollectsMeasurementsPerReader [
 
 	| callbackCount measurement provider reader |
@@ -281,6 +376,7 @@ OTMeterProviderTest >> testBoundWrapperRecordsMergedMeasurements [
 
 	| bound measurement provider |
 	provider := OTMeterProvider new.
+	provider addMetricReader: OTInMemoryMetricReader new.
 	bound := ((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') bind: { ('method' -> 'GET') }.
 	bound add: 1 attributes: { ('status' -> 200) }.
 	self assert: provider measurements size equals: 1.
@@ -533,6 +629,47 @@ OTMeterProviderTest >> testForceFlushReturnsFalseAfterShutdown [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testForgetEarlierSessionDropsTheMeasurementsTheImageWasSavedWith [
+	"An image started from its saved file exports none of the measurements it was saved with: a cumulative sum starts again, from its first measurement in this session."
+
+	| provider reader counter forgottenAt point |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 3.
+	forgottenAt := DateAndTime now asUTC.
+	provider forgetEarlierSession.
+	self assert: reader collectSnapshot metrics isEmpty.
+	counter add: 2.
+	point := reader collectSnapshot metrics first points first.
+	self assert: point value equals: 2.
+	self assert: point startTimestamp >= forgottenAt
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testForgetEarlierSessionStartsADeltaWithThisSession [
+	"A delta collected after the image started from its saved file covers this session only, never the time the image was not running."
+
+	| provider reader counter forgottenAt point |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	reader temporalitySelector: [ :instrument | #delta ].
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	counter add: 1.
+	reader collectSnapshot.
+	counter add: 3.
+	forgottenAt := DateAndTime now asUTC.
+	provider forgetEarlierSession.
+	(Delay forMilliseconds: 2) wait.
+	counter add: 2.
+	point := reader collectSnapshot metrics first points first.
+	self assert: point value equals: 2.
+	self assert: point startTimestamp >= forgottenAt
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testGaugeAggregationUsesCollectionTimeAsPointTimestamp [
 
 	| collectedAt context gauge measurement metric point provider |
@@ -552,14 +689,15 @@ OTMeterProviderTest >> testGaugeAggregationUsesCollectionTimeAsPointTimestamp [
 { #category : 'tests' }
 OTMeterProviderTest >> testInMemoryMetricReaderCollectsRecordedMeasurements [
 
-	| counter measurement provider reader |
+	| counter measurement measurements provider reader |
 	provider := OTMeterProvider new.
 	reader := OTInMemoryMetricReader new.
 	provider addMetricReader: reader.
 	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
 	counter add: 1 attributes: { ('method' -> 'GET') }.
-	self assert: reader collect size equals: 1.
-	measurement := reader collect first.
+	measurements := reader collect.
+	self assert: measurements size equals: 1.
+	measurement := measurements first.
 	self assert: measurement instrument identicalTo: counter.
 	self assert: measurement value equals: 1.
 	self assert: (measurement attributes at: 'method') equals: 'GET'
@@ -970,7 +1108,7 @@ OTMeterProviderTest >> testMetricSnapshotAggregatesCounterMeasurementsAsMonotoni
 	self assert: metric temporality equals: #cumulative.
 	point := metric points first.
 	self assert: point value equals: 3.
-	self assert: point startTimestamp equals: provider measurements first timestamp.
+	self assert: point startTimestamp equals: snapshot measurements first timestamp.
 	self assert: point timestamp equals: snapshot collectedAt.
 	self assert: (point attributes at: 'method') equals: 'GET'
 ]
@@ -1409,6 +1547,7 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectHonorsExportTimeo
 
 { #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectReturnsEmptySnapshotAfterShutdown [
+	"Nothing was recorded, so the shutdown had nothing to export, and exported nothing."
 
 	| exporter provider reader snapshot |
 	exporter := OTInMemoryMetricExporter new.
@@ -1420,7 +1559,7 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectReturnsEmptySnaps
 	snapshot := reader collect.
 	self assert: snapshot metrics isEmpty.
 	self assert: snapshot measurements isEmpty.
-	self assert: exporter exports size equals: 1
+	self assert: exporter exports isEmpty
 ]
 
 { #category : 'tests' }
@@ -1480,6 +1619,30 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderDefaultsTemporalityFromE
 	snapshot := reader collect.
 	metric := snapshot metrics first.
 	self assert: metric temporality equals: #delta
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testPeriodicExportingMetricReaderExportsNothingWithoutPoints [
+	"An export of nothing would still reach the exporter's destination."
+
+	| counter exporter provider reader |
+	exporter := OTInMemoryMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		temporalitySelector: [ :instrument | #delta ].
+	provider addMetricReader: reader.
+	counter := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	self assert: reader forceFlush.
+	self assert: exporter exports isEmpty.
+	counter add: 1.
+	self assert: reader forceFlush.
+	self assert: exporter exports size equals: 1.
+	self assert: reader forceFlush.
+	self assert: exporter exports size equals: 1.
+	self assert: provider shutdown.
+	self assert: exporter exports size equals: 1
 ]
 
 { #category : 'tests' }
@@ -1662,6 +1825,7 @@ OTMeterProviderTest >> testPeriodicExportingMetricReaderShutdownStillClosesExpor
 		exportIntervalMillis: 1000000;
 		exportTimeoutMillis: 50.
 	provider addMetricReader: reader.
+	((provider meterNamed: 'demo.metrics') counterNamed: 'requests.total') add: 1.
 	[ result := provider shutdownResult ] ensure: [ reader shutdown ].
 	self assert: result isTimeout.
 	self assert: exporter forceFlushCount equals: 1.
@@ -1798,6 +1962,7 @@ OTMeterProviderTest >> testProviderBackedCounterRecordsMeasurements [
 
 	| counter measurement provider |
 	provider := OTMeterProvider new.
+	provider addMetricReader: OTInMemoryMetricReader new.
 	counter := (provider meterNamed: 'demo.metrics')
 		           counterNamed: 'requests.total'
 		           unit: '1'
@@ -1846,6 +2011,15 @@ OTMeterProviderTest >> testProviderShutdownShutsDownMetricReaders [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testSavingAndStartingTheImageReachEveryProvider [
+	"Saving and starting the image visit the providers that exist, so that what each holds is exported before the image quits and never by a later start of the saved image."
+
+	| provider |
+	provider := OTMeterProvider new.
+	self assert: (OTMeterProvider liveInstances includes: provider)
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testShutdownMakesFutureMetersNoop [
 
 	| meter provider |
@@ -1887,7 +2061,8 @@ OTMeterProviderTest >> testSynchronousInstrumentStaysEnabledWhenAnyMatchingViewE
 				 yourself);
 		addView: (OTMetricView all
 				 aggregation: #drop;
-				 yourself).
+				 yourself);
+		addMetricReader: OTInMemoryMetricReader new.
 	instrument := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
 	self assert: instrument enabled.
 	instrument add: 1 attributes: { ('method' -> 'GET') }.
@@ -1899,6 +2074,7 @@ OTMeterProviderTest >> testSynchronousInstrumentsIgnoreNonFiniteMeasurements [
 
 	| measurements meter provider valuesByName |
 	provider := OTMeterProvider new.
+	provider addMetricReader: OTInMemoryMetricReader new.
 	meter := provider meterNamed: 'demo.metrics'.
 	(meter counterNamed: 'requests.total')
 		add: Float nan;

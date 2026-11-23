@@ -68,10 +68,58 @@ OTMetricBatchLifecycleTest >> testEachBatchGetsItsOwnExportTimeout [
 ]
 
 { #category : 'tests' }
+OTMetricBatchLifecycleTest >> testFlushWithinMillisecondsGivesUpOnAnExportThatBlocks [
+
+	| exporter provider reader flushed elapsed startedAt |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader
+		exportIntervalMillis: 1000000;
+		exportTimeoutMillis: 30000.
+	[
+		provider addMetricReader: reader.
+		((provider meterNamed: 'demo') counterNamed: 'requests') add: 1.
+		startedAt := Time millisecondClockValue.
+		flushed := provider flushWithinMilliseconds: 50.
+		elapsed := Time millisecondClockValue - startedAt.
+		self deny: flushed.
+		self assert: elapsed < 1000 ] ensure: [
+			exporter
+				allowExportToContinue;
+				allowExportToContinue.
+			provider shutdown ]
+]
+
+{ #category : 'tests' }
 OTMetricBatchLifecycleTest >> testForceFlushContinuesAfterFailedBatches [
 
 	#( failure error timeout ) do: [ :mode |
 		self assertOperation: [ :reader | reader forceFlushResult ] failureMode: mode flushCount: 1 ]
+]
+
+{ #category : 'tests' }
+OTMetricBatchLifecycleTest >> testForgetEarlierSessionEndsThePeriodicExportInProgress [
+	"The export a periodic reader was saved in the middle of belongs to the session that saved it: an image started from that save ends it rather than finish it, and starts the export loop again."
+
+	| exporter provider reader blocked |
+	exporter := OTBlockingMetricExporter new.
+	provider := OTMeterProvider new.
+	reader := OTPeriodicExportingMetricReader exporter: exporter.
+	reader exportIntervalMillis: 10.
+	[
+		provider addMetricReader: reader.
+		((provider meterNamed: 'demo') counterNamed: 'requests') add: 1.
+		self assert: (exporter waitForExportEntryWithin: 2000).
+		blocked := reader exportProcess.
+		provider forgetEarlierSession.
+		self assert: blocked isTerminated.
+		self deny: reader exportProcess identicalTo: blocked.
+		self deny: reader exportProcess isTerminated ] ensure: [
+			exporter
+				shutdown;
+				allowExportToContinue.
+			provider shutdown ]
 ]
 
 { #category : 'tests' }

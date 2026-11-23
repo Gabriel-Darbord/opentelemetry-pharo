@@ -106,12 +106,16 @@ OTPeriodicExportingMetricReader >> exportSnapshotResult: anOTMetricSnapshot [
 
 { #category : 'private - exporting' }
 OTPeriodicExportingMetricReader >> exportSnapshotsFrom: anOTMetricSnapshot [
+	"The snapshot's metrics that have points, in batches of at most maxExportBatchSize points; none when no metric has a point, since an export of nothing would still reach the exporter's destination."
 
 	| batchSize metrics |
+	metrics := anOTMetricSnapshot metrics reject: [ :each | each points isEmpty ].
+	metrics isEmpty ifTrue: [ ^ #(  ) ].
 	batchSize := self maxExportBatchSize.
-	batchSize ifNil: [ ^ { anOTMetricSnapshot } ].
-	metrics := anOTMetricSnapshot metrics.
-	metrics isEmpty ifTrue: [ ^ { anOTMetricSnapshot } ].
+	batchSize ifNil: [
+			^ { (metrics size = anOTMetricSnapshot metrics size
+				   ifTrue: [ anOTMetricSnapshot ]
+				   ifFalse: [ self snapshot: anOTMetricSnapshot withMetrics: metrics ]) } ].
 	^ Array streamContents: [ :stream |
 			  | currentBatch currentCount |
 			  currentBatch := OrderedCollection new.
@@ -204,6 +208,18 @@ OTPeriodicExportingMetricReader >> forceFlushResult [
 	^ exportLock critical: [
 			  self isStopping ifTrue: [ ^ OTLifecycleResult failure ].
 			  self flushResultAllowStopping: false ]
+]
+
+{ #category : 'lifecycle' }
+OTPeriodicExportingMetricReader >> forgetEarlierSessionAt: aDateAndTime instruments: someInstruments [
+	"Also ends the export the image was saved in the middle of, which belongs to the session that saved it, and starts the export loop again, so that its interval starts with this session. The process is taken without the lock its export may hold, which ending it releases; the image is starting, so no other process starts or stops it meanwhile."
+
+	| process |
+	process := exportProcess.
+	exportProcess := nil.
+	process ifNotNil: [ process terminate ].
+	super forgetEarlierSessionAt: aDateAndTime instruments: someInstruments.
+	self startExportProcess
 ]
 
 { #category : 'initialization' }
