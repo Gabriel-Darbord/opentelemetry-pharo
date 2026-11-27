@@ -56,7 +56,7 @@ OTAsynchronousMetricInstrument >> collectFor: anOTMetricReader into: aCollection
 { #category : 'collecting' }
 OTAsynchronousMetricInstrument >> collectsMeasurements [
 
-	^ meter notNil and: [ meter enablesMetricCollection ]
+	^ meter notNil and: [ meter enablesInstrument: self ]
 ]
 
 { #category : 'collecting' }

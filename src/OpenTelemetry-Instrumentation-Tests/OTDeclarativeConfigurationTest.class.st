@@ -50,6 +50,67 @@ OTDeclarativeConfigurationTest >> tearDown [
 ]
 
 { #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileConfiguresDeclarativeMetricViewEnabled [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console:
+  views:
+    - selector:
+        instrument_name: requests.total
+      stream:
+        enabled/development: true
+    - selector:
+        instrument_name: errors.total
+      stream:
+        enabled/development: false
+'
+		environmentValues: Dictionary new
+		during: [
+				| meter names reader |
+				reader := OTMeterProvider current metricReaders first.
+				meter := OTMeterProvider current meterNamed: 'config.metrics'.
+				(meter
+					 counterNamed: 'requests.total'
+					 unit: '1'
+					 description: ''
+					 advice: { ('OptIn' -> true) } asDictionary) add: 1.
+				(meter counterNamed: 'errors.total') add: 1.
+				(meter counterNamed: 'other.total') add: 1.
+				names := reader collectSnapshot metrics collect: [ :each | each name ] as: Set.
+				self assert: names equals: #( 'requests.total' 'other.total' ) asSet ]
+]
+
+{ #category : 'tests' }
+OTDeclarativeConfigurationTest >> testConfigFileConfiguresPeriodicMetricReaderMaxExportBatchSize [
+
+	self
+		withConfigurationFileContents: 'file_format: "1.1"
+meter_provider:
+  readers:
+    - periodic:
+        max_export_batch_size: 250
+        exporter:
+          console:
+    - periodic:
+        exporter:
+          otlp_http:
+            endpoint: http://collector:4318/custom/metrics
+'
+		environmentValues: Dictionary new
+		during: [
+				| readers |
+				readers := OTMeterProvider current metricReaders.
+				self assert: readers size equals: 2.
+				self assert: readers first maxExportBatchSize equals: 250.
+				self assert: readers second maxExportBatchSize isNil ]
+]
+
+{ #category : 'tests' }
 OTDeclarativeConfigurationTest >> testConfigFileConfiguresPrometheusDefaultAggregation [
 
 	self

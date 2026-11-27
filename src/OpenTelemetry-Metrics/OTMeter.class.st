@@ -133,6 +133,18 @@ OTMeter >> duplicateRegistrationResolutionHintFor: anExistingInstrument requeste
 ]
 
 { #category : 'testing' }
+OTMeter >> enablesInstrument: anOTMetricInstrument [
+	"Whether any stream of an instrument produces metric data: none when my config disables me, or when every view that resolves for it drops it, or, with no such view, when it is OptIn."
+
+	| resolvedViews |
+	self enablesMetricCollection ifFalse: [ ^ false ].
+	resolvedViews := (provider matchingViewsFor: anOTMetricInstrument) select: [ :each |
+		                 anOTMetricInstrument supportsAggregation: each aggregation ].
+	resolvedViews ifEmpty: [ ^ anOTMetricInstrument isOptIn not ].
+	^ resolvedViews anySatisfy: [ :each | each aggregation ~= #drop and: [ each enablesInstrument: anOTMetricInstrument ] ]
+]
+
+{ #category : 'testing' }
 OTMeter >> enablesMetricCollection [
 
 	^ provider notNil and: [ (provider meterConfigFor: self instrumentationScope) enabled ]
@@ -141,14 +153,7 @@ OTMeter >> enablesMetricCollection [
 { #category : 'testing' }
 OTMeter >> enablesSynchronousInstrument: anOTMetricInstrument [
 
-	| matchingViews resolvedViews |
-	self enablesMetricCollection ifFalse: [ ^ false ].
-	provider ifNil: [ ^ false ].
-	matchingViews := provider matchingViewsFor: anOTMetricInstrument.
-	matchingViews ifEmpty: [ ^ true ].
-	resolvedViews := matchingViews select: [ :each | anOTMetricInstrument supportsAggregation: each aggregation ].
-	resolvedViews ifEmpty: [ ^ true ].
-	^ resolvedViews anySatisfy: [ :each | each aggregation ~= #drop ]
+	^ self enablesInstrument: anOTMetricInstrument
 ]
 
 { #category : 'testing' }
@@ -321,7 +326,13 @@ OTMeter >> normalizedInstrumentAdviceFrom: aDictionary [
 				ifTrue: [
 						(self normalizedExplicitBucketBoundariesFrom: each value) ifNotNil: [ :boundaries |
 							normalized at: 'ExplicitBucketBoundaries' put: boundaries ] ]
-				ifFalse: [ normalized at: each key put: each value ] ].
+				ifFalse: [
+						(keyString sameAs: 'OptIn')
+							ifTrue: [
+									(each value == true or: [ each value == false ])
+										ifTrue: [ normalized at: 'OptIn' put: each value ]
+										ifFalse: [ self noteInvalidInstrumentAdviceNamed: 'OptIn' value: each value reason: 'expected a boolean' ] ]
+							ifFalse: [ normalized at: each key put: each value ] ] ].
 	^ normalized
 ]
 

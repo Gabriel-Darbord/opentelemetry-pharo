@@ -284,6 +284,7 @@ OTConfigurationSource class >> configureMetricView: anOTMetricView streamFrom: a
 	(self stringValueAt: 'description' in: aDictionary) ifNotNil: [ :value | anOTMetricView streamDescription: value ].
 	(self integerValueAt: 'aggregation_cardinality_limit' in: aDictionary) ifNotNil: [ :value |
 		anOTMetricView aggregationCardinalityLimit: value ].
+	(self booleanValueAt: 'enabled/development' in: aDictionary) ifNotNil: [ :value | anOTMetricView enabled: value ].
 	attributeFilter := self metricViewAttributeFilterFrom: aDictionary.
 	attributeFilter ifNotNil: [
 			anOTMetricView
@@ -312,7 +313,11 @@ OTConfigurationSource class >> configurePeriodicMetricReader: anOTPeriodicExport
 		exportIntervalMillis:
 			(self positiveIntegerValueAt: 'interval' in: aDictionary default: anOTPeriodicExportingMetricReader exportIntervalMillis);
 		exportTimeoutMillis:
-			(self positiveIntegerValueAt: 'timeout' in: aDictionary default: anOTPeriodicExportingMetricReader exportTimeoutMillis).
+			(self positiveIntegerValueAt: 'timeout' in: aDictionary default: anOTPeriodicExportingMetricReader exportTimeoutMillis);
+		maxExportBatchSize: (self
+				 positiveIntegerValueAt: 'max_export_batch_size'
+				 in: aDictionary
+				 default: anOTPeriodicExportingMetricReader maxExportBatchSize).
 	^ anOTPeriodicExportingMetricReader
 ]
 
@@ -1666,6 +1671,11 @@ OTConfigurationSource class >> projectMetricReadersFrom: aDictionary into: anEnv
 					put: 'OTEL_METRIC_EXPORT_TIMEOUT'
 					from: 'timeout'
 					in: periodicSettings
+					into: anEnvironment.
+				self
+					put: 'OTEL_METRIC_EXPORT_MAX_BATCH_SIZE'
+					from: 'max_export_batch_size'
+					in: periodicSettings
 					into: anEnvironment ].
 		metricExporterSettings := self sharedOtlpMetricExporterSettingsFromReaders: readers.
 		metricExporterSettings ifNotNil: [
@@ -1969,7 +1979,7 @@ OTConfigurationSource class >> projectedPeriodicMetricReaderSettingsFrom: aDicti
 
 	| settings |
 	settings := OrderedDictionary new.
-	#( 'interval' 'timeout' ) do: [ :each |
+	#( 'interval' 'timeout' 'max_export_batch_size' ) do: [ :each |
 		(self stringValueAt: each in: aDictionary) ifNotNil: [ :value | settings at: each put: value ] ].
 	^ settings
 ]

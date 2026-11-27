@@ -127,6 +127,7 @@ from the same saved file does not repeat its identifiers.
 Useful messages include:
 
 - `kind:`
+- `spanType:`
 - `inContext:`
 - `noParent`
 - `attributeAt:put:`
@@ -136,6 +137,12 @@ Useful messages include:
 - `addLinkSpanContext:`
 - `startTimestamp:`
 - `startSpan`
+
+`spanType:` gives the span a type, a development-status name such as
+`http.client` that tells what kind of operation it is, which `OTSpan>>spanType`
+answers. A type must start with a letter and hold at most
+255 letters, digits, `_` and `.`; another one logs an error and the span starts
+without it. OTLP has no field for it, so exporters leave it out.
 
 Prefer setting attributes on the builder before `startSpan`. Samplers can only
 see attributes that are already present during span creation.

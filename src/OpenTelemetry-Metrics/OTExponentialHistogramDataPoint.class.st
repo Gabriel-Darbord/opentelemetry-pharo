@@ -60,6 +60,13 @@ OTExponentialHistogramDataPoint >> exemplars: aCollection [
 	exemplars := aCollection ifNil: [ #(  ) ] ifNotNil: [ aCollection asArray ]
 ]
 
+{ #category : 'testing' }
+OTExponentialHistogramDataPoint >> hasSum [
+	"Whether my sum is set: a point another producer made may have none, which sum reads as 0 and an exporter leaves out."
+
+	^ sum isNotNil
+]
+
 { #category : 'accessing' }
 OTExponentialHistogramDataPoint >> max [
 

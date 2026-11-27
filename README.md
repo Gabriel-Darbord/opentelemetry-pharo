@@ -28,7 +28,7 @@ The repository currently ships:
 
 For the repository features currently shipped, the applicable OpenTelemetry
 `MUST`, `MUST NOT`, `SHOULD`, and `SHOULD NOT` requirements are implemented
-against OpenTelemetry Specification `v1.62.0`.
+against OpenTelemetry Specification `v1.63.0`.
 
 The remaining known gaps are optional Prometheus native histogram `MAY` items.
 

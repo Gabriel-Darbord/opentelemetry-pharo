@@ -22,7 +22,7 @@ Start here:
 ## Compliance Status
 
 The current documentation and standing audit are based on OpenTelemetry
-Specification `v1.62.0`.
+Specification `v1.63.0`.
 
 For the repository features documented here, the audited applicable
 OpenTelemetry `MUST`, `MUST NOT`, `SHOULD`, and `SHOULD NOT` requirements are

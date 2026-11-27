@@ -218,6 +218,13 @@ OTMeterProvider class >> metricExportIntervalMillisForExporter: anExporter [
 ]
 
 { #category : 'private - configuration' }
+OTMeterProvider class >> metricExportMaxBatchSize [
+	"The most data points one export carries, or nil for no limit."
+
+	^ self positiveIntegerEnvironmentValueAt: 'OTEL_METRIC_EXPORT_MAX_BATCH_SIZE' default: nil
+]
+
+{ #category : 'private - configuration' }
 OTMeterProvider class >> metricExportTimeoutMillis [
 
 	^ self
@@ -403,7 +410,8 @@ OTMeterProvider class >> readerForExporter: anExporter [
 	reader := OTPeriodicExportingMetricReader exporter: anExporter.
 	reader
 		exportIntervalMillis: (self metricExportIntervalMillisForExporter: anExporter);
-		exportTimeoutMillis: self metricExportTimeoutMillis.
+		exportTimeoutMillis: self metricExportTimeoutMillis;
+		maxExportBatchSize: self metricExportMaxBatchSize.
 	^ reader
 ]
 

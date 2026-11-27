@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.4.0
+
+Follows OpenTelemetry specification v1.63.0.
+
+- `OTSpanBuilder>>spanType:` gives a span a type, which `OTSpan>>spanType`
+  answers (development). A type that is not a letter followed by at most 254
+  letters, digits, `_` or `.` logs an error, and the span starts without it.
+  OTLP has no field for it.
+- An instrument whose advice holds `OptIn: true` produces no metric data
+  unless a view enables it, and `OTMetricView>>enabled:` enables or disables a
+  stream (development). Declarative configuration reads `enabled/development`
+  on a view's stream. Advice whose `OptIn` is not a boolean is left out with a
+  warning.
+- `OTEL_METRIC_EXPORT_MAX_BATCH_SIZE` and the declarative periodic reader's
+  `max_export_batch_size` set the reader's largest export batch.
+- A histogram point without a sum, which only another producer can make, has
+  no `_sum` sample in a Prometheus scrape and no `sum` field in OTLP. Both
+  wrote 0.
+
 ## v1.3.2
 
 - An image started from its saved file drops the log records its batch

@@ -744,6 +744,22 @@ OTMeterProviderTest >> testIndependentDeltaReadersDoNotShareCollectionState [
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testInvalidOptInAdviceIsIgnoredWithWarning [
+
+	self withInstrumentWarningsDo: [ :warnings |
+			| instrument |
+			instrument := (OTMeterProvider new meterNamed: 'demo.metrics')
+				              counterNamed: 'requests.total'
+				              unit: '1'
+				              description: ''
+				              advice: { ('OptIn' -> 'yes') } asDictionary.
+			self assert: instrument enabled.
+			self deny: (instrument advice includesKey: 'OptIn').
+			self assert: warnings size equals: 1.
+			self assert: (warnings first includesSubstring: 'OptIn') ]
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testMeterConfiguratorCanDisableExistingMeterInstruments [
 
 	| instrument meter provider |
@@ -1509,6 +1525,50 @@ OTMeterProviderTest >> testOpenTelemetryMeterProviderUsesCurrentGlobalSingleton 
 ]
 
 { #category : 'tests' }
+OTMeterProviderTest >> testOptInFalseInstrumentIsEnabledAsWithoutTheAdvice [
+
+	| instrument provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics')
+		              counterNamed: 'requests.total'
+		              unit: '1'
+		              description: ''
+		              advice: { ('OptIn' -> false) } asDictionary.
+	self assert: instrument enabled.
+	instrument add: 1.
+	self assert: reader collectSnapshot metrics first points first value equals: 1
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testOptInInstrumentIsDisabledAndProducesNoMetricWithoutAView [
+
+	| instrument observed provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics')
+		              counterNamed: 'requests.total'
+		              unit: '1'
+		              description: ''
+		              advice: { ('OptIn' -> true) } asDictionary.
+	observed := false.
+	(provider meterNamed: 'demo.metrics')
+		observableGaugeNamed: 'queue.size'
+		callbacks: { [ :observer |
+				observed := true.
+				observer observe: 3 ] }
+		unit: '1'
+		description: ''
+		advice: { ('OptIn' -> true) } asDictionary.
+	self deny: instrument enabled.
+	instrument add: 1.
+	self assert: reader collectSnapshot metrics isEmpty.
+	self deny: observed
+]
+
+{ #category : 'tests' }
 OTMeterProviderTest >> testPeriodicExportingMetricReaderCollectExportsSnapshot [
 
 	| exporter provider reader snapshot |
@@ -2118,6 +2178,79 @@ OTMeterProviderTest >> testSynchronousNoopInstrumentOperationsAreSafe [
 	self shouldnt: [ upDownCounter add: -1 ] raise: Error.
 	self shouldnt: [ histogram record: 12.5 ] raise: Error.
 	self shouldnt: [ gauge record: 7 ] raise: Error
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testViewEnabledFalseDropsTheStreamWhateverItsAggregation [
+
+	| instrument provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider
+		addView: ((OTMetricView named: 'requests.total')
+				 aggregation: #sum;
+				 enabled: false;
+				 yourself);
+		addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics') counterNamed: 'requests.total'.
+	self deny: instrument enabled.
+	instrument add: 1.
+	self assert: reader collectSnapshot metrics isEmpty
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testViewEnabledIsUnsetUnlessGiven [
+
+	self assert: (OTMetricView named: 'requests.total') enabled isNil
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testViewEnabledTrueEnablesOptInInstrumentKeepingItsOtherAdvice [
+
+	| instrument point provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider
+		addView: ((OTMetricView named: 'requests.total')
+				 enabled: true;
+				 yourself);
+		addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics')
+		              counterNamed: 'requests.total'
+		              unit: '1'
+		              description: ''
+		              advice: {
+				              ('OptIn' -> true).
+				              ('Attributes' -> #( 'method' )) } asDictionary.
+	self assert: instrument enabled.
+	instrument add: 1 attributes: {
+			('method' -> 'GET').
+			('status' -> 200) }.
+	point := reader collectSnapshot metrics first points first.
+	self assert: point value equals: 1.
+	self assert: point attributes keys asArray equals: #( 'method' )
+]
+
+{ #category : 'tests' }
+OTMeterProviderTest >> testViewWithoutEnabledDoesNotEnableOptInInstrument [
+
+	| instrument provider reader |
+	provider := OTMeterProvider new.
+	reader := OTInMemoryMetricReader new.
+	provider
+		addView: ((OTMetricView named: 'requests.total')
+				 aggregation: #sum;
+				 streamName: 'renamed.total';
+				 yourself);
+		addMetricReader: reader.
+	instrument := (provider meterNamed: 'demo.metrics')
+		              counterNamed: 'requests.total'
+		              unit: '1'
+		              description: ''
+		              advice: { ('OptIn' -> true) } asDictionary.
+	self deny: instrument enabled.
+	instrument add: 1.
+	self assert: reader collectSnapshot metrics isEmpty
 ]
 
 { #category : 'tests' }

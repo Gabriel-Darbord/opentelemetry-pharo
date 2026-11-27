@@ -50,8 +50,9 @@ The current metrics implementation provides:
   `resource_constant_labels`, `scope_info_enabled`, and
   `target_info_enabled`
 - OTLP metric auto-configuration through `OTEL_METRICS_EXPORTER`,
-  `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`, `OTEL_METRIC_EXPORT_INTERVAL`, and
-  `OTEL_METRIC_EXPORT_TIMEOUT`, plus `OTEL_METRICS_EXEMPLAR_FILTER`
+  `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`, `OTEL_METRIC_EXPORT_INTERVAL`,
+  `OTEL_METRIC_EXPORT_TIMEOUT`, and `OTEL_METRIC_EXPORT_MAX_BATCH_SIZE`, plus
+  `OTEL_METRICS_EXEMPLAR_FILTER`
 - invalid meter-name normalization with diagnostic warnings
 - provider lifecycle behavior for `shutdown` and `forceFlush`
 
@@ -168,7 +169,7 @@ memoryGauge := meter
 
 Current metric behavior:
 
-- provider-backed synchronous instruments answer `true` for `enabled`, unless all resolved matching views are `#drop`
+- provider-backed synchronous instruments answer `true` for `enabled`, unless all resolved matching views are `#drop` or disabled, or no view matches and the instrument's advice is `OptIn`
 - no-op instruments and asynchronous instruments answer `false` for `enabled`
 - synchronous recording messages append `OTMetricMeasurement` entries to the provider-owned measurement store, which keeps each one until every registered reader has collected it, and keeps none when the provider has no reader
 - a reader is handed each synchronous measurement once, at its first collection after the measurement was recorded; a reader added later collects only the measurements recorded after it was added, and one shut down holds none back
@@ -182,7 +183,7 @@ Current metric behavior:
 - `OTMetricReader` applies a default per-instrument cardinality limit of `2000`, and you can override it with `cardinalityLimitSelector:`
 - matching views can override the reader default cardinality limit per stream
 - matching views take precedence over instrument attribute advice for `attribute_keys`
-- exemplar sampling preserves measurement attributes dropped by view filtering
+- exemplar sampling preserves measurement attributes dropped by view filtering or by the instrument's `Attributes` advice
 - `OTEL_METRICS_EXEMPLAR_FILTER` accepts `always_on`, `always_off`, and `trace_based`
 - matching views can override the exemplar reservoir factory per stream
 - asynchronous callback blocks may accept either zero arguments or one observer argument
@@ -204,7 +205,9 @@ Current metric behavior:
   with the start, and a periodic reader ends the export it was saved in the
   middle of and starts its interval again
 - `OTPeriodicExportingMetricReader>>maxExportBatchSize:` limits each batch by
-  metric data-point count; `exportTimeoutMillis:` applies to each batch export
+  metric data-point count, which `OTEL_METRIC_EXPORT_MAX_BATCH_SIZE` and the
+  declarative `max_export_batch_size` set; `exportTimeoutMillis:` applies to
+  each batch export
 - later batches are still attempted after an earlier batch fails or times out;
   force-flush reports the combined unsuccessful result and still flushes the exporter
 - an OTLP metric exporter whose export failed drops the batches that follow,
@@ -219,6 +222,7 @@ Current metric behavior:
 - Prometheus-exported metric family names include translated unit suffixes when the OpenTelemetry unit maps cleanly to Prometheus unit words
 - Prometheus 1.0 and OpenMetrics 1.0 scrapes include `# UNIT` metadata when a translated unit is available
 - Prometheus scrapes export summary quantiles on the base metric name plus `_sum` and `_count` companion samples
+- a histogram point without a sum, which only another producer can make, has no `_sum` sample in a Prometheus scrape and no `sum` field in OTLP
 - OpenMetrics scrapes now emit exemplars for monotonic counter samples and histogram bucket samples, including trace/span identifiers when present and respecting the OpenMetrics exemplar label budget
 - gauge-like metrics with `prometheus.type` metadata now preserve `unknown`, `info`, and `stateset` compatibility hints during Prometheus export, using the negotiated format's closest supported representation
 - conflicting Prometheus family `TYPE` metadata drops the whole exported family with a diagnostic warning, while conflicting `HELP` or `UNIT` metadata keeps the samples and emits only one metadata line
@@ -279,6 +283,17 @@ Supported stream overrides:
 - `aggregationParameters:`
 - `aggregationCardinalityLimit:`
 - `exemplarReservoirFactory:`
+- `enabled:` (development)
+
+An instrument whose advice holds `OptIn` set to `true` produces no metric
+data unless a view enables it. `enabled: true` on a matching view enables its
+stream, `enabled: false` disables it, and a view that leaves `enabled` unset
+follows the advice. Both are development-status in the specification, as is
+the declarative `enabled/development` stream setting that sets `enabled:`.
+
+```smalltalk
+provider addView: ((OTMetricView named: 'db.client.connection.wait_time') enabled: true).
+```
 
 Supported aggregation symbols are:
 

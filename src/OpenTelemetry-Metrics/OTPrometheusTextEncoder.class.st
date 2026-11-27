@@ -702,14 +702,14 @@ OTPrometheusTextEncoder >> sampleSpecificationsForHistogram: anOTHistogramMetric
 							 value: cumulative
 							 exemplar: (bucketExemplars at: index ifAbsent: [ nil ])) ].
 			cumulative := cumulative + (eachPoint bucketCounts at: eachPoint explicitBounds size + 1 ifAbsent: [ 0 ]).
-			sampleSpecifications
-				add: (self
-						 sampleSpecificationNamed: bucketMetricName
-						 labels: (self labelsByAdding: 'le' value: '+Inf' to: baseLabels)
-						 value: cumulative
-						 exemplar: (bucketExemplars at: eachPoint explicitBounds size + 1 ifAbsent: [ nil ]));
-				add: (self sampleSpecificationNamed: sumMetricName labels: baseLabels value: eachPoint sum);
-				add: (self sampleSpecificationNamed: countMetricName labels: baseLabels value: eachPoint count) ].
+			sampleSpecifications add: (self
+					 sampleSpecificationNamed: bucketMetricName
+					 labels: (self labelsByAdding: 'le' value: '+Inf' to: baseLabels)
+					 value: cumulative
+					 exemplar: (bucketExemplars at: eachPoint explicitBounds size + 1 ifAbsent: [ nil ])).
+			eachPoint hasSum ifTrue: [
+				sampleSpecifications add: (self sampleSpecificationNamed: sumMetricName labels: baseLabels value: eachPoint sum) ].
+			sampleSpecifications add: (self sampleSpecificationNamed: countMetricName labels: baseLabels value: eachPoint count) ].
 	^ sampleSpecifications
 ]
 
@@ -894,11 +894,12 @@ OTPrometheusTextEncoder >> writeHistogram: anOTHistogramMetricData on: aStream [
 				labels: (self labelsByAdding: 'le' value: '+Inf' to: baseLabels)
 				value: cumulative
 				on: aStream.
-			self
-				writeSampleNamed: sumName
-				labels: baseLabels
-				value: eachPoint sum
-				on: aStream.
+			eachPoint hasSum ifTrue: [
+					self
+						writeSampleNamed: sumName
+						labels: baseLabels
+						value: eachPoint sum
+						on: aStream ].
 			self
 				writeSampleNamed: countName
 				labels: baseLabels

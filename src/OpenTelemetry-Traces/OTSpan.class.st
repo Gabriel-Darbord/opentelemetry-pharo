@@ -31,7 +31,8 @@ Class {
 		'droppedEventsCount',
 		'droppedLinksCount',
 		'stateLock',
-		'endingProcess'
+		'endingProcess',
+		'spanType'
 	],
 	#classVars : [
 		'Current'
@@ -177,6 +178,7 @@ OTSpan class >> fromSton: stonReader [
 	span restoreName: (representation at: #name).
 	span restoreContext: (representation at: #context).
 	span restoreKind: (representation at: #kind).
+	span restoreSpanType: (representation at: #spanType ifAbsent: [ nil ]).
 	scope := representation at: #instrumentationScope ifAbsent: [ OTInstrumentationScope named: '' ].
 	span restoreInstrumentationScope: scope.
 	representation at: #parentSpanContext ifPresent: [ :parentSpanContext | span restoreParentSpanContext: parentSpanContext ].
@@ -1176,6 +1178,13 @@ OTSpan >> restoreSpanContext: anOTSpanContext [
 ]
 
 { #category : 'private' }
+OTSpan >> restoreSpanType: aStringOrNil [
+
+	self ensureMutableCreationState.
+	spanType := aStringOrNil
+]
+
+{ #category : 'private' }
 OTSpan >> restoreStartTime: aDateAndTime [
 
 	startTime := aDateAndTime
@@ -1229,6 +1238,13 @@ OTSpan >> spanId [
 ]
 
 { #category : 'accessing' }
+OTSpan >> spanType [
+	"Development. The class of spans I belong to, or nil."
+
+	^ stateLock critical: [ spanType ]
+]
+
+{ #category : 'accessing' }
 OTSpan >> startTime [
 
 	^ stateLock critical: [ startTime ]
@@ -1269,6 +1285,7 @@ OTSpan >> stonOn: stonWriter [
 				at: #endTime put: endTime;
 				at: #status put: statusToExport;
 				at: #traceFlags put: spanContextToExport traceFlags.
+			spanType ifNotNil: [ map at: #spanType put: spanType ].
 			scope isEmpty ifFalse: [ map at: #instrumentationScope put: scope ].
 			parentContext ifNotNil: [ map at: #parentSpanContext put: parentContext ].
 			traceStateToExport ifNotNil: [ :aTraceState | map at: #traceState put: aTraceState asHeaderValue ].
