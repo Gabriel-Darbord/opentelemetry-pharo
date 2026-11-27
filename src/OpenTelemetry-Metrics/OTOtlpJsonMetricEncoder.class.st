@@ -62,8 +62,10 @@ OTOtlpJsonMetricEncoder >> exponentialHistogramDataPointDataFor: anOTExponential
 		data at: 'startTimeUnixNano' put: (self unixNanosecondsStringFor: anOTExponentialHistogramDataPoint startTimestamp) ].
 	data
 		at: 'timeUnixNano' put: (self unixNanosecondsStringFor: anOTExponentialHistogramDataPoint timestamp);
-		at: 'count' put: anOTExponentialHistogramDataPoint count asString;
-		at: 'sum' put: (self jsonDoubleValueFor: anOTExponentialHistogramDataPoint sum);
+		at: 'count' put: anOTExponentialHistogramDataPoint count asString.
+	anOTExponentialHistogramDataPoint hasSum ifTrue: [
+		data at: 'sum' put: (self jsonDoubleValueFor: anOTExponentialHistogramDataPoint sum) ].
+	data
 		at: 'scale' put: anOTExponentialHistogramDataPoint scale;
 		at: 'zeroCount' put: anOTExponentialHistogramDataPoint zeroCount asString;
 		at: 'positive' put: (self exponentialBucketRangeDataFor: anOTExponentialHistogramDataPoint positiveBuckets);
@@ -118,8 +120,9 @@ OTOtlpJsonMetricEncoder >> histogramDataPointDataFor: anOTHistogramDataPoint [
 		data at: 'startTimeUnixNano' put: (self unixNanosecondsStringFor: anOTHistogramDataPoint startTimestamp) ].
 	data
 		at: 'timeUnixNano' put: (self unixNanosecondsStringFor: anOTHistogramDataPoint timestamp);
-		at: 'count' put: anOTHistogramDataPoint count asString;
-		at: 'sum' put: (self jsonDoubleValueFor: anOTHistogramDataPoint sum);
+		at: 'count' put: anOTHistogramDataPoint count asString.
+	anOTHistogramDataPoint hasSum ifTrue: [ data at: 'sum' put: (self jsonDoubleValueFor: anOTHistogramDataPoint sum) ].
+	data
 		at: 'attributes' put: (self keyValueDataFrom: anOTHistogramDataPoint attributes);
 		at: 'bucketCounts' put: (anOTHistogramDataPoint bucketCounts collect: [ :each | each asString ]) asArray;
 		at: 'explicitBounds' put: (anOTHistogramDataPoint explicitBounds collect: [ :each | self jsonDoubleValueFor: each ]) asArray.

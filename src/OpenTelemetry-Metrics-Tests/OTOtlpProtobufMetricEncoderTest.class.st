@@ -67,6 +67,35 @@ OTOtlpProtobufMetricEncoderTest >> testEncodeMetricEncodesMetadata [
 ]
 
 { #category : 'tests' }
+OTOtlpProtobufMetricEncoderTest >> testWriteHistogramDataPointOmitsAnUnsetSum [
+
+	| fields point reader writer |
+	point := OTHistogramDataPoint
+		         attributes: #(  )
+		         count: 2
+		         sum: nil
+		         min: nil
+		         max: nil
+		         explicitBounds: #( 10 )
+		         bucketCounts: #( 1 1 )
+		         startTimestamp: nil
+		         timestamp: DateAndTime unixEpoch + (Duration nanoSeconds: 2).
+	writer := OTProtobufWriter withBytes.
+	encoder writeHistogramDataPoint: point on: writer.
+	reader := OTProtobufReader on: writer contents.
+	fields := OrderedCollection new.
+	[ reader atEnd ] whileFalse: [
+			| tag |
+			tag := reader readTag.
+			fields add: tag first.
+			tag second = 1 ifTrue: [ reader readFixed64 ].
+			tag second = 2 ifTrue: [ reader readBytes ].
+			tag second = 0 ifTrue: [ reader readVarint ] ].
+	self assert: (fields includes: 4).
+	self deny: (fields includes: 5)
+]
+
+{ #category : 'tests' }
 OTOtlpProtobufMetricEncoderTest >> testWriteNumberDataPointEncodesExemplar [
 
 	| attributeReader exemplar exemplarReader point reader writer |

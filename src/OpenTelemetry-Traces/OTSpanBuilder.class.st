@@ -13,7 +13,8 @@ Class {
 		'attributes',
 		'startTime',
 		'rootRequested',
-		'links'
+		'links',
+		'spanType'
 	],
 	#category : 'OpenTelemetry-Traces',
 	#package : 'OpenTelemetry-Traces'
@@ -32,6 +33,17 @@ OTSpanBuilder class >> forTracer: aTracer name: aString [
 	builder := self new.
 	builder restoreTracer: aTracer spanName: aString.
 	^ builder
+]
+
+{ #category : 'private' }
+OTSpanBuilder class >> isSpanTypeSyntax: anObject [
+
+	| isLetter |
+	anObject isString ifFalse: [ ^ false ].
+	(anObject size between: 1 and: 255) ifFalse: [ ^ false ].
+	isLetter := [ :each | (each between: $A and: $Z) or: [ each between: $a and: $z ] ].
+	(isLetter value: anObject first) ifFalse: [ ^ false ].
+	^ anObject allSatisfy: [ :each | (isLetter value: each) or: [ (each between: $0 and: $9) or: [ each = $_ or: [ each = $. ] ] ] ]
 ]
 
 { #category : 'private' }
@@ -63,6 +75,20 @@ OTSpanBuilder class >> parentContextWarningSink: aBlock [
 		ifNil: [ OTClassStateStore removeValueAt: #otParentContextWarningSink forClass: self ifAbsent: [ ] ]
 		ifNotNil: [ OTClassStateStore valueAt: #otParentContextWarningSink forClass: self put: aBlock ].
 	^ self parentContextWarningSink
+]
+
+{ #category : 'private' }
+OTSpanBuilder class >> validatedSpanType: anObject [
+	"The span type a span starts with: nil for none or an empty one, and for one that breaks the span type syntax, which is logged as an error."
+
+	(anObject isNil or: [ anObject isString and: [ anObject isEmpty ] ]) ifTrue: [ ^ nil ].
+	(self isSpanTypeSyntax: anObject) ifTrue: [ ^ anObject asString ].
+	OTDiagnosticLogger current error: (String streamContents: [ :stream |
+				 stream
+					 nextPutAll: 'OpenTelemetry started a span without its invalid span type: ';
+					 print: anObject;
+					 nextPutAll: ' (a letter followed by at most 254 ASCII letters, digits, underscores and dots)' ]).
+	^ nil
 ]
 
 { #category : 'configuring' }
@@ -234,10 +260,17 @@ OTSpanBuilder >> restoreTracer: aTracer spanName: aString [
 	spanName := ''
 ]
 
+{ #category : 'configuring' }
+OTSpanBuilder >> spanType: aString [
+	"Development. The class of spans the span belongs to, as semantic conventions define it, such as http.client: it identifies the span's structure, its name format, kind, attributes and errors, and so has low cardinality, lower than the span name's. It is a letter followed by at most 254 ASCII letters, digits, underscores and dots, and cannot change once the span starts. An empty one is none. The SDK starts a span with a span type that breaks this syntax without one, and logs an error."
+
+	spanType := aString
+]
+
 { #category : 'starting' }
 OTSpanBuilder >> startSpan [
 
-	| effectiveParentContext effectiveTraceFlags effectiveTraceState idGenerator parentSpan parentSpanContext provider samplingResult span traceId |
+	| effectiveParentContext effectiveSpanType effectiveTraceFlags effectiveTraceState idGenerator parentSpan parentSpanContext provider samplingResult span traceId |
 	effectiveParentContext := usesCurrentContext
 		                          ifTrue: [ OTSpan currentContext ]
 		                          ifFalse: [ self class normalizedParentContextFrom: parentContext ].
@@ -270,6 +303,7 @@ OTSpanBuilder >> startSpan [
 		              ifFalse: [ tracer parentSpanFrom: effectiveParentContext ].
 	parentSpanContext := parentSpan ifNotNil: [ parentSpan spanContext ].
 	traceId := parentSpanContext ifNil: [ idGenerator generateTraceIdHex ] ifNotNil: [ parentSpanContext traceId ].
+	effectiveSpanType := self class validatedSpanType: spanType.
 	samplingResult := provider
 		                  samplingResultIn: effectiveParentContext
 		                  traceId: traceId
@@ -302,6 +336,7 @@ OTSpanBuilder >> startSpan [
 		restoreContext: (effectiveParentContext withSpan: span);
 		restoreName: spanName;
 		restoreKind: spanKind;
+		restoreSpanType: effectiveSpanType;
 		restoreInstrumentationScope: tracer instrumentationScope;
 		restoreTracerProvider: provider;
 		markStarted.

@@ -18,7 +18,7 @@ release.
 
 For the repository features currently shipped, `opentelemetry-pharo` implements
 the audited applicable OpenTelemetry `MUST`, `MUST NOT`, `SHOULD`, and
-`SHOULD NOT` requirements against OpenTelemetry Specification `v1.62.0`.
+`SHOULD NOT` requirements against OpenTelemetry Specification `v1.63.0`.
 
 Known remaining gaps are limited to optional Prometheus native histogram `MAY`
 work.

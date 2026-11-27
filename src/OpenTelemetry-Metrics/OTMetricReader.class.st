@@ -567,6 +567,9 @@ OTMetricReader >> metricAggregationContextFor: anOTMetricInstrument view: anOTMe
 		               ifNil: [ self aggregationFor: anOTMetricInstrument ]
 		               ifNotNil: [ anOTMetricViewOrNil resolvedAggregationFor: anOTMetricInstrument reader: self ].
 	(anOTMetricInstrument supportsAggregation: aggregation) ifFalse: [ ^ nil ].
+	(anOTMetricViewOrNil
+		 ifNil: [ anOTMetricInstrument isOptIn not ]
+		 ifNotNil: [ anOTMetricViewOrNil enablesInstrument: anOTMetricInstrument ]) ifFalse: [ aggregation := #drop ].
 	attributeFilter := anOTMetricViewOrNil
 		                   ifNil: [ anOTMetricInstrument attributeFilter ]
 		                   ifNotNil: [ anOTMetricViewOrNil resolvedAttributeFilterFor: anOTMetricInstrument ].

@@ -167,9 +167,12 @@ OTOtlpProtobufMetricEncoder >> writeExponentialHistogramDataPoint: anOTExponenti
 		writeTag: 3 wireType: 1;
 		writeFixed64: (self unixNanosecondsFor: anOTExponentialHistogramDataPoint timestamp);
 		writeTag: 4 wireType: 1;
-		writeFixed64: anOTExponentialHistogramDataPoint count;
-		writeTag: 5 wireType: 1;
-		writeDouble: anOTExponentialHistogramDataPoint sum;
+		writeFixed64: anOTExponentialHistogramDataPoint count.
+	anOTExponentialHistogramDataPoint hasSum ifTrue: [
+			aWriter
+				writeTag: 5 wireType: 1;
+				writeDouble: anOTExponentialHistogramDataPoint sum ].
+	aWriter
 		writeTag: 6 wireType: 0;
 		writeSInt32: anOTExponentialHistogramDataPoint scale;
 		writeTag: 7 wireType: 1;
@@ -234,9 +237,10 @@ OTOtlpProtobufMetricEncoder >> writeHistogramDataPoint: anOTHistogramDataPoint o
 		writeFixed64: (self unixNanosecondsFor: anOTHistogramDataPoint timestamp);
 		writeTag: 4 wireType: 1;
 		writeFixed64: anOTHistogramDataPoint count.
-	aWriter
-		writeTag: 5 wireType: 1;
-		writeDouble: anOTHistogramDataPoint sum.
+	anOTHistogramDataPoint hasSum ifTrue: [
+			aWriter
+				writeTag: 5 wireType: 1;
+				writeDouble: anOTHistogramDataPoint sum ].
 	anOTHistogramDataPoint bucketCounts do: [ :each |
 			aWriter
 				writeTag: 6 wireType: 1;

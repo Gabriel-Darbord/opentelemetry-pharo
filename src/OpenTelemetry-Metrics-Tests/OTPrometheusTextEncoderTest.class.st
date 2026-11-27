@@ -619,6 +619,40 @@ OTPrometheusTextEncoderTest >> testEncodeSnapshotOmitsSuffixesWhenTranslationStr
 ]
 
 { #category : 'tests' }
+OTPrometheusTextEncoderTest >> testEncodeSnapshotOmitsTheSumOfAHistogramPointThatHasNone [
+
+	| metric point snapshot |
+	point := OTHistogramDataPoint
+		         attributes: #(  )
+		         count: 3
+		         sum: nil
+		         min: nil
+		         max: nil
+		         explicitBounds: #( 2 )
+		         bucketCounts: #( 2 1 )
+		         startTimestamp: DateAndTime unixEpoch
+		         timestamp: DateAndTime unixEpoch.
+	metric := OTHistogramMetricData new.
+	metric
+		instrumentationScope: self sampleScope;
+		name: 'request.duration';
+		unit: 'ms';
+		points: { point };
+		temporality: #cumulative.
+	snapshot := OTMetricSnapshot
+		            resource: OTResource empty
+		            measurements: #(  )
+		            metrics: { metric }
+		            collectedAt: DateAndTime unixEpoch.
+	{
+		(encoder encodeSnapshot: snapshot).
+		(encoder encodeSnapshot: snapshot format: #openMetricsText100) } do: [ :text |
+			self assert: (text includesSubstring: 'request_duration_milliseconds_count').
+			self assert: (text includesSubstring: 'request_duration_milliseconds_bucket').
+			self deny: (text includesSubstring: '_sum') ]
+]
+
+{ #category : 'tests' }
 OTPrometheusTextEncoderTest >> testEncodeSnapshotUsesInfoTypeHintAcrossFormats [
 
 	| metric point prometheusText openMetricsText snapshot |

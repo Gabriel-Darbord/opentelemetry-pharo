@@ -146,6 +146,17 @@ OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredMetricReaderInt
 ]
 
 { #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentUsesConfiguredMetricReaderMaxExportBatchSize [
+
+	self
+		withEnvironmentValues: (Dictionary new
+				 at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+				 at: 'OTEL_METRIC_EXPORT_MAX_BATCH_SIZE' put: '250';
+				 yourself)
+		during: [ self assert: OTMeterProvider current metricReaders first maxExportBatchSize equals: 250 ]
+]
+
+{ #category : 'tests' }
 OTMetricEnvironmentConfigurationTest >> testCurrentUsesConsoleExporterWithShorterDefaultInterval [
 
 	self
@@ -441,6 +452,22 @@ OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidMetricReader
 				equals:
 					#( 'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for ''OTEL_METRIC_EXPORT_INTERVAL'': ''invalid'''
 					   'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for ''OTEL_METRIC_EXPORT_TIMEOUT'': ''-1''' ) ]
+]
+
+{ #category : 'tests' }
+OTMetricEnvironmentConfigurationTest >> testCurrentWarnsAboutInvalidMetricReaderMaxExportBatchSizeAndKeepsNoLimit [
+
+	self withWarningsDo: [ :warnings |
+			self
+				withEnvironmentValues: (Dictionary new
+						 at: 'OTEL_METRICS_EXPORTER' put: 'otlp';
+						 at: 'OTEL_METRIC_EXPORT_MAX_BATCH_SIZE' put: '0';
+						 yourself)
+				during: [ self assert: OTMeterProvider current metricReaders first maxExportBatchSize isNil ].
+			self
+				assert: warnings asArray
+				equals:
+				#( 'OpenTelemetry periodic metric reader configuration was invalid and has been ignored for ''OTEL_METRIC_EXPORT_MAX_BATCH_SIZE'': ''0''' ) ]
 ]
 
 { #category : 'tests' }

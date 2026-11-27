@@ -217,6 +217,42 @@ OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotIncludesMetricMetadata [
 ]
 
 { #category : 'tests' }
+OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotOmitsAnUnsetHistogramSum [
+
+	| exponential exponentialMetric histogram metrics payload snapshot |
+	snapshot := self sampleSnapshot.
+	snapshot metrics third points first sum: nil.
+	exponential := OTExponentialHistogramDataPoint new
+		               attributes: #(  );
+		               count: 0;
+		               scale: 0;
+		               zeroCount: 0;
+		               startTimestamp: DateAndTime unixEpoch;
+		               timestamp: DateAndTime unixEpoch;
+		               yourself.
+	exponentialMetric := OTExponentialHistogramMetricData new.
+	exponentialMetric
+		instrumentationScope: snapshot metrics third instrumentationScope;
+		name: 'request.size';
+		unit: 'By';
+		points: { exponential };
+		temporality: #delta.
+	snapshot := OTMetricSnapshot
+		            resource: snapshot resource
+		            measurements: #(  )
+		            metrics: snapshot metrics , { exponentialMetric }
+		            collectedAt: snapshot collectedAt.
+	payload := encoder encodeSnapshot: snapshot.
+	metrics := ((payload at: 'resourceMetrics') first at: 'scopeMetrics') first at: 'metrics'.
+	histogram := (((metrics detect: [ :each | (each at: 'name') = 'request.duration' ]) at: 'histogram') at: 'dataPoints') first.
+	self deny: (histogram includesKey: 'sum').
+	self assert: (histogram at: 'count') equals: '3'.
+	self deny:
+		((((metrics detect: [ :each | (each at: 'name') = 'request.size' ]) at: 'exponentialHistogram') at: 'dataPoints') first
+			 includesKey: 'sum')
+]
+
+{ #category : 'tests' }
 OTOtlpJsonMetricEncoderTest >> testEncodeSnapshotProducesExponentialHistogramJsonPayload [
 
 	| dataPoint histogram payload resourceMetrics scopeMetrics |

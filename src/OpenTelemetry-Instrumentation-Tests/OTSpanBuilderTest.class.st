@@ -6,6 +6,14 @@ Class {
 }
 
 { #category : 'private' }
+OTSpanBuilderTest >> recordingTracer [
+
+	^ (OTTracerProvider new
+		   spanProcessor: OTRecordingSpanProcessor new;
+		   yourself) tracerNamed: 'demo.scope'
+]
+
+{ #category : 'private' }
 OTSpanBuilderTest >> sampledParentSpan [
 
 	^ (OTSpanContext
@@ -473,6 +481,23 @@ OTSpanBuilderTest >> testNoParentReturnsBuilderForFluentConfiguration [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testNonRecordingSpanHasNoSpanType [
+
+	self assert: ((OTTracerProvider new tracerNamed: 'demo.scope') startSpanNamed: 'operation') spanType isNil
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testNoopSpanBuilderTakesASpanType [
+
+	self
+		shouldnt: [
+				((OTNoopTracer new spanBuilderNamed: 'operation')
+					 spanType: 'http.client';
+					 startSpan) end ]
+		raise: Error
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testOkStatusClearsDescriptionAndBecomesFinal [
 
 	| exportRecord provider span tracer |
@@ -875,6 +900,23 @@ OTSpanBuilderTest >> testSetAttributeOverwritesPreviousValueForSameKey [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderAcceptsSpanTypesOfTheSyntaxUpToItsLength [
+
+	| tracer |
+	tracer := self recordingTracer.
+	{
+		'h'.
+		'http.client'.
+		'DB_Query.v2'.
+		('h' , (String new: 254 withAll: $x)) } do: [ :each |
+			self
+				assert: ((tracer spanBuilderNamed: 'operation')
+						 spanType: each;
+						 startSpan) spanType
+				equals: each ]
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testSpanBuilderBulkLinkHelpersAcceptSingleLinkAndIgnoreInvalidCollectionsWithoutError [
 
 	| explicitLink exportRecord provider span tracer upstreamContext |
@@ -1006,6 +1048,19 @@ OTSpanBuilderTest >> testSpanBuilderInvalidStartTimestampIsIgnored [
 ]
 
 { #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderKeepsTheSpanTypeOnTheStartedSpan [
+
+	| span |
+	span := (self recordingTracer spanBuilderNamed: 'GET /users')
+		        kind: OTSpan client;
+		        spanType: 'http.client';
+		        startSpan.
+	self assert: span spanType equals: 'http.client'.
+	span end.
+	self assert: span spanType equals: 'http.client'
+]
+
+{ #category : 'tests' }
 OTSpanBuilderTest >> testSpanBuilderKindNilDefaultsToInternal [
 
 	| provider span tracer |
@@ -1053,6 +1108,45 @@ OTSpanBuilderTest >> testSpanBuilderStartTimestampControlsRecordedStartTime [
 		        startTimestamp: requestedStartTime;
 		        startSpan.
 	self assert: (span asExportRecord at: #startTime) equals: requestedStartTime
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderStartsTheSpanWithoutAnInvalidSpanTypeAndSaysWhy [
+
+	| errors logger tracer |
+	errors := OrderedCollection new.
+	logger := OTDiagnosticLogger current.
+	OTDiagnosticLogger current: (OTDiagnosticLogger new
+			 messageSink: [ :severity :message | severity = OTDiagnosticLogger errorSeverity ifTrue: [ errors add: message ] ];
+			 yourself).
+	[
+		tracer := self recordingTracer.
+		{
+			'1http'.
+			'http-client'.
+			'http client'.
+			('h' , (String new: 255 withAll: $x)).
+			42 } do: [ :each |
+				| span |
+				span := (tracer spanBuilderNamed: 'operation')
+					        spanType: each;
+					        startSpan.
+				self assert: span isRecording.
+				self assert: span spanType isNil description: each printString ].
+		self assert: errors size equals: 5.
+		self assert: (errors first includesSubstring: 'span type') ] ensure: [ OTDiagnosticLogger current: logger ]
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testSpanBuilderTakesAnEmptySpanTypeAsNone [
+
+	| span tracer |
+	tracer := self recordingTracer.
+	self assert: (tracer spanBuilderNamed: 'operation') startSpan spanType isNil.
+	span := (tracer spanBuilderNamed: 'operation')
+		        spanType: '';
+		        startSpan.
+	self assert: span spanType isNil
 ]
 
 { #category : 'tests' }
@@ -1184,6 +1278,21 @@ OTSpanBuilderTest >> testStonRoundTripPreservesParentSpanContextWithoutLegacyPar
 	self assert: roundTripped instrumentationScope equals: tracer instrumentationScope.
 	self deny: (roundTripped asExportRecord includesKey: #parentId).
 	self deny: (roundTripped asExportRecord includesKey: #instrumentationName)
+]
+
+{ #category : 'tests' }
+OTSpanBuilderTest >> testStonRoundTripPreservesTheSpanType [
+
+	| span |
+	span := (self recordingTracer spanBuilderNamed: 'GET /users')
+		        spanType: 'http.client';
+		        startSpan.
+	span end.
+	self assert: (STON fromString: (STON toString: span)) spanType equals: 'http.client'.
+	span := self recordingTracer startSpanNamed: 'operation'.
+	span end.
+	self deny: ((STON toString: span) includesSubstring: 'spanType').
+	self assert: (STON fromString: (STON toString: span)) spanType isNil
 ]
 
 { #category : 'tests' }

@@ -150,6 +150,13 @@ OTMetricInstrument >> instrumentationScope [
 	^ self meter ifNil: [ OTInstrumentationScope named: '' ] ifNotNil: [ :aMeter | aMeter instrumentationScope ]
 ]
 
+{ #category : 'aggregating' }
+OTMetricInstrument >> isOptIn [
+	"Whether my OptIn advice disables me unless a view enables my stream."
+
+	^ (self advice at: 'OptIn' ifAbsent: [ self advice at: 'optIn' ifAbsent: [ false ] ]) == true
+]
+
 { #category : 'accessing' }
 OTMetricInstrument >> meter [
 

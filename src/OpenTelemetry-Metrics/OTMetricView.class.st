@@ -1,6 +1,6 @@
 "
 I describe a metrics view that rewrites or filters instrument streams at collection time.
-I can match instruments and choose stream identity, attribute retention, aggregation, cardinality, and exemplar behavior.
+I can match instruments and choose stream identity, attribute retention, aggregation, cardinality, exemplar behavior, and whether the stream is enabled.
 "
 Class {
 	#name : 'OTMetricView',
@@ -19,7 +19,8 @@ Class {
 		'aggregation',
 		'cardinalityLimit',
 		'aggregationParameters',
-		'exemplarReservoirFactory'
+		'exemplarReservoirFactory',
+		'enabled'
 	],
 	#category : 'OpenTelemetry-Metrics',
 	#package : 'OpenTelemetry-Metrics'
@@ -187,6 +188,27 @@ OTMetricView >> attributeKeys [
 OTMetricView >> attributeKeys: aCollection [
 
 	attributeKeys := aCollection ifNotNil: [ aCollection collect: [ :each | each asString ] ]
+]
+
+{ #category : 'accessing' }
+OTMetricView >> enabled [
+	"true or false when set, nil when the instrument's OptIn advice decides."
+
+	^ enabled
+]
+
+{ #category : 'accessing' }
+OTMetricView >> enabled: aBooleanOrNil [
+	"true aggregates the stream as if its instrument were not OptIn, false drops it whatever the aggregation, nil leaves it to the OptIn advice."
+
+	enabled := aBooleanOrNil
+]
+
+{ #category : 'matching' }
+OTMetricView >> enablesInstrument: anOTMetricInstrument [
+	"Whether my stream of an instrument produces metric data: as I say when I say, otherwise unless the instrument is OptIn."
+
+	^ enabled ifNil: [ anOTMetricInstrument isOptIn not ]
 ]
 
 { #category : 'accessing' }
